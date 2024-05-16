@@ -52,21 +52,18 @@ class FunctionalTree:
         # Create a new dictionary for edge types and populate it with the edge types from both trees.
         # Edge types categorize nodes based on their structural roles in the tree.
         _edge_types = {}
-        _edge_types.update(
-            self._edge_types
-        )  # Include edge types from the current tree.
-        _edge_types.update(
-            other._edge_types
-        )  # Include edge types from the other tree, possibly overwriting duplicates.
+        _edge_types.update(self._edge_types)
+        # Include edge types from the current tree.
+        _edge_types.update(other._edge_types)
+        # Include edge types from the other tree, possibly overwriting duplicates.
         # Create a new dictionary for ancestor edges and populate it with the ancestor edges from both trees.
         # Ancestor edges map component sets to their ancestor nodes, showing hierarchical relationships.
+
         _ancestor_edges = {}
-        _ancestor_edges.update(
-            self._ancestor_edges
-        )  # Include ancestor edges from the current tree.
-        _ancestor_edges.update(
-            other._ancestor_edges
-        )  # Include ancestor edges from the other tree.
+        # Include ancestor edges from the current tree.
+        _ancestor_edges.update(self._ancestor_edges)
+        # Include ancestor edges from the other tree.
+        _ancestor_edges.update(other._ancestor_edges)
         # Create a new dictionary for arms and populate it with the arms from both trees.
         # Arms represent branching structures of nodes in the tree.
         arms = {}
@@ -145,10 +142,12 @@ def build_functional_tree(node: Node) -> FunctionalTree:
     """
 
     # Initialize lists and dictionaries to store various properties of the tree
-    all_sedges = []       # List to store significant nodes (sedges)
-    edge_types = {}       # Dictionary to map node names to their edge types
-    ancestor_edges = {}   # Dictionary to map component sets to their ancestor nodes
-    arms = {}             # Dictionary to map node names to component sets (representing branching structures)
+    all_sedges = []  # List to store significant nodes (sedges)
+    edge_types = {}  # Dictionary to map node names to their edge types
+    ancestor_edges = {}  # Dictionary to map component sets to their ancestor nodes
+    arms = (
+        {}
+    )  # Dictionary to map node names to component sets (representing branching structures)
 
     # Determine the edge type of the current node
     type_ = get_type(node)

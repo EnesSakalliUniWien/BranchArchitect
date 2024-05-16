@@ -56,7 +56,7 @@ def interpolate_tree(tree_one: Node, tree_two: Node):
     split_list_tree_two = []
     get_split_list(tree_two, split_list_tree_two)
 
-    intermediate_tree_one = tree_two.deep_copy()
+    intermediate_tree_one = tree_one.deep_copy()
     set_not_existent_splits_to_zero(intermediate_tree_one, split_list_tree_one)
 
     intermediate_tree_two = tree_two.deep_copy()

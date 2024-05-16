@@ -1,4 +1,5 @@
-from misc.parse_utils import parse_newick, get_child
+from brancharchitect.parse_utils import parse_newick
+from brancharchitect.deletion_algorithm import get_child
 
 
 def test_parse_newick_1():

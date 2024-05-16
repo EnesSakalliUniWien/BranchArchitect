@@ -1,5 +1,5 @@
 from typing import Optional
-from tree_stack_parser import Node, parse_square_brackets
+from brancharchitect.tree_stack_parser import Node, parse_square_brackets
 
 
 # def name_unnamed_nodes(node: Node):

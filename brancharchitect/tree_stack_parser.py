@@ -1,4 +1,4 @@
-from node import Node, serialize_to_dict_iterative
+from brancharchitect.node import Node, serialize_to_dict_iterative
 import json
 
 

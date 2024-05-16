@@ -2,9 +2,10 @@
 # from phylomovie.services.tree.Treere import Treere
 from typing import Dict, List
 
-# import pytest
+import pytest
 import math
 import itertools
+from os.path import join
 
 # from phylomovie.services.coloring_algorithm.algorithm_5 import algorithm_5, algorithm1 as functional_alg1
 DATA_ROOT = "./../test-data/"
