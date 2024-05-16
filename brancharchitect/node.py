@@ -1,63 +1,37 @@
 import json
+from dataclasses import dataclass, field, asdict
+from uuid import uuid4
 
+from copy import deepcopy
 
+from typing import Optional, Any
+
+@dataclass
 class Node:
-    def __init__(self):
-        self.children = []
-        self.name = None
-        self.indices = ""
-        self.uuid = self.__hash__()
-        self.length = None
-        self.values = []
-        self.split_indices = []
-        self.parent = None
-        self.leaf_name = None
+
+    children: list['Node'] = field(default_factory=list)
+    name: Optional[str] = None
+    indices: str = ''
+    uuid: str = field(default_factory=uuid4)
+    length: Optional[float] = None
+    values: list[Any] = field(default_factory=list)
+    split_indices: list[str] = field(default_factory=list)
+    parent: Optional['Node'] = None
+    leaf_name: Optional[str] = None
 
     def append_child(self, node):
         self.children.append(node)
 
     def __repr__(self):
-        return f"Node({self.name} {self.indices})"
+        return f"Node({self.name}, {self.indices})"
 
     def deep_copy(self):
-        new_node = Node()
-        new_node.name = self.name
-        new_node.indices = self.indices
-        new_node.uuid = (
-            self.uuid
-        )  # Depending on whether you want a unique uuid, you might want to generate a new one
-        new_node.length = self.length
+        return deepcopy(self)
 
-        # Deep copy the lists by creating a new list and copying each element
-        new_node.values = [value for value in self.values]
-        new_node.split_indices = [index for index in self.split_indices]
+    def to_dict(self):
+        return asdict(self)
 
-        for child in self.children:
-            new_node.append_child(child.deep_copy())
-        return new_node
-
-    def serialize_to_dict(self):
-        # Check if self.name is a set and convert it to a list if so
-        name = list(self.name) if isinstance(self.name, set) else self.name
-
-        serialized_node = {
-            "name": name,
-            "indices": self.indices,
-            "uuid": self.uuid,
-            "length": self.length,
-            "values": self.values,
-            "split_indices": self.split_indices,
-            "leaf_name": self.leaf_name,
-            "children": [],
-        }
-
-        for child in self.children:
-            serialized_node["children"].append(child.serialize_to_dict())
-
-        return serialized_node
-    
-
-    def dict_to_json_string(self):
+    def to_json(self):
         """
         Converts a dictionary representation of a node to a JSON string.
         :param serialized_node: The dictionary representation of the node.
@@ -68,6 +42,7 @@ class Node:
 
 
 def serialize_to_dict_iterative(root):
+    # TODO how does this differ from root.to_dict() ?
     if root is None:
         return None
 
@@ -78,16 +53,7 @@ def serialize_to_dict_iterative(root):
         node, parent_serialized = stack.pop()
 
         # Serialize current node
-        serialized_node = {
-            "name": list(node.name) if isinstance(node.name, set) else node.name,
-            "indices": node.indices,
-            "uuid": node.uuid,
-            "length": node.length,
-            "values": node.values,
-            "split_indices": node.split_indices,
-            "leaf_name": node.leaf_name,
-            "children": []
-        }
+        serialized_node = node.to_dict()
 
         # Attach to parent
         if parent_serialized is not None:
