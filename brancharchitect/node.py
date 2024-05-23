@@ -42,7 +42,9 @@ class Node:
 
 
 def serialize_to_dict_iterative(root):
-    # TODO how does this differ from root.to_dict() ?
+    # DONE how does this differ from root.to_dict() ?
+    # This differs by using an iterative approach (compared to a recursive approach), which does not run into the recursion depth limit
+    # TODO change default implementation of Node.to_dict() to use an iterative approach, so that very deep trees can be handled.
     if root is None:
         return None
 
