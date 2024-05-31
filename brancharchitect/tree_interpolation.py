@@ -1,11 +1,66 @@
-from tree_stack_parser import (
-    parse_square_brackets,
+from brancharchitect.newick_parser import (
+    parse_newick,
     Node,
     get_circular_order,
     set_inner_node_indices,
     set_inner_nodes_as_splits,
 )
 import json
+
+def set_inner_node_names(node):
+    for child in node.children:
+        set_inner_node_names(child)
+    if not node.children:
+        return [node.name]
+    else:
+        for child in node.children:
+            node.name += child.name
+
+
+def set_inner_node_indices(node: Node(), order_list):
+    for child in node.children:
+        set_inner_node_indices(child, order_list)
+    if not node.children:
+        node.split_indices = [order_list.index(node.name)]
+    else:
+        for child in node.children:
+            node.split_indices += child.split_indices
+
+
+def set_inner_nodes_as_splits(node, order_tuple):
+    for child in node.children:
+        set_inner_nodes_as_splits(child, order_tuple)  # Recursive call
+    if not node.children:
+        # Add the index of the node name if it's in the order_tuple
+        node.leaf_name = node.name
+        node.split_indices = (order_tuple.index(node.name),)
+        node.name = node.split_indices
+    else:
+        node.name = ()
+        node.split_indices = ()
+        for child in node.children:
+            node.split_indices += child.split_indices  # Concatenate tuples
+            node.name += child.split_indices
+
+
+def get_circular_order(node: Node):
+    order_list = []
+    if len(node.children) == 0:
+        return [node.name]
+    for child in node.children:
+        order_list = order_list + get_circular_order(child)
+    return order_list
+
+
+def get_taxa_name_circular_order(node: Node):
+    order_list = []
+    if len(node.children) == 0:
+        return [node.leaf_name]
+    else:
+        for child in node.children:
+            order_list = order_list + get_taxa_name_circular_order(child)
+    return order_list
+
 
 def get_split_list(node: Node, split_list: list):
     for child in node.children:
@@ -14,7 +69,7 @@ def get_split_list(node: Node, split_list: list):
 
 
 def interpolate_tree(pair_bracket_tokens_one: str, pair_bracket_tokens_two: str):
-    tree_one = parse_square_brackets(pair_bracket_tokens_one)
+    tree_one = parse_newick(pair_bracket_tokens_one)
 
     # We focus on the first order of the tree
     order_list = get_circular_order(tree_one)
@@ -27,7 +82,7 @@ def interpolate_tree(pair_bracket_tokens_one: str, pair_bracket_tokens_two: str)
     get_split_list(tree_one, split_list_tree_one)
 
     # get the list of splits in the tree
-    tree_two = parse_square_brackets(pair_bracket_tokens_two)
+    tree_two = parse_newick(pair_bracket_tokens_two)
     set_inner_node_indices(tree_two, order_list)
 
     # get the list of splits of the second tree
@@ -123,14 +178,14 @@ def get_split_list(node: Node, split_list: list):
 def interpolate_adjacent_tree_pairs(tree_list) -> list[Node]:
     results = []
     # Set inner node indices based on circular order
-    circular_order = get_circular_order(parse_square_brackets(tree_list[0]))    
+    circular_order = get_circular_order(parse_newick(tree_list[0]))    
 
     for i in range(len(tree_list) - 1):
         tree_one_repr = tree_list[i]
         tree_two_repr = tree_list[i + 1]
 
-        tree_one = parse_square_brackets(tree_one_repr)
-        tree_two = parse_square_brackets(tree_two_repr)
+        tree_one = parse_newick(tree_one_repr)
+        tree_two = parse_newick(tree_two_repr)
         
         set_inner_nodes_as_splits(tree_one, circular_order)
         set_inner_nodes_as_splits(tree_two, circular_order)

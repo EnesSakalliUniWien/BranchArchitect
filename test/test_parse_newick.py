@@ -1,6 +1,5 @@
-from brancharchitect.parse_utils import parse_newick
+from brancharchitect.newick_parser import parse_newick
 from brancharchitect.deletion_algorithm import get_child
-
 
 def test_parse_newick_1():
     s = "(,,(,));"
@@ -136,3 +135,9 @@ def test_parse_newick_10():
     assert get_child(root, 0, 2, 1, 0, 1).name == "G"
     assert get_child(root, 0, 2, 1, 1).name == "H"
     assert get_child(root, 1).name == "I"
+
+def test_parse_newick_11_metadata():
+    s = "((A[value=3],(B,C),((D,E),((F,G),H))),I);"
+    root = parse_newick(s)
+
+    assert get_child(root, 0, 0).values['value'] == 3

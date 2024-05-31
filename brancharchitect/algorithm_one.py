@@ -1,4 +1,4 @@
-from tree_stack_parser import Node, get_taxa_name_circular_order
+from brancharchitect.newick_parser import Node, get_taxa_name_circular_order
 from tree_interpolation import interpolate_adjacent_tree_pairs
 from functional_tree import Component, ComponentSet
 from functional_tree import FunctionalTree, build_functional_tree

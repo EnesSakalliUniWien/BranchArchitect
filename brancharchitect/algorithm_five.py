@@ -31,7 +31,7 @@ from tree_interpolation import (
     get_circular_order,
     interpolate_tree,
 )
-from tree_stack_parser import get_taxa_name_circular_order
+from brancharchitect.newick_parser import get_taxa_name_circular_order
 
 
 logger = getLogger(__name__)

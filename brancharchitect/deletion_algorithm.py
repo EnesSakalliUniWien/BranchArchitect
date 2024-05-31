@@ -1,5 +1,5 @@
 from typing import Optional
-from brancharchitect.tree_stack_parser import Node, parse_square_brackets
+from brancharchitect.newick_parser import Node, parse_newick
 
 
 # def name_unnamed_nodes(node: Node):
@@ -105,10 +105,3 @@ def test_del_1():
     assert get_child(root, 0, 2, 1, 0, 1).name == "G"
     assert get_child(root, 0, 2, 1, 1).name == "H"
     assert get_child(root, 1).name == "I"
-
-
-if "__main__" == __name__:
-    # test_parse_newick_1()
-    root = parse_square_brackets("((A,B),E);")
-    root = delete_taxa(root, ["E"])
-    print(root.dict_to_json_string())

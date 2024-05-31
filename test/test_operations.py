@@ -1,4 +1,4 @@
-from brancharchitect.parse_utils import parse_newick
+from brancharchitect.newick_parser import parse_newick
 
 def test_deep_tree():
     N = 2000
