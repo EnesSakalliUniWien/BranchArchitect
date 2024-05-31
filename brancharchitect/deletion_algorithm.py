@@ -84,8 +84,12 @@ def get_external_indices(node: Node, leave_indices):
 ### Parser Tests
 def get_child(node, *path):
     for i in path:
-        assert len(node.children) >= i
-        node = node.children[i]
+        if isinstance(node, Node):
+            children = node.children
+        else:
+            children = node['children']
+        assert len(children) >= i
+        node = children[i]
     return node
 
 

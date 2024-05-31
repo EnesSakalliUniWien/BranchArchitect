@@ -1,7 +1,7 @@
 - [ ] fix test_tree_coloring (add `find_tree_highlights_test_by_building_small_tree_without_components`) :enes:
 - [ ] design API for the following usecases:
- - [ ] newick strings parsen in python tree
- - [ ] tree serializen newick/json
+ - [X] newick strings parsen in python tree
+ - [X] tree serializen newick/json
  - [ ] algorithmus auf einem paar von Bäumen jumping taxa callen
  - [ ] berechnung von consensus tree
  - [ ] berechnung von intermediate trees

@@ -23,13 +23,19 @@ class Node:
         self.children.append(node)
 
     def __repr__(self):
-        return f"Node({self.name}, {self.indices})"
+        return f"Node('{self.name}')"
 
     def deep_copy(self):
         return deepcopy(self)
 
     def to_dict(self):
+        self._set_parent_none()
         return asdict(self)
+
+    def _set_parent_none(self):
+        self.parent = None
+        for child in self.children:
+            child._set_parent_none()
 
     def to_json(self):
         """
