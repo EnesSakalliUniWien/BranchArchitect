@@ -3,7 +3,9 @@ from brancharchitect.tree_interpolation import interpolate_adjacent_tree_pairs
 from brancharchitect.functional_tree import Component, ComponentSet
 from brancharchitect.functional_tree import FunctionalTree, build_functional_tree
 from brancharchitect.topology_change_algorithm import calculate_component_set
+from logging import getLogger
 
+logger = getLogger(__name__)
 
 from brancharchitect.topology_change_algorithm import (
     intersect,
@@ -15,6 +17,7 @@ from brancharchitect.topology_change_algorithm import (
     argmax,
     argmin,
     reduce,
+    map1,
     map2,
     decode_indices_to_taxa,
     cartesian,
@@ -24,18 +27,24 @@ from brancharchitect.topology_change_algorithm import (
 def find_jumping_taxa_algorithm_one(
     s_edge: Node, t1: FunctionalTree, t2: FunctionalTree
 ) -> list[Component]:
+
+    logger.info(s_edge.split_indices)
+
     # Calculate the component sets for each tree with respect to the given S-edge
     c1: list[ComponentSet] = calculate_component_set(t1, s_edge)
     c2: list[ComponentSet] = calculate_component_set(t2, s_edge)
+
+    logger.info(c1)
+    logger.info(c2)
 
     # Generate cartesian product of component sets from both trees
     c12: list[tuple[ComponentSet, ComponentSet]] = cartesian(c1, c2)
 
     # Calculate the intersections of the component sets
-    intersections: list[ComponentSet] = map2(intersect, c12)  # type: ignore
+    intersections: list[ComponentSet] = map1(tuple, map2(intersect, c12))  # type: ignore
 
     # Calculate the symmetric differences of the component sets
-    symmetric_differences: list[ComponentSet] = map2(symm, c12)  # type: ignore
+    symmetric_differences: list[ComponentSet] = map1(tuple, map2(symm, c12))  # type: ignore
 
     # Combine intersections and symmetric differences into a voting map
     voting_map: list[ComponentSet] = intersections + symmetric_differences
@@ -48,6 +57,9 @@ def find_jumping_taxa_algorithm_one(
 
     # Identify the components with the minimum size
     r: list[Component] = argmin(m, size)
+
+    # remove duplicates
+    r = list(set(r))
 
     # Reduce the components to a union set
     rr: list[Component] = reduce(union, r)  # type: ignore

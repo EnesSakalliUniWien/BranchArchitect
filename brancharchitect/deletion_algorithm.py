@@ -99,8 +99,6 @@ def test_del_1():
     root = parse_newick(s)
     root = delete_taxa(root, ["B"])
 
-    print(serialize_to_newick(root))
-
     assert get_child(root, 0, 0).name == "A"
     assert get_child(root, 0, 1).name == "C"
     assert get_child(root, 0, 2, 0, 0).name == "D"

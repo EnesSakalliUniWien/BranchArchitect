@@ -92,17 +92,22 @@ def init_nodestack():
     return [root]
 
 def parse_newick(tokens: str, order: Optional[list[str]]=None, default_length=1) -> Node:
-    tree = _parse_newick(tokens, default_length=default_length)
+    trees = _parse_newick(tokens, default_length=default_length)
 
     if order is None:
-        order = get_linear_order(tree)
+        order = get_linear_order(trees[0])
 
-    tree._initialize_split_indices(order)
-    tree._order = order
-    return tree
+    for tree in trees:
+        tree._initialize_split_indices(order)
+        tree._order = order
+
+    if len(trees) == 1:
+        return trees[0]
+    return trees
 
 
 def _parse_newick(tokens: str, default_length) -> Node:
+    trees = []
     buffer = []
     meta_buffer = []
     mode = "character_reader"
@@ -111,6 +116,8 @@ def _parse_newick(tokens: str, default_length) -> Node:
     for index in range(len(tokens)):
         char = tokens[index]
         if char == "(":
+            if len(node_stack) == 0:
+                node_stack = init_nodestack()
             node_stack, buffer, mode = create_new_node(node_stack, buffer, mode, index, default_length)
             mode = "character_reader"
         elif char == ")":
@@ -135,9 +142,16 @@ def _parse_newick(tokens: str, default_length) -> Node:
                 meta_buffer.append(char)
             else:
                 flush_buffer(buffer, node_stack, mode)
-                break
+                assert len(node_stack) == 1
+                trees.append(node_stack.pop())
         elif mode == "metadata_reader":
             meta_buffer.append(char)
         else:
             buffer.append(char)
-    return node_stack[-1]
+
+    if len(node_stack) > 0:
+        flush_buffer(buffer, node_stack, mode)
+        assert len(node_stack) == 1
+        trees.append(node_stack.pop())
+
+    return trees
