@@ -1,6 +1,6 @@
 from brancharchitect.newick_parser import parse_newick
-from brancharchitect.tree_interpolation import interpolate_tree, interpolate_adjacent_tree_pairs
-from brancharchitect.deletion_algorithm import get_child
+from brancharchitect.jumping_taxa.tree_interpolation import interpolate_tree, interpolate_adjacent_tree_pairs
+from brancharchitect.jumping_taxa.deletion_algorithm import get_child
 
 
 

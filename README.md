@@ -28,8 +28,7 @@ write_json(tree, 'json_file.json')
 from brancharchitect._io import read_newick
 from brancharchitect.jumping_taxa import call_jumping_taxa
 
-tree1 = read_newick('newick_file_1.nwk')
-tree2 = read_newick('newick_file_2.nwk')
+tree1, tree2 = read_newick('newick_file.nwk')
 
 jumping_taxa = call_jumping_taxa(tree1, tree2)
 ```

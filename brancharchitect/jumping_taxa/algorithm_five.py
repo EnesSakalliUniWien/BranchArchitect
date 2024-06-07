@@ -1,16 +1,15 @@
-from brancharchitect.topology_change_algorithm import merge_sedges, decode_indices_to_taxa
-from brancharchitect.deletion_algorithm import delete_taxa
-from brancharchitect.algorithm_one import find_jumping_taxa_algorithm_one
-from brancharchitect.topology_change_algorithm import calculate_component_set
+from brancharchitect.jumping_taxa.elemental import merge_sedges, decode_indices_to_taxa
+from brancharchitect.jumping_taxa.deletion_algorithm import delete_taxa
+from brancharchitect.jumping_taxa.algorithm_one import find_jumping_taxa_algorithm_one
+from brancharchitect.jumping_taxa.elemental import calculate_component_set
 from logging import getLogger
-from brancharchitect.node import Node
-from brancharchitect.functional_tree import (
+from brancharchitect.jumping_taxa.functional_tree import (
     FunctionalTree,
     ComponentSet,
     Component,
     build_functional_tree,
 )
-from brancharchitect.topology_change_algorithm import (
+from brancharchitect.jumping_taxa.elemental import (
     argmax,
     count,
     argmin,
@@ -26,11 +25,13 @@ from brancharchitect.topology_change_algorithm import (
     union,
     reduce,
 )
-from brancharchitect.tree_interpolation import (
+from brancharchitect.jumping_taxa.tree_interpolation import (
     interpolate_adjacent_tree_pairs,
     interpolate_tree,
 )
 from brancharchitect.newick_parser import get_taxa_name_circular_order
+from brancharchitect.node import Node
+
 
 
 logger = getLogger(__name__)
@@ -206,7 +207,6 @@ def case_partial_none(sedge, t1, t2, sorted_nodes):
 def algorithm_5_for_sedge(sedge, t1: FunctionalTree, t2: FunctionalTree, sorted_nodes):
     if is_full_s_edge(t1, sedge) and is_full_s_edge(t2, sedge):
         logger.info("Full Full")
-
         return case_full_full(sedge, t1, t2)
 
     if is_full_s_edge(t1, sedge) and is_partial_s_edge(t2, sedge):
@@ -215,7 +215,6 @@ def algorithm_5_for_sedge(sedge, t1: FunctionalTree, t2: FunctionalTree, sorted_
 
     if is_partial_s_edge(t1, sedge) and is_full_s_edge(t2, sedge):
         logger.info("Partial Full")
-
         return case_full_full(sedge, t2, t1)
 
     if is_partial_s_edge(t1, sedge) and is_partial_s_edge(t2, sedge):
@@ -242,12 +241,10 @@ def algorithm_5_for_sedge(sedge, t1: FunctionalTree, t2: FunctionalTree, sorted_
         raise Exception(f"We forgot one case: {sedge}")
 
 
-def algorithm_five(
-    intermediate_tree_one, intermediate_tree_two, sorted_nodes: list[int]
-):
+def algorithm_five(it1, it2, sorted_nodes: list[int]):
     # Build functional trees from the intermediate trees
-    t1 = build_functional_tree(intermediate_tree_one)
-    t2 = build_functional_tree(intermediate_tree_two)
+    t1 = build_functional_tree(it1)
+    t2 = build_functional_tree(it2)
 
     # Initialize a list to store the global decoded results
     global_decoded_result_list: list[str] = []
@@ -257,19 +254,9 @@ def algorithm_five(
 
     node = all_s_edges[0]
 
-    print('THIS ONEH ERE')
-    from brancharchitect.functional_tree import get_type
-    type_ = get_type(node)
-    print(type_, node, node.split_indices, node.length, [child.length for child in node.children])
-    print('THIS ONEH ERE')
-
-    print(t1._edge_types[all_s_edges[0].split_indices])
-    print(t2._edge_types[all_s_edges[0].split_indices])
-    #print(all_s_edges[0]._type)
-
     # Initialize pruned trees
-    pruned_intermediate_tree_one = intermediate_tree_one
-    pruned_intermediate_tree_two = intermediate_tree_two
+    p_it1 = it1
+    p_it2 = it2
 
     while True:
         decoded_list = []
@@ -279,9 +266,15 @@ def algorithm_five(
             # Execute Algorithm 5 for the current S-edge
             jumping_taxa = algorithm_5_for_sedge(s_edge, t1, t2, sorted_nodes)
 
+            logger.info(f'Taxa {jumping_taxa} identified as taxa')
+
             # Translate taxa to indices
             taxa = list(set([y for x in jumping_taxa for y in x]))
+
+            logger.info(sorted_nodes)
             decoded_list = decode_indices_to_taxa(taxa, sorted_nodes)
+            logger.info(f'which has name {decoded_list}')
+
 
             # Append to global decoded result list
             global_decoded_result_list += decoded_list
@@ -289,20 +282,12 @@ def algorithm_five(
         # Stop condition for pruning
         if len(decoded_list) > 0 and (len(sorted_nodes) - len(decoded_list) > 3):
             # Delete leaves and interpolate
-            (
-                pruned_intermediate_tree_one,
-                pruned_intermediate_tree_two,
-                sorted_nodes,
-            ) = delete_leave_and_interpolate(
-                pruned_intermediate_tree_one,
-                pruned_intermediate_tree_two,
-                sorted_nodes,
-            )
+            p_it1, p_it2, _ = delete_leave_and_interpolate(p_it1, p_it2, sorted_nodes)
 
             # Rebuild functional trees and S-edges after pruning
-            t1 = build_functional_tree(pruned_intermediate_tree_one)
-            t2 = build_functional_tree(pruned_intermediate_tree_two)
-            all_s_edges = set(t1._all_sedges + t2._all_sedges)
+            t1 = build_functional_tree(p_it1)
+            t2 = build_functional_tree(p_it2)
+            all_s_edges = t1._all_sedges.union(t2._all_sedges)
         else:
             # Break the loop if no further pruning is required
             break
@@ -314,9 +299,7 @@ def algorithm_five(
 # ============================================== Pruning ====================================================== #
 
 
-def delete_leave_and_interpolate(
-    original_tree_one, original_tree_two, to_be_deleted_leaves=[]
-):
+def delete_leave_and_interpolate(original_tree_one, original_tree_two, to_be_deleted_leaves=[]):
     pruned_tree_one = delete_taxa(original_tree_one, to_be_deleted_leaves)
     pruned_tree_two = delete_taxa(original_tree_two, to_be_deleted_leaves)
 

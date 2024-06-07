@@ -6,7 +6,7 @@ from copy import deepcopy
 
 from typing import Optional, Any
 
-@dataclass(unsafe_hash=True)
+@dataclass()
 class Node:
 
     children: list['Node'] = field(default_factory=list, compare=False)
@@ -24,6 +24,9 @@ class Node:
 
     def __repr__(self):
         return f"Node('{self.name}')"
+
+    def __hash__(self):
+        return hash(str(self.uuid))
 
     def deep_copy(self):
         return deepcopy(self)

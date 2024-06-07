@@ -1,19 +1,7 @@
-
 import numpy as np
 import sys
-from typing import (
-    List,
-    Callable,
-    Optional,
-    Collection,
-)
-from brancharchitect.functional_tree import (
-    FunctionalTree,
-    ComponentSet,
-    X,
-    Y,
-)
-sys.path.append("..")
+from typing import List, Callable, Optional, Collection
+from brancharchitect.jumping_taxa.functional_tree import FunctionalTree, ComponentSet, X, Y
 
 # ==== Functional Programming Style ====
 def remove_last_component_if_longer_than_one(
@@ -109,14 +97,14 @@ def intersect(a: Collection[X], b: Collection[X]) -> Collection[X]:
     a_uniques = set(a)
     b_uniques = set(b)
     a_and_b = a_uniques.intersection(b_uniques)
-    return sorted(list(a_and_b))
+    return a_and_b
 
 
 def symm(a: list[X], b: list[X]) -> list[X]:
     a_uniques = set(a)
     b_uniques = set(b)
     a_and_b = a_uniques.symmetric_difference(b_uniques)
-    return sorted(list(a_and_b))
+    return a_and_b
 
 
 def filter_components_from_arms(cond, arms):

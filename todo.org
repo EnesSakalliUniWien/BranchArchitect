@@ -2,7 +2,7 @@
 - [ ] design API for the following usecases:
  - [X] newick strings parsen in python tree
  - [X] tree serializen newick/json
- - [ ] algorithmus auf einem paar von Bäumen jumping taxa callen
+ - [X] algorithmus auf einem paar von Bäumen jumping taxa callen
  - [ ] berechnung von consensus tree
  - [ ] berechnung von intermediate trees
  - [ ] subtree pruning and regrafting

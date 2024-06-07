@@ -124,15 +124,14 @@ def build_functional_tree(node: Node) -> FunctionalTree:
         FunctionalTree: The FunctionalTree representing the analyzed structure of the tree.
     """
 
-    all_sedges = []  # List to store significant nodes (sedges)
-    edge_types = {}  # Dictionary to map node names to their edge types
-    ancestor_edges = {}  # Dictionary to map component sets to their ancestor nodes
+    all_sedges = []
+    edge_types = {}
+    ancestor_edges = {}
     # Dictionary to map node names to component sets (representing branching structures)
     arms = {}
 
     # Determine the edge type of the current node
     type_ = get_type(node)
-    print(type_, node, node.split_indices, node.length, [child.length for child in node.children])
     edge_types[node.split_indices] = type_  # Store the edge type of the current node
 
     # If the current node is a 'full' or 'partial' s-edge, add it to the list of sedges
@@ -140,7 +139,7 @@ def build_functional_tree(node: Node) -> FunctionalTree:
         all_sedges.append(node)
 
     # Calculate the component sets (arms) for each child of the current node
-    edge_arms = [calculate_component_set_tree(child) for child in node.children]
+    edge_arms = tuple([calculate_component_set_tree(child) for child in node.children])
     arms[node.split_indices] = edge_arms  # Store the arms of the current node
 
     # Assign the current node as the ancestor for each of its children
@@ -152,7 +151,6 @@ def build_functional_tree(node: Node) -> FunctionalTree:
         ancestor_edges[arm] = node
 
     # Create a FunctionalTree instance for the current node
-    print('print', all_sedges)
     t1 = FunctionalTree(set(all_sedges), edge_types, ancestor_edges, arms)
 
     # Recursively traverse each child and combine their FunctionalTrees with the current one
