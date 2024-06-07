@@ -25,7 +25,7 @@ write_json(tree, 'json_file.json')
 
 
 ```{python}
-from brancharchitect._io import read_newick
+from brancharchitect.io import read_newick
 from brancharchitect.jumping_taxa import call_jumping_taxa
 
 tree1, tree2 = read_newick('newick_file.nwk')

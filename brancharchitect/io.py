@@ -1,5 +1,5 @@
 from brancharchitect.newick_parser import parse_newick
-from brancharchitect.node import serialize_to_dict_iterative, Node
+from brancharchitect.tree import serialize_to_dict_iterative, Node
 from uuid import UUID
 import json
 

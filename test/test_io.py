@@ -1,4 +1,4 @@
-from brancharchitect._io import read_newick, write_json
+from brancharchitect.io import read_newick, write_json
 from brancharchitect.jumping_taxa.deletion_algorithm import get_child
 import json
 

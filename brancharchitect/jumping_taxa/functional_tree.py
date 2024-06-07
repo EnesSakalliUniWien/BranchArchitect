@@ -2,7 +2,7 @@ from typing import (
     TypeVar,
     NewType,
 )
-from brancharchitect.node import Node
+from brancharchitect.tree import Node
 
 Component = NewType("Component", tuple[int])
 ComponentSet = tuple[Component, ...]  # type: ignore

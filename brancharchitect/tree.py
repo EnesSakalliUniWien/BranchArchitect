@@ -16,7 +16,6 @@ class Node:
     length: Optional[float] = field(default=None, compare=True)
     values: list[Any] = field(default_factory=list, compare=True)
     split_indices: list[str] = field(default_factory=list, compare=True)
-    parent: Optional['Node'] = field(default=None, compare=False)
     leaf_name: Optional[str] = field(default=None, compare=False)
 
     def append_child(self, node):
@@ -32,13 +31,7 @@ class Node:
         return deepcopy(self)
 
     def to_dict(self):
-        self._set_parent_none()
         return asdict(self)
-
-    def _set_parent_none(self):
-        self.parent = None
-        for child in self.children:
-            child._set_parent_none()
 
     def to_newick(self):
         return self._to_newick() + ';'
