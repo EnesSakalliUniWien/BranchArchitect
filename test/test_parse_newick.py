@@ -1,5 +1,5 @@
-from misc.parse_utils import parse_newick, get_child
-
+from brancharchitect.newick_parser import parse_newick
+from brancharchitect.deletion_algorithm import get_child
 
 def test_parse_newick_1():
     s = "(,,(,));"
@@ -135,3 +135,19 @@ def test_parse_newick_10():
     assert get_child(root, 0, 2, 1, 0, 1).name == "G"
     assert get_child(root, 0, 2, 1, 1).name == "H"
     assert get_child(root, 1).name == "I"
+
+def test_parse_newick_11_metadata():
+    s = "((A[value=3],(B,C),((D,E),((F,G),H))),I);"
+    root = parse_newick(s)
+
+    assert get_child(root, 0, 0).values['value'] == 3
+
+def test_serialize_newick_1():
+    s = "((A[value=4]:3.0,(B:2.0,C:1.0):3.0,((D:0.3,E:11.0):10.0,((F:2.0,G:2.0):3.0,H:2.0):3.0):5.0):7.0,I:10.0):1.0;"
+    root = parse_newick(s)
+
+    assert get_child(root, 0, 0).name == 'A'
+    serialized = root.to_newick()
+
+    print(serialized)
+    assert s == serialized

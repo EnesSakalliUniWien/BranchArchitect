@@ -7,7 +7,7 @@ from typing import (
     Optional,
     Collection,
 )
-from functional_tree import (
+from brancharchitect.functional_tree import (
     FunctionalTree,
     ComponentSet,
     X,
@@ -139,10 +139,10 @@ def merge_sedges(edge_set_one, edge_set_two):
     d = {}
 
     for e in edge_set_one:
-        d[e.name] = e
+        d[e.split_indices] = e
 
     for e in edge_set_two:
-        d[e.name] = e
+        d[e.split_indices] = e
 
     return list(d.values())
 
@@ -157,4 +157,4 @@ def decode_indices_to_taxa(high_list: List, sorted_nodes: List):
 # ============================================== Calculate Component Set ====================================================== #
 
 def calculate_component_set(t: FunctionalTree, sedge) -> list[ComponentSet]:
-    return t._arms[sedge.name]
+    return t._arms[sedge.split_indices]
