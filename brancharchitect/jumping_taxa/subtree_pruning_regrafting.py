@@ -1,6 +1,5 @@
 import copy
 
-
 class AdjacencyTree:
     def __init__(
         self, adjacency_dictionary=None, adjacency_length_map=None, tree_structure=None

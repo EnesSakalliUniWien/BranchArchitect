@@ -1,5 +1,5 @@
 from brancharchitect._io import read_newick, write_json
-from brancharchitect.deletion_algorithm import get_child
+from brancharchitect.jumping_taxa.deletion_algorithm import get_child
 import json
 
 import tempfile

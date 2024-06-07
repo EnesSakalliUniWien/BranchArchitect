@@ -1,19 +1,7 @@
-
 import numpy as np
 import sys
-from typing import (
-    List,
-    Callable,
-    Optional,
-    Collection,
-)
-from brancharchitect.functional_tree import (
-    FunctionalTree,
-    ComponentSet,
-    X,
-    Y,
-)
-sys.path.append("..")
+from typing import List, Callable, Optional, Collection
+from brancharchitect.jumping_taxa.functional_tree import FunctionalTree, ComponentSet, X, Y
 
 # ==== Functional Programming Style ====
 def remove_last_component_if_longer_than_one(

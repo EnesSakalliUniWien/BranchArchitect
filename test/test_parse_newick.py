@@ -1,5 +1,5 @@
 from brancharchitect.newick_parser import parse_newick
-from brancharchitect.deletion_algorithm import get_child
+from brancharchitect.jumping_taxa.deletion_algorithm import get_child
 
 def test_parse_newick_1():
     s = "(,,(,));"

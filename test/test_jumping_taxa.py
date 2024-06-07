@@ -1,6 +1,5 @@
 from brancharchitect.newick_parser import parse_newick
 from brancharchitect.jumping_taxa import call_jumping_taxa
-import brancharchitect.algorithm_one
 
 def test_jumping_taxa_1():
     s = ('(A,((D,(E,F)),(G,H)));' + 

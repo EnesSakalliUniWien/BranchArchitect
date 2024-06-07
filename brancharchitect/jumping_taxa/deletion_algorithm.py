@@ -1,6 +1,6 @@
-from typing import Optional
 from brancharchitect.newick_parser import Node, parse_newick
 
+from typing import Optional
 
 # def name_unnamed_nodes(node: Node):
 #     for child in node.children:
@@ -91,19 +91,3 @@ def get_child(node, *path):
         assert len(children) >= i
         node = children[i]
     return node
-
-
-### Test Deletion Algorithm
-def test_del_1():
-    s = "((A,(B,C),((D,E),((F,G),H))),I);"
-    root = parse_newick(s)
-    root = delete_taxa(root, ["B"])
-
-    assert get_child(root, 0, 0).name == "A"
-    assert get_child(root, 0, 1).name == "C"
-    assert get_child(root, 0, 2, 0, 0).name == "D"
-    assert get_child(root, 0, 2, 0, 1).name == "E"
-    assert get_child(root, 0, 2, 1, 0, 0).name == "F"
-    assert get_child(root, 0, 2, 1, 0, 1).name == "G"
-    assert get_child(root, 0, 2, 1, 1).name == "H"
-    assert get_child(root, 1).name == "I"

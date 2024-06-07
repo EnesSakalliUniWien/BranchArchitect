@@ -1,16 +1,15 @@
-from brancharchitect.topology_change_algorithm import merge_sedges, decode_indices_to_taxa
-from brancharchitect.deletion_algorithm import delete_taxa
-from brancharchitect.algorithm_one import find_jumping_taxa_algorithm_one
-from brancharchitect.topology_change_algorithm import calculate_component_set
+from brancharchitect.jumping_taxa.elemental import merge_sedges, decode_indices_to_taxa
+from brancharchitect.jumping_taxa.deletion_algorithm import delete_taxa
+from brancharchitect.jumping_taxa.algorithm_one import find_jumping_taxa_algorithm_one
+from brancharchitect.jumping_taxa.elemental import calculate_component_set
 from logging import getLogger
-from brancharchitect.node import Node
-from brancharchitect.functional_tree import (
+from brancharchitect.jumping_taxa.functional_tree import (
     FunctionalTree,
     ComponentSet,
     Component,
     build_functional_tree,
 )
-from brancharchitect.topology_change_algorithm import (
+from brancharchitect.jumping_taxa.elemental import (
     argmax,
     count,
     argmin,
@@ -26,11 +25,13 @@ from brancharchitect.topology_change_algorithm import (
     union,
     reduce,
 )
-from brancharchitect.tree_interpolation import (
+from brancharchitect.jumping_taxa.tree_interpolation import (
     interpolate_adjacent_tree_pairs,
     interpolate_tree,
 )
 from brancharchitect.newick_parser import get_taxa_name_circular_order
+from brancharchitect.node import Node
+
 
 
 logger = getLogger(__name__)
