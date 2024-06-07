@@ -6,18 +6,18 @@ from copy import deepcopy
 
 from typing import Optional, Any
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class Node:
 
-    children: list['Node'] = field(default_factory=list)
-    name: Optional[str] = None
-    indices: str = ''
-    uuid: str = field(default_factory=uuid4)
-    length: Optional[float] = None
-    values: list[Any] = field(default_factory=list)
-    split_indices: list[str] = field(default_factory=list)
-    parent: Optional['Node'] = None
-    leaf_name: Optional[str] = None
+    children: list['Node'] = field(default_factory=list, compare=False)
+    name: Optional[str] = field(default=None, compare=False)
+    indices: str = field(default='', compare=False)
+    uuid: str = field(default_factory=uuid4, compare=False)
+    length: Optional[float] = field(default=None, compare=True)
+    values: list[Any] = field(default_factory=list, compare=True)
+    split_indices: list[str] = field(default_factory=list, compare=True)
+    parent: Optional['Node'] = field(default=None, compare=False)
+    leaf_name: Optional[str] = field(default=None, compare=False)
 
     def append_child(self, node):
         self.children.append(node)
@@ -37,6 +37,24 @@ class Node:
         for child in self.children:
             child._set_parent_none()
 
+    def to_newick(self):
+        return self._to_newick() + ';'
+
+    def _to_newick(self):
+        length = ''
+        if self.length is not None:
+            length = f':{self.length}'
+
+        meta = ''
+        if self.values:
+            meta = '[' + ','.join(f'{key}={value}' for key, value in self.values.items()) + ']'
+
+        children = ''
+        if self.children:
+            children = '(' + ','.join(child._to_newick() for child in self.children) + ')'
+
+        return f'{children}{self.name}{meta}{length}'
+
     def to_json(self):
         """
         Converts a dictionary representation of a node to a JSON string.
@@ -45,6 +63,23 @@ class Node:
         """
         serialized_dict = self.serialize_to_dict()
         return json.dumps(serialized_dict, indent=4)
+
+    def _initialize_split_indices(self, order):
+        if len(self.split_indices) > 0:
+            return
+        for child in self.children:
+            child._initialize_split_indices(order)
+        if not self.children:
+            self.split_indices = (order.index(self.name),)
+        else:
+            self.split_indices = []
+            for child in self.children:
+                self.split_indices.extend(child.split_indices)
+            self.split_indices = tuple(sorted(self.split_indices))
+
+            #if self. == '':
+                #self.name = ','.join(str(s) for s in self.split_indices)
+
 
 
 def serialize_to_dict_iterative(root):

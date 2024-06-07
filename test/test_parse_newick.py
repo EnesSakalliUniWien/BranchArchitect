@@ -141,3 +141,13 @@ def test_parse_newick_11_metadata():
     root = parse_newick(s)
 
     assert get_child(root, 0, 0).values['value'] == 3
+
+def test_serialize_newick_1():
+    s = "((A[value=4]:3.0,(B:2.0,C:1.0):3.0,((D:0.3,E:11.0):10.0,((F:2.0,G:2.0):3.0,H:2.0):3.0):5.0):7.0,I:10.0):1.0;"
+    root = parse_newick(s)
+
+    assert get_child(root, 0, 0).name == 'A'
+    serialized = root.to_newick()
+
+    print(serialized)
+    assert s == serialized

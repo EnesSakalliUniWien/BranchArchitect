@@ -1,244 +1,81 @@
-from brancharchitect.newick_parser import (
-    parse_newick,
-    Node,
-    get_circular_order,
-    set_inner_node_indices,
-    set_inner_nodes_as_splits,
-)
+from brancharchitect.newick_parser import parse_newick
+from brancharchitect.node import Node
 import json
 
-def set_inner_node_names(node):
-    for child in node.children:
-        set_inner_node_names(child)
-    if not node.children:
-        return [node.name]
-    else:
-        for child in node.children:
-            node.name += child.name
+__all__ = ['interpolate_tree', 'interpolate_adjacent_tree_pairs']
 
-
-def set_inner_node_indices(node: Node(), order_list):
-    for child in node.children:
-        set_inner_node_indices(child, order_list)
-    if not node.children:
-        node.split_indices = [order_list.index(node.name)]
-    else:
-        for child in node.children:
-            node.split_indices += child.split_indices
-
-
-def set_inner_nodes_as_splits(node, order_tuple):
-    for child in node.children:
-        set_inner_nodes_as_splits(child, order_tuple)  # Recursive call
-    if not node.children:
-        # Add the index of the node name if it's in the order_tuple
-        node.leaf_name = node.name
-        node.split_indices = (order_tuple.index(node.name),)
-        node.name = node.split_indices
-    else:
-        node.name = ()
-        node.split_indices = ()
-        for child in node.children:
-            node.split_indices += child.split_indices  # Concatenate tuples
-            node.name += child.split_indices
-
-
-def get_circular_order(node: Node):
-    order_list = []
-    if len(node.children) == 0:
-        return [node.name]
-    for child in node.children:
-        order_list = order_list + get_circular_order(child)
-    return order_list
-
-
-def get_taxa_name_circular_order(node: Node):
-    order_list = []
-    if len(node.children) == 0:
-        return [node.leaf_name]
-    else:
-        for child in node.children:
-            order_list = order_list + get_taxa_name_circular_order(child)
-    return order_list
-
-
-def get_split_list(node: Node, split_list: list):
-    for child in node.children:
-        get_split_list(child, split_list)
-    split_list.append(node.split_indices)
-
-
-def interpolate_tree(pair_bracket_tokens_one: str, pair_bracket_tokens_two: str):
-    tree_one = parse_newick(pair_bracket_tokens_one)
-
-    # We focus on the first order of the tree
-    order_list = get_circular_order(tree_one)
-
-    # set inner nodes names by the inner nodes names
-    set_inner_node_indices(tree_one, order_list)
-
-    # get the list of splits in the tree
-    split_list_tree_one = []
-    get_split_list(tree_one, split_list_tree_one)
-
-    # get the list of splits in the tree
-    tree_two = parse_newick(pair_bracket_tokens_two)
-    set_inner_node_indices(tree_two, order_list)
-
-    # get the list of splits of the second tree
-    split_list_tree_two = []
-    get_split_list(tree_two, split_list_tree_two)
-
-    intermediate_tree_one = tree_two.deep_copy()
-    set_not_existent_splits_to_zero(intermediate_tree_one, split_list_tree_two)
-
-    intermediate_tree_two = tree_two.deep_copy()
-    set_not_existent_splits_to_zero(intermediate_tree_two, split_list_tree_one)
-
-    consensus_tree_one = intermediate_tree_one.deep_copy()
-    remove_zero_nodes(consensus_tree_one)
-
-    consensus_tree_two = intermediate_tree_two.deep_copy()
-    remove_zero_nodes(consensus_tree_two)
-
+### public API ###
 
 def interpolate_tree(tree_one: Node, tree_two: Node):
-    # get the list of splits in the tree
-    split_list_tree_one = []
-    get_split_list(tree_one, split_list_tree_one)
+    split_dict1 = get_split_dict(tree_one)
+    split_dict2 = get_split_dict(tree_two)
 
-    # get the list of splits of the second tree
-    split_list_tree_two = []
-    get_split_list(tree_two, split_list_tree_two)
+    it1 = calculate_intermediate_tree(tree_one, split_dict2)
+    it2 = calculate_intermediate_tree(tree_two, split_dict1)
 
-    intermediate_tree_one = tree_one.deep_copy()
-    set_not_existent_splits_to_zero(intermediate_tree_one, split_list_tree_one)
+    c1 = calculate_consensus_tree(it1, split_dict2)
+    c2 = calculate_consensus_tree(it2, split_dict1)
 
-    intermediate_tree_two = tree_two.deep_copy()
-    set_not_existent_splits_to_zero(intermediate_tree_two, split_list_tree_two)
-
-    consensus_tree_one = intermediate_tree_one.deep_copy()
-    remove_zero_nodes(consensus_tree_one)
-
-    consensus_tree_two = intermediate_tree_two.deep_copy()
-    remove_zero_nodes(consensus_tree_two)
-
-    return (
-        intermediate_tree_one,
-        consensus_tree_one,
-        consensus_tree_two,
-        intermediate_tree_two,
-    )
-
-
-def set_not_existent_splits_to_zero(intermediate_tree, split_list):
-    if not contains_split(split_list, intermediate_tree.split_indices):
-        intermediate_tree.length = 0
-    for child in intermediate_tree.children:
-        set_not_existent_splits_to_zero(child, split_list)
-
-
-def remove_zero_nodes(node):
-    if node is None:
-        return None
-    # Recursively handle all children first
-    non_zero_children = []
-    for child in node.children:
-        processed_child = remove_zero_nodes(child)
-        if processed_child is not None:
-            non_zero_children.append(processed_child)
-
-    node.children = non_zero_children
-
-    # If current node is zero, reattach its children to its parent
-    if node.length == 0:
-        if node.parent is not None:
-            for child in node.children:
-                node.parent.add_child(child)
-            return None  # Indicate that this node should be removed
-        else:
-            # Handle case if root node is zero
-            # You might want to handle this case differently
-            return node.children[0] if node.children else None
-    return node
-
-
-def contains_split(list_of_lists, target_list):
-    target_set = set(target_list)
-    return any(target_set == set(lst) for lst in list_of_lists)
-
-
-def get_split_list(node: Node, split_list: list):
-    for child in node.children:
-        get_split_list(child, split_list)
-    split_list.append(node.split_indices)
-    return split_list
+    return (it1, c1, c2, it2)
 
 
 def interpolate_adjacent_tree_pairs(tree_list) -> list[Node]:
     results = []
-    # Set inner node indices based on circular order
-    circular_order = get_circular_order(parse_newick(tree_list[0]))    
-
     for i in range(len(tree_list) - 1):
-        tree_one_repr = tree_list[i]
-        tree_two_repr = tree_list[i + 1]
-
-        tree_one = parse_newick(tree_one_repr)
-        tree_two = parse_newick(tree_two_repr)
-        
-        set_inner_nodes_as_splits(tree_one, circular_order)
-        set_inner_nodes_as_splits(tree_two, circular_order)
+        tree_one = tree_list[i]
+        tree_two = tree_list[i+1]
 
         # Interpolate trees and get intermediate and consensus trees
-        (
-            intermediate_tree_one,
-            consensus_tree_one,
-            consensus_tree_two,
-            intermediate_tree_two,
-        ) = interpolate_tree(tree_one, tree_two)
+        trees = interpolate_tree(tree_one, tree_two)
 
-        # Add the sequence for this pair to the results
-        if i == 0:
-            # Add the first original tree at the beginning of the sequence
-            results.append(tree_one)
+        results.append(tree_one)
+        results.extend(trees)
 
-        results.extend(
-            [
-                intermediate_tree_one,
-                consensus_tree_one,
-                consensus_tree_two,
-                intermediate_tree_two,
-                tree_two,
-            ]
-        )
-        
-        return results        
+    results.append(tree_two)
+    return results
 
 
-def serialize_tree_list_to_json(tree_list: list[Node]):
-    serialized_tree_list = []
-    for tree in tree_list:
-        serialized_tree_list.append(tree.serialize_to_dict())
-    return serialized_tree_list
+### Private API ###
 
 
-def write_tree_dictionaries_to_json(tree_list: list[Node], file_name: str):
-    serialized_tree_list = serialize_tree_list_to_json(tree_list)
-    with open(file_name, "w") as f:
-        f.write(json.dumps(serialized_tree_list))
+def calculate_intermediate_tree(tree, split_dict):
+    it = tree.deep_copy()
+    _calculate_intermediate_tree(it, split_dict)
+    return it
 
 
-if __name__ == "__main__":
-    # Example usage
-    tree_list = [
-        # "(((A:1,B:1):1,(C:1,D:1):1):1,(O1:1,O2:1):1);",
-        # "(((A:1,B:1,D:1):1,C:1):1,(O1:1,O2:1):1);",
-        # Add more trees as needed
-        "(((A,B),C),O);",
-        "(((A,C),B),O);",        
-    ]
-    processed_tree_pairs = interpolate_adjacent_tree_pairs(tree_list)
-    # Serialize the tree list to JSON
-    serialized_tree_list = serialize_tree_list_to_json(processed_tree_pairs)
-    write_tree_dictionaries_to_json(processed_tree_pairs, "tree_list.json")
+def _calculate_intermediate_tree(node, split_dict):
+    if node.split_indices not in split_dict:
+        node.length = 0
+    else:
+        node.length = (split_dict[node.split_indices] + node.length) / 2
+    for child in node.children:
+        _calculate_intermediate_tree(child, split_dict)
+
+
+def calculate_consensus_tree(node, split_dict):
+    node = node.deep_copy()
+    return _calculate_consensus_tree(node, split_dict)
+
+
+def _calculate_consensus_tree(node, split_dict):
+    new_children = []
+    for child in node.children:
+        processed_child = _calculate_consensus_tree(child, split_dict)
+        if processed_child.split_indices in split_dict:
+            new_children.append(processed_child)
+        else:
+            for child in processed_child.children:
+                new_children.append(child)
+
+    node.children = new_children
+    return node
+
+
+def get_split_dict(node: Node, split_dict: dict[list[int], float]=None):
+    if split_dict == None:
+        split_dict = {}
+    for child in node.children:
+        split_dict = get_split_dict(child, split_dict)
+    split_dict[node.split_indices] = node.length
+    return split_dict

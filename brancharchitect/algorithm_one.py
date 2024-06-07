@@ -1,11 +1,11 @@
 from brancharchitect.newick_parser import Node, get_taxa_name_circular_order
-from tree_interpolation import interpolate_adjacent_tree_pairs
-from functional_tree import Component, ComponentSet
-from functional_tree import FunctionalTree, build_functional_tree
-from topology_change_algorithm import calculate_component_set
+from brancharchitect.tree_interpolation import interpolate_adjacent_tree_pairs
+from brancharchitect.functional_tree import Component, ComponentSet
+from brancharchitect.functional_tree import FunctionalTree, build_functional_tree
+from brancharchitect.topology_change_algorithm import calculate_component_set
 
 
-from topology_change_algorithm import (
+from brancharchitect.topology_change_algorithm import (
     intersect,
     symm,
     union,

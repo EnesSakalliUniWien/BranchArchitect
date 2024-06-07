@@ -2,7 +2,25 @@ from brancharchitect.node import Node, serialize_to_dict_iterative
 import math
 import json
 import ast
+from typing import Optional
 
+
+def get_linear_order(node: Node):
+    order_list = []
+    if len(node.children) == 0:
+        return [node.name]
+    for child in node.children:
+        order_list = order_list + get_linear_order(child)
+    return order_list
+
+def get_taxa_name_circular_order(node: Node):
+    order_list = []
+    if len(node.children) == 0:
+        return [node.leaf_name]
+    else:
+        for child in node.children:
+            order_list = order_list + get_taxa_name_circular_order(child)
+    return order_list
 
 ### Metadata
 
@@ -60,24 +78,31 @@ def close_node(stack, buffer, mode):
     return stack, buffer, mode
 
 
-def create_new_node(stack, buffer, mode, indices):
-    new_node = Node()
+def create_new_node(stack, buffer, mode, indices, default_length):
+    new_node = Node(length=default_length, indices=indices)
+
     stack[-1].children.append(new_node)
-    new_node.parent = stack[-1]
+    #new_node.parent = stack[-1]
+
     stack.append(new_node)
-    stack[-1].indices = indices
     return stack, buffer, mode
 
 def init_nodestack():
-    root = Node()
-    root.indices = 0
-    root.name = 'root'
-    root.parent = None
-    root.length = None
-
+    root = Node(indices=0, name='root', parent=None, length=1)
     return [root]
 
-def parse_newick(tokens: str) -> Node:
+def parse_newick(tokens: str, order: Optional[list[str]]=None, default_length=1) -> Node:
+    tree = _parse_newick(tokens, default_length=default_length)
+
+    if order is None:
+        order = get_linear_order(tree)
+
+    tree._initialize_split_indices(order)
+    tree._order = order
+    return tree
+
+
+def _parse_newick(tokens: str, default_length) -> Node:
     buffer = []
     meta_buffer = []
     mode = "character_reader"
@@ -86,7 +111,7 @@ def parse_newick(tokens: str) -> Node:
     for index in range(len(tokens)):
         char = tokens[index]
         if char == "(":
-            node_stack, buffer, mode = create_new_node(node_stack, buffer, mode, index)
+            node_stack, buffer, mode = create_new_node(node_stack, buffer, mode, index, default_length)
             mode = "character_reader"
         elif char == ")":
             flush_buffer(buffer, node_stack, mode)
@@ -95,7 +120,7 @@ def parse_newick(tokens: str) -> Node:
         elif char == "," and mode in ['character_reader', 'length_reader']:
             flush_buffer(buffer, node_stack, mode)
             close_node(node_stack, buffer, mode)
-            node_stack, buffer, mode = create_new_node(node_stack, buffer, mode, index)
+            node_stack, buffer, mode = create_new_node(node_stack, buffer, mode, index, default_length)
             mode = "character_reader"
         elif char == ":":
             flush_buffer(buffer, node_stack, mode)

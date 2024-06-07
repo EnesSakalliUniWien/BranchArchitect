@@ -1,16 +1,16 @@
-from topology_change_algorithm import merge_sedges, decode_indices_to_taxa
-from deletion_algorithm import delete_taxa
-from algorithm_one import find_jumping_taxa_algorithm_one
-from topology_change_algorithm import calculate_component_set
+from brancharchitect.topology_change_algorithm import merge_sedges, decode_indices_to_taxa
+from brancharchitect.deletion_algorithm import delete_taxa
+from brancharchitect.algorithm_one import find_jumping_taxa_algorithm_one
+from brancharchitect.topology_change_algorithm import calculate_component_set
 from logging import getLogger
-from node import Node
-from functional_tree import (
+from brancharchitect.node import Node
+from brancharchitect.functional_tree import (
     FunctionalTree,
     ComponentSet,
     Component,
     build_functional_tree,
 )
-from topology_change_algorithm import (
+from brancharchitect.topology_change_algorithm import (
     argmax,
     count,
     argmin,
@@ -26,9 +26,8 @@ from topology_change_algorithm import (
     union,
     reduce,
 )
-from tree_interpolation import (
+from brancharchitect.tree_interpolation import (
     interpolate_adjacent_tree_pairs,
-    get_circular_order,
     interpolate_tree,
 )
 from brancharchitect.newick_parser import get_taxa_name_circular_order
@@ -72,19 +71,19 @@ def algo5_partial_partial_cond(t1, t2):
 
 # ============================================== Case For Edge Types ====================================================== #
 def is_anti_s_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
-    return t._edge_types[ancestor_edge.name] == "anti"
+    return t._edge_types[ancestor_edge.split_indices] == "anti"
 
 
 def is_full_s_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
-    return t._edge_types[ancestor_edge.name] == "full"
+    return t._edge_types[ancestor_edge.split_indices] == "full"
 
 
 def is_partial_s_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
-    return t._edge_types[ancestor_edge.name] == "partial"
+    return t._edge_types[ancestor_edge.split_indices] == "partial"
 
 
 def is_none_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
-    return t._edge_types[ancestor_edge.name] == "none"
+    return t._edge_types[ancestor_edge.split_indices] == "none"
 
 
 # ============================================== Case For Edge Types ====================================================== #
@@ -240,7 +239,7 @@ def algorithm_5_for_sedge(sedge, t1: FunctionalTree, t2: FunctionalTree, sorted_
         return case_full_full(sedge, t1, t2)
 
     else:
-        raise Exception("We forgot one case")
+        raise Exception(f"We forgot one case: {sedge}")
 
 
 def algorithm_five(
@@ -255,6 +254,18 @@ def algorithm_five(
 
     # Merge the S-edges from both trees
     all_s_edges = merge_sedges(t1._all_sedges, t2._all_sedges)
+
+    node = all_s_edges[0]
+
+    print('THIS ONEH ERE')
+    from brancharchitect.functional_tree import get_type
+    type_ = get_type(node)
+    print(type_, node, node.split_indices, node.length, [child.length for child in node.children])
+    print('THIS ONEH ERE')
+
+    print(t1._edge_types[all_s_edges[0].split_indices])
+    print(t2._edge_types[all_s_edges[0].split_indices])
+    #print(all_s_edges[0]._type)
 
     # Initialize pruned trees
     pruned_intermediate_tree_one = intermediate_tree_one
