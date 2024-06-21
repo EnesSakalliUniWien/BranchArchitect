@@ -33,9 +33,16 @@ def get_svg_root(size):
 def add_svg_path(parent, data):
     return ET.SubElement(parent, 'path', data)
 
+def get_order(root):
+    order = []
+    for node in traverse(root):
+        if len(node.children) == 0:
+            order.append(node.name)
+    return order
 
 def generate_svg(root, size=100, margin=10, label_offset=2):
-    vn = tree_to_visual_nodes(root, 2*math.pi, root._order, 0, ignore_branch_lengths=False)
+    order = get_order(root)
+    vn = tree_to_visual_nodes(root, 2*math.pi, order, 0, ignore_branch_lengths=False)
 
     max_radius = max(node.radius for node in traverse(vn))
     factor = (size/2-margin-label_offset) / max_radius
@@ -48,7 +55,7 @@ def generate_svg(root, size=100, margin=10, label_offset=2):
     for link in links:
         add_svg_path(svg_root, link)
 
-    add_labels(svg_root, root._order, (size/2-margin))
+    add_labels(svg_root, order, (size/2-margin))
     s = ET.tostring(svg_root, encoding='utf8')
     return s
 
