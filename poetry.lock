@@ -113,7 +113,21 @@ pluggy = ">=1.5,<2.0"
 [package.extras]
 dev = ["argcomplete", "attrs (>=19.2)", "hypothesis (>=3.56)", "mock", "pygments (>=2.7.2)", "requests", "setuptools", "xmlschema"]
 
+[[package]]
+name = "pytest-timeout"
+version = "2.3.1"
+description = "pytest plugin to abort hanging tests"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "pytest-timeout-2.3.1.tar.gz", hash = "sha256:12397729125c6ecbdaca01035b9e5239d4db97352320af155b3f5de1ba5165d9"},
+    {file = "pytest_timeout-2.3.1-py3-none-any.whl", hash = "sha256:68188cb703edfc6a18fad98dc25a3c61e9f24d644b0b70f33af545219fc7813e"},
+]
+
+[package.dependencies]
+pytest = ">=7.0.0"
+
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "33c620cf17dc14a6b7ab910bd8dfea1bae591a9b3681bbb5e035ab9a26bee395"
+content-hash = "facb538c660cae33a631f75658f1bee5b0b25486de7a87271ae74edc9040ae62"

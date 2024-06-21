@@ -1,4 +1,4 @@
-from brancharchitect.node import Node, serialize_to_dict_iterative
+from brancharchitect.tree import Node, serialize_to_dict_iterative
 import math
 import json
 import ast
@@ -88,7 +88,7 @@ def create_new_node(stack, buffer, mode, indices, default_length):
     return stack, buffer, mode
 
 def init_nodestack():
-    root = Node(indices=0, name='root', parent=None, length=1)
+    root = Node(indices=0, name='root', length=1)
     return [root]
 
 def parse_newick(tokens: str, order: Optional[list[str]]=None, default_length=1) -> Node:
@@ -115,7 +115,9 @@ def _parse_newick(tokens: str, default_length) -> Node:
 
     for index in range(len(tokens)):
         char = tokens[index]
-        if char == "(":
+        if char == '\n':
+            continue
+        elif char == "(":
             if len(node_stack) == 0:
                 node_stack = init_nodestack()
             node_stack, buffer, mode = create_new_node(node_stack, buffer, mode, index, default_length)

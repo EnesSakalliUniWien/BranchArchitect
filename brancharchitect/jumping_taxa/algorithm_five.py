@@ -30,7 +30,7 @@ from brancharchitect.jumping_taxa.tree_interpolation import (
     interpolate_tree,
 )
 from brancharchitect.newick_parser import get_taxa_name_circular_order
-from brancharchitect.node import Node
+from brancharchitect.tree import Node
 
 
 
@@ -266,15 +266,13 @@ def algorithm_five(it1, it2, sorted_nodes: list[int]):
             # Execute Algorithm 5 for the current S-edge
             jumping_taxa = algorithm_5_for_sedge(s_edge, t1, t2, sorted_nodes)
 
-            logger.info(f'Taxa {jumping_taxa} identified as taxa')
+            logger.debug(f'Taxa {jumping_taxa} identified as taxa')
 
             # Translate taxa to indices
             taxa = list(set([y for x in jumping_taxa for y in x]))
 
-            logger.info(sorted_nodes)
             decoded_list = decode_indices_to_taxa(taxa, sorted_nodes)
-            logger.info(f'which has name {decoded_list}')
-
+            logger.debug(f'which has name {decoded_list}')
 
             # Append to global decoded result list
             global_decoded_result_list += decoded_list

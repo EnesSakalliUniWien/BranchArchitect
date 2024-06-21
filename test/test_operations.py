@@ -1,4 +1,5 @@
 from brancharchitect.newick_parser import parse_newick
+from brancharchitect.svg import generate_svg
 import pytest
 
 @pytest.mark.skip()
@@ -30,3 +31,9 @@ def test_shallow_tree():
     root = parse_newick(newick)
 
     root.to_dict()
+
+
+def test_visualisation():
+    newick = "((A,(B,C),((D,E),((F,G),H))),I);"
+    tree = parse_newick(newick)
+    svg = generate_svg(tree)

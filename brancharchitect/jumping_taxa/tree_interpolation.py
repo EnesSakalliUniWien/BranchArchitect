@@ -1,5 +1,5 @@
 from brancharchitect.newick_parser import parse_newick
-from brancharchitect.node import Node
+from brancharchitect.tree import Node
 import json
 
 __all__ = ['interpolate_tree', 'interpolate_adjacent_tree_pairs']
