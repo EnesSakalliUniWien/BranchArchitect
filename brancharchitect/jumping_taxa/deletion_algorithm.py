@@ -10,8 +10,8 @@ from typing import Optional
 
 
 ### Deletion Algorithm
-def delete_taxa(root: Node, nodes_to_delete: list[Node]) -> Node:
-    r = _delete_taxa(root, nodes_to_delete, None)
+def delete_taxa(root: Node, indices_to_delete: list[int]) -> Node:
+    r = _delete_taxa(root, indices_to_delete)
     r = _delete_superfluous_nodes(r)
     return r
 
@@ -30,20 +30,12 @@ def _delete_superfluous_nodes(node: Node):
     return node
 
 
-def _delete_taxa(
-    node: Node, nodes_to_delete: list[Node], parent: Optional[Node]
-) -> Node:
-    is_leaf = len(node.children) == 0
-    node = delete_children(node, nodes_to_delete)
-    if not is_leaf and len(node.children) == 0 and parent:
-        parent.children.remove(node)
+def _delete_taxa(node: Node, indices_to_delete: list[int]) -> Node:
+    node.children = [child for child in node.children if any(idx not in indices_to_delete for idx in child.split_indices)]
+    node.split_indices = tuple([idx for idx in node.split_indices if idx not in indices_to_delete])
+
     for child in node.children:
-        _delete_taxa(child, nodes_to_delete, node)
-    return node
-
-
-def delete_children(node, children):
-    node.children = [child for child in node.children if child.name not in children]
+        _delete_taxa(child, indices_to_delete)
     return node
 
 
