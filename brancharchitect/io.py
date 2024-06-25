@@ -18,10 +18,10 @@ def dump_json(tree, f):
     json.dump(tree, f, cls=UUIDEncoder)
 
 
-def read_newick(path, order=None):
+def read_newick(path, order=None, force_list=False):
     with open(path) as f:
         newick_string = f.read()
-    tree = parse_newick(newick_string, order=order)
+    tree = parse_newick(newick_string, order=order, force_list=force_list)
     return tree
 
 
