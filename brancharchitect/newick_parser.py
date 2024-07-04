@@ -1,8 +1,7 @@
-from brancharchitect.tree import Node, serialize_to_dict_iterative
 import math
-import json
 import ast
 from typing import Optional
+from brancharchitect.tree import Node
 
 
 def get_linear_order(node: Node):
@@ -23,7 +22,6 @@ def get_taxa_name_circular_order(node: Node):
     return order_list
 
 ### Metadata
-
 def split_token(token):
     if '=' in token:
         name, value = token.split('=')
@@ -34,19 +32,16 @@ def split_token(token):
     value = ast.literal_eval(value)
     return (name, value)
 
-
 def parse_metadata(data: str):
     tokens = data.split(',')
     tokens = [split_token(token) for token in tokens]
     return dict(tokens)
-
 
 def flush_meta_buffer(meta_buffer, stack):
     buffer_value = "".join(meta_buffer)
     meta_dict = parse_metadata(buffer_value)
     stack[-1].values = meta_dict
     meta_buffer.clear()
-
 
 ##### Tree Stack Parser #####
 
@@ -72,11 +67,9 @@ def flush_buffer(buffer, stack, mode):
             raise ValueError(f"Failed to parse '{buffer_value}' as a float: {str(e)}")
         buffer.clear()
 
-
 def close_node(stack, buffer, mode):
     stack.pop()
     return stack, buffer, mode
-
 
 def create_new_node(stack, buffer, mode, indices, default_length):
     new_node = Node(length=default_length, indices=indices)
@@ -91,7 +84,9 @@ def init_nodestack():
     root = Node(indices=0, name='root', length=1)
     return [root]
 
-def parse_newick(tokens: str, order: Optional[list[str]]=None, default_length=1) -> Node:
+from typing import List, Optional, Union
+
+def parse_newick(tokens: str, order: Optional[List[str]] = None, default_length: int = 1) -> Union[Node, List[Node]]:
     trees = _parse_newick(tokens, default_length=default_length)
 
     if order is None:
@@ -104,7 +99,6 @@ def parse_newick(tokens: str, order: Optional[list[str]]=None, default_length=1)
     if len(trees) == 1:
         return trees[0]
     return trees
-
 
 def _parse_newick(tokens: str, default_length) -> Node:
     trees = []

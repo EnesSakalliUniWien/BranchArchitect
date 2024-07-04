@@ -1,9 +1,7 @@
 import json
 from dataclasses import dataclass, field, asdict
 from uuid import uuid4
-
 from copy import deepcopy
-
 from typing import Optional, Any
 
 @dataclass()
@@ -47,8 +45,10 @@ class Node:
 
         children = ''
         if self.children:
-            children = '(' + ','.join(child._to_newick() for child in self.children) + ')'
-
+            if(len(self.children) > 1):            
+                children = '(' + ','.join(child._to_newick() for child in self.children) + ')'
+            else: 
+                children =  ','.join(child._to_newick() for child in self.children)
         return f'{children}{self.name}{meta}{length}'
 
     def to_json(self):
@@ -57,7 +57,7 @@ class Node:
         :param serialized_node: The dictionary representation of the node.
         :return: JSON string representation of the node.
         """
-        serialized_dict = self.serialize_to_dict()
+        serialized_dict = self.to_dict()
         return json.dumps(serialized_dict, indent=4)
 
     def _initialize_split_indices(self, order):
