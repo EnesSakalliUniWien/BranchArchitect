@@ -1,5 +1,6 @@
 from brancharchitect.newick_parser import parse_newick
 from brancharchitect.tree import serialize_to_dict_iterative, Node
+from brancharchitect.svg import generate_svg
 from uuid import UUID
 import json
 
@@ -17,10 +18,10 @@ def dump_json(tree, f):
     json.dump(tree, f, cls=UUIDEncoder)
 
 
-def read_newick(path):
+def read_newick(path, order=None, force_list=False):
     with open(path) as f:
         newick_string = f.read()
-    tree = parse_newick(newick_string)
+    tree = parse_newick(newick_string, order=order, force_list=force_list)
     return tree
 
 
@@ -28,6 +29,12 @@ def write_json(tree, path):
     serialized_tree = tree.to_dict()
     with open(path, mode='w') as f:
         dump_json(serialized_tree, f)
+
+
+def write_svg(tree, path):
+    svg = generate_svg(tree)
+    with open(path, mode='wb') as f:
+        f.write(svg)
 
 
 def serialize_tree_list_to_json(tree_list: list[Node]):

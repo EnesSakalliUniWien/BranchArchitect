@@ -71,8 +71,9 @@ def close_node(stack, buffer, mode):
     stack.pop()
     return stack, buffer, mode
 
-def create_new_node(stack, buffer, mode, indices, default_length):
-    new_node = Node(length=default_length, indices=indices)
+
+def create_new_node(stack, buffer, mode, default_length):
+    new_node = Node(length=default_length)
 
     stack[-1].children.append(new_node)
     #new_node.parent = stack[-1]
@@ -81,12 +82,10 @@ def create_new_node(stack, buffer, mode, indices, default_length):
     return stack, buffer, mode
 
 def init_nodestack():
-    root = Node(indices=0, name='root', length=1)
+    root = Node(name='root', length=1)
     return [root]
 
-from typing import List, Optional, Union
-
-def parse_newick(tokens: str, order: Optional[List[str]] = None, default_length: int = 1) -> Union[Node, List[Node]]:
+def parse_newick(tokens: str, order: Optional[list[str]]=None, default_length=1, force_list=False) -> Node:
     trees = _parse_newick(tokens, default_length=default_length)
 
     if order is None:
@@ -96,7 +95,10 @@ def parse_newick(tokens: str, order: Optional[List[str]] = None, default_length:
         tree._initialize_split_indices(order)
         tree._order = order
 
-    if len(trees) == 1:
+    for tree in trees:
+        tree._fix_child_order()
+
+    if len(trees) == 1 and not force_list:
         return trees[0]
     return trees
 
@@ -114,7 +116,7 @@ def _parse_newick(tokens: str, default_length) -> Node:
         elif char == "(":
             if len(node_stack) == 0:
                 node_stack = init_nodestack()
-            node_stack, buffer, mode = create_new_node(node_stack, buffer, mode, index, default_length)
+            node_stack, buffer, mode = create_new_node(node_stack, buffer, mode, default_length)
             mode = "character_reader"
         elif char == ")":
             flush_buffer(buffer, node_stack, mode)
@@ -123,7 +125,7 @@ def _parse_newick(tokens: str, default_length) -> Node:
         elif char == "," and mode in ['character_reader', 'length_reader']:
             flush_buffer(buffer, node_stack, mode)
             close_node(node_stack, buffer, mode)
-            node_stack, buffer, mode = create_new_node(node_stack, buffer, mode, index, default_length)
+            node_stack, buffer, mode = create_new_node(node_stack, buffer, mode, default_length)
             mode = "character_reader"
         elif char == ":":
             flush_buffer(buffer, node_stack, mode)

@@ -1,6 +1,5 @@
 import json
 from dataclasses import dataclass, field, asdict
-from uuid import uuid4
 from copy import deepcopy
 from typing import Optional, Any
 
@@ -9,8 +8,6 @@ class Node:
 
     children: list['Node'] = field(default_factory=list, compare=False)
     name: Optional[str] = field(default=None, compare=False)
-    indices: str = field(default='', compare=False)
-    uuid: str = field(default_factory=uuid4, compare=False)
     length: Optional[float] = field(default=None, compare=True)
     values: list[Any] = field(default_factory=list, compare=True)
     split_indices: list[str] = field(default_factory=list, compare=True)
@@ -23,7 +20,7 @@ class Node:
         return f"Node('{self.name}')"
 
     def __hash__(self):
-        return hash(str(self.uuid))
+        return hash(self.split_indices)
 
     def deep_copy(self):
         return deepcopy(self)
@@ -73,9 +70,10 @@ class Node:
                 self.split_indices.extend(child.split_indices)
             self.split_indices = tuple(sorted(self.split_indices))
 
-            #if self. == '':
-                #self.name = ','.join(str(s) for s in self.split_indices)
-
+    def _fix_child_order(self):
+        self.children.sort(key=lambda node: min(node.split_indices))
+        for child in self.children:
+            child._fix_child_order()
 
 
 def serialize_to_dict_iterative(root):
