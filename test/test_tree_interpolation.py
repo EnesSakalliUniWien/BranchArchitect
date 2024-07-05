@@ -1,8 +1,6 @@
 from brancharchitect.newick_parser import parse_newick
-from brancharchitect.jumping_taxa.tree_interpolation import interpolate_tree, interpolate_adjacent_tree_pairs
 from brancharchitect.jumping_taxa.deletion_algorithm import get_child
-
-
+from brancharchitect.jumping_taxa.tree_interpolation import interpolate_tree, interpolate_adjacent_tree_pairs
 
 def test_interpolate_tree_1():
     s1 = "((A,(B,C),((D,E),((F,G),H))),I);"
