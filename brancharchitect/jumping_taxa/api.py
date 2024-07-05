@@ -8,6 +8,6 @@ def call_jumping_taxa(tree1, tree2):
 
     it1, c1, c2, it2 = interpolate_tree(tree1, tree2)
 
-    jumping_taxa = algorithm(it1, it2, tree1._order)
+    jumping_taxa = algorithm_five(it1, it2, tree1._order)
     jumping_taxa = [tuple(tree1._order[i] for i in idx) for idx in jumping_taxa]
     return jumping_taxa

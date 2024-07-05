@@ -31,8 +31,8 @@ def write_json(tree, path):
         dump_json(serialized_tree, f)
 
 
-def write_svg(tree, path):
-    svg = generate_svg(tree)
+def write_svg(tree, path, ignore_branch_lengths=False):
+    svg = generate_svg(tree, ignore_branch_lengths=ignore_branch_lengths)
     with open(path, mode='wb') as f:
         f.write(svg)
 

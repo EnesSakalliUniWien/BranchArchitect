@@ -27,13 +27,18 @@ def multi_symmetric_difference(m1, m2):
 def algorithm(t1, t2, _):
     jt = []
     i = 0
+    leaves = sum(1 for c in traverse(t1) if len(c.children) == 0)
     while s := core(t1, t2):
         i += 1
         jt.extend(s)
 
         to_delete = [idx for split in s for idx in split]
+
         t1 = delete_taxa(t1, to_delete)
         t2 = delete_taxa(t2, to_delete)
+
+        if i >= 2*leaves:
+            raise Exception(f'There are only {leaves} many taxa, however we are at iteration {i}. Something is wrong.')
     return jt
 
 def core(t1, t2):
@@ -59,7 +64,12 @@ def core(t1, t2):
             if m1 != i != m2:
                 mi = multi_intersection(m1, m2)
                 ms = multi_symmetric_difference(m1, m2)
+
+                print('mi', mi)
+                print('ms', ms)
                 r = mi & ms
+                r = [split for split in r if len(split) > 0]
+                print('r', r)
                 if len(r) == 0:
                     jt = sorted(i, key=len)[0]
                 else:
