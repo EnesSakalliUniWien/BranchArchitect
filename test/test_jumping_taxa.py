@@ -1,5 +1,6 @@
 from brancharchitect.newick_parser import parse_newick
 from brancharchitect.jumping_taxa import call_jumping_taxa
+import pytest
 
 @pytest.mark.timeout(5)
 def test_jumping_taxa_1():
