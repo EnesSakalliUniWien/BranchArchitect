@@ -40,9 +40,9 @@ def get_order(root):
             order.append(node.name)
     return order
 
-def generate_svg(root, size=100, margin=10, label_offset=2):
+def generate_svg(root, size=100, margin=10, label_offset=2, ignore_branch_lengths=False):
     order = get_order(root)
-    vn = tree_to_visual_nodes(root, 2*math.pi, order, 0, ignore_branch_lengths=False)
+    vn = tree_to_visual_nodes(root, 2*math.pi, order, 0, ignore_branch_lengths=ignore_branch_lengths)
 
     max_radius = max(node.radius for node in traverse(vn))
     factor = (size/2-margin-label_offset) / max_radius
@@ -70,7 +70,7 @@ def tree_to_visual_nodes(root, angle, order, radius, ignore_branch_lengths=False
         children = [] 
         node_angle = (angle / len(order)) * order.index(root.name)
     else:
-        children = [tree_to_visual_nodes(child, angle, order, node_radius)  for child in root.children]
+        children = [tree_to_visual_nodes(child, angle, order, node_radius, ignore_branch_lengths=ignore_branch_lengths)  for child in root.children]
         node_angle = sum(child.angle for child in children) / len(children)
 
     vn = VisualNode(node_radius, node_angle, children)

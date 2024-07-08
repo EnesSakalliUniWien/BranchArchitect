@@ -1,23 +1,18 @@
-# from phylomovie.services.coloring_algorithm import identification_algorithm_with_anti_s_edge_grafting
-# from phylomovie.services.tree.Treere import Treere
-from typing import Dict, List
-
-import pytest
 import math
-import itertools
-from os.path import join
-import os.path
-import logging
 import json
-
+import pytest
+import logging
+from pathlib import Path
+from typing import Dict, List
 from brancharchitect.jumping_taxa import call_jumping_taxa
 from brancharchitect.newick_parser import parse_newick
-from brancharchitect.io import read_newick
-from pathlib import Path
+from brancharchitect.tree import Node
 
 logger = logging.getLogger()
 
 test_data_list = []
+i = 0
+
 for p in Path("test/data/").glob('*'):
     with open(p) as f:
         data = json.load(f)
@@ -25,7 +20,6 @@ for p in Path("test/data/").glob('*'):
         logger.warning(f'Testdata {p.name} does not have a solution')
     else:
         test_data_list.append(data)
-
 
 def find_to_be_highlighted_leaves(
     json_consensus_tree_list: List,
@@ -54,7 +48,6 @@ def find_to_be_highlighted_leaves(
         )
 
     return highlights_every_tree_list
-
 
 def _test_highlighting_algorithm(
     file_name,
@@ -110,12 +103,11 @@ def _test_highlighting_algorithm(
 
     # assert to_be_highlighted_leaves == results,  ("Expected Results %", "".join(results))
 
-
 @pytest.fixture(params=test_data_list, ids=[test_data['comment'] for test_data in test_data_list])
 def test_data(request):
     return request.param
 
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(1)
 def test_algorithm(test_data):
     n1 = test_data['tree1']
     n2 = test_data['tree2']
