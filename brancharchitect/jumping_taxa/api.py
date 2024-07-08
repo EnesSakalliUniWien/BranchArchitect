@@ -1,8 +1,9 @@
 from brancharchitect.jumping_taxa.tree_interpolation import interpolate_tree
 from brancharchitect.jumping_taxa.algorithm_five import algorithm_five
 from brancharchitect.jumping_taxa.algo_new import algorithm
+from brancharchitect.tree import Node
 
-def call_jumping_taxa(tree1, tree2):
+def call_jumping_taxa(tree1 : Node, tree2: Node):
     if tree1._order != tree2._order:
         raise ValueError('Trees have incompatible leaf order')
 

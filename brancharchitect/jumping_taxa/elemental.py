@@ -2,13 +2,17 @@ import numpy as np
 import sys
 from typing import List, Callable, Optional, Collection
 from brancharchitect.jumping_taxa.functional_tree import FunctionalTree, ComponentSet, X, Y
+from logging import getLogger
+
+logger = getLogger(__name__)
+
 
 # ==== Functional Programming Style ====
 def remove_last_component_if_longer_than_one(
     component_set: ComponentSet,
-) -> ComponentSet:
+) -> ComponentSet:    
     if len(component_set) != 1:
-        return component_set[:-1]
+        return list(component_set)[:-1]
     else:
         return component_set
 
@@ -47,8 +51,10 @@ def reduce(f: Callable[[X, X], X], l: Collection[X]) -> Optional[X]:
     return x0
 
 
-def union(a: List[X], b: List[X]) -> List[X]:
-    return a + b
+def union(a: set, b: set) -> List[X]:
+    _a = set(a)
+    _b = set(b)
+    return _a.union(_b)
 
 
 def count(a: List[X], x: X) -> int:

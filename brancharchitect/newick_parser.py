@@ -1,6 +1,6 @@
 import math
 import ast
-from typing import Optional
+from typing import Optional, Union, List
 from brancharchitect.tree import Node
 
 
@@ -85,7 +85,7 @@ def init_nodestack():
     root = Node(name='root', length=1)
     return [root]
 
-def parse_newick(tokens: str, order: Optional[list[str]]=None, default_length=1, force_list=False) -> Node:
+def parse_newick(tokens: str, order: Optional[List[str]] = None, default_length: float = 1.0, force_list: bool = False) -> Union[Node, List[Node]]:
     trees = _parse_newick(tokens, default_length=default_length)
 
     if order is None:
