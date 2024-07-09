@@ -1,7 +1,10 @@
 import json
 from dataclasses import dataclass, field, asdict
 from copy import deepcopy
-from typing import Optional, Any
+from typing import Optional, Any, NewType, Tuple, Dict
+
+SplitIndices = NewType('SplitIndices', Tuple[int, ...])
+Splits = NewType('Splits', Dict[SplitIndices, float])
 
 @dataclass()
 class Node:
@@ -10,7 +13,7 @@ class Node:
     name: Optional[str] = field(default=None, compare=False)
     length: Optional[float] = field(default=None, compare=True)
     values: list[Any] = field(default_factory=list, compare=True)
-    split_indices: list[str] = field(default_factory=list, compare=True)
+    split_indices: SplitIndices = field(default_factory=tuple, compare=True)
     leaf_name: Optional[str] = field(default=None, compare=False)
 
     def append_child(self, node):
@@ -28,12 +31,12 @@ class Node:
     def to_dict(self):
         return asdict(self)
 
-    def to_newick(self):
-        return self._to_newick() + ';'
+    def to_newick(self, lengths=True):
+        return self._to_newick(lengths=lengths) + ';'
 
-    def _to_newick(self):
+    def _to_newick(self, lengths=True):
         length = ''
-        if self.length is not None:
+        if (self.length is not None) and lengths:
             length = f':{self.length}'
 
         meta = ''
@@ -43,9 +46,9 @@ class Node:
         children = ''
         if self.children:
             if(len(self.children) > 1):            
-                children = '(' + ','.join(child._to_newick() for child in self.children) + ')'
+                children = '(' + ','.join(child._to_newick(lengths=lengths) for child in self.children) + ')'
             else: 
-                children =  ','.join(child._to_newick() for child in self.children)
+                children =  ','.join(child._to_newick(lengths=lengths) for child in self.children)
         return f'{children}{self.name}{meta}{length}'
 
     def to_json(self):
@@ -74,6 +77,16 @@ class Node:
         self.children.sort(key=lambda node: min(node.split_indices))
         for child in self.children:
             child._fix_child_order()
+
+    def traverse(self):
+        yield self
+        for child in self.children:
+            yield from child.traverse()
+
+    def to_splits(self) -> Dict[SplitIndices, float]:
+        """Returns the tree as a dict mapping each split indices to the length of the split"""
+        splits = {node.split_indices: node.length for node in self.traverse()}
+        return splits
 
 
 def serialize_to_dict_iterative(root):
