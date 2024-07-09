@@ -1,7 +1,6 @@
 from typing import List, Dict, Tuple
 from pprint import pprint
 from brancharchitect.tree import Node
-from brancharchitect.distances import collect_splits
 
 def get_taxa_circular_order(node: Node):
     taxa_order : list = []    
@@ -25,7 +24,7 @@ def incorporate_split_counts(split_list: List[Tuple[int]], number_of_splits: dic
 def collect_count_of_splits(list_of_trees: List[Node]) -> Dict[tuple[int], Dict]:
     count_of_splits = {}    
     for tree in list_of_trees:        
-        splits, split_lenghts = collect_splits(tree)            
+        splits = tree.to_splits()
         incorporate_split_counts(splits, count_of_splits)
 
     for split in count_of_splits.keys():        

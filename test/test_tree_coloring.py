@@ -13,7 +13,7 @@ logger = logging.getLogger()
 test_data_list = []
 i = 0
 
-for p in Path("test/data/").glob('*'):
+for p in Path("test/data/trees/").glob('*'):
     with open(p) as f:
         data = json.load(f)
     if 'solutions' not in data:
