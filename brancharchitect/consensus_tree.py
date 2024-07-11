@@ -65,8 +65,6 @@ def create_star_tree(taxon_order: List[int])-> Node:
     return star_tree
 
 def filter_by_occurrence(splits: Dict[Tuple[int], Dict[str, float]], number_of_taxa: int, eq : float) -> List[Tuple[int]]:
-        
-    
     # List to store splits with occurrence over 50%    
     over_fifty_split = []
     

@@ -1,6 +1,5 @@
 from brancharchitect.jumping_taxa.tree_interpolation import interpolate_tree
 from brancharchitect.jumping_taxa.algorithm_five import algorithm_five
-from brancharchitect.jumping_taxa.algo_new import algorithm
 from brancharchitect.tree import Node
 
 def call_jumping_taxa(tree1 : Node, tree2: Node):
