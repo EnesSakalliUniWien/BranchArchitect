@@ -15,8 +15,8 @@ def read_file(path, newick):
         return [t1, t2]
 
 @click.command()
-@click.argument('path')
 @click.argument('out')
+@click.argument('path')
 @click.option('--newick/--testdata', default=True)
 def export(path, out, newick):
 
