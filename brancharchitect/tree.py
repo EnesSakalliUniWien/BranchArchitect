@@ -88,6 +88,9 @@ class Node:
         splits = {node.split_indices: node.length for node in self.traverse()}
         return splits
 
+    def _index(self, component: tuple[str, ...]) -> SplitIndices:
+        return tuple(sorted(self._order.index(name) for name in component))
+
 
 def serialize_to_dict_iterative(root):
     # DONE how does this differ from root.to_dict() ?
