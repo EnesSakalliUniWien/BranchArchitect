@@ -1,5 +1,6 @@
 from brancharchitect.jumping_taxa.deletion_algorithm import delete_taxa
 from itertools import combinations
+import time
 
 def traverse(root):
     yield root
@@ -47,12 +48,12 @@ def _get_components(node, s):
 
 
 def get_components(t1, t2):
-    s1 = splitset(t1)
-    s2 = splitset(t2)
+    s1 = set(t1.to_splits())
+    s2 = set(t2.to_splits())
     s = s1 & s2
 
-    c1, _ = get_components(t1, s)
-    c2, _ = get_components(t2, s)
+    c1, _ = _get_components(t1, s)
+    c2, _ = _get_components(t2, s)
 
     c1 = reduce(c1, c2)
     c2 = reduce(c2, c1)
