@@ -1,8 +1,9 @@
+from brancharchitect.tree import Node
 from typing import (
     TypeVar,
     NewType,
 )
-from brancharchitect.tree import Node
+
 
 Component = NewType("Component", tuple[int])
 ComponentSet = tuple[Component, ...]  # type: ignore
@@ -65,6 +66,7 @@ def calculate_component_set_tree(node: Node) -> ComponentSet:
     Calculates the component set for a given node, used in the construction of a FunctionalTree.
     """
     components: list[Component] = []
+    
     if node.length != 0:
         components.append(NodeName(node.split_indices))
         return tuple(components)
@@ -76,7 +78,6 @@ def calculate_component_set_tree(node: Node) -> ComponentSet:
         components += sorted(calculate_component_set_tree(child))
 
     return tuple(sorted(components))
-
 
 def get_type(node: Node) -> EdgeType:
     """
@@ -124,14 +125,14 @@ def build_functional_tree(node: Node) -> FunctionalTree:
         FunctionalTree: The FunctionalTree representing the analyzed structure of the tree.
     """
 
-    all_sedges = []
-    edge_types = {}
-    ancestor_edges = {}
-    # Dictionary to map node names to component sets (representing branching structures)
-    arms = {}
+    all_sedges : list[Node] = []
+    edge_types : dict[list[str], EdgeType] = {}
+    ancestor_edges : dict[list[str], Node] = {}
+    arms : dict[list[str], tuple[ComponentSet]] = {}
 
     # Determine the edge type of the current node
-    type_ = get_type(node)
+    type_ : EdgeType = get_type(node)
+    
     edge_types[node.split_indices] = type_  # Store the edge type of the current node
 
     # If the current node is a 'full' or 'partial' s-edge, add it to the list of sedges
