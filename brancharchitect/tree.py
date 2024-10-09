@@ -1,121 +1,125 @@
 import json
 from dataclasses import dataclass, field, asdict
 from copy import deepcopy
-from typing import Optional, Any, NewType, Tuple, Dict
+from typing import Optional, Any, NewType, Tuple, Dict, List, Generator
 
-SplitIndices = NewType('SplitIndices', Tuple[int, ...])
-Splits = NewType('Splits', Dict[SplitIndices, float])
+SplitIndices = NewType("SplitIndices", Tuple[int, ...])
+Splits = NewType("Splits", Dict[SplitIndices, float])
+
 
 @dataclass()
 class Node:
-
-    children: list['Node'] = field(default_factory=list, compare=False)
+    children: List["Node"] = field(default_factory=list, compare=False)
     name: Optional[str] = field(default=None, compare=False)
     length: Optional[float] = field(default=None, compare=True)
-    values: list[Any] = field(default_factory=list, compare=True)
+    values: Dict[str, Any] = field(default_factory=dict, compare=True)
     split_indices: SplitIndices = field(default_factory=tuple, compare=True)
     leaf_name: Optional[str] = field(default=None, compare=False)
+    _order: List[str] = field(default_factory=list, compare=False)
 
-    def append_child(self, node):
+    def append_child(self, node: "Node") -> None:
         self.children.append(node)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Node('{self.name}')"
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.split_indices)
 
-    def deep_copy(self):
+    def deep_copy(self) -> "Node":
         return deepcopy(self)
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
-    def to_newick(self, lengths=True):
-        return self._to_newick(lengths=lengths) + ';'
+    def to_newick(self, lengths: bool = True) -> str:
+        return self._to_newick(lengths=lengths) + ";"
 
-    def _to_newick(self, lengths=True):
-        length = ''
+    def _to_newick(self, lengths: bool = True) -> str:
+        length = ""
         if (self.length is not None) and lengths:
-            length = f':{self.length}'
+            length = f":{self.length}"
 
-        meta = ''
+        meta = ""
         if self.values:
-            meta = '[' + ','.join(f'{key}={value}' for key, value in self.values.items()) + ']'
+            meta = (
+                "["
+                + ",".join(f"{key}={value}" for key, value in self.values.items())
+                + "]"
+            )
 
-        children = ''
+        children_str = ""
         if self.children:
-            if(len(self.children) > 1):            
-                children = '(' + ','.join(child._to_newick(lengths=lengths) for child in self.children) + ')'
-            else: 
-                children =  ','.join(child._to_newick(lengths=lengths) for child in self.children)
-        return f'{children}{self.name}{meta}{length}'
+            children_str = (
+                "("
+                + ",".join(child._to_newick(lengths=lengths) for child in self.children)
+                + ")"
+            )
 
-    def to_json(self):
-        """
-        Converts a dictionary representation of a node to a JSON string.
-        :param serialized_node: The dictionary representation of the node.
-        :return: JSON string representation of the node.
-        """
+        return f'{children_str}{self.name or ""}{meta}{length}'
+
+    def to_json(self) -> str:
         serialized_dict = self.to_dict()
         return json.dumps(serialized_dict, indent=4)
 
-    def _initialize_split_indices(self, order):
-        if len(self.split_indices) > 0:
-            return
+    def _initialize_split_indices(self, order: List[str]) -> None:
+        # Reset split_indices
+        self.split_indices = ()
+
         for child in self.children:
             child._initialize_split_indices(order)
         if not self.children:
             self.split_indices = (order.index(self.name),)
         else:
-            self.split_indices = []
+            indices = []
             for child in self.children:
-                self.split_indices.extend(child.split_indices)
-            self.split_indices = tuple(sorted(self.split_indices))
+                indices.extend(child.split_indices)
+            self.split_indices = tuple(sorted(indices))
 
-    def _fix_child_order(self):
+    def _fix_child_order(self) -> None:
         self.children.sort(key=lambda node: min(node.split_indices))
         for child in self.children:
             child._fix_child_order()
 
-    def traverse(self):
+    def traverse(self) -> Generator["Node", None, None]:
         yield self
         for child in self.children:
             yield from child.traverse()
 
-    def to_splits(self) -> Dict[SplitIndices, float]:
+    def to_splits(self) -> Splits:
         """Returns the tree as a dict mapping each split indices to the length of the split"""
         splits = {node.split_indices: node.length for node in self.traverse()}
         return splits
 
-    def _index(self, component: tuple[str, ...]) -> SplitIndices:
+    def _index(self, component: Tuple[str, ...]) -> SplitIndices:
         return tuple(sorted(self._order.index(name) for name in component))
 
+    def get_leaves(self) -> List["Node"]:
+        """Return all leaf nodes of the subtree rooted at this node."""
+        if not self.children:
+            return [self]
+        leaves = []
+        for child in self.children:
+            leaves.extend(child.get_leaves())
+        return leaves
 
-def serialize_to_dict_iterative(root):
-    # DONE how does this differ from root.to_dict() ?
-    # This differs by using an iterative approach (compared to a recursive approach), which does not run into the recursion depth limit
-    # TODO change default implementation of Node.to_dict() to use an iterative approach, so that very deep trees can be handled.
-    if root is None:
-        return None
+    def reorder_taxa(self, permutation: List[str]) -> None:
+        """
+        Reorder the taxa in the tree according to the given permutation.
+        """
+        # Create a mapping from taxa names to their new positions
+        taxa_order = {name: idx for idx, name in enumerate(permutation)}
 
-    stack = [(root, None)]  # Stack of tuples (node, parent_serialized_node)
-    root_serialized = None
+        # Recursive function to reorder children
+        def _reorder(node: "Node") -> None:
+            if node.children:
+                # Sort children based on the minimum index of their descendant taxa
+                node.children.sort(
+                    key=lambda child: min(
+                        taxa_order[leaf.name] for leaf in child.get_leaves()
+                    )
+                )
+                for child in node.children:
+                    _reorder(child)
 
-    while stack:
-        node, parent_serialized = stack.pop()
-
-        # Serialize current node
-        serialized_node = node.to_dict()
-
-        # Attach to parent
-        if parent_serialized is not None:
-            parent_serialized["children"].append(serialized_node)
-        else:
-            root_serialized = serialized_node
-
-        # Add children to stack
-        for child in reversed(node.children):  # Reverse to maintain order
-            stack.append((child, serialized_node))
-
-    return root_serialized
+        _reorder(self)

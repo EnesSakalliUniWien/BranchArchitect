@@ -86,7 +86,7 @@ def init_nodestack():
     return [root]
 
 def parse_newick(tokens: str, order: Optional[List[str]] = None, default_length: float = 1.0, force_list: bool = False) -> Union[Node, List[Node]]:
-    trees = _parse_newick(tokens, default_length=default_length)
+    trees : List[Node] = _parse_newick(tokens, default_length=default_length)
 
     if order is None:
         order = get_linear_order(trees[0])

@@ -1,12 +1,11 @@
 from brancharchitect.newick_parser import parse_newick
-from brancharchitect.tree import serialize_to_dict_iterative, Node
+from brancharchitect.tree import Node
 from brancharchitect.svg import generate_svg
 from uuid import UUID
 import json
 
 
 class UUIDEncoder(json.JSONEncoder):
-
     def default(self, obj):
         if isinstance(obj, UUID):
             # if the obj is uuid, we simply return the value of uuid
@@ -27,13 +26,13 @@ def read_newick(path, order=None, force_list=False):
 
 def write_json(tree, path):
     serialized_tree = tree.to_dict()
-    with open(path, mode='w') as f:
+    with open(path, mode="w") as f:
         dump_json(serialized_tree, f)
 
 
 def write_svg(tree, path, ignore_branch_lengths=False):
     svg = generate_svg(tree, ignore_branch_lengths=ignore_branch_lengths)
-    with open(path, mode='wb') as f:
+    with open(path, mode="wb") as f:
         f.write(svg)
 
 
@@ -48,4 +47,3 @@ def write_tree_dictionaries_to_json(tree_list: list[Node], file_name: str):
     serialized_tree_list = serialize_tree_list_to_json(tree_list)
     with open(file_name, "w") as f:
         dump_json(serialized_tree_list, f)
-
