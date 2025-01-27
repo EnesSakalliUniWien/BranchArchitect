@@ -1,14 +1,16 @@
-from brancharchitect.jumping_taxa.elemental import merge_sedges, decode_indices_to_taxa
+from brancharchitect.jumping_taxa.elemental import merge_sedges
 from brancharchitect.jumping_taxa.deletion_algorithm import delete_taxa
 from brancharchitect.jumping_taxa.algorithm_one import find_jumping_taxa_algorithm_one
 from brancharchitect.jumping_taxa.elemental import calculate_component_set
-from logging import getLogger
+from brancharchitect.io import parse_newick
+
 from brancharchitect.jumping_taxa.functional_tree import (
     FunctionalTree,
     ComponentSet,
     Component,
     build_functional_tree,
 )
+
 from brancharchitect.jumping_taxa.elemental import (
     argmax,
     count,
@@ -29,8 +31,12 @@ from brancharchitect.jumping_taxa.tree_interpolation import (
     interpolate_adjacent_tree_pairs,
     interpolate_tree,
 )
+
 from brancharchitect.newick_parser import get_taxa_name_circular_order
 from brancharchitect.tree import Node
+
+from logging import getLogger
+
 
 logger = getLogger(__name__)
 
@@ -67,6 +73,7 @@ def algo5_partial_partial_cond(t1, t2):
 
     return cond
 
+
 # ============================================== Case For Edge Types ====================================================== #
 def is_anti_s_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
     return t._edge_types[ancestor_edge.split_indices] == "anti"
@@ -82,6 +89,7 @@ def is_partial_s_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
 
 def is_none_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
     return t._edge_types[ancestor_edge.split_indices] == "none"
+
 
 # ============================================== Case For Edge Types ====================================================== #
 def case_full_full(sedge: Node, t1: FunctionalTree, t2):
@@ -235,7 +243,7 @@ def algorithm_5_for_sedge(sedge, t1: FunctionalTree, t2: FunctionalTree, sorted_
         raise Exception(f"We forgot one case: {sedge}")
 
 
-def algorithm_five(it1 : Node, it2: Node, sorted_nodes: list[str]):
+def algorithm_five(it1: Node, it2: Node, sorted_nodes: list[str]):
     # Build functional trees from the intermediate trees
     t1 = build_functional_tree(it1)
     t2 = build_functional_tree(it2)
@@ -256,30 +264,30 @@ def algorithm_five(it1 : Node, it2: Node, sorted_nodes: list[str]):
 
         # Iterate over all S-edges
         for s_edge in all_s_edges:
-            
+
             # Execute Algorithm 5 for the current S-edge
             component_indices = algorithm_5_for_sedge(s_edge, t1, t2, sorted_nodes)
-                                    
+
             global_component_list += component_indices
-            
+
             # Translate taxa to indices
             taxa = list(set([y for x in component_indices for y in x]))
-            
+
             # Append to global decoded result list
             global_component_list += component_indices
-            
+
         # Stop condition for pruning
         if len(component_indices) > 0 and (len(sorted_nodes) - len(taxa) > 3):
-            
+
             # Delete leaves and interpolate
             p_it1, p_it2, _ = delete_leave_and_interpolate(p_it1, p_it2, taxa)
-            
-            # Rebuild functional trees and S-edges after pruning            
+
+            # Rebuild functional trees and S-edges after pruning
             t1 = build_functional_tree(p_it1)
-            t2 = build_functional_tree(p_it2)            
-            
+            t2 = build_functional_tree(p_it2)
+
             all_s_edges = t1._all_sedges.union(t2._all_sedges)
-            
+
         else:
             # Break the loop if no further pruning is required
             break
@@ -287,10 +295,13 @@ def algorithm_five(it1 : Node, it2: Node, sorted_nodes: list[str]):
     # Return the unique set of global decoded results
     return list(set(global_component_list))
 
+
 # ============================================== Pruning ====================================================== #
 
 
-def delete_leave_and_interpolate(original_tree_one : Node, original_tree_two : Node, to_be_deleted_leaves=[]):
+def delete_leave_and_interpolate(
+    original_tree_one: Node, original_tree_two: Node, to_be_deleted_leaves=[]
+):
     pruned_tree_one = delete_taxa(original_tree_one, to_be_deleted_leaves)
     pruned_tree_two = delete_taxa(original_tree_two, to_be_deleted_leaves)
 
@@ -303,14 +314,14 @@ def delete_leave_and_interpolate(original_tree_one : Node, original_tree_two : N
 # ============================================== Main ====================================================== #
 
 if __name__ == "__main__":
-    adjacent_tree_list = interpolate_adjacent_tree_pairs(
-        [
-            "(((A:1,B:1):1,(C:1,D:1):1):1,(O1:1,O2:1):1);",
-            "(((A:1,B:1,D:1):1,C:1):1,(O1:1,O2:1):1);",
-        ]
+    trees = parse_newick(
+        "(((A:1,B:1):1,(C:1,D:1):1):1,(O1:1,O2:1):1);"
+        + "(((A:1,B:1,D:1):1,C:1):1,(O1:1,O2:1):1);",
     )
+    adjacent_tree_list = interpolate_adjacent_tree_pairs(trees)
     first_order_tree = adjacent_tree_list[0]
     circular_order = get_taxa_name_circular_order(first_order_tree)
+
     results = algorithm_five(
         adjacent_tree_list[1], adjacent_tree_list[4], circular_order
     )

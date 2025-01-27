@@ -1,6 +1,5 @@
 from brancharchitect.newick_parser import parse_newick
 from brancharchitect.component_distance import component_distance, jump_path_distance
-from brancharchitect.distances import robinson_foulds_distance
 from brancharchitect.jumping_taxa.bruteforce_algorithm import algorithm as brute_force_algo
 
 

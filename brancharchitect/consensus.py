@@ -40,7 +40,6 @@ def create_majority_consensus_tree_extended(trees: List[Node]):
         if all(compatible(split, existing_split) for existing_split in applied_splits):
             apply_split_in_tree(split, tree)
             applied_splits.append(split)
-
     return tree
 
 

@@ -1,6 +1,4 @@
-from brancharchitect.newick_parser import parse_newick
 from brancharchitect.tree import Node
-import json
 
 __all__ = ['interpolate_tree', 'interpolate_adjacent_tree_pairs']
 
@@ -19,7 +17,7 @@ def interpolate_tree(tree_one: Node, tree_two: Node):
     return (it1, c1, c2, it2)
 
 
-def interpolate_adjacent_tree_pairs(tree_list) -> list[Node]:
+def interpolate_adjacent_tree_pairs(tree_list: list[Node]) -> list[Node]:
     results = []
     for i in range(len(tree_list) - 1):
         tree_one = tree_list[i]
@@ -36,8 +34,6 @@ def interpolate_adjacent_tree_pairs(tree_list) -> list[Node]:
 
 
 ### Private API ###
-
-
 def calculate_intermediate_tree(tree, split_dict):
     it = tree.deep_copy()
     _calculate_intermediate_tree(it, split_dict)
@@ -67,13 +63,12 @@ def _calculate_consensus_tree(node, split_dict):
         else:
             for child in processed_child.children:
                 new_children.append(child)
-
     node.children = new_children
     return node
 
 
 def get_split_dict(node: Node, split_dict: dict[list[int], float]=None):
-    if split_dict == None:
+    if split_dict is None:
         split_dict = {}
     for child in node.children:
         split_dict = get_split_dict(child, split_dict)

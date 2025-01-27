@@ -1,6 +1,6 @@
 from brancharchitect.newick_parser import parse_newick
 from brancharchitect.tree import Node
-from brancharchitect.svg import generate_svg
+from brancharchitect.plot.svg import generate_svg_multiple_trees
 from uuid import UUID
 import json
 
@@ -20,6 +20,7 @@ def dump_json(tree, f):
 def read_newick(path, order=None, force_list=False):
     with open(path) as f:
         newick_string = f.read()
+
     tree = parse_newick(newick_string, order=order, force_list=force_list)
     return tree
 
@@ -31,7 +32,9 @@ def write_json(tree, path):
 
 
 def write_svg(tree, path, ignore_branch_lengths=False):
-    svg = generate_svg(tree, ignore_branch_lengths=ignore_branch_lengths)
+    svg = generate_svg_multiple_trees(
+        [tree], ignore_branch_lengths=ignore_branch_lengths
+    )
     with open(path, mode="wb") as f:
         f.write(svg)
 
@@ -39,7 +42,7 @@ def write_svg(tree, path, ignore_branch_lengths=False):
 def serialize_tree_list_to_json(tree_list: list[Node]):
     serialized_tree_list = []
     for tree in tree_list:
-        serialized_tree_list.append(tree.serialize_to_dict())
+        serialized_tree_list.append(tree.to_dict())
     return serialized_tree_list
 
 
@@ -47,3 +50,4 @@ def write_tree_dictionaries_to_json(tree_list: list[Node], file_name: str):
     serialized_tree_list = serialize_tree_list_to_json(tree_list)
     with open(file_name, "w") as f:
         dump_json(serialized_tree_list, f)
+ 
