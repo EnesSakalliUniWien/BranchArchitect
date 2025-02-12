@@ -1,8 +1,9 @@
-from brancharchitect.jumping_taxa.elemental import merge_sedges
 from brancharchitect.jumping_taxa.deletion_algorithm import delete_taxa
-from brancharchitect.jumping_taxa.algorithm_one import find_jumping_taxa_algorithm_one
-from brancharchitect.jumping_taxa.elemental import calculate_component_set
-from brancharchitect.io import parse_newick
+from brancharchitect.jumping_taxa.debug_tools import set_leaf_order
+from brancharchitect.tree import Node
+from typing import List
+from brancharchitect.plot.svg import generate_svg_two_trees
+from brancharchitect.jumping_taxa.debug_tools import RawHTML
 
 from brancharchitect.jumping_taxa.functional_tree import (
     FunctionalTree,
@@ -10,7 +11,10 @@ from brancharchitect.jumping_taxa.functional_tree import (
     Component,
     build_functional_tree,
 )
-
+from brancharchitect.jumping_taxa.debug_tools import watch_variables
+from brancharchitect.jumping_taxa.tree_interpolation import (
+    interpolate_tree,
+)
 from brancharchitect.jumping_taxa.elemental import (
     argmax,
     count,
@@ -26,40 +30,24 @@ from brancharchitect.jumping_taxa.elemental import (
     remove_last_component_if_longer_than_one,
     union,
     reduce,
+    cut,
+    calculate_component_set,
+    merge_sedges,
+    remove_empty_lists,
+    find_exact_max_intersection,
 )
-from brancharchitect.jumping_taxa.tree_interpolation import (
-    interpolate_adjacent_tree_pairs,
-    interpolate_tree,
-)
-
-from brancharchitect.newick_parser import get_taxa_name_circular_order
-from brancharchitect.tree import Node
-
-from logging import getLogger
 
 
-logger = getLogger(__name__)
-
-
-def print_component_map(component_set, sorted_nodes, title=None):
-    if title:
-        logger.info(title)
-    logger.info(component_set)
-    for component_set in component_set:
-        components_converted = []
-        for components in component_set:
-            components_converted.append(
-                [sorted_nodes[sub_component] for sub_component in components]
-            )
-        logger.info(components_converted)
-
+def plot_tree_svg(tree_one: Node, tree_two: Node):
+    svg_str = generate_svg_two_trees(tree_one, tree_two)
+    return RawHTML(svg_str)
 
 def get_ancestor_edge(t: FunctionalTree, c: ComponentSet) -> Node:
     return t._ancestor_edges[tuple(c)]
 
-
 def algo5_partial_partial_cond(t1, t2):
     def cond(component):
+
         ancestor_edge1 = get_ancestor_edge(t1, component)
         ancestor_edge2 = get_ancestor_edge(t2, component)
 
@@ -70,7 +58,7 @@ def algo5_partial_partial_cond(t1, t2):
         anti2 = is_anti_s_edge(t2, ancestor_edge2)
 
         return (partial1 and anti2) or (anti1 and partial2)
-
+    
     return cond
 
 
@@ -89,60 +77,6 @@ def is_partial_s_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
 
 def is_none_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
     return t._edge_types[ancestor_edge.split_indices] == "none"
-
-
-# ============================================== Case For Edge Types ====================================================== #
-def case_full_full(sedge: Node, t1: FunctionalTree, t2):
-    return find_jumping_taxa_algorithm_one(sedge, t1, t2)
-
-
-def case_full_none(sedge, t1, t2):
-    return find_jumping_taxa_algorithm_one(sedge, t1, t2)
-
-
-def case_partial_partial(sedge, t1, t2, sorted_nodes):
-    c1 = calculate_component_set(t1, sedge)
-    c2 = calculate_component_set(t2, sedge)
-
-    print_component_map(c1, sorted_nodes, "C1")
-    print_component_map(c2, sorted_nodes, "C2")
-
-    cf1 = filter_components_from_arms(algo5_partial_partial_cond(t1, t2), c1)
-    cf2 = filter_components_from_arms(algo5_partial_partial_cond(t2, t1), c2)
-
-    print_component_map(cf1, sorted_nodes, "CF1")
-    print_component_map(cf2, sorted_nodes, "CF2")
-
-    cff1 = filter_(lambda x: len(x) != 0, cf1)
-    cff2 = filter_(lambda x: len(x) != 0, cf2)
-
-    print_component_map(cff1, sorted_nodes, "CFF1")
-    print_component_map(cff2, sorted_nodes, "CFF2")
-
-    c12 = cartesian(cff1, cff2)
-
-    intersections = map2(intersect, c12)
-    print_component_map(intersections, sorted_nodes, "Intersections")
-
-    symmetric_differences = map2(symm, c12)
-
-    print_component_map(symmetric_differences, sorted_nodes, "Symmetric Differences")
-
-    voting_map = intersections + symmetric_differences
-
-    voting_map_filtered = filter_(lambda x: x, voting_map)
-
-    m: list[Component] = argmax(
-        voting_map_filtered, lambda x: count(voting_map_filtered, x)
-    )
-
-    m = argmin(m, size)
-
-    c = map1(remove_last_component_if_longer_than_one, m)
-
-    c = reduce(union, c)
-
-    return c
 
 
 def algo5_partial_none_only_partial(t1):
@@ -167,161 +101,329 @@ def algo5_partial_none_only_anti_sedge(t1):
     return cond
 
 
-def case_partial_none(sedge, t1, t2, sorted_nodes):
+def algo5_is_none_s_edge(t1):
+    def cond(component):
+        ancestor_edge1 = get_ancestor_edge(t1, component)
+
+        none_edge = is_none_edge(t1, ancestor_edge1)
+
+        return none_edge
+
+    return cond
+
+
+def algo5_ancestor_is_partial_s_edge(t1):
+    def cond(component):
+        ancestor_edge1 = get_ancestor_edge(t1, component)
+
+        none_edge = is_none_edge(t1, ancestor_edge1)
+
+        return none_edge
+
+    return cond
+
+
+# ============================================== Case For Edge Types ====================================================== #
+def case_full_full(
+    sedge: Node,
+    t1: FunctionalTree,
+    t2: FunctionalTree,
+    original_tree_one: Node,
+    original_tree_two: Node,
+):
+    return algo1(sedge, t1, t2, original_tree_one, original_tree_two)
+
+
+def case_full_none(
+    sedge, t1: FunctionalTree, t2: FunctionalTree, original_tree_one, original_tree_two
+):
+    return algo1(sedge, t1, t2, original_tree_one, original_tree_two)
+
+
+# @watch_variables(
+#     var_names=[
+#         "plots",
+#         "c1",
+#         "c2",
+#         "intersections",
+#         "symmetric_differences",
+#         "voting_map",
+#         "m",
+#         "c",
+#     ],
+#     max_items=5,
+# )
+def case_partial_partial(
+    sedge,
+    t1: FunctionalTree,
+    t2: FunctionalTree,
+    original_tree_one: Node,
+    original_tree_two: Node,
+):
+    plots = []
+    # Generate SVG plots from the interpolated trees’ Newick strings.
+    plots.append(plot_tree_svg(original_tree_one, original_tree_two))
+
     c1 = calculate_component_set(t1, sedge)
     c2 = calculate_component_set(t2, sedge)
+    
+    c1 = filter_components_from_arms(algo5_partial_partial_cond(t1, t2), c1)
+    c2 = filter_components_from_arms(algo5_partial_partial_cond(t2, t1), c2)
 
-    print_component_map(c1, sorted_nodes, "C1")
-    print_component_map(c2, sorted_nodes, "C2")
+    c1 = filter_(lambda x: len(x) != 0, c1)
+    c2 = filter_(lambda x: len(x) != 0, c2)
 
-    cf1_anti_s_edge = filter_components_from_arms(
-        algo5_partial_none_only_anti_sedge(t1), c1
+    c12 = cartesian(c1, c2)
+
+    intersections = map2(intersect, c12)
+    intersections = remove_empty_lists(intersections)
+
+    symmetric_differences = map2(symm, c12)
+    symmetric_differences = remove_empty_lists(symmetric_differences)
+
+    voting_map = intersections + symmetric_differences
+    voting_map_filtered = filter_(lambda x: x, voting_map)
+
+    m: list[Component] = argmax(
+        voting_map_filtered, lambda x: count(voting_map_filtered, x)
     )
 
-    cf1_partial_s_edge = filter_components_from_arms(
-        algo5_partial_none_only_partial(t1), c1
-    )
+    m = argmin(m, size)
 
-    print_component_map(cf1_anti_s_edge, sorted_nodes, "CF1 Anti S-edge")
-
-    print_component_map(cf1_partial_s_edge, sorted_nodes, "Partial S-edge")
-
-    cf1_partial_s_edge = [reduce(union, cf1_partial_s_edge)]
-
-    print_component_map(cf1_partial_s_edge, sorted_nodes, "Reduced partial s-edges")
-
-    combined = cf1_partial_s_edge + cf1_anti_s_edge
-
-    print_component_map(combined, sorted_nodes, "Combined")
-
-    cf1 = argmin(combined, size)
-
-    c = map1(remove_last_component_if_longer_than_one, cf1)
+    c = map1(remove_last_component_if_longer_than_one, m)
 
     c = reduce(union, c)
 
     return c
 
 
+@watch_variables(
+    var_names=[
+        "plots",
+        "c1",
+        "c2",
+        "m",
+        "r",
+    ],
+    max_items=5,
+)
+def case_partial_none(
+    sedge,
+    partial_sedge_subtree: FunctionalTree,
+    none_s_edge_subtree: FunctionalTree,
+    original_tree_one: Node,
+    original_tree_two: Node,
+):
+    plots = []
+
+    # Generate SVG plots from the interpolated trees’ Newick strings.
+    plots.append(plot_tree_svg(original_tree_one, original_tree_two))
+
+    c1 = calculate_component_set(partial_sedge_subtree, sedge)
+    c2 = calculate_component_set(none_s_edge_subtree, sedge)
+
+    r = find_exact_max_intersection(c1, c2)
+
+    return r
+
+
+# @watch_variables(
+#     var_names=[
+#         "plots",
+#         "c1",
+#         "c2",
+#         "intersections",
+#         "symmetric_differences",
+#         "voting_map",
+#         "m",
+#         "r",
+#         "rr",
+#     ],
+#     max_items=5,
+# )
+def algo1(
+    sedge: Node,
+    t1: FunctionalTree,
+    t2: FunctionalTree,
+    original_tree_one: Node,
+    original_tree_two: Node,
+) -> list[Component]:
+    plots = []
+
+    # Generate SVG plots from the interpolated trees’ Newick strings.
+    plots.append(plot_tree_svg(original_tree_one, original_tree_two))
+
+    c1: list[ComponentSet] = calculate_component_set(t1, sedge)
+
+    c2: list[ComponentSet] = calculate_component_set(t2, sedge)
+
+    c12: list[tuple[ComponentSet, ComponentSet]] = cartesian(c1, c2)
+
+    intersections: list[ComponentSet] = map2(cut, c12)
+
+    voting_map = remove_empty_lists(intersections)
+
+    symmetric_differences: list[ComponentSet] = map2(symm, c12)
+
+    voting_map = remove_empty_lists(symmetric_differences)
+
+    voting_map: list[ComponentSet] = intersections + symmetric_differences
+
+    voting_map = remove_empty_lists(voting_map)
+
+    m: list[Component] = argmax(voting_map, lambda x: count(voting_map, x))
+
+    r: list[Component] = argmin(m, size)
+
+    rr: list[Component] = reduce(union, r)
+
+    if len({len(item) for item in r}) == 1:
+        rr = next(iter(r))  # Preserve order without converting to set
+
+    return rr
+
 # ============================================== Algorithm 5 ====================================================== #
-
-
-def algorithm_5_for_sedge(sedge, t1: FunctionalTree, t2: FunctionalTree, sorted_nodes):
+def algorithm_5_for_sedge(
+    sedge,
+    t1: FunctionalTree,
+    t2: FunctionalTree,
+    original_tree_one: Node,
+    original_tree_two: Node,
+):
     if is_full_s_edge(t1, sedge) and is_full_s_edge(t2, sedge):
-        logger.info("Full Full")
-        return case_full_full(sedge, t1, t2)
-
+        # debug_console.print("======== T1 is full T2 is full ======== ")
+        return case_full_full(sedge, t1, t2, original_tree_one, original_tree_two)
     if is_full_s_edge(t1, sedge) and is_partial_s_edge(t2, sedge):
-        logger.info("Full Partial")
-        return case_full_full(sedge, t1, t2)
-
+        # debug_console.print("========  T1 is full T2 is partial ========")
+        return case_full_full(sedge, t1, t2, original_tree_one, original_tree_two)
     if is_partial_s_edge(t1, sedge) and is_full_s_edge(t2, sedge):
-        logger.info("Partial Full")
-        return case_full_full(sedge, t2, t1)
-
+        # debug_console.print("======== T1 is partial T2 is full ========")
+        return case_full_full(sedge, t2, t1, original_tree_one, original_tree_two)
     if is_partial_s_edge(t1, sedge) and is_partial_s_edge(t2, sedge):
-        logger.info("Partial Partial")
-
-        return case_partial_partial(sedge, t1, t2, sorted_nodes)
-
+        # debug_console.print("======== T1 is partial T2 is partial =======")
+        return case_partial_partial(sedge, t1, t2, original_tree_one, original_tree_two)
     if is_partial_s_edge(t1, sedge) and is_none_edge(t2, sedge):
-        logger.info("PARTIAL NONE")
-        return case_partial_none(sedge, t1, t2, sorted_nodes)
-
+        # debug_console.print("======== T1 is partial T2 is none ========")
+        return case_partial_none(
+            sedge,
+            t1,
+            t2,
+            original_tree_one,
+            original_tree_two,
+        )
     if is_none_edge(t1, sedge) and is_partial_s_edge(t2, sedge):
-        logger.info("NONE PARTIAL")
-
-        return case_partial_none(sedge, t2, t1, sorted_nodes)
-
+        # debug_console.print("======== T1 is none T2 is partial ========")
+        return case_partial_none(sedge, t1, t2, original_tree_one, original_tree_two)
     if is_full_s_edge(t1, sedge):
-        return case_full_full(sedge, t1, t2)
-
+        # debug_console.print("======== T1 is full ========")
+        return case_full_full(sedge, t1, t2, original_tree_one, original_tree_two)
     if is_full_s_edge(t2, sedge):
-        return case_full_full(sedge, t1, t2)
-
+        # debug_console.print("======== T2 is full ========")
+        return case_full_full(
+            sedge,
+            t1,
+            t2,
+            original_tree_one,
+            original_tree_two,
+        )
     else:
         raise Exception(f"We forgot one case: {sedge}")
 
 
-def algorithm_five(it1: Node, it2: Node, sorted_nodes: list[str]):
-    # Build functional trees from the intermediate trees
-    t1 = build_functional_tree(it1)
-    t2 = build_functional_tree(it2)
+@watch_variables(var_names=["global_components", "plots"], max_items=5)
+def algorithm_five(input_tree1: Node, input_tree2: Node, leaf_order: list[str]):
+    """
+    Runs 'algorithm five' on two trees, pruning iteratively based on discovered components.
 
-    # Initialize a list to store the global decoded results
-    global_component_list: list[int] = []
+    Args:
+        input_tree1 (Node): The first input tree (root node).
+        input_tree2 (Node): The second input tree (root node).
+        leaf_order (list[str]): The list of leaf labels in a certain (sorted) order.
 
-    # Merge the S-edges from both trees
-    all_s_edges = merge_sedges(t1._all_sedges, t2._all_sedges)
+    Returns:
+        list[int]: A list of unique components (encoded as integer indices) discovered by the algorithm.
+    """
+    set_leaf_order(leaf_order)
 
-    # Initialize pruned trees
-    p_it1 = it1
-    p_it2 = it2
+    (
+        intermediate_trees_one,
+        consensus_tree_one,
+        consensus_tree_two,
+        intermediate_trees_two,
+    ) = interpolate_tree(input_tree1, input_tree2)
 
+    # 1. Build functional trees
+    func_tree1 = build_functional_tree(intermediate_trees_one)
+    func_tree2 = build_functional_tree(intermediate_trees_two)
+
+    # 2. Global store for discovered components
+    global_components: list[int] = []
+
+    # 3. Merge S-edges from both functional trees
+    merged_sedges: List[ComponentSet] = merge_sedges(
+        func_tree1._all_sedges, func_tree2._all_sedges
+    )
+    # 4. Initialize pruned trees
+    pruned_original_tree1, pruned_original_tree2 = input_tree1, input_tree2
+
+    # Track remaining leaves dynamically
+
+    remaining_leaves = len(leaf_order)
+
+    # 5. Loop until no more pruning is required
     while True:
-        taxa = []
-        component_indices = []
+        iteration_components = []
+        iteration_taxa = set()  # Collect unique taxa to delete in this iteration
 
-        # Iterate over all S-edges
-        for s_edge in all_s_edges:
+        for s_edge in merged_sedges:
+            new_components = algorithm_5_for_sedge(
+                s_edge,
+                func_tree1,
+                func_tree2,
+                pruned_original_tree1,
+                pruned_original_tree2,
+            )
 
-            # Execute Algorithm 5 for the current S-edge
-            component_indices = algorithm_5_for_sedge(s_edge, t1, t2, sorted_nodes)
+            iteration_components.extend(new_components)
+            for comp in new_components:
+                iteration_taxa.update(comp)
+            global_components += new_components
 
-            global_component_list += component_indices
+        current_proposed_deletions = len(iteration_taxa)
+        # Check if any components found AND remaining leaves after deletion > 3
+        if iteration_components and (remaining_leaves - current_proposed_deletions) > 3:
+            # Update remaining leaves count
+            remaining_leaves -= current_proposed_deletions
 
-            # Translate taxa to indices
-            taxa = list(set([y for x in component_indices for y in x]))
+            # Prune leaves
+            pruned_original_tree1, pruned_original_tree2 = delete_leaves(
+                pruned_original_tree1, pruned_original_tree2, list(iteration_taxa)
+            )
 
-            # Append to global decoded result list
-            global_component_list += component_indices
+            interpolated_pruned_tree1, interpolated_pruned_tree2 = (
+                get_intermediate_trees(pruned_original_tree1, pruned_original_tree2)
+            )
 
-        # Stop condition for pruning
-        if len(component_indices) > 0 and (len(sorted_nodes) - len(taxa) > 3):
+            # Rebuild functional trees with pruned trees
+            func_tree1 = build_functional_tree(interpolated_pruned_tree1)
+            func_tree2 = build_functional_tree(interpolated_pruned_tree2)
 
-            # Delete leaves and interpolate
-            p_it1, p_it2, _ = delete_leave_and_interpolate(p_it1, p_it2, taxa)
-
-            # Rebuild functional trees and S-edges after pruning
-            t1 = build_functional_tree(p_it1)
-            t2 = build_functional_tree(p_it2)
-
-            all_s_edges = t1._all_sedges.union(t2._all_sedges)
-
+            # Update merged sedges for next iteration
+            merged_sedges = merge_sedges(func_tree1._all_sedges, func_tree2._all_sedges)
         else:
-            # Break the loop if no further pruning is required
-            break
+            break  # Exit loop if no components or insufficient leaves remain
 
-    # Return the unique set of global decoded results
-    return list(set(global_component_list))
+    return list(set(global_components))
 
 
 # ============================================== Pruning ====================================================== #
-
-
-def delete_leave_and_interpolate(
+def delete_leaves(
     original_tree_one: Node, original_tree_two: Node, to_be_deleted_leaves=[]
 ):
     pruned_tree_one = delete_taxa(original_tree_one, to_be_deleted_leaves)
     pruned_tree_two = delete_taxa(original_tree_two, to_be_deleted_leaves)
+    return pruned_tree_one, pruned_tree_two
 
-    interpolated_trees = interpolate_tree(pruned_tree_one, pruned_tree_two)
-    circular_order = get_taxa_name_circular_order(interpolated_trees[0])
-
-    return interpolated_trees[0], interpolated_trees[3], circular_order
-
-
-# ============================================== Main ====================================================== #
-
-if __name__ == "__main__":
-    trees = parse_newick(
-        "(((A:1,B:1):1,(C:1,D:1):1):1,(O1:1,O2:1):1);"
-        + "(((A:1,B:1,D:1):1,C:1):1,(O1:1,O2:1):1);",
-    )
-    adjacent_tree_list = interpolate_adjacent_tree_pairs(trees)
-    first_order_tree = adjacent_tree_list[0]
-    circular_order = get_taxa_name_circular_order(first_order_tree)
-
-    results = algorithm_five(
-        adjacent_tree_list[1], adjacent_tree_list[4], circular_order
-    )
+def get_intermediate_trees(original_tree_one: Node, original_tree_two: Node):
+    interpolated_trees = interpolate_tree(original_tree_one, original_tree_two)
+    return interpolated_trees[0], interpolated_trees[3]

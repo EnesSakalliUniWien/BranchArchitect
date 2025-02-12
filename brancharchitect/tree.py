@@ -1,12 +1,11 @@
 import json
 import itertools
-import math
 from enum import Enum
 from statistics import mean
 from collections import deque
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import Optional, Any, Tuple, Dict, List, Generator
-from brancharchitect.split import SplitIndices, IndexedSplitSet, IndexedSplit
+from brancharchitect.split import IndexedSplitSet, SplitIndices
 
 
 class ReorderStrategy(Enum):
@@ -30,8 +29,6 @@ class Node:
     _cached_splits: Optional[set] = field(default=None, init=False, compare=False)
     _split_index = None
     _list_index = None
-    
-
 
     # ------------------------------------------------------------------------
     # (NEW) Cache for get_current_order
@@ -54,6 +51,9 @@ class Node:
     def __repr__(self) -> str:
         return f"Node('{self.name}')"
 
+    def __str__(self):
+        return str(self.get_current_order())
+
     # ------------------------------------------------------------------------
     # Save/restore & ID assignment (unchanged)
     # ------------------------------------------------------------------------
@@ -73,7 +73,7 @@ class Node:
     # ------------------------------------------------------------------------
     # Splits & related caching (unchanged)
     # ------------------------------------------------------------------------
-    def to_splits(self) -> set[SplitIndices]:
+    def to_splits(self, with_leaves=False) -> set[SplitIndices]:
         if self._cached_splits is not None:
             return self._cached_splits
         splits = set()
@@ -81,7 +81,8 @@ class Node:
             if nd.children:
                 splits.add(nd.split_indices)
             else:
-                pass
+                if(with_leaves):
+                    splits.add(nd.split_indices)
         self._cached_splits = splits
         return splits
 
@@ -99,6 +100,10 @@ class Node:
             self._populate_split_index(ch)
 
     def find_node_by_split(self, target_split) -> Optional["Node"]:
+        if hasattr(target_split, "indices"):
+            target_split = tuple(
+                target_split.indices
+            )  # use indices attribute for conversion
         if self._split_index is None:
             self.build_split_index()
         return self._split_index.get(target_split)
@@ -153,7 +158,7 @@ class Node:
             idxs = []
             for ch in self.children:
                 idxs.extend(ch.split_indices)
-            self.split_indices = tuple(sorted(idxs))
+            self.split_indices = SplitIndices(tuple(sorted(idxs)), tuple(order))
 
     # ------------------------------------------------------------------------
     # traversal, fix_child_order, to_hierarchy, etc. (unchanged)
@@ -228,25 +233,12 @@ class Node:
 
         _reorder(self)
 
-    def to_indexed_split_set(self) -> "IndexedSplitSet":
-        """
-        Create and return an IndexedSplitSet from the splits of this Node's subtree.
-        This method assumes:
-        - self._order is defined (a list of taxa).
-        - self._initialize_split_indices(self._order) has been called on the root node,
-          so every internal node has split_indices assigned.
-        Returns:
-            IndexedSplitSet: The set of indexed splits derived from this node.
-        """
-        # Extract all SplitIndices from this node's subtree
-        node_splits = self.to_splits()
-        # Convert each SplitIndices into an IndexedSplit
-        indexed_splits = {IndexedSplit(s, tuple(self._order)) for s in node_splits}
-        # Create an IndexedSplitSet from these indexed splits
-        return IndexedSplitSet(indexed_splits, tuple(self._order))
-
-    def to_indexed_split(self) -> IndexedSplit:
-        return IndexedSplit(self.split_indices, self._order)
+    def to_indexed_split_set(self, with_leaves: bool = False) -> IndexedSplitSet:
+        # Suppose self.to_splits() now returns a set of raw tuple splits.
+        node_splits = self.to_splits(with_leaves=with_leaves)
+        # Create a set of SplitIndices objects.
+        split_indices_set = {SplitIndices(s, tuple(self._order)) for s in node_splits}
+        return IndexedSplitSet(split_indices_set, order=tuple(self._order))
 
     def to_apted_format(self) -> List[Any]:
         label = f"{self.name or ''}|{self.split_indices}"
@@ -288,10 +280,6 @@ class Node:
         return self._to_newick(lengths=lengths) + ";"
 
     def _to_newick(self, lengths: bool = True) -> str:
-        length_str = ""
-        if (self.length is not None) and lengths:
-            length_str = f":{self.length}"
-
         meta = ""
         if self.values:
             meta = "[" + ",".join(f"{k}={v}" for k, v in self.values.items()) + "]"
@@ -300,9 +288,9 @@ class Node:
             child_str = (
                 "(" + ",".join(ch._to_newick(lengths) for ch in self.children) + ")"
             )
-            return f"{child_str}{self.name or ''}{meta}{length_str}"
+            return f"{child_str}{self.name or ''}{meta}:{self.length}"
         else:
-            return f"{self.name or ''}{meta}{length_str}"
+            return f"{self.name or ''}{meta}:{self.length}"
 
     def _to_list(self) -> Any:
         if self.children:
@@ -314,7 +302,20 @@ class Node:
         return json.dumps(self.to_dict(), indent=4)
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        if self.is_leaf():
+            return {
+                "name": self.name,
+                "length": self.length,
+                "split_indices": self.split_indices,
+                "children": [],
+            }
+        else:
+            return {
+                "name": "",
+                "length": self.length,
+                "split_indices": self.split_indices,
+                "children": [child.to_dict() for child in self.children],
+            }
 
     def get_root(self) -> "Node":
         cur = self
@@ -565,7 +566,7 @@ def _flip_upward(new_root: Node) -> Node:
         # Remove circular reference
         if parent in current.children:
             current.children.remove(parent)
-            
+
         # Remove current from parent's children
         if current in parent.children:
             parent.children.remove(current)
@@ -573,7 +574,7 @@ def _flip_upward(new_root: Node) -> Node:
         # Reverse relationship
         current.parent = prev_node
         current.length = prev_length
-        
+
         if prev_node is not None:
             prev_node.children.append(current)
 

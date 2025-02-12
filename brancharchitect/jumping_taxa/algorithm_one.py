@@ -1,13 +1,34 @@
-from brancharchitect.newick_parser import Node, get_taxa_name_circular_order
-from brancharchitect.jumping_taxa.tree_interpolation import interpolate_adjacent_tree_pairs
-from brancharchitect.jumping_taxa.functional_tree import Component, ComponentSet, FunctionalTree, build_functional_tree
+from brancharchitect.tree import Node
+from brancharchitect.jumping_taxa.functional_tree import (
+    Component,
+    ComponentSet,
+    FunctionalTree,
+    build_functional_tree,
+)
 from brancharchitect.jumping_taxa.elemental import calculate_component_set
-from brancharchitect.jumping_taxa.elemental import intersect, symm, union, remove_empty_lists, count, size, argmax
-from brancharchitect.jumping_taxa.elemental import argmin, reduce, map1, map2, decode_indices_to_taxa, cartesian
+from brancharchitect.jumping_taxa.elemental import (
+    intersect,
+    symm,
+    union,
+    remove_empty_lists,
+    count,
+    size,
+    argmax,
+)
+from brancharchitect.jumping_taxa.elemental import (
+    argmin,
+    reduce,
+    map1,
+    map2,
+    decode_indices_to_taxa,
+    cartesian,
+    cut,
+)
 
 from logging import getLogger
 
 logger = getLogger(__name__)
+
 
 def find_jumping_taxa_algorithm_one(
     s_edge: Node, t1: FunctionalTree, t2: FunctionalTree

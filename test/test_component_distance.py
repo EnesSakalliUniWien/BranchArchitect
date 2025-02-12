@@ -1,6 +1,5 @@
 from brancharchitect.newick_parser import parse_newick
 from brancharchitect.component_distance import component_distance, jump_path_distance
-from brancharchitect.jumping_taxa.bruteforce_algorithm import algorithm as brute_force_algo
 
 
 def test_component_distance():
@@ -11,7 +10,6 @@ def test_component_distance():
     observed_distance = component_distance(trees[0], trees[1], components)
 
     assert expected_distance == observed_distance
-
 
 def test_two_component_distance():
     trees = parse_newick("(((6:1,5:1),(1:1,(2:1,X:1):1):1):1,O:1);" + "(((6:1,5:1),(1:1,(2:1,X:1):1):1):1,O:1);")

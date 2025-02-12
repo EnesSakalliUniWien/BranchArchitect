@@ -1,10 +1,9 @@
-from brancharchitect.jumping_taxa import call_jumping_taxa
-from brancharchitect.newick_parser import parse_newick
-
 import json
 import pytest
 import logging
 from pathlib import Path
+from brancharchitect.jumping_taxa import call_jumping_taxa
+from brancharchitect.newick_parser import parse_newick
 
 logger = logging.getLogger()
 
@@ -12,20 +11,21 @@ test_data_list = []
 i = 0
 
 for p in Path("test/data/trees/").glob("*"):
-    with open(p) as f:
-        data = json.load(f)
-        data["name"] = p.name
-    if "solutions" not in data:
-        logger.warning(f"Testdata {p.name} does not have a solution")
-    else:
-        if data["solutions"] is None:
-            data["solutions"] = [[]]
+    if p.is_file():
+        with open(p) as f:
+            data = json.load(f)
+            data["name"] = p.name
+        if "solutions" not in data:
+            logger.warning(f"Testdata {p.name} does not have a solution")
         else:
-            data["solutions"] = [
-                sorted([tuple(sorted(component)) for component in solution])
-                for solution in data["solutions"]
-            ]
-        test_data_list.append(data)
+            if data["solutions"] is None:
+                data["solutions"] = [[]]
+            else:
+                data["solutions"] = [
+                    sorted([tuple(sorted(component)) for component in solution])
+                    for solution in data["solutions"]
+                ]
+            test_data_list.append(data)
 
 
 @pytest.fixture(
@@ -43,9 +43,11 @@ def test_algorithm(test_data):
     comment = test_data["comment"]
 
     t1 = parse_newick(n1)
-    t2 = parse_newick(n2, t1._order)
+    t2 = parse_newick(n2, t1._order)  # pass in _order from t1 for consistent indexing
 
     jt = call_jumping_taxa(t1, t2)
-
-    jt = sorted([tuple(sorted(component)) for component in jt])
+    # Convert indices to names and ensure consistent sorting
+    jt = [tuple(t1._order[i] for i in component) for component in jt]
+    jt = sorted([tuple(sorted(comp)) for comp in jt])
+    
     assert jt in solutions

@@ -124,8 +124,7 @@ def parse_newick(
         tree._initialize_split_indices(order)
         tree._order = order
         tree._fix_child_order()
-        
-
+    
     if len(trees) == 1 and not force_list:
         return trees[0]
     return trees

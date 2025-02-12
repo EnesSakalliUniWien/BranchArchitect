@@ -1,5 +1,4 @@
 from typing import List, Set, Tuple, Dict
-import functools
 from brancharchitect.tree import Node
 from brancharchitect.leaforder.circular_distances import (
     circular_distance,
@@ -600,12 +599,15 @@ def smooth_order_of_trees_classic(
         )
 
         backward_improved = False
+        
         if backward:
+        
             trees.reverse()
 
             backward_improved = perform_one_iteration_classic(
                 trees, rotation_functions, optimize_two_side
             )
+        
             trees.reverse()
 
         if not (forward_improved or backward_improved):

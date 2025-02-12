@@ -76,8 +76,3 @@ def core(t1, t2):
                     jt = sorted(r, key=len)[0]
                 jumping_taxa.append(jt)
     return jumping_taxa
-
-
-
-
-

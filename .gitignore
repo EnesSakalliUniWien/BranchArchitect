@@ -8,3 +8,5 @@ order_optimisation_notebooks
 annotation_names.txt
 optimise_tree_order.py
 TreeCmp_v2.0-b76
+notebooks/experiments
+notebooks

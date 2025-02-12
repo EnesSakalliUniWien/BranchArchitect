@@ -50,4 +50,3 @@ def write_tree_dictionaries_to_json(tree_list: list[Node], file_name: str):
     serialized_tree_list = serialize_tree_list_to_json(tree_list)
     with open(file_name, "w") as f:
         dump_json(serialized_tree_list, f)
- 
