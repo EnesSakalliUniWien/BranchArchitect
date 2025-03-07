@@ -1,5 +1,6 @@
 from typing import List, Dict
-from brancharchitect.tree import Node, SplitIndices
+from brancharchitect.tree import Node
+from brancharchitect.split import Partition
 from collections import Counter
 
 
@@ -19,7 +20,7 @@ def create_consensus_tree(trees: List[Node]) -> Node:
     return tree
 
 
-def create_majority_consensus_tree(trees: List[Node], threshold: float= 0.50) -> Node:
+def create_majority_consensus_tree(trees: List[Node], threshold: float = 0.50) -> Node:
     tree = create_star_tree(trees[0]._order)
     splits = collect_splits(trees)
     for split, frequency in sort_splits(splits):
@@ -43,7 +44,7 @@ def create_majority_consensus_tree_extended(trees: List[Node]):
     return tree
 
 
-def collect_splits(trees: List[Node]) -> Dict[SplitIndices, float]:
+def collect_splits(trees: List[Node]) -> Dict[Partition, float]:
     taxa = len(trees[0]._order)
     total_trees = len(trees)
     counter = Counter()
@@ -56,21 +57,22 @@ def collect_splits(trees: List[Node]) -> Dict[SplitIndices, float]:
     counter = {split: count / total_trees for split, count in counter.items()}
     return counter
 
+
 def create_star_tree(taxons: List[str]) -> Node:
     tree: Node = Node(name="Root", split_indices=tuple(range(len(taxons))))
 
     for index, name in enumerate(taxons):
         child = Node(name=name, split_indices=(index,), length=1)
-        tree.append_child(child)
+        tree.append_child(child)  # This already calls invalidate_current_order_cache()
     return tree
 
 
-def compatible(split1: SplitIndices, split2: SplitIndices):
+def compatible(split1: Partition, split2: Partition):
     s1, s2 = set(split1), set(split2)
     return (s1 <= s2) or (s1 >= s2) or len((s1 & s2)) == 0
 
 
-def apply_split_in_tree(split: SplitIndices, node: Node) -> None:
+def apply_split_in_tree(split: Partition, node: Node) -> None:
     # Base case: if the node already has the split, return
     if node.split_indices == split:
         return
@@ -80,8 +82,8 @@ def apply_split_in_tree(split: SplitIndices, node: Node) -> None:
 
     # The split can be applied if it's a proper subset of the node's split indices
     if split_set < node_split_set:
-        group_a_children = []      # Children entirely within the split
-        group_b_children = []      # Children entirely outside the split
+        group_a_children = []  # Children entirely within the split
+        group_b_children = []  # Children entirely outside the split
         overlapping_children = []  # Children overlapping both sides
 
         for child in node.children:

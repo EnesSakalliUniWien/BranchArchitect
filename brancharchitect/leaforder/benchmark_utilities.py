@@ -1,4 +1,3 @@
-import io
 import logging
 import cProfile
 import pstats
@@ -412,21 +411,31 @@ def profile_and_visualize(
     backward=False,
     iterations=20,
     midpoint_rooted=True,
+    min_time_percent=1.0,  # Only show functions taking >1% of total time
+    focus_paths=None,  # Optional list of path substrings to focus on
 ):
     """
-    Profile and visualize the performance of multiple ordering methods on a given Newick file.
-    Shows a bar chart of the top cProfile function calls by cumulative time.
+    Enhanced profiling and visualization of multiple ordering methods.
+
+    Args:
+        filepath: Path to input Newick file
+        optimize_both_sides: Whether to optimize in both directions
+        backward: Whether to do backward pass
+        iterations: Number of optimization iterations
+        midpoint_rooted: Whether to use midpoint rooting
+        min_time_percent: Minimum percentage of total time to include function
+        focus_paths: List of path substrings to focus visualization on
     """
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s"
     )
 
     profiler = cProfile.Profile()
+
     try:
         logging.info("Starting profiling...")
         profiler.enable()
 
-        # Run the actual benchmark logic
         benchmark_comparison(
             file_path=filepath,
             optimize_both_sides=optimize_both_sides,
@@ -437,45 +446,127 @@ def profile_and_visualize(
 
         profiler.disable()
         logging.info("Profiling completed successfully.")
+
     except Exception as e:
         profiler.disable()
         logging.error(f"An error occurred during profiling: {e}")
         raise e
 
-    # Convert cProfile stats into a DataFrame and plot
-    stream = io.StringIO()
-    stats = pstats.Stats(profiler, stream=stream).sort_stats(pstats.SortKey.CUMULATIVE)
-    stats.print_stats()
+    # Convert profile stats to DataFrame
+    stats = pstats.Stats(profiler)
+    total_time = stats.total_tt
 
     profile_data = []
-    for func, stat in stats.stats.items():
-        cc, nc, tt, ct, callers = stat
+    for func, (cc, nc, tt, ct, callers) in stats.stats.items():
+        # Calculate additional metrics
+        time_percent = (tt / total_time) * 100
+        time_per_call = tt / cc if cc > 0 else 0
+
+        # Skip if below minimum time threshold
+        if time_percent < min_time_percent:
+            continue
+
+        # Filter by focus paths if specified
+        if focus_paths:
+            if not any(path in func[0] for path in focus_paths):
+                continue
+
+        # Shorten module name
+        module_parts = func[0].split("/")
+        short_module = module_parts[-1] if module_parts else func[0]
+
         profile_data.append(
             {
-                "Function": f"{func[2]} in {func[0]}:{func[1]}",
-                "Call Count": cc,
+                "Function": f"{func[2]} ({short_module}:{func[1]})",
+                "Module": short_module,
+                "Line": func[1],
+                "Name": func[2],
+                "Calls": cc,
                 "Total Time (s)": tt,
-                "Cumulative Time (s)": ct,
+                "Time/Call (ms)": time_per_call * 1000,
+                "Cumulative (s)": ct,
+                "Time %": time_percent,
+                "Callers": len(callers),
             }
         )
 
-    df_profile = (
-        pd.DataFrame(profile_data)
-        .sort_values(by="Cumulative Time (s)", ascending=False)
-        .reset_index(drop=True)
+    df = pd.DataFrame(profile_data)
+    df = df.sort_values("Total Time (s)", ascending=True)
+
+    # Create visualizations using plotly
+    figs = []
+
+    # 1. Time breakdown bar chart
+    fig1 = px.bar(
+        df,
+        y="Function",
+        x=["Total Time (s)", "Cumulative (s)"],
+        orientation="h",
+        title="Time Breakdown by Function",
+        barmode="overlay",
+        opacity=0.7,
+        template="plotly_dark",
+    )
+    fig1.update_layout(
+        plot_bgcolor="#1f2630",
+        paper_bgcolor="#1f2630",
+        font={"color": "#ffffff"},
+        height=max(400, len(df) * 30),
+    )
+    figs.append(fig1)
+
+    # 2. Time per call scatter
+    fig2 = px.scatter(
+        df,
+        x="Calls",
+        y="Time/Call (ms)",
+        size="Total Time (s)",
+        hover_data=["Function"],
+        color="Time %",
+        color_continuous_scale="Viridis",
+        title="Time per Call vs Number of Calls",
+        template="plotly_dark",
+    )
+    fig2.update_layout(
+        plot_bgcolor="#1f2630", paper_bgcolor="#1f2630", font={"color": "#ffffff"}
+    )
+    figs.append(fig2)
+
+    # 3. Caller relationship heatmap for top functions
+    top_n = min(20, len(df))
+    fig3 = px.density_heatmap(
+        df.head(top_n),
+        x="Module",
+        y="Function",
+        z="Time %",
+        title="Module-Function Time Distribution (Top 20)",
+        template="plotly_dark",
+        color_continuous_scale="Viridis",
+    )
+    fig3.update_layout(
+        xaxis_tickangle=45,
+        plot_bgcolor="#1f2630",
+        paper_bgcolor="#1f2630",
+        font={"color": "#ffffff"},
+    )
+    figs.append(fig3)
+
+    # Show summary statistics
+    print("\nProfile Summary:")
+    print(f"Total time: {total_time:.2f}s")
+    print(f"Number of unique functions: {len(df)}")
+    print("\nTop 5 time-consuming functions:")
+    print(
+        df.nlargest(5, "Total Time (s)")[
+            ["Function", "Total Time (s)", "Time %", "Calls"]
+        ].to_string()
     )
 
-    # Plot the top 50 by cumulative time
-    top_n = min(50, len(df_profile))
-    fig = px.bar(
-        df_profile.head(top_n),
-        x="Cumulative Time (s)",
-        y="Function",
-        orientation="h",
-        title="Top Functions by Cumulative Execution Time",
-    )
-    fig.update_layout(yaxis={"categoryorder": "total ascending"})
-    fig.show()
+    # Display all figures
+    for fig in figs:
+        fig.show()
+
+    return df
 
 
 def collect_splits_for_tree_pair_trajectories(

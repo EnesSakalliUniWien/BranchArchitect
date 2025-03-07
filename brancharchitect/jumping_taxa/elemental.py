@@ -1,11 +1,5 @@
 import numpy as np
-from typing import List, Callable, Optional, Collection
-from brancharchitect.jumping_taxa.functional_tree import (
-    FunctionalTree,
-    ComponentSet,
-    X,
-    Y,
-)
+from typing import List
 from logging import getLogger
 
 logger = getLogger(__name__)
@@ -76,9 +70,7 @@ def max_relative_intersection(A, B):
 
 
 # ==== Functional Programming Style ====
-def remove_last_component_if_longer_than_one(
-    component_set: ComponentSet,
-) -> ComponentSet:
+def remove_last_component_if_longer_than_one(component_set):
     sorted_component_set = sorted(component_set, key=lambda x: len(x))
     if len(sorted_component_set) != 1:
         return list(component_set)[:-1]
@@ -162,56 +154,56 @@ def find_exact_max_intersection(A, B):
 
 
 # ============================================== Set Based Operations ====================================================== #
-def cartesian(c1: Collection[X], c2: Collection[Y]) -> list[tuple[X, Y]]:
-    r: list[tuple[X, Y]] = []
+def cartesian(c1, c2):
+    r = []
     for x in c1:
         for y in c2:
             r.append((x, y))
     return r
 
 
-def map1(f: Callable[[X], Y], l: Collection[tuple[X, X]]) -> list[Y]:
-    r: list[Y] = []
+def map1(f, l):
+    r = []
     for x in l:
         r.append(f(x))
     return r
 
 
-def map2(f: Callable[[X, X], Y], l: Collection[tuple[X, X]]) -> list[Y]:
-    r: list[Y] = []
+def map2(f, l):
+    r = []
     for x in l:
         a, b = x
         r.append(f(a, b))
     return r
 
 
-def reduce(f: Callable[[X, X], X], l: Collection[X]) -> Optional[X]:
-    r: list[X] = []
+def reduce(f, l):
+    r = []
     if len(l) == 0:
         return []
-    x0: X = l[0]  # type: ignore
+    x0 = l[0]  # type: ignore
     for x in l[1:]:  # type: ignore
         x0 = f(x0, x)
     return x0
 
 
-def union(a: set, b: set) -> List[X]:
+def union(a: set, b: set):
     _a = set(a)
     _b = set(b)
     return _a.union(_b)
 
 
-def count(a: List[X], x: X) -> int:
+def count(a, x) -> int:
     return a.count(x)
 
 
-def size(a: Collection[X]) -> int:
+def size(a) -> int:
     return len(a)
 
 
-def argmax(l: Collection[X], f: Callable[[X], int]) -> list[X]:
-    count: int = -1
-    args: list[X] = []
+def argmax(l, f):
+    count = -1
+    args = []
     for x in l:
         c: int = f(x)
         if c > count:
@@ -222,9 +214,9 @@ def argmax(l: Collection[X], f: Callable[[X], int]) -> list[X]:
     return args
 
 
-def argmin(l: Collection[X], f: Callable[[X], float]) -> list[X]:
-    count: float = np.inf
-    args: list[X] = []
+def argmin(l, f):
+    count = np.inf
+    args = []
     for x in l:
         c = f(x)
         if c < count:
@@ -235,22 +227,22 @@ def argmin(l: Collection[X], f: Callable[[X], float]) -> list[X]:
     return args
 
 
-def filter_(f: Callable[[X], bool], l: Collection[X]):
-    r: list[X] = []
+def filter_(f, l):
+    r = []
     for i in l:
         if f(i):
             r.append(i)
     return r
 
 
-def intersect(a: Collection[X], b: Collection[X]) -> Collection[X]:
+def intersect(a, b):
     a_uniques = set(a)
     b_uniques = set(b)
     a_and_b = a_uniques.intersection(b_uniques)
     return a_and_b
 
 
-def symm(a: list[X], b: list[X]) -> list[X]:
+def symm(a, b):
     a_uniques = set(a)
     b_uniques = set(b)
     a_and_b = a_uniques.symmetric_difference(b_uniques)
@@ -293,11 +285,11 @@ def decode_indices_to_taxa(high_list: List, sorted_nodes: List):
 
 
 # ============================================== Calculate Component Set ====================================================== #
-def calculate_component_set(t: FunctionalTree, sedge) -> list[ComponentSet]:
+def calculate_component_set(t, sedge):
     return t._arms[sedge.split_indices]
 
 
-def cut(a: Collection[X], b: Collection[X]) -> Collection[X]:
+def cut(a, b):
     a_uniques = set(a)
     b_uniques = set(b)
     a_and_b = a_uniques.intersection(b_uniques)

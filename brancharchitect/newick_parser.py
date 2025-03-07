@@ -1,6 +1,6 @@
 import math
 import ast
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Dict
 
 # Now your pointer-based Node (with parent pointers, etc.)
 # If you are from "brancharchitect.tree import Node" then you want that Node
@@ -14,16 +14,6 @@ def get_linear_order(node: Node):
         return [node.name]
     for child in node.children:
         order_list = order_list + get_linear_order(child)
-    return order_list
-
-
-def get_taxa_name_circular_order(node: Node):
-    order_list = []
-    if len(node.children) == 0:
-        return [node.leaf_name]
-    else:
-        for child in node.children:
-            order_list = order_list + get_taxa_name_circular_order(child)
     return order_list
 
 
@@ -105,6 +95,7 @@ def init_nodestack():
 def parse_newick(
     tokens: str,
     order: Optional[List[str]] = None,
+    encoding: Optional[Dict[str, int]] = None,
     default_length: float = 1.0,
     force_list: bool = False,
 ) -> Union[Node, List[Node]]:
@@ -118,13 +109,16 @@ def parse_newick(
         # If user didn't supply an order, gather from first tree
         order = get_linear_order(trees[0])
 
+    if encoding is None:
+        encoding = {name: idx for idx, name in enumerate(order)}
 
     for idx, tree in enumerate(trees):
         tree._list_index = idx
-        tree._initialize_split_indices(order)
+        tree._encoding = encoding
         tree._order = order
+        tree._initialize_split_indices(encoding)
         tree._fix_child_order()
-    
+
     if len(trees) == 1 and not force_list:
         return trees[0]
     return trees

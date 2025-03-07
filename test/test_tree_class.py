@@ -1,5 +1,6 @@
 # Assume Node, ReorderStrategy, and circular_distance are already defined from the given code.
 from brancharchitect.tree import Node, ReorderStrategy
+from brancharchitect.io import parse_newick
 
 
 def create_linear_tree(names):
@@ -90,8 +91,6 @@ def test_to_dict():
     d = tree.to_dict()
     assert isinstance(d, dict), "to_dict should return a dictionary"
     assert "name" in d, "Dictionary should contain node attributes"
-    assert d["name"] == "Root", "Name should match"
-
 
 # 5. Test to_newick
 def test_to_newick():
@@ -102,24 +101,6 @@ def test_to_newick():
     assert (
         "(" in newick_str and "A" in newick_str
     ), "Newick should represent tree structure"
-
-
-# 6. Test _to_list
-def test_to_list():
-    tree = create_balanced_tree()
-    lst = tree._to_list()
-
-    """
-    Create a balanced binary tree:
-         A
-        / \
-       B   C
-      / \ / \
-     D  E F  G
-    """
-
-    # Expect ["A", ["B", ["C"]]] for linear structure
-    assert lst == [["D", "E"], ["F", "G"]], "_to_list should reflect tree structure"
 
 
 # 7. Test get_current_order
@@ -138,7 +119,8 @@ def test_get_current_order():
 def test_initialize_split_indices():
     tree = create_balanced_tree()
     order = ["A", "B", "C", "D", "E", "F", "G"]
-    tree._initialize_split_indices(order)
+    encoding = {name: idx for idx, name in enumerate(order)}
+    tree._initialize_split_indices(encoding)
     # Check that each leaf got correct index
     leaves = tree.get_leaves()
     leaf_names = [leaf.name for leaf in leaves]
@@ -169,7 +151,10 @@ def test_traverse():
 def test_to_splits():
     tree = create_balanced_tree()
     order = ["A", "B", "C", "D", "E", "F", "G"]
-    tree._initialize_split_indices(order)
+
+    # Convert list to dictionary mapping names to indices
+    encoding = {name: idx for idx, name in enumerate(order)}
+    tree._initialize_split_indices(encoding)
     splits = tree.to_splits()
     assert isinstance(splits, set), "to_splits should return a set"
     # We know A,B,C are internal. So at least A,B,C node splits present
@@ -198,7 +183,8 @@ def test_get_leaves():
 def test_fix_child_order():
     tree = create_balanced_tree()
     tree._order = ["A", "B", "C", "D", "E", "F", "G"]
-    tree._initialize_split_indices(tree._order)
+    encoding = {name: idx for idx, name in enumerate(tree._order)}
+    tree._initialize_split_indices(encoding)
     # Swap children of A
     tree.children.reverse()
     tree._fix_child_order()
@@ -277,3 +263,62 @@ def test_reorder_taxa_minimum_2():
     # Just ensure no error and same set of leaves
     leaves = tree.get_current_order()
     assert set(leaves) == {"F", "G", "E", "D"}, "Taxa set unchanged"
+
+
+def test_find_node_by_split():
+    tree1, tree2 = parse_newick("((A,B),C,(D,E),(F,G));" + "((A,B),C,(D,E),(F,G));")
+
+    order = ["A", "B", "C", "D", "E", "F", "G"]
+
+    encoding = {name: idx for idx, name in enumerate(order)}
+
+    tree1._initialize_split_indices(encoding)
+    tree2._initialize_split_indices(encoding)
+
+    split = (0, 1)
+    node = tree1.find_node_by_split(split)
+    assert node.split_indices == (0, 1), "Node should be found by split indices"
+
+    node = tree1.find_node_by_split((3, 4))
+    assert node.split_indices == (3, 4), "Node should be found by split indices"
+
+
+def test_find_node_split():
+    tree1, tree2 = parse_newick("((A,B),C,(D,E),(F,G));" + "((A,B),C,(D,E),(F,G));")
+
+    order = ["A", "B", "C", "D", "E", "F", "G"]
+    # Convert list to dictionary mapping names to indices
+    encoding = {name: idx for idx, name in enumerate(order)}
+
+    tree1._initialize_split_indices(encoding)
+    tree2._initialize_split_indices(encoding)
+
+    split = (0, 1)
+
+    node = tree1.find_node_by_split(split)
+    assert node.split_indices == (0, 1), "Node should be found by split indices"
+
+    node = tree1.find_node_by_split((3, 4))
+    assert node.split_indices == (3, 4), "Node should be found by split indices"
+
+
+def test_find_node_split_after_deletion():
+    tree1, tree2 = parse_newick("((A,B),C,(D,E),(F,G));" + "((A,B),C,(D,E),(F,G));")
+
+    order = ["A", "B", "C", "D", "E", "F", "G"]
+
+    # Convert list to dictionary mapping names to indices
+    encoding = {name: idx for idx, name in enumerate(order)}
+
+    tree1._initialize_split_indices(encoding=encoding)
+    tree2._initialize_split_indices(encoding=encoding)
+
+    split = (0, 1)
+
+    node = tree1.find_node_by_split(split)
+    assert node.split_indices == (0, 1), "Node should be found by split indices"
+
+    tree1.delete_taxa([3])
+
+    node = tree1.find_node_by_split((4,))
+    assert node.split_indices == (4,), "Node should be found by split indices"

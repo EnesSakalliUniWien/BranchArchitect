@@ -1,6 +1,17 @@
 from brancharchitect.newick_parser import parse_newick
-from brancharchitect.jumping_taxa.deletion_algorithm import get_child
 from brancharchitect.jumping_taxa.tree_interpolation import interpolate_tree, interpolate_adjacent_tree_pairs
+from brancharchitect.tree import Node
+
+def get_child(node, *path):
+    for i in path:
+        if isinstance(node, Node):
+            children = node.children
+        else:
+            children = node["children"]
+        assert len(children) >= i
+        node = children[i]
+    return node
+
 
 def test_interpolate_tree_1():
     s1 = "((A,(B,C),((D,E),((F,G),H))),I);"

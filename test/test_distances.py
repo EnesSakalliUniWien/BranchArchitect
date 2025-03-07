@@ -1,7 +1,6 @@
 from brancharchitect.newick_parser import parse_newick
 from brancharchitect.distances import (
     robinson_foulds_distance,
-    relative_robinson_foulds_distance,
     weighted_robinson_foulds_distance,
     calculate_along_trajectory,
 )
@@ -83,13 +82,7 @@ def test_distances(tree_and_rfd):
     assert relative_distance == expected_distance
 
 
-def test_distances(tree_and_rrfd):
-    t1, t2, expected_distance = tree_and_rrfd
-    relative_distance = relative_robinson_foulds_distance(t1, t2)
-    assert relative_distance == expected_distance
-
-
-def test_distances(tree_and_wrfd):
+def test_distances_w(tree_and_wrfd):
     t1, t2, expected_distance = tree_and_wrfd
     relative_distance = weighted_robinson_foulds_distance(t1, t2)
     assert relative_distance == expected_distance

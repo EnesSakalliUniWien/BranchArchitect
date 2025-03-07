@@ -18,6 +18,7 @@ def interpolate_tree(tree_one: Node, tree_two: Node):
 
     return (it1, c1, c2, it2)
 
+
 def interpolate_adjacent_tree_pairs(tree_list: list[Node]) -> list[Node]:
     results = []
     for i in range(len(tree_list) - 1):

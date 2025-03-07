@@ -1,14 +1,17 @@
-from brancharchitect.jumping_taxa.deletion_algorithm import delete_taxa
+from brancharchitect.tree import Node
+
 
 def traverse(root):
     yield root
     for child in root.children:
         yield from traverse(child)
 
+
 def multisplit(node):
     assert len(node.children) > 0
     m = set(child.split_indices for child in node.children)
     return m
+
 
 def multi_intersection(m1, m2):
     result = set()
@@ -17,6 +20,7 @@ def multi_intersection(m1, m2):
             result.add(tuple(sorted(set(a) & set(b))))
     return result
 
+
 def multi_symmetric_difference(m1, m2):
     result = set()
     for a in m1:
@@ -24,7 +28,8 @@ def multi_symmetric_difference(m1, m2):
             result.add(tuple(sorted(set(a) ^ set(b))))
     return result
 
-def algorithm(t1, t2, _):
+
+def algorithm(t1: Node, t2: Node):
     jt = []
     i = 0
     leaves = sum(1 for c in traverse(t1) if len(c.children) == 0)
@@ -34,12 +39,15 @@ def algorithm(t1, t2, _):
 
         to_delete = [idx for split in s for idx in split]
 
-        t1 = delete_taxa(t1, to_delete)
-        t2 = delete_taxa(t2, to_delete)
+        t1 = t1.delete_taxa(t1, to_delete)
+        t2 = t2.delete_taxa(t2, to_delete)
 
-        if i >= 2*leaves:
-            raise Exception(f'There are only {leaves} many taxa, however we are at iteration {i}. Something is wrong.')
+        if i >= 2 * leaves:
+            raise Exception(
+                f"There are only {leaves} many taxa, however we are at iteration {i}. Something is wrong."
+            )
     return jt
+
 
 def core(t1, t2):
 
@@ -56,6 +64,7 @@ def core(t1, t2):
         if len(split) == 1:
             continue
         if split in s1 and split in s2:
+
             m1 = multisplit(s1[split])
             m2 = multisplit(s2[split])
 
@@ -65,11 +74,12 @@ def core(t1, t2):
                 mi = multi_intersection(m1, m2)
                 ms = multi_symmetric_difference(m1, m2)
 
-                print('mi', mi)
-                print('ms', ms)
+                print("mi", mi)
+                print("ms", ms)
                 r = mi & ms
                 r = [split for split in r if len(split) > 0]
-                print('r', r)
+                print("r", r)
+                jt = None
                 if len(r) == 0:
                     jt = sorted(i, key=len)[0]
                 else:
