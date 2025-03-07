@@ -1,13 +1,14 @@
+import pytest
 from brancharchitect.tree import Node
 from brancharchitect.io import parse_newick
+from brancharchitect.plot.tree_plot import plot_circular_trees_in_a_row
+
 from brancharchitect.leaforder.tree_order_optimisation_local import (
     circular_distance_tree_pair,
     optimize_unique_splits,
     optimize_s_edge_splits,
     improve_single_pair_classic,
 )
-from brancharchitect.plot.tree_plot import plot_circular_trees_in_a_row
-import pytest
 
 
 def create_simple_tree(order):

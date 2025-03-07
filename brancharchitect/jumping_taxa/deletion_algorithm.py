@@ -12,7 +12,6 @@ from brancharchitect.newick_parser import Node
 def delete_taxa(root: Node, indices_to_delete: list[int]) -> Node:
     r = _delete_taxa(root, indices_to_delete)
     r = _delete_superfluous_nodes(r)
-    root.invalidate_split_cache()
     return r
 
 

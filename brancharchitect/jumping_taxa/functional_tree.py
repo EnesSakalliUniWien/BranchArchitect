@@ -1,303 +1,219 @@
+# functional_tree.py
+import sys
 from brancharchitect.tree import Node
-from typing import (
-    TypeVar,
-    NewType,
-)
-from typing import Any, Set, List, FrozenSet, Dict, Collection
-
-Component = NewType("Component", tuple[int])
-ComponentSet = tuple[Component, ...]  # type: ignore
-EdgeType = str
-X = TypeVar("X")
-Y = TypeVar("Y")
-NodeName = NewType("NodeName", tuple[int])
+from brancharchitect.split import PartitionSet
+from typing import Any, Dict, Optional, List
+from dataclasses import dataclass
 
 
-class FunctionalTree:
-    """
-    Represents a tree structure used for analyzing topological changes in phylogenetic trees.
-    """
+# Replace the reconfigure line with this version-compatible code:
+try:
+    sys.stdout.reconfigure(line_buffering=True)  # Python 3.7+ approach
+except AttributeError:
+    # For older Python versions
+    import os
 
-    def __init__(
-        self,
-        all_sedges: list[Node],
-        edge_types: dict[NodeName, EdgeType],
-        ancestor_edges: dict[ComponentSet, Node],
-        arms: dict[NodeName, list[ComponentSet]],
-    ):
+    sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 1)
 
-        self._all_sedges: list[Node] = all_sedges
-        self._edge_types: dict[NodeName, EdgeType] = edge_types
-        self._ancestor_edges: dict[ComponentSet] = ancestor_edges
-        self._arms: dict[NodeName, list[ComponentSet]] = arms
 
-    def __add__(self, other: "FunctionalTree") -> "FunctionalTree":
+@dataclass(frozen=True)
+class HasseEdge:
+
+    split: Any
+
+    left_node: Node
+    right_node: Node
+
+    left_cover: List[PartitionSet]
+    right_cover: List[PartitionSet]
+
+    child_meet: PartitionSet
+
+    def is_divergent(self, tree: int = 1) -> bool:
         """
-        Combines this FunctionalTree with another FunctionalTree, merging their attributes to create a new FunctionalTree.
-        This method is used to merge analyses from different parts of a tree or from different trees,
-        creating a comprehensive view of the combined topological features.
-        Args:
-            other (FunctionalTree): Another FunctionalTree instance to be combined with this one.
-        Returns:
-            FunctionalTree: A new FunctionalTree instance representing the combined attributes of both trees.
-
-        TODO I don't understand exactly what this function does from the docstring. maybe an example would help.
+        Returns True if the covering relation for the specified side is "divergent",
+        meaning no child split overlaps with the common split.
         """
+        if tree == 1:
+            return (
+                determine_covering_relation(
+                    get_child_splits(self.left_node), self.child_meet, self.left_node
+                )
+                == "divergent"
+            )
+        else:
+            return (
+                determine_covering_relation(
+                    get_child_splits(self.right_node), self.child_meet, self.right_node
+                )
+                == "divergent"
+            )
 
-        all_sedges = set(list(self._all_sedges) + list(other._all_sedges))
+    def is_intermediate(self, tree: int = 1) -> bool:
+        """
+        Returns True if the covering relation for the specified side is "intermediate",
+        meaning some but not all child splits overlap with the common split.
+        """
+        if tree == 1:
+            return (
+                determine_covering_relation(
+                    get_child_splits(self.left_node), self.child_meet, self.left_node
+                )
+                == "intermediate"
+            )
+        else:
+            return (
+                determine_covering_relation(
+                    get_child_splits(self.right_node), self.child_meet, self.right_node
+                )
+                == "intermediate"
+            )
 
-        _edge_types = {}
-        _edge_types.update(self._edge_types)
-        _edge_types.update(other._edge_types)
+    def is_collapsed(self, tree: int = 1) -> bool:
+        """
+        Returns True if the covering relation for the specified side is "collapsed",
+        meaning every child split is common.
+        """
+        if tree == 1:
+            return (
+                determine_covering_relation(
+                    get_child_splits(self.left_node), self.child_meet, self.left_node
+                )
+                == "collapsed"
+            )
+        else:
+            return (
+                determine_covering_relation(
+                    get_child_splits(self.right_node), self.child_meet, self.right_node
+                )
+                == "collapsed"
+            )
 
-        _ancestor_edges = {}
-        _ancestor_edges.update(self._ancestor_edges)
-        _ancestor_edges.update(other._ancestor_edges)
+    def get_edge_types(self) -> tuple:
+        """
+        Returns the covering relation type for the specified side.
+        """
+        return tuple(
+            (
+                determine_covering_relation(
+                    get_child_splits(self.left_node), self.child_meet, self.left_node
+                ),
+                determine_covering_relation(
+                    get_child_splits(self.right_node), self.child_meet, self.right_node
+                ),
+            ),
+        )
 
-        arms = {}
-        arms.update(self._arms)
-        arms.update(other._arms)
 
-        return FunctionalTree(all_sedges, _edge_types, _ancestor_edges, arms)
-
-
-def calculate_component_set_tree(node: Node) -> ComponentSet:
+def determine_covering_relation(
+    child_splits: PartitionSet, common: PartitionSet, node: Node
+) -> str:
     """
-    Calculates the component set for a given node, used in the construction of a FunctionalTree.
-    """
-    components: list[Component] = []
+    Determine the covering relation between the descendant splits (D) of a node and the common splits (C).
 
-    if node.length != 0:
-        components.append(NodeName(node.split_indices))
-        return tuple(components)
+    Let A = D ∩ C.
 
-    for child in node.children:
-        components += sorted(calculate_component_set_tree(child))
-
-    return tuple(sorted(components))
-
-
-def get_type(node: Node) -> EdgeType:
-    """
-    Determines the type of edge for a given node based on the lengths of its branches and children.
-
-    Args:
-        node (Node): The node for which the edge type is to be determined.
+    In lattice-theoretic terms:
+      - If A is empty, then the node's descendant splits do not overlap with the common split,
+        meaning the node diverges completely from the common element ("divergent").
+      - If child_splits ⊆ C, then all descendant splits are already included in the common split,
+        so the node does not extend beyond the common element ("collapsed").
+      - Otherwise, the node exhibits a partial extension relative to the common split ("intermediate").
 
     Returns:
-        EdgeType: The type of edge ('full', 'partial', 'anti', 'leaf', or 'none').
-
-    The edge type helps in understanding the topological relationship of the node within the tree,
-    particularly in the context of comparative analysis between trees.
+        A string indicating the covering relation type: "divergent", "collapsed", or "intermediate".
     """
-    # Check if the node is a leaf (no children)
-    if len(node.children) == 0:
-        return "leaf"
-
-    # Check for 'full' edge type: node has a positive length and all children have zero length
-    elif all(child.length == 0 for child in node.children) and node.length > 0:
-        return "full"
-
-    # Check for 'partial' edge type: at least one child has zero length and node has positive length
-    elif any(child.length == 0 for child in node.children) and node.length > 0:
-        return "partial"
-
-    # Check for 'anti' edge type: node has zero length but all children have positive length
-    elif all(child.length > 0 for child in node.children) and node.length == 0:
-        return "anti"
-
-    else:
-        return "none"
+    A = child_splits & common
+    if not A:
+        return "divergent"
+    if child_splits.issubset(common):
+        return "collapsed"
+    return "intermediate"
 
 
-def build_functional_tree(node: Node) -> FunctionalTree:
-    """
-    Recursively constructs a FunctionalTree from a given tree node.
-    The FunctionalTree is used for analyzing tree topology, focusing on edge types
-    and identifying significant topological features (sedges).
-
-    Args:
-        node (Node): The root node of the tree to traverse.
-
-    Returns:
-        FunctionalTree: The FunctionalTree representing the analyzed structure of the tree.
-    """
-
-    all_sedges: list[Node] = []
-    edge_types: dict[list[str], EdgeType] = {}
-    ancestor_edges: dict[list[str], Node] = {}
-    arms: dict[list[str], tuple[ComponentSet]] = {}
-
-    # Determine the edge type of the current node
-    type_: EdgeType = get_type(node)
-
-    edge_types[node.split_indices] = type_  # Store the edge type of the current node
-
-    # If the current node is a 'full' or 'partial' s-edge, add it to the list of sedges
-    if type_ in ["full", "partial"]:
-        all_sedges.append(node)
-
-    # Calculate the component sets (arms) for each child of the current node
-    edge_arms = tuple([calculate_component_set_tree(child) for child in node.children])
-    arms[node.split_indices] = edge_arms  # Store the arms of the current node
-
-    # Assign the current node as the ancestor for each of its children
-    for child in node.children:
-        ancestor_edges[child.split_indices] = node
-
-    # Assign the current node as the ancestor for each component set in the arms
-    for arm in edge_arms:
-        ancestor_edges[arm] = node
-
-    # Create a FunctionalTree instance for the current node
-    t1 = FunctionalTree(set(all_sedges), edge_types, ancestor_edges, arms)
-
-    # Recursively traverse each child and combine their FunctionalTrees with the current one
-    for child in node.children:
-        child_tree = build_functional_tree(child)
-        t1 = t1 + child_tree  # Combine the FunctionalTrees
-
-    # Return the combined FunctionalTree
-    return t1
-
-
-def get_children_splits(node: "Node") -> Set[Any]:
+def get_child_splits(node: "Node") -> PartitionSet:
     """
     Compute the set of child splits for a node n.
-    
+
     Definition:
       If n has children { c₁, c₂, …, cₖ }, then
           D(n) = { s(c) : s(c) = c.split_indices for each c ∈ children(n) }.
     """
-    return {child.split_indices for child in node.children}
+    return PartitionSet({child.split_indices for child in node.children})
 
 
-def get_components_for_tree(tree: "Node", child_splits: Set[Any], common: Set[Any]) -> List[FrozenSet[Any]]:
-    """
-    For each s ∈ D (child splits), locate the corresponding child node nₛ and compute its component.
-    
-    Definition:
-      For a child node nₛ found via s, define its component as:
-          C(nₛ) = nₛ.to_splits() ∩ common.
-    
-    Returns the collection { C(nₛ) } as a list of frozensets.
-    """
-    components = []
-    for s in child_splits:
-        node = tree.find_node_by_split(s)
-        if node:
-            comp = node.to_splits() & common
-            components.append(frozenset(comp))
-    return components
+def compare_tree_splits(tree1: "Node", tree2: "Node") -> Optional[Dict[str, HasseEdge]]:
+    """Compute detailed split information for two trees."""
+    # Ensure both trees have their indices built
 
+    # Get splits with validation
+    S1 = tree1.to_splits()
+    S2 = tree2.to_splits()
 
-def get_maximal_tuples(splits: Collection[Any]) -> Set[Any]:
-    """
-    Compute the maximal elements of a collection S of splits with respect to set inclusion.
-    
-    Definition:
-      For s ∈ S, s is maximal if there exists no o ∈ S (with o ≠ s) such that s ⊂ o.
-      That is, maximal(S) = { s ∈ S : ¬∃ o ∈ S, o ≠ s, with s ⊂ o }.
-    """
-    return {s for s in splits if not any(set(s) < set(o) for o in splits if s != o)}
-
-
-def compute_maximal_components(components: List[FrozenSet[Any]]) -> Set[FrozenSet[Any]]:
-    """
-    For each component set comp (a frozenset of splits), compute its maximal subset.
-    
-    Definition:
-      For comp ⊆ P(S), define
-          maximal(comp) = { s ∈ comp : there is no o ∈ comp with s ⊂ o }.
-    
-    Returns the set of all maximal component sets.
-    """
-    maximal_components = set()
-    for comp in components:
-        maximal = get_maximal_tuples(comp)
-        if maximal:
-            maximal_components.add(frozenset(maximal))
-    return maximal_components
-
-
-def get_edge_types(D: Set[Any], common: Set[Any], node: "Node") -> str:
-    """
-    Classify the s-edge at node n based on its descendant splits D and the common set C.
-    
-    Let A = D ∩ common.
-    Then, the classification is defined as:
-      - "full"    if A = ∅ (i.e. no child split is common),
-      - "none"    if A = D (i.e. every child split is common; equivalently, |A| = |children(n)|),
-      - "partial" if ∅ ⊂ A ⊂ D (i.e. only some child splits are common).
-    """
-    A = D & common
-    if len(A) == 0:
-        return "full"
-    if len(A) == len(node.children):
-        return "none"
-    else: 
-        return "partial"
-
-def get_splits_info(tree1: "Node", tree2: "Node") -> Dict[Any, Dict[str, Any]]:
-    """
-    Compute detailed split information for two trees T₁ and T₂ on a set‐theoretical basis.
-    
-    Definitions:
-      - S(T₁) = { n.split_indices : n ∈ T₁.to_splits(with_leaves=True) } and
-        S(T₂) = { n.split_indices : n ∈ T₂.to_splits(with_leaves=True) }.
-      - C = S(T₁) ∩ S(T₂) (the set of common splits).
-    
-    For each common split s ∈ C:
-      1. Identify nodes n₁ ∈ T₁ and n₂ ∈ T₂ such that:
-             s = n₁.split_indices = n₂.split_indices.
-      2. For each node nᵢ, define its child split set:
-             D(nᵢ) = { c.split_indices : c ∈ children(nᵢ) }.
-      3. Compute the commonality ratio:
-             r = |D(nᵢ) ∩ C| / |D(nᵢ)|
-         for each node, quantifying the degree of shared child splits.
-      4. If not all child splits are common (i.e., |D(nᵢ) ∩ C| < |children(nᵢ)| for either n₁ or n₂),
-         then for each tree:
-           a. For each s ∈ D(nᵢ), compute the component:
-                  C(nₛ) = nₛ.to_splits() ∩ C.
-           b. Compute the maximal components:
-                  arms_tᵢ = compute_maximal_components({ C(nₛ) }).
-      5. Classify the s-edge for each node using get_edge_types(D(nᵢ), C, nᵢ).
-     
-    Returns a dictionary mapping each common split s ∈ C to:
-      {
-         'edge_type_one': classification for n₁,
-         'edge_type_two': classification for n₂,
-    }
-    """
-    S1 = tree1.to_indexed_split_set(with_leaves=True)
-    S2 = tree2.to_indexed_split_set(with_leaves=True)
-
-    C = S1 & S2  # C = S(T₁) ∩ S(T₂)
-
+    # Get common splits and verify they exist in both trees
+    U = S1 | S2
     s_edges = {}
 
-    for s in C:
-        n1 = tree1.find_node_by_split(s)
-        n2 = tree2.find_node_by_split(s)    
-        if n1 and n2:
-            D1 = get_children_splits(n1)
-            D2 = get_children_splits(n2)
-            # Process further if at least one node has a nontrivial mixture of child splits.
-            if len(D1 & C) < len(n1.children) or len(D2 & C) < len(n2.children):
-                print(D1 & C)   
-        
-                arms_t1, arms_t2 = None, None
-                comps1 = get_components_for_tree(tree1, D1, C)
-                comps2 = get_components_for_tree(tree2, D2, C)
-                arms_t1 = compute_maximal_components(comps1)
-                arms_t2 = compute_maximal_components(comps2)
-                edge_type_t1 = get_edge_types(D1, C, n1)
-                edge_type_t2 = get_edge_types(D2, C, n2)
+    for s in U:
+        if len(s) == 1:
+            continue
+        if s in S1 and s in S2:
 
-                s_edges[s] = {
-                    'edge_type_one': edge_type_t1,
-                    'edge_type_two': edge_type_t2,
-                    'arms_t_one': arms_t1,
-                    'arms_t_two': arms_t2,
-                }
+            n_left = tree1.find_node_by_split(s)
+            n_right = tree2.find_node_by_split(s)
+
+            node_meet = n_left.to_splits(with_leaves=True) & n_right.to_splits(
+                with_leaves=True
+            )
+
+            D1 = get_child_splits(n_left)
+            D2 = get_child_splits(n_right)
+
+            direct_child_meet = D1 & D2
+
+            # Process further if at least one node has a nontrivial mixture of child splits.
+            if D1 != direct_child_meet != D2:
+
+                left_covers = compute_cover_elements(
+                    n_left, D1, PartitionSet(node_meet)
+                )
+
+                right_covers = compute_cover_elements(
+                    n_right, D2, PartitionSet(node_meet - {s})
+                )
+
+                s_edges[s] = HasseEdge(
+                    split=s,
+                    left_cover=left_covers,
+                    right_cover=right_covers,
+                    child_meet=direct_child_meet,
+                    left_node=n_left,
+                    right_node=n_right,
+                )
     return s_edges
+
+
+def compute_cover_elements(
+    node: Node, child_splits: PartitionSet, common_excluding: PartitionSet
+) -> List[PartitionSet]:
+    """
+    For each child split of a node, compute its covering element.
+
+    Cover(child) = (child.to_splits(with_leaves=True) ∩ common_excluding).cover()
+
+    Returns a PartitionSet of cover elements.
+    """
+    cover_list: List[PartitionSet] = []
+    for split in child_splits:
+        child_node = node.find_node_by_split(split)
+        if child_node is not None:
+            node_splits = child_node.to_splits(with_leaves=True)
+            cover_candidate = node_splits & common_excluding
+            covering_element = cover_candidate.cover()
+            cover_list.append(covering_element)
+        else:
+            raise ValueError(f"Split {split} not found in tree {node}")
+    # Add safety check for arms
+    if not cover_list:
+        raise ValueError(f"Arms not found for split {node.split_indices} ")
+    return cover_list

@@ -1,4 +1,5 @@
-from brancharchitect.tree import Node, SplitIndices
+from brancharchitect.tree import Node
+from brancharchitect.split import Partition
 from collections import Counter
 from typing import List
 
@@ -33,7 +34,7 @@ def component_distance(
 
 
 def jump_distance(
-    node: Node, reference: Node, component: SplitIndices, weighted=False
+    node: Node, reference: Node, component: Partition, weighted=False
 ) -> float:
     path = jump_path(node, reference, component)
     if weighted:

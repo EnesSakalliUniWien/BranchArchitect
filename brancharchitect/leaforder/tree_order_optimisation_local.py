@@ -1,5 +1,6 @@
 from typing import List, Set, Tuple, Dict
 from brancharchitect.tree import Node
+from brancharchitect.split import PartitionSet
 from brancharchitect.leaforder.circular_distances import (
     circular_distance,
     circular_distance_for_node_subset,
@@ -70,23 +71,29 @@ def get_splits_info(tree1: Node, tree2: Node):
     'unique2' are splits in tree2 not in tree1,
     's_edges' are those common splits that have at least one child unique to tree2.
     """
+
     s1 = tree1.to_splits()
+
     s2 = tree2.to_splits()
-    common = s1 & s2
-    unique2 = s2 - s1
+
+    common = s1.union(s2)
+
+    unique2: PartitionSet = PartitionSet(s2.difference(s1))
+
+    unique2 = unique2.atom()
 
     s_edges = []
     for sp in common:
+
         node = tree2.find_node_by_split(sp)
+
         if node and node.children:
             if any(
                 ch.split_indices in unique2 for ch in node.children if ch.split_indices
             ):
                 s_edges.append(sp)
 
-    s_edges_sorted = sorted(s_edges, key=lambda x: len(x))
-    sorted_unique2 = sorted(unique2, key=lambda x: len(x))
-    return sorted_unique2, common, s_edges_sorted
+    return unique2, common, s_edges
 
 
 ##################################################
@@ -109,7 +116,6 @@ def try_node_reversal_global(
     new_dist = circular_distance_based_on_reference(tree, reference_order)
     if new_dist < initial_dist:
         rotated_splits.add(node.split_indices)
-        node.invalidate_current_order_cache()
         return True, new_dist
     else:
         node.swap_children()
@@ -130,7 +136,6 @@ def try_node_reversal_local(
     new_dist = circular_distance_for_node_subset(tree, reference_order, node)
     if new_dist < initial_dist:
         rotated_splits.add(node.split_indices)
-        node.invalidate_current_order_cache()
         return True, new_dist
     else:
         node.swap_children()
@@ -198,12 +203,10 @@ def optimize_s_edge_splits(tree1: Node, tree2: Node, reference_order, rotated_sp
                 if dist_g < dist_l:
                     # do global flip for real
                     node.swap_children()
-                    node.invalidate_current_order_cache()
                     new_dist = dist_g
                 else:
                     # do local flip for real
                     node.swap_children()
-                    node.invalidate_current_order_cache()
                     new_dist = dist_l
 
                 current_dist = new_dist
@@ -502,7 +505,9 @@ def smooth_order_unique_sedge_both(trees: List[Node], n_iterations: int = 3):
 
 
 def improve_single_pair_classic(
-    tree1: Node, tree2: Node, rotation_functions: List
+    tree1: Node,
+    tree2: Node,
+    rotation_functions: List = [optimize_s_edge_splits, optimize_unique_splits],
 ) -> Tuple[bool, Node, Node]:
     """
     Applies each rotation function in sequence to (tree1, tree2).
@@ -590,49 +595,22 @@ def smooth_order_of_trees_classic(
     and a backward pass that reverses the entire list.
     We stop if no improvement in a full iteration.
     """
-
-
-
     for _ in range(n_iterations):
         forward_improved = perform_one_iteration_classic(
             trees, rotation_functions, optimize_two_side
         )
 
         backward_improved = False
-        
+
         if backward:
-        
+
             trees.reverse()
 
             backward_improved = perform_one_iteration_classic(
                 trees, rotation_functions, optimize_two_side
             )
-        
+
             trees.reverse()
 
         if not (forward_improved or backward_improved):
             break
-
-
-# #############################
-# EXAMPLE USAGE
-##################################################
-"""
-# 1) The classic approach:
-# Define local rotation func
-rotation_funcs = [
-    optimize_unique_splits,
-    optimize_s_edge_splits,
-    optimize_common_splits,
-]
-smooth_order_of_trees_classic(
-    trees,
-    rotation_funcs,
-    n_iterations=5,
-    optimize_two_side=False,
-    backward=True
-)
-
-# 2) The classification-based approach with forward+backward propagation:
-smooth_order_unique_sedge_both(trees, n_iterations=5)
-"""

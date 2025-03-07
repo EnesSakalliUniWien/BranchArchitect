@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Analysis: small-test-two-leaves-moving.json</title>
+    <style>
+        /* Reset and base styles */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* Core theme */
+        body { 
+            background: #1d1d1d; 
+            color: #c8c8c8; 
+            font-family: 'Menlo', 'DejaVu Sans Mono', monospace;
+            line-height: 1.6;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #222;
+            border: 1px solid #333;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        /* Headers */
+        h1, h2, h3, h4, h5, h6 {
+            color: #fff;
+            margin: 1em 0 0.5em 0;
+            border-bottom: 1px solid #333;
+            padding-bottom: 0.3em;
+        }
+
+        /* Tables */
+        .table-container {
+            margin: 1em 0;
+            overflow-x: auto;
+            background: #252525;
+            border-radius: 4px;
+            border: 1px solid #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+            background: transparent;
+        }
+
+        th {
+            background: #333;
+            color: #fff;
+            font-weight: bold;
+            text-align: left;
+            padding: 12px;
+            border: 1px solid #444;
+        }
+
+        td {
+            padding: 10px 12px;
+            border: 1px solid #444;
+            color: #c8c8c8;
+        }
+
+        tr:hover {
+            background: #2a2a2a;
+        }
+
+        /* SVG containers */
+        .svg-container {
+            background: #252525;
+            padding: 20px;
+            margin: 1em 0;
+            border-radius: 4px;
+            border: 1px solid #333;
+            overflow-x: auto;
+        }
+
+        .svg-container svg {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        /* Analysis cards */
+        .bidirectional-analysis {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 1em 0;
+        }
+
+        .analysis-card {
+            background: #252525;
+            border: 1px solid #333;
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .analysis-detail {
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #333;
+            padding-bottom: 4px;
+        }
+
+        .detail-label {
+            color: #888;
+            margin-right: 10px;
+        }
+
+        /* Messages */
+        .warning { color: #ffd700; }
+        .error { color: #ff6b6b; }
+        .success { color: #6bff6b; }
+
+        /* Code blocks */
+        pre {
+            background: #252525;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid #333;
+            margin: 1em 0;
+        }
+
+        /* Links */
+        a {
+            color: #4a9eff;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Test Analysis: small-test-two-leaves-moving.json</h1>
+        </header>
+        <main>
+            
+        <script>
+        MathJax = {
+          tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']],
+            processEscapes: true,
+            processEnvironments: true,
+            packages: ['base', 'ams', 'noerrors', 'noundefined']
+          },
+          svg: {
+            fontCache: 'global',
+            scale: 1.1
+          },
+          startup: {
+            typeset: true
+          }
+        };
+        </script>
+        <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+        
+<section class="section"><h3>Test Case: small-test-two-leaves-moving.json</h3>
+<section class="section"><h3>Tree Tanglegram</h3>
+<div class="svg-container"><?xml version='1.0' encoding='utf8'?>
+<svg viewBox="0 0 800 400" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" width="800" height="400"><g transform="translate(30, 30)"><g stroke="#c8c8c8" stroke-width="1.5" fill="none"><path d="M 78.72,37.77777777777778 H 118.08" fill="none" /><path d="M 118.08,37.77777777777778 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="37.77777777777778" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">A</text><path d="M 118.08,75.55555555555556 H 157.44" fill="none" /><path d="M 157.44,75.55555555555556 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="75.55555555555556" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">B</text><path d="M 118.08,113.33333333333334 H 157.44" fill="none" /><path d="M 157.44,113.33333333333334 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="113.33333333333334" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">C</text><path d="M 78.72,94.44444444444446 H 118.08" /><path d="M 118.08,94.44444444444446 V 75.55555555555556" /><path d="M 78.72,94.44444444444446 H 118.08" /><path d="M 118.08,94.44444444444446 V 113.33333333333334" /><path d="M 39.36,66.11111111111111 H 78.72" /><path d="M 78.72,66.11111111111111 V 37.77777777777778" /><path d="M 39.36,66.11111111111111 H 78.72" /><path d="M 78.72,66.11111111111111 V 94.44444444444446" /><path d="M 118.08,151.11111111111111 H 157.44" fill="none" /><path d="M 157.44,151.11111111111111 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="151.11111111111111" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">D</text><path d="M 157.44,188.88888888888889 H 196.8" fill="none" /><path d="M 196.8,188.88888888888889 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="188.88888888888889" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">E</text><path d="M 157.44,226.66666666666669 H 196.8" fill="none" /><path d="M 196.8,226.66666666666669 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="226.66666666666669" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">F</text><path d="M 118.08,207.77777777777777 H 157.44" /><path d="M 157.44,207.77777777777777 V 188.88888888888889" /><path d="M 118.08,207.77777777777777 H 157.44" /><path d="M 157.44,207.77777777777777 V 226.66666666666669" /><path d="M 78.72,179.44444444444446 H 118.08" /><path d="M 118.08,179.44444444444446 V 151.11111111111111" /><path d="M 78.72,179.44444444444446 H 118.08" /><path d="M 118.08,179.44444444444446 V 207.77777777777777" /><path d="M 118.08,264.44444444444446 H 157.44" fill="none" /><path d="M 157.44,264.44444444444446 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="264.44444444444446" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">G</text><path d="M 118.08,302.22222222222223 H 157.44" fill="none" /><path d="M 157.44,302.22222222222223 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="302.22222222222223" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">H</text><path d="M 78.72,283.33333333333337 H 118.08" /><path d="M 118.08,283.33333333333337 V 264.44444444444446" /><path d="M 78.72,283.33333333333337 H 118.08" /><path d="M 118.08,283.33333333333337 V 302.22222222222223" /><path d="M 39.36,231.3888888888889 H 78.72" /><path d="M 78.72,231.3888888888889 V 179.44444444444446" /><path d="M 39.36,231.3888888888889 H 78.72" /><path d="M 78.72,231.3888888888889 V 283.33333333333337" /><path d="M 0.0,148.75 H 39.36" /><path d="M 39.36,148.75 V 66.11111111111111" /><path d="M 0.0,148.75 H 39.36" /><path d="M 39.36,148.75 V 231.3888888888889" /></g><g transform="translate(492, 0)" stroke="#c8c8c8" stroke-width="1.5" fill="none"><path d="M 127.92,37.77777777777778 H 88.56" fill="none" /><path d="M 88.56,37.77777777777778 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="37.77777777777778" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">A</text><path d="M 127.92,75.55555555555556 H 88.56" fill="none" /><path d="M 88.56,75.55555555555556 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="75.55555555555556" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">B</text><path d="M 167.28,56.66666666666667 H 127.92" /><path d="M 127.92,56.66666666666667 V 37.77777777777778" /><path d="M 167.28,56.66666666666667 H 127.92" /><path d="M 127.92,56.66666666666667 V 75.55555555555556" /><path d="M 167.28,113.33333333333334 H 127.92" fill="none" /><path d="M 127.92,113.33333333333334 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="113.33333333333334" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">C</text><path d="M 206.64,85.0 H 167.28" /><path d="M 167.28,85.0 V 56.66666666666667" /><path d="M 206.64,85.0 H 167.28" /><path d="M 167.28,85.0 V 113.33333333333334" /><path d="M 88.56,151.11111111111111 H 49.2" fill="none" /><path d="M 49.2,151.11111111111111 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="151.11111111111111" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">D</text><path d="M 88.56,188.88888888888889 H 49.2" fill="none" /><path d="M 49.2,188.88888888888889 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="188.88888888888889" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">F</text><path d="M 127.92,170.0 H 88.56" /><path d="M 88.56,170.0 V 151.11111111111111" /><path d="M 127.92,170.0 H 88.56" /><path d="M 88.56,170.0 V 188.88888888888889" /><path d="M 127.92,226.66666666666669 H 88.56" fill="none" /><path d="M 88.56,226.66666666666669 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="226.66666666666669" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">E</text><path d="M 167.28,198.33333333333334 H 127.92" /><path d="M 127.92,198.33333333333334 V 170.0" /><path d="M 167.28,198.33333333333334 H 127.92" /><path d="M 127.92,198.33333333333334 V 226.66666666666669" /><path d="M 127.92,264.44444444444446 H 88.56" fill="none" /><path d="M 88.56,264.44444444444446 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="264.44444444444446" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">G</text><path d="M 127.92,302.22222222222223 H 88.56" fill="none" /><path d="M 88.56,302.22222222222223 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="302.22222222222223" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">H</text><path d="M 167.28,283.33333333333337 H 127.92" /><path d="M 127.92,283.33333333333337 V 264.44444444444446" /><path d="M 167.28,283.33333333333337 H 127.92" /><path d="M 127.92,283.33333333333337 V 302.22222222222223" /><path d="M 206.64,240.83333333333337 H 167.28" /><path d="M 167.28,240.83333333333337 V 198.33333333333334" /><path d="M 206.64,240.83333333333337 H 167.28" /><path d="M 167.28,240.83333333333337 V 283.33333333333337" /><path d="M 246.0,162.91666666666669 H 206.64" /><path d="M 206.64,162.91666666666669 V 85.0" /><path d="M 246.0,162.91666666666669 H 206.64" /><path d="M 206.64,162.91666666666669 V 240.83333333333337" /></g><g class="label-connections" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.3" fill="none"><path d="M 233.70000000000002,37.77777777777778 C 344.40000000000003,18.88888888888889 344.40000000000003,56.66666666666667 455.1,37.77777777777778" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,75.55555555555556 C 344.40000000000003,56.66666666666667 344.40000000000003,94.44444444444444 455.1,75.55555555555556" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,113.33333333333334 C 344.40000000000003,94.44444444444446 344.40000000000003,132.22222222222223 455.1,113.33333333333334" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,151.11111111111111 C 344.40000000000003,132.22222222222223 344.40000000000003,170.0 455.1,151.11111111111111" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,188.88888888888889 C 344.40000000000003,170.0 344.40000000000003,207.77777777777777 455.1,226.66666666666669" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,226.66666666666669 C 344.40000000000003,207.7777777777778 344.40000000000003,245.55555555555557 455.1,188.88888888888889" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,264.44444444444446 C 344.40000000000003,245.55555555555557 344.40000000000003,283.33333333333337 455.1,264.44444444444446" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,302.22222222222223 C 344.40000000000003,283.3333333333333 344.40000000000003,321.11111111111114 455.1,302.22222222222223" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /></g></g></svg></div>
+<section class="section"><h3>Rectangular Tree Pair</h3>
+<div class="svg-container"><svg width="800" height="400" xmlns="http://www.w3.org/2000/svg">
+        <g transform="translate(30, 30)">
+            
+<svg viewBox="0 0 355 340" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" width="355" height="340"><g transform="translate(0, 20)" stroke="#c8c8c8" stroke-width="1.5"><path d="M 39.44444444444444,35.0 V 52.5" fill="none" /><path d="M 39.44444444444444,52.5 V 290" fill="none" stroke-dasharray="4,4" /><text x="39.44444444444444" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">A</text><path d="M 78.88888888888889,52.5 V 70.0" fill="none" /><path d="M 78.88888888888889,70.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="78.88888888888889" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">B</text><path d="M 118.33333333333333,52.5 V 70.0" fill="none" /><path d="M 118.33333333333333,70.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="118.33333333333333" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">C</text><path d="M 98.61111111111111,35.0 V 52.5" fill="none" /><path d="M 98.61111111111111,52.5 H 78.88888888888889" fill="none" /><path d="M 98.61111111111111,35.0 V 52.5" fill="none" /><path d="M 98.61111111111111,52.5 H 118.33333333333333" fill="none" /><path d="M 69.02777777777777,17.5 V 35.0" fill="none" /><path d="M 69.02777777777777,35.0 H 39.44444444444444" fill="none" /><path d="M 69.02777777777777,17.5 V 35.0" fill="none" /><path d="M 69.02777777777777,35.0 H 98.61111111111111" fill="none" /><path d="M 157.77777777777777,52.5 V 70.0" fill="none" /><path d="M 157.77777777777777,70.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="157.77777777777777" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">D</text><path d="M 197.22222222222223,70.0 V 87.5" fill="none" /><path d="M 197.22222222222223,87.5 V 290" fill="none" stroke-dasharray="4,4" /><text x="197.22222222222223" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">E</text><path d="M 236.66666666666666,70.0 V 87.5" fill="none" /><path d="M 236.66666666666666,87.5 V 290" fill="none" stroke-dasharray="4,4" /><text x="236.66666666666666" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">F</text><path d="M 216.94444444444446,52.5 V 70.0" fill="none" /><path d="M 216.94444444444446,70.0 H 197.22222222222223" fill="none" /><path d="M 216.94444444444446,52.5 V 70.0" fill="none" /><path d="M 216.94444444444446,70.0 H 236.66666666666666" fill="none" /><path d="M 187.36111111111111,35.0 V 52.5" fill="none" /><path d="M 187.36111111111111,52.5 H 157.77777777777777" fill="none" /><path d="M 187.36111111111111,35.0 V 52.5" fill="none" /><path d="M 187.36111111111111,52.5 H 216.94444444444446" fill="none" /><path d="M 276.1111111111111,52.5 V 70.0" fill="none" /><path d="M 276.1111111111111,70.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="276.1111111111111" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">G</text><path d="M 315.55555555555554,52.5 V 70.0" fill="none" /><path d="M 315.55555555555554,70.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="315.55555555555554" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">H</text><path d="M 295.8333333333333,35.0 V 52.5" fill="none" /><path d="M 295.8333333333333,52.5 H 276.1111111111111" fill="none" /><path d="M 295.8333333333333,35.0 V 52.5" fill="none" /><path d="M 295.8333333333333,52.5 H 315.55555555555554" fill="none" /><path d="M 241.59722222222223,17.5 V 35.0" fill="none" /><path d="M 241.59722222222223,35.0 H 187.36111111111111" fill="none" /><path d="M 241.59722222222223,17.5 V 35.0" fill="none" /><path d="M 241.59722222222223,35.0 H 295.8333333333333" fill="none" /><path d="M 155.3125,0.0 V 17.5" fill="none" /><path d="M 155.3125,17.5 H 69.02777777777777" fill="none" /><path d="M 155.3125,0.0 V 17.5" fill="none" /><path d="M 155.3125,17.5 H 241.59722222222223" fill="none" /></g>
+        </g>
+        <g transform="translate(415, 30)">
+            
+<svg viewBox="0 0 355 340" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" width="355" height="340"><g transform="translate(0, 20)" stroke="#c8c8c8" stroke-width="1.5"><path d="M 39.44444444444444,52.5 V 70.0" fill="none" /><path d="M 39.44444444444444,70.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="39.44444444444444" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">A</text><path d="M 78.88888888888889,52.5 V 70.0" fill="none" /><path d="M 78.88888888888889,70.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="78.88888888888889" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">B</text><path d="M 59.166666666666664,35.0 V 52.5" fill="none" /><path d="M 59.166666666666664,52.5 H 39.44444444444444" fill="none" /><path d="M 59.166666666666664,35.0 V 52.5" fill="none" /><path d="M 59.166666666666664,52.5 H 78.88888888888889" fill="none" /><path d="M 118.33333333333333,35.0 V 52.5" fill="none" /><path d="M 118.33333333333333,52.5 V 290" fill="none" stroke-dasharray="4,4" /><text x="118.33333333333333" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">C</text><path d="M 88.75,17.5 V 35.0" fill="none" /><path d="M 88.75,35.0 H 59.166666666666664" fill="none" /><path d="M 88.75,17.5 V 35.0" fill="none" /><path d="M 88.75,35.0 H 118.33333333333333" fill="none" /><path d="M 157.77777777777777,70.0 V 87.5" fill="none" /><path d="M 157.77777777777777,87.5 V 290" fill="none" stroke-dasharray="4,4" /><text x="157.77777777777777" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">D</text><path d="M 197.22222222222223,70.0 V 87.5" fill="none" /><path d="M 197.22222222222223,87.5 V 290" fill="none" stroke-dasharray="4,4" /><text x="197.22222222222223" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">F</text><path d="M 177.5,52.5 V 70.0" fill="none" /><path d="M 177.5,70.0 H 157.77777777777777" fill="none" /><path d="M 177.5,52.5 V 70.0" fill="none" /><path d="M 177.5,70.0 H 197.22222222222223" fill="none" /><path d="M 236.66666666666666,52.5 V 70.0" fill="none" /><path d="M 236.66666666666666,70.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="236.66666666666666" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">E</text><path d="M 207.08333333333331,35.0 V 52.5" fill="none" /><path d="M 207.08333333333331,52.5 H 177.5" fill="none" /><path d="M 207.08333333333331,35.0 V 52.5" fill="none" /><path d="M 207.08333333333331,52.5 H 236.66666666666666" fill="none" /><path d="M 276.1111111111111,52.5 V 70.0" fill="none" /><path d="M 276.1111111111111,70.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="276.1111111111111" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">G</text><path d="M 315.55555555555554,52.5 V 70.0" fill="none" /><path d="M 315.55555555555554,70.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="315.55555555555554" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">H</text><path d="M 295.8333333333333,35.0 V 52.5" fill="none" /><path d="M 295.8333333333333,52.5 H 276.1111111111111" fill="none" /><path d="M 295.8333333333333,35.0 V 52.5" fill="none" /><path d="M 295.8333333333333,52.5 H 315.55555555555554" fill="none" /><path d="M 251.45833333333331,17.5 V 35.0" fill="none" /><path d="M 251.45833333333331,35.0 H 207.08333333333331" fill="none" /><path d="M 251.45833333333331,17.5 V 35.0" fill="none" /><path d="M 251.45833333333331,35.0 H 295.8333333333333" fill="none" /><path d="M 170.10416666666666,0.0 V 17.5" fill="none" /><path d="M 170.10416666666666,17.5 H 88.75" fill="none" /><path d="M 170.10416666666666,0.0 V 17.5" fill="none" /><path d="M 170.10416666666666,17.5 H 251.45833333333331" fill="none" /></g>
+        </g>
+    </svg></div>
+<section class="section"><h3>Executing algorithm_five</h3>
+<section class="section"><h3>
+Processing split: (D, E, F)</h3>
+<section class="section"><h3>S-Edge Tree Comparison</h3>
+<p class="info">
+S-Edge Classification:</p>
+<p class="info">Split: (D, E, F)</p>
+<p class="info">Tree 1 Node: ('D', 'E', 'F')</p>
+<p class="info">Tree 2 Node: ('D', 'E', 'F')</p>
+<p class="info">+-------------+------------+
+| Tree Arms   | Sets       |
++=============+============+
+| A1          | {(E), (F)} |
++-------------+------------+
+| A2          | {(D)}      |
++-------------+------------+
+| B1          | {(E)}      |
++-------------+------------+
+| B2          | {(D), (F)} |
++-------------+------------+</p>
+<h4>Arms Definition</h4>
+<p class="info">+------------------------------------------------------+----------------+-------+-------+
+| Covet                                                | Intersection   | A-B   | B-A   |
++======================================================+================+=======+=======+
+| Covet A1 × B1:<br> ⎡[[{(E), (F)}]⎤<br>⎣[{(E)}]⎦      | {(E)}          | {(F)} | ∅     |
++------------------------------------------------------+----------------+-------+-------+
+| Covet A1 × B2:<br> ⎡[[{(E), (F)}]⎤<br>⎣[{(D), (F)}]⎦ | {(F)}          | {(E)} | {(D)} |
++------------------------------------------------------+----------------+-------+-------+
+| Covet A2 × B1:<br> ⎡[[{(D)}]⎤<br>⎣[{(E)}]⎦           | ∅              | {(D)} | {(E)} |
++------------------------------------------------------+----------------+-------+-------+
+| Covet A2 × B2:<br> ⎡[[{(D)}]⎤<br>⎣[{(D), (F)}]⎦      | {(D)}          | ∅     | {(F)} |
++------------------------------------------------------+----------------+-------+-------+</p>
+<h4>Comparison Results</h4>
+<p class="info">Intersection: {(E)}; Arm A: {(E), (F)}; Arm B: {(E)}; Independent: {((D))}</p>
+<section class="section"><h3>Independence Check for intersection: {(E)}</h3>
+<p class="info">Arm A: {(E), (F)}</p>
+<p class="info">Arm B: {(E)}</p>
+<p class="info">Not A ⊆ B: False</p>
+<p class="info">Not B ⊆ A: True</p>
+<p class="info">A - B: {(E)}</p>
+<p class="info">B - A: {(E)}</p>
+<p class="info">✓ Independent: A is not subset of B and B-A is non-empty</p>
+<p class="info">Final independence determination: {((D))}</p>
+<p class="info">Intersection: {(F)}; Arm A: {(E), (F)}; Arm B: {(D), (F)}; Independent: False</p>
+<section class="section"><h3>Independence Check for intersection: {(F)}</h3>
+<p class="info">Arm A: {(E), (F)}</p>
+<p class="info">Arm B: {(D), (F)}</p>
+<p class="info">Not A ⊆ B: False</p>
+<p class="info">Not B ⊆ A: False</p>
+<p class="info">A - B: {(F)}</p>
+<p class="info">B - A: {(F)}</p>
+<p class="info">✗ Not independent: None of the independence conditions met</p>
+<p class="info">Final independence determination: False</p>
+<p class="info">Intersection: {(D)}; Arm A: {(D)}; Arm B: {(D), (F)}; Independent: {((E))}</p>
+<section class="section"><h3>Independence Check for intersection: {(D)}</h3>
+<p class="info">Arm A: {(D)}</p>
+<p class="info">Arm B: {(D), (F)}</p>
+<p class="info">Not A ⊆ B: True</p>
+<p class="info">Not B ⊆ A: False</p>
+<p class="info">A - B: {(D)}</p>
+<p class="info">B - A: {(D)}</p>
+<p class="info">✓ Independent: B is not subset of A and A-B is non-empty</p>
+<p class="info">Final independence determination: {((E))}</p>
+<section class="section"><h3>Bidirectional Analysis</h3>
+
+            <div class="table-container" style="
+                width: auto !important;
+                max-width: 100% !important;
+                overflow-x: auto !important;
+                margin: 1em 0;
+            ">
+            
+
+            <table class="table table-striped table-bordered" style="
+                table-layout: fixed !important;
+                white-space: nowrap !important;
+                width: auto !important;
+                min-width: fit-content !important;
+                border-collapse: collapse !important;
+            ">
+        
+<thead>
+<tr>
+
+                    <th style="
+                        min-width: 26px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Pair</th>
+                
+
+                    <th style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">A Elements</th>
+                
+
+                    <th style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">B Elements</th>
+                
+
+                    <th style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">A ∩ B</th>
+                
+
+                    <th style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">A - B</th>
+                
+
+                    <th style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">B - A</th>
+                
+</tr>
+</thead>
+<tbody>
+<tr>
+
+                    <td style="
+                        min-width: 26px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">(1, 2)</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(E), (F)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(E)}</td>
+                
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(E)}</td>
+                
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(F)}</td>
+                
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">∅</td>
+                
+</tr>
+<tr>
+
+                    <td style="
+                        min-width: 26px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">(2, 1)</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(D)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(D), (F)}</td>
+                
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(D)}</td>
+                
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">∅</td>
+                
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(F)}</td>
+                
+</tr>
+</tbody>
+</table>
+</div>
+<h4>Comprehensive Direction Analysis</h4>
+<div class="matrix-container">
+        <div class="matrix-toggle">
+            <div class="toggle-buttons">
+                <button class="toggle-button active" data-view="mathjax">Mathematical</button>
+                <button class="toggle-button" data-view="ascii">ASCII</button>
+                <button class="toggle-button" data-view="table">Table</button>
+            </div>
+        </div>
+        <div class="mathjax-view matrix-view">$$
+\begin{bmatrix}
+\{\left(E\right), \left(F\right)\} & \{\left(E\right)\} \\
+\{\left(D\right)\} & \{\left(D\right), \left(F\right)\}
+\end{bmatrix}
+$$</div><div class="ascii-view matrix-view" style="display:none;"><div class="ascii-matrix">
+<pre><span class="bracket">⎡</span> <span class="set">{<span class="element">(E)</span>, <span class="element">(F)</span>}</span>     <span class="divider">│</span> <span class="set">{<span class="element">(E)</span>}</span>          <span class="bracket">⎤</span>
+<span class="bracket">⎢</span> <span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span> <span class="bracket">⎥</span>
+<span class="bracket">⎣</span> <span class="set">{<span class="element">(D)</span>}</span>          <span class="divider">│</span> <span class="set">{<span class="element">(D)</span>, <span class="element">(F)</span>}</span>     <span class="bracket">⎦</span>
+</pre>
+</div></div><div class="table-view matrix-view" style="display:none;">
+            <div class="table-container" style="
+                width: auto !important;
+                max-width: 100% !important;
+                overflow-x: auto !important;
+                margin: 1em 0;
+            ">
+            
+
+            <table class="table table-striped table-bordered" style="
+                table-layout: fixed !important;
+                white-space: nowrap !important;
+                width: auto !important;
+                min-width: fit-content !important;
+                border-collapse: collapse !important;
+            ">
+        
+<thead>
+<tr>
+
+                    <th style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    "></th>
+                
+
+                    <th style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Column 0</th>
+                
+
+                    <th style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Column 1</th>
+                
+</tr>
+</thead>
+<tbody>
+<tr>
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Row 0</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(E), (F)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(E)}</td>
+                
+</tr>
+<tr>
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Row 1</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(D)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(D), (F)}</td>
+                
+</tr>
+</tbody>
+</table>
+</div></div></div>
+<p class="info">2x2 matrix with independent rows detected - keeping as is</p>
+<section class="section"><h3>Meet Result Computation</h3>
+<p class="info">Matrix is canonical</p>
+<p class="info">Final Result: {(D), (E)}</p>
+<p class="info">+-----------------------+
+| Meet Product Result   |
++=======================+
+| {(D), (E)}            |
++-----------------------+</p>
+<h4>Final Computation Result</h4>
+<p class="info">Minimum size of results: 1</p>
+<p class="info">Taken Result: {3}</p>
+<p class="info">Component: {3}</p>
+<p class="info">Global Components: [(3,)]</p>
+<section class="section"><h3>
+Processing split: (A, B, C)</h3>
+<section class="section"><h3>S-Edge Tree Comparison</h3>
+<p class="info">
+S-Edge Classification:</p>
+<p class="info">Split: (A, B, C)</p>
+<p class="info">Tree 1 Node: ('A', 'B', 'C')</p>
+<p class="info">Tree 2 Node: ('A', 'B', 'C')</p>
+<p class="info">+-------------+------------+
+| Tree Arms   | Sets       |
++=============+============+
+| A1          | {(A)}      |
++-------------+------------+
+| A2          | {(B), (C)} |
++-------------+------------+
+| B1          | {(A), (B)} |
++-------------+------------+
+| B2          | {(C)}      |
++-------------+------------+</p>
+<h4>Arms Definition</h4>
+<p class="info">+------------------------------------------------------+----------------+-------+-------+
+| Covet                                                | Intersection   | A-B   | B-A   |
++======================================================+================+=======+=======+
+| Covet A1 × B1:<br> ⎡[[{(A)}]⎤<br>⎣[{(A), (B)}]⎦      | {(A)}          | ∅     | {(B)} |
++------------------------------------------------------+----------------+-------+-------+
+| Covet A1 × B2:<br> ⎡[[{(A)}]⎤<br>⎣[{(C)}]⎦           | ∅              | {(A)} | {(C)} |
++------------------------------------------------------+----------------+-------+-------+
+| Covet A2 × B1:<br> ⎡[[{(B), (C)}]⎤<br>⎣[{(A), (B)}]⎦ | {(B)}          | {(C)} | {(A)} |
++------------------------------------------------------+----------------+-------+-------+
+| Covet A2 × B2:<br> ⎡[[{(B), (C)}]⎤<br>⎣[{(C)}]⎦      | {(C)}          | {(B)} | ∅     |
++------------------------------------------------------+----------------+-------+-------+</p>
+<h4>Comparison Results</h4>
+<p class="info">Intersection: {(A)}; Arm A: {(A)}; Arm B: {(A), (B)}; Independent: {((C))}</p>
+<section class="section"><h3>Independence Check for intersection: {(A)}</h3>
+<p class="info">Arm A: {(A)}</p>
+<p class="info">Arm B: {(A), (B)}</p>
+<p class="info">Not A ⊆ B: True</p>
+<p class="info">Not B ⊆ A: False</p>
+<p class="info">A - B: {(A)}</p>
+<p class="info">B - A: {(A)}</p>
+<p class="info">✓ Independent: B is not subset of A and A-B is non-empty</p>
+<p class="info">Final independence determination: {((C))}</p>
+<p class="info">Intersection: {(B)}; Arm A: {(B), (C)}; Arm B: {(A), (B)}; Independent: False</p>
+<section class="section"><h3>Independence Check for intersection: {(B)}</h3>
+<p class="info">Arm A: {(B), (C)}</p>
+<p class="info">Arm B: {(A), (B)}</p>
+<p class="info">Not A ⊆ B: False</p>
+<p class="info">Not B ⊆ A: False</p>
+<p class="info">A - B: {(B)}</p>
+<p class="info">B - A: {(B)}</p>
+<p class="info">✗ Not independent: None of the independence conditions met</p>
+<p class="info">Final independence determination: False</p>
+<p class="info">Intersection: {(C)}; Arm A: {(B), (C)}; Arm B: {(C)}; Independent: {((A))}</p>
+<section class="section"><h3>Independence Check for intersection: {(C)}</h3>
+<p class="info">Arm A: {(B), (C)}</p>
+<p class="info">Arm B: {(C)}</p>
+<p class="info">Not A ⊆ B: False</p>
+<p class="info">Not B ⊆ A: True</p>
+<p class="info">A - B: {(C)}</p>
+<p class="info">B - A: {(C)}</p>
+<p class="info">✓ Independent: A is not subset of B and B-A is non-empty</p>
+<p class="info">Final independence determination: {((A))}</p>
+<section class="section"><h3>Bidirectional Analysis</h3>
+
+            <div class="table-container" style="
+                width: auto !important;
+                max-width: 100% !important;
+                overflow-x: auto !important;
+                margin: 1em 0;
+            ">
+            
+
+            <table class="table table-striped table-bordered" style="
+                table-layout: fixed !important;
+                white-space: nowrap !important;
+                width: auto !important;
+                min-width: fit-content !important;
+                border-collapse: collapse !important;
+            ">
+        
+<thead>
+<tr>
+
+                    <th style="
+                        min-width: 26px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Pair</th>
+                
+
+                    <th style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">A Elements</th>
+                
+
+                    <th style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">B Elements</th>
+                
+
+                    <th style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">A ∩ B</th>
+                
+
+                    <th style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">A - B</th>
+                
+
+                    <th style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">B - A</th>
+                
+</tr>
+</thead>
+<tbody>
+<tr>
+
+                    <td style="
+                        min-width: 26px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">(1, 2)</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(A)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(A), (B)}</td>
+                
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(A)}</td>
+                
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">∅</td>
+                
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(B)}</td>
+                
+</tr>
+<tr>
+
+                    <td style="
+                        min-width: 26px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">(2, 1)</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(B), (C)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(C)}</td>
+                
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(C)}</td>
+                
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(B)}</td>
+                
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">∅</td>
+                
+</tr>
+</tbody>
+</table>
+</div>
+<h4>Comprehensive Direction Analysis</h4>
+<div class="matrix-container">
+        <div class="matrix-toggle">
+            <div class="toggle-buttons">
+                <button class="toggle-button active" data-view="mathjax">Mathematical</button>
+                <button class="toggle-button" data-view="ascii">ASCII</button>
+                <button class="toggle-button" data-view="table">Table</button>
+            </div>
+        </div>
+        <div class="mathjax-view matrix-view">$$
+\begin{bmatrix}
+\{\left(A\right)\} & \{\left(A\right), \left(B\right)\} \\
+\{\left(B\right), \left(C\right)\} & \{\left(C\right)\}
+\end{bmatrix}
+$$</div><div class="ascii-view matrix-view" style="display:none;"><div class="ascii-matrix">
+<pre><span class="bracket">⎡</span> <span class="set">{<span class="element">(A)</span>}</span>          <span class="divider">│</span> <span class="set">{<span class="element">(A)</span>, <span class="element">(B)</span>}</span>     <span class="bracket">⎤</span>
+<span class="bracket">⎢</span> <span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span> <span class="bracket">⎥</span>
+<span class="bracket">⎣</span> <span class="set">{<span class="element">(B)</span>, <span class="element">(C)</span>}</span>     <span class="divider">│</span> <span class="set">{<span class="element">(C)</span>}</span>          <span class="bracket">⎦</span>
+</pre>
+</div></div><div class="table-view matrix-view" style="display:none;">
+            <div class="table-container" style="
+                width: auto !important;
+                max-width: 100% !important;
+                overflow-x: auto !important;
+                margin: 1em 0;
+            ">
+            
+
+            <table class="table table-striped table-bordered" style="
+                table-layout: fixed !important;
+                white-space: nowrap !important;
+                width: auto !important;
+                min-width: fit-content !important;
+                border-collapse: collapse !important;
+            ">
+        
+<thead>
+<tr>
+
+                    <th style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    "></th>
+                
+
+                    <th style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Column 0</th>
+                
+
+                    <th style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Column 1</th>
+                
+</tr>
+</thead>
+<tbody>
+<tr>
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Row 0</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(A)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(A), (B)}</td>
+                
+</tr>
+<tr>
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Row 1</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(B), (C)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(C)}</td>
+                
+</tr>
+</tbody>
+</table>
+</div></div></div>
+<p class="info">2x2 matrix with independent rows detected - keeping as is</p>
+<section class="section"><h3>Meet Result Computation</h3>
+<p class="info">Matrix is canonical</p>
+<p class="info">Final Result: {(A), (C)}</p>
+<p class="info">+-----------------------+
+| Meet Product Result   |
++=======================+
+| {(A), (C)}            |
++-----------------------+</p>
+<h4>Final Computation Result</h4>
+<p class="info">Minimum size of results: 1</p>
+<p class="info">Taken Result: {0}</p>
+<p class="info">Component: {0}</p>
+<p class="info">Global Components: [(3,), (0,)]</p>
+<p class="info">Current Proposed Deletions: 2</p>
+<section class="section"><h3>Deleting Leaves</h3>
+<p class="info">Deleting Leaves: [0, 3]</p>
+<p class="info">Pruned Tree One: ((B:1.0,C:1.0):1.0,((E:1.0,F:1.0):1.0,(G:1.0,H:1.0):1.0):1.0):1.0;</p>
+<p class="info">Pruned Tree Two: ((B:1.0,C:1.0):1.0,((E:1.0,F:1.0):1.0,(G:1.0,H:1.0):1.0):1.0):1.0;</p>
+<p class="info">Remaining leaves: 6</p>
+<p class="info">Current Proposed Deletions: 0</p>
+<p class="info">No more common splits found. Algorithm completed.</p>
+<p class="info">algorithm_five completed successfully</p>
+</section>
+</div>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up matrix toggle buttons
+            const toggleButtons = document.querySelectorAll('.matrix-toggle .toggle-button');
+            toggleButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Find the parent matrix container
+                    const matrixContainer = this.closest('.matrix-container');
+                    if (!matrixContainer) return;
+                    
+                    // Get the view to show
+                    const viewType = this.getAttribute('data-view');
+                    
+                    // Update active button state
+                    const buttons = matrixContainer.querySelectorAll('.toggle-button');
+                    buttons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Hide all views in this container
+                    const views = matrixContainer.querySelectorAll('.matrix-view');
+                    views.forEach(view => view.style.display = 'none');
+                    
+                    // Show the selected view
+                    const selectedView = matrixContainer.querySelector('.' + viewType + '-view');
+                    if (selectedView) {
+                        selectedView.style.display = 'block';
+                        
+                        // If it's MathJax, trigger typesetting
+                        if (viewType === 'mathjax' && typeof MathJax !== 'undefined') {
+                            MathJax.typeset([selectedView]);
+                        }
+                    }
+                });
+            });
+        });
+        </script>
+        
+        </main>
+        <footer>
+            <p style="margin-top: 2em; text-align: center; color: #666;">
+                Generated by Branch Architect
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

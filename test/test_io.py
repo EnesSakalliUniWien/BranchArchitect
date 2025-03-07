@@ -1,11 +1,22 @@
 from brancharchitect.io import read_newick, write_json
 from brancharchitect.newick_parser import parse_newick
 from brancharchitect.plot.svg import generate_svg_multiple_trees
-
-from brancharchitect.jumping_taxa.deletion_algorithm import get_child
+from brancharchitect.tree import Node
 import json
 
 import tempfile
+
+
+### Parser Tests
+def get_child(node, *path):
+    for i in path:
+        if isinstance(node, Node):
+            children = node.children
+        else:
+            children = node["children"]
+        assert len(children) >= i
+        node = children[i]
+    return node
 
 
 def test_read_newick_write_json():

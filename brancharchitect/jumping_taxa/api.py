@@ -1,6 +1,5 @@
 from brancharchitect.tree import Node
 
-
 def call_jumping_taxa(tree1: Node, tree2: Node, algorithm="rule"):
     """
     Example: calls an algorithm from brancharchitect.jumping_taxa and
