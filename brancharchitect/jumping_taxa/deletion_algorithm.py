@@ -1,6 +1,5 @@
-from brancharchitect.newick_parser import Node, parse_newick
+from brancharchitect.newick_parser import Node
 
-from typing import Optional
 
 # def name_unnamed_nodes(node: Node):
 #     for child in node.children:
@@ -31,8 +30,14 @@ def _delete_superfluous_nodes(node: Node):
 
 
 def _delete_taxa(node: Node, indices_to_delete: list[int]) -> Node:
-    node.children = [child for child in node.children if any(idx not in indices_to_delete for idx in child.split_indices)]
-    node.split_indices = tuple([idx for idx in node.split_indices if idx not in indices_to_delete])
+    node.children = [
+        child
+        for child in node.children
+        if any(idx not in indices_to_delete for idx in child.split_indices)
+    ]
+    node.split_indices = tuple(
+        [idx for idx in node.split_indices if idx not in indices_to_delete]
+    )
 
     for child in node.children:
         _delete_taxa(child, indices_to_delete)
@@ -46,22 +51,6 @@ def name_unnamed_nodes_by_indices(node: Node):
     if node.name == "":
         print([child.name for child in node.children])
         node.name = [child.name for child in node.children]
-
-
-def serialize_to_newick(node: Node):
-    return _serialize_to_newick(node) + ";"
-
-
-def _serialize_to_newick(node: Node):
-    if node.children:
-        return (
-            "("
-            + ",".join([_serialize_to_newick(child) for child in node.children])
-            + ")"
-            + node.name
-        )
-    else:
-        return node.name
 
 
 def get_external_indices(node: Node, leave_indices):
@@ -79,7 +68,7 @@ def get_child(node, *path):
         if isinstance(node, Node):
             children = node.children
         else:
-            children = node['children']
+            children = node["children"]
         assert len(children) >= i
         node = children[i]
     return node

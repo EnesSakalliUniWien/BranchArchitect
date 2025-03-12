@@ -3,8 +3,8 @@
   - [X] newick strings parsen in python tree
   - [X] tree serializen newick/json
   - [X] algorithmus auf einem paar von Bäumen jumping taxa callen
-  - [ ] berechnung von consensus tree
-  - [ ] berechnung von intermediate trees
+  - [X] berechnung von consensus tree
+  - [X] berechnung von intermediate trees
   - [-] (CANCELLED) subtree pruning and regrafting
   - [-] (CANCELLED) grafting of rooted in other tree
   - [X] export as svg

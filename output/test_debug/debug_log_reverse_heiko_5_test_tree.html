@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Analysis: reverse_heiko_5_test_tree.json</title>
+    <style>
+        /* Reset and base styles */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* Core theme */
+        body { 
+            background: #1d1d1d; 
+            color: #c8c8c8; 
+            font-family: 'Menlo', 'DejaVu Sans Mono', monospace;
+            line-height: 1.6;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #222;
+            border: 1px solid #333;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        /* Headers */
+        h1, h2, h3, h4, h5, h6 {
+            color: #fff;
+            margin: 1em 0 0.5em 0;
+            border-bottom: 1px solid #333;
+            padding-bottom: 0.3em;
+        }
+
+        /* Tables */
+        .table-container {
+            margin: 1em 0;
+            overflow-x: auto;
+            background: #252525;
+            border-radius: 4px;
+            border: 1px solid #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+            background: transparent;
+        }
+
+        th {
+            background: #333;
+            color: #fff;
+            font-weight: bold;
+            text-align: left;
+            padding: 12px;
+            border: 1px solid #444;
+        }
+
+        td {
+            padding: 10px 12px;
+            border: 1px solid #444;
+            color: #c8c8c8;
+        }
+
+        tr:hover {
+            background: #2a2a2a;
+        }
+
+        /* SVG containers */
+        .svg-container {
+            background: #252525;
+            padding: 20px;
+            margin: 1em 0;
+            border-radius: 4px;
+            border: 1px solid #333;
+            overflow-x: auto;
+        }
+
+        .svg-container svg {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        /* Analysis cards */
+        .bidirectional-analysis {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 1em 0;
+        }
+
+        .analysis-card {
+            background: #252525;
+            border: 1px solid #333;
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .analysis-detail {
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #333;
+            padding-bottom: 4px;
+        }
+
+        .detail-label {
+            color: #888;
+            margin-right: 10px;
+        }
+
+        /* Messages */
+        .warning { color: #ffd700; }
+        .error { color: #ff6b6b; }
+        .success { color: #6bff6b; }
+
+        /* Code blocks */
+        pre {
+            background: #252525;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid #333;
+            margin: 1em 0;
+        }
+
+        /* Links */
+        a {
+            color: #4a9eff;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Test Analysis: reverse_heiko_5_test_tree.json</h1>
+        </header>
+        <main>
+            
+        <script>
+        MathJax = {
+          tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']],
+            processEscapes: true,
+            processEnvironments: true,
+            packages: ['base', 'ams', 'noerrors', 'noundefined']
+          },
+          svg: {
+            fontCache: 'global',
+            scale: 1.1
+          },
+          startup: {
+            typeset: true
+          }
+        };
+        </script>
+        <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+        
+<section class="section"><h3>Test Case: reverse_heiko_5_test_tree.json</h3>
+<section class="section"><h3>Tree Tanglegram</h3>
+<div class="svg-container"><?xml version='1.0' encoding='utf8'?>
+<svg viewBox="0 0 800 400" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" width="800" height="400"><g transform="translate(30, 30)"><g stroke="#c8c8c8" stroke-width="1.5" fill="none"><path d="M 112.45714285714287,21.25 H 140.57142857142858" fill="none" /><path d="M 140.57142857142858,21.25 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="21.25" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">A1</text><path d="M 140.57142857142858,42.5 H 168.6857142857143" fill="none" /><path d="M 168.6857142857143,42.5 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="42.5" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">A2</text><path d="M 168.6857142857143,63.75 H 196.80000000000004" fill="none" /><path d="M 196.80000000000004,63.75 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="63.75" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">C1</text><path d="M 168.6857142857143,85.0 H 196.80000000000004" fill="none" /><path d="M 196.80000000000004,85.0 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="85.0" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">C2</text><path d="M 140.57142857142858,74.375 H 168.6857142857143" /><path d="M 168.6857142857143,74.375 V 63.75" /><path d="M 140.57142857142858,74.375 H 168.6857142857143" /><path d="M 168.6857142857143,74.375 V 85.0" /><path d="M 112.45714285714287,58.4375 H 140.57142857142858" /><path d="M 140.57142857142858,58.4375 V 42.5" /><path d="M 112.45714285714287,58.4375 H 140.57142857142858" /><path d="M 140.57142857142858,58.4375 V 74.375" /><path d="M 84.34285714285716,39.84375 H 112.45714285714287" /><path d="M 112.45714285714287,39.84375 V 21.25" /><path d="M 84.34285714285716,39.84375 H 112.45714285714287" /><path d="M 112.45714285714287,39.84375 V 58.4375" /><path d="M 112.45714285714287,106.25 H 140.57142857142858" fill="none" /><path d="M 140.57142857142858,106.25 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="106.25" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">B1</text><path d="M 112.45714285714287,127.5 H 140.57142857142858" fill="none" /><path d="M 140.57142857142858,127.5 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="127.5" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">B2</text><path d="M 84.34285714285716,116.875 H 112.45714285714287" /><path d="M 112.45714285714287,116.875 V 106.25" /><path d="M 84.34285714285716,116.875 H 112.45714285714287" /><path d="M 112.45714285714287,116.875 V 127.5" /><path d="M 56.228571428571435,78.359375 H 84.34285714285716" /><path d="M 84.34285714285716,78.359375 V 39.84375" /><path d="M 56.228571428571435,78.359375 H 84.34285714285716" /><path d="M 84.34285714285716,78.359375 V 116.875" /><path d="M 112.45714285714287,148.75 H 140.57142857142858" fill="none" /><path d="M 140.57142857142858,148.75 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="148.75" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">D1</text><path d="M 112.45714285714287,170.0 H 140.57142857142858" fill="none" /><path d="M 140.57142857142858,170.0 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="170.0" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">D2</text><path d="M 84.34285714285716,159.375 H 112.45714285714287" /><path d="M 112.45714285714287,159.375 V 148.75" /><path d="M 84.34285714285716,159.375 H 112.45714285714287" /><path d="M 112.45714285714287,159.375 V 170.0" /><path d="M 168.6857142857143,191.25 H 196.80000000000004" fill="none" /><path d="M 196.80000000000004,191.25 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="191.25" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">E1</text><path d="M 168.6857142857143,212.5 H 196.80000000000004" fill="none" /><path d="M 196.80000000000004,212.5 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="212.5" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">E2</text><path d="M 140.57142857142858,201.875 H 168.6857142857143" /><path d="M 168.6857142857143,201.875 V 191.25" /><path d="M 140.57142857142858,201.875 H 168.6857142857143" /><path d="M 168.6857142857143,201.875 V 212.5" /><path d="M 168.6857142857143,233.75 H 196.80000000000004" fill="none" /><path d="M 196.80000000000004,233.75 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="233.75" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">F2</text><path d="M 168.6857142857143,255.0 H 196.80000000000004" fill="none" /><path d="M 196.80000000000004,255.0 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="255.0" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">F3</text><path d="M 140.57142857142858,244.375 H 168.6857142857143" /><path d="M 168.6857142857143,244.375 V 233.75" /><path d="M 140.57142857142858,244.375 H 168.6857142857143" /><path d="M 168.6857142857143,244.375 V 255.0" /><path d="M 112.45714285714287,223.125 H 140.57142857142858" /><path d="M 140.57142857142858,223.125 V 201.875" /><path d="M 112.45714285714287,223.125 H 140.57142857142858" /><path d="M 140.57142857142858,223.125 V 244.375" /><path d="M 112.45714285714287,276.25 H 140.57142857142858" fill="none" /><path d="M 140.57142857142858,276.25 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="276.25" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">F1</text><path d="M 84.34285714285716,249.6875 H 112.45714285714287" /><path d="M 112.45714285714287,249.6875 V 223.125" /><path d="M 84.34285714285716,249.6875 H 112.45714285714287" /><path d="M 112.45714285714287,249.6875 V 276.25" /><path d="M 56.228571428571435,204.53125 H 84.34285714285716" /><path d="M 84.34285714285716,204.53125 V 159.375" /><path d="M 56.228571428571435,204.53125 H 84.34285714285716" /><path d="M 84.34285714285716,204.53125 V 249.6875" /><path d="M 28.114285714285717,141.4453125 H 56.228571428571435" /><path d="M 56.228571428571435,141.4453125 V 78.359375" /><path d="M 28.114285714285717,141.4453125 H 56.228571428571435" /><path d="M 56.228571428571435,141.4453125 V 204.53125" /><path d="M 56.228571428571435,297.5 H 84.34285714285716" fill="none" /><path d="M 84.34285714285716,297.5 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="297.5" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">O1</text><path d="M 56.228571428571435,318.75 H 84.34285714285716" fill="none" /><path d="M 84.34285714285716,318.75 H 223.70000000000002" fill="none" stroke-dasharray="4,4" /><text x="233.70000000000002" y="318.75" text-anchor="start" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">O2</text><path d="M 28.114285714285717,308.125 H 56.228571428571435" /><path d="M 56.228571428571435,308.125 V 297.5" /><path d="M 28.114285714285717,308.125 H 56.228571428571435" /><path d="M 56.228571428571435,308.125 V 318.75" /><path d="M 0.0,224.78515625 H 28.114285714285717" /><path d="M 28.114285714285717,224.78515625 V 141.4453125" /><path d="M 0.0,224.78515625 H 28.114285714285717" /><path d="M 28.114285714285717,224.78515625 V 308.125" /></g><g transform="translate(492, 0)" stroke="#c8c8c8" stroke-width="1.5" fill="none"><path d="M 133.54285714285714,21.25 H 105.42857142857143" fill="none" /><path d="M 105.42857142857143,21.25 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="21.25" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">A1</text><path d="M 133.54285714285714,42.5 H 105.42857142857143" fill="none" /><path d="M 105.42857142857143,42.5 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="42.5" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">A2</text><path d="M 161.65714285714284,31.875 H 133.54285714285714" /><path d="M 133.54285714285714,31.875 V 21.25" /><path d="M 161.65714285714284,31.875 H 133.54285714285714" /><path d="M 133.54285714285714,31.875 V 42.5" /><path d="M 77.31428571428569,63.75 H 49.199999999999974" fill="none" /><path d="M 49.199999999999974,63.75 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="63.75" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">C1</text><path d="M 77.31428571428569,85.0 H 49.199999999999974" fill="none" /><path d="M 49.199999999999974,85.0 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="85.0" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">C2</text><path d="M 105.42857142857142,74.375 H 77.31428571428569" /><path d="M 77.31428571428569,74.375 V 63.75" /><path d="M 105.42857142857142,74.375 H 77.31428571428569" /><path d="M 77.31428571428569,74.375 V 85.0" /><path d="M 105.42857142857142,106.25 H 77.3142857142857" fill="none" /><path d="M 77.3142857142857,106.25 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="106.25" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">B2</text><path d="M 133.54285714285714,90.3125 H 105.42857142857142" /><path d="M 105.42857142857142,90.3125 V 74.375" /><path d="M 133.54285714285714,90.3125 H 105.42857142857142" /><path d="M 105.42857142857142,90.3125 V 106.25" /><path d="M 133.54285714285714,127.5 H 105.42857142857143" fill="none" /><path d="M 105.42857142857143,127.5 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="127.5" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">B1</text><path d="M 161.65714285714284,108.90625 H 133.54285714285714" /><path d="M 133.54285714285714,108.90625 V 90.3125" /><path d="M 161.65714285714284,108.90625 H 133.54285714285714" /><path d="M 133.54285714285714,108.90625 V 127.5" /><path d="M 189.77142857142857,70.390625 H 161.65714285714284" /><path d="M 161.65714285714284,70.390625 V 31.875" /><path d="M 189.77142857142857,70.390625 H 161.65714285714284" /><path d="M 161.65714285714284,70.390625 V 108.90625" /><path d="M 105.42857142857142,148.75 H 77.3142857142857" fill="none" /><path d="M 77.3142857142857,148.75 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="148.75" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">D1</text><path d="M 105.42857142857142,170.0 H 77.3142857142857" fill="none" /><path d="M 77.3142857142857,170.0 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="170.0" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">D2</text><path d="M 133.54285714285714,159.375 H 105.42857142857142" /><path d="M 105.42857142857142,159.375 V 148.75" /><path d="M 133.54285714285714,159.375 H 105.42857142857142" /><path d="M 105.42857142857142,159.375 V 170.0" /><path d="M 105.42857142857142,191.25 H 77.3142857142857" fill="none" /><path d="M 77.3142857142857,191.25 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="191.25" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">E1</text><path d="M 105.42857142857142,212.5 H 77.3142857142857" fill="none" /><path d="M 77.3142857142857,212.5 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="212.5" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">E2</text><path d="M 133.54285714285714,201.875 H 105.42857142857142" /><path d="M 105.42857142857142,201.875 V 191.25" /><path d="M 133.54285714285714,201.875 H 105.42857142857142" /><path d="M 105.42857142857142,201.875 V 212.5" /><path d="M 161.65714285714284,180.625 H 133.54285714285714" /><path d="M 133.54285714285714,180.625 V 159.375" /><path d="M 161.65714285714284,180.625 H 133.54285714285714" /><path d="M 133.54285714285714,180.625 V 201.875" /><path d="M 105.42857142857142,233.75 H 77.3142857142857" fill="none" /><path d="M 77.3142857142857,233.75 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="233.75" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">F2</text><path d="M 105.42857142857142,255.0 H 77.3142857142857" fill="none" /><path d="M 77.3142857142857,255.0 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="255.0" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">F3</text><path d="M 133.54285714285714,244.375 H 105.42857142857142" /><path d="M 105.42857142857142,244.375 V 233.75" /><path d="M 133.54285714285714,244.375 H 105.42857142857142" /><path d="M 105.42857142857142,244.375 V 255.0" /><path d="M 133.54285714285714,276.25 H 105.42857142857143" fill="none" /><path d="M 105.42857142857143,276.25 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="276.25" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">F1</text><path d="M 161.65714285714284,260.3125 H 133.54285714285714" /><path d="M 133.54285714285714,260.3125 V 244.375" /><path d="M 161.65714285714284,260.3125 H 133.54285714285714" /><path d="M 133.54285714285714,260.3125 V 276.25" /><path d="M 189.77142857142857,220.46875 H 161.65714285714284" /><path d="M 161.65714285714284,220.46875 V 180.625" /><path d="M 189.77142857142857,220.46875 H 161.65714285714284" /><path d="M 161.65714285714284,220.46875 V 260.3125" /><path d="M 217.88571428571427,145.4296875 H 189.77142857142857" /><path d="M 189.77142857142857,145.4296875 V 70.390625" /><path d="M 217.88571428571427,145.4296875 H 189.77142857142857" /><path d="M 189.77142857142857,145.4296875 V 220.46875" /><path d="M 189.77142857142857,297.5 H 161.65714285714284" fill="none" /><path d="M 161.65714285714284,297.5 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="297.5" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">O1</text><path d="M 189.77142857142857,318.75 H 161.65714285714284" fill="none" /><path d="M 161.65714285714284,318.75 H -26.9" fill="none" stroke-dasharray="4,4" /><text x="-36.9" y="318.75" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" dominant-baseline="middle">O2</text><path d="M 217.88571428571427,308.125 H 189.77142857142857" /><path d="M 189.77142857142857,308.125 V 297.5" /><path d="M 217.88571428571427,308.125 H 189.77142857142857" /><path d="M 189.77142857142857,308.125 V 318.75" /><path d="M 246.0,226.77734375 H 217.88571428571427" /><path d="M 217.88571428571427,226.77734375 V 145.4296875" /><path d="M 246.0,226.77734375 H 217.88571428571427" /><path d="M 217.88571428571427,226.77734375 V 308.125" /></g><g class="label-connections" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.3" fill="none"><path d="M 233.70000000000002,21.25 C 344.40000000000003,10.625 344.40000000000003,31.875 455.1,21.25" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,42.5 C 344.40000000000003,31.875 344.40000000000003,53.125 455.1,42.5" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,63.75 C 344.40000000000003,53.125 344.40000000000003,74.375 455.1,63.75" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,85.0 C 344.40000000000003,74.375 344.40000000000003,95.625 455.1,85.0" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,106.25 C 344.40000000000003,95.625 344.40000000000003,116.875 455.1,127.5" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,127.5 C 344.40000000000003,116.875 344.40000000000003,138.125 455.1,106.25" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,148.75 C 344.40000000000003,138.125 344.40000000000003,159.375 455.1,148.75" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,170.0 C 344.40000000000003,159.375 344.40000000000003,180.625 455.1,170.0" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,191.25 C 344.40000000000003,180.625 344.40000000000003,201.875 455.1,191.25" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,212.5 C 344.40000000000003,201.875 344.40000000000003,223.125 455.1,212.5" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,233.75 C 344.40000000000003,223.125 344.40000000000003,244.375 455.1,233.75" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,255.0 C 344.40000000000003,244.375 344.40000000000003,265.625 455.1,255.0" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,276.25 C 344.40000000000003,265.625 344.40000000000003,286.875 455.1,276.25" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,297.5 C 344.40000000000003,286.875 344.40000000000003,308.125 455.1,297.5" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /><path d="M 233.70000000000002,318.75 C 344.40000000000003,308.125 344.40000000000003,329.375 455.1,318.75" stroke="#c8c8c8" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4" fill="none" /></g></g></svg></div>
+<section class="section"><h3>Rectangular Tree Pair</h3>
+<div class="svg-container"><svg width="800" height="400" xmlns="http://www.w3.org/2000/svg">
+        <g transform="translate(30, 30)">
+            
+<svg viewBox="0 0 355 340" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" width="355" height="340"><g transform="translate(0, 20)" stroke="#c8c8c8" stroke-width="1.5"><path d="M 22.1875,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 22.1875,46.66666666666667 V 290" fill="none" stroke-dasharray="4,4" /><text x="22.1875" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">A1</text><path d="M 44.375,46.66666666666667 V 56.0" fill="none" /><path d="M 44.375,56.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="44.375" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">A2</text><path d="M 66.5625,56.0 V 65.33333333333334" fill="none" /><path d="M 66.5625,65.33333333333334 V 290" fill="none" stroke-dasharray="4,4" /><text x="66.5625" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">C1</text><path d="M 88.75,56.0 V 65.33333333333334" fill="none" /><path d="M 88.75,65.33333333333334 V 290" fill="none" stroke-dasharray="4,4" /><text x="88.75" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">C2</text><path d="M 77.65625,46.66666666666667 V 56.0" fill="none" /><path d="M 77.65625,56.0 H 66.5625" fill="none" /><path d="M 77.65625,46.66666666666667 V 56.0" fill="none" /><path d="M 77.65625,56.0 H 88.75" fill="none" /><path d="M 61.015625,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 61.015625,46.66666666666667 H 44.375" fill="none" /><path d="M 61.015625,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 61.015625,46.66666666666667 H 77.65625" fill="none" /><path d="M 41.6015625,28.0 V 37.333333333333336" fill="none" /><path d="M 41.6015625,37.333333333333336 H 22.1875" fill="none" /><path d="M 41.6015625,28.0 V 37.333333333333336" fill="none" /><path d="M 41.6015625,37.333333333333336 H 61.015625" fill="none" /><path d="M 110.9375,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 110.9375,46.66666666666667 V 290" fill="none" stroke-dasharray="4,4" /><text x="110.9375" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">B1</text><path d="M 133.125,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 133.125,46.66666666666667 V 290" fill="none" stroke-dasharray="4,4" /><text x="133.125" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">B2</text><path d="M 122.03125,28.0 V 37.333333333333336" fill="none" /><path d="M 122.03125,37.333333333333336 H 110.9375" fill="none" /><path d="M 122.03125,28.0 V 37.333333333333336" fill="none" /><path d="M 122.03125,37.333333333333336 H 133.125" fill="none" /><path d="M 81.81640625,18.666666666666668 V 28.0" fill="none" /><path d="M 81.81640625,28.0 H 41.6015625" fill="none" /><path d="M 81.81640625,18.666666666666668 V 28.0" fill="none" /><path d="M 81.81640625,28.0 H 122.03125" fill="none" /><path d="M 155.3125,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 155.3125,46.66666666666667 V 290" fill="none" stroke-dasharray="4,4" /><text x="155.3125" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">D1</text><path d="M 177.5,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 177.5,46.66666666666667 V 290" fill="none" stroke-dasharray="4,4" /><text x="177.5" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">D2</text><path d="M 166.40625,28.0 V 37.333333333333336" fill="none" /><path d="M 166.40625,37.333333333333336 H 155.3125" fill="none" /><path d="M 166.40625,28.0 V 37.333333333333336" fill="none" /><path d="M 166.40625,37.333333333333336 H 177.5" fill="none" /><path d="M 199.6875,56.0 V 65.33333333333334" fill="none" /><path d="M 199.6875,65.33333333333334 V 290" fill="none" stroke-dasharray="4,4" /><text x="199.6875" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">E1</text><path d="M 221.875,56.0 V 65.33333333333334" fill="none" /><path d="M 221.875,65.33333333333334 V 290" fill="none" stroke-dasharray="4,4" /><text x="221.875" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">E2</text><path d="M 210.78125,46.66666666666667 V 56.0" fill="none" /><path d="M 210.78125,56.0 H 199.6875" fill="none" /><path d="M 210.78125,46.66666666666667 V 56.0" fill="none" /><path d="M 210.78125,56.0 H 221.875" fill="none" /><path d="M 244.0625,56.0 V 65.33333333333334" fill="none" /><path d="M 244.0625,65.33333333333334 V 290" fill="none" stroke-dasharray="4,4" /><text x="244.0625" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">F2</text><path d="M 266.25,56.0 V 65.33333333333334" fill="none" /><path d="M 266.25,65.33333333333334 V 290" fill="none" stroke-dasharray="4,4" /><text x="266.25" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">F3</text><path d="M 255.15625,46.66666666666667 V 56.0" fill="none" /><path d="M 255.15625,56.0 H 244.0625" fill="none" /><path d="M 255.15625,46.66666666666667 V 56.0" fill="none" /><path d="M 255.15625,56.0 H 266.25" fill="none" /><path d="M 232.96875,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 232.96875,46.66666666666667 H 210.78125" fill="none" /><path d="M 232.96875,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 232.96875,46.66666666666667 H 255.15625" fill="none" /><path d="M 288.4375,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 288.4375,46.66666666666667 V 290" fill="none" stroke-dasharray="4,4" /><text x="288.4375" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">F1</text><path d="M 260.703125,28.0 V 37.333333333333336" fill="none" /><path d="M 260.703125,37.333333333333336 H 232.96875" fill="none" /><path d="M 260.703125,28.0 V 37.333333333333336" fill="none" /><path d="M 260.703125,37.333333333333336 H 288.4375" fill="none" /><path d="M 213.5546875,18.666666666666668 V 28.0" fill="none" /><path d="M 213.5546875,28.0 H 166.40625" fill="none" /><path d="M 213.5546875,18.666666666666668 V 28.0" fill="none" /><path d="M 213.5546875,28.0 H 260.703125" fill="none" /><path d="M 147.685546875,9.333333333333334 V 18.666666666666668" fill="none" /><path d="M 147.685546875,18.666666666666668 H 81.81640625" fill="none" /><path d="M 147.685546875,9.333333333333334 V 18.666666666666668" fill="none" /><path d="M 147.685546875,18.666666666666668 H 213.5546875" fill="none" /><path d="M 310.625,18.666666666666668 V 28.0" fill="none" /><path d="M 310.625,28.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="310.625" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">O1</text><path d="M 332.8125,18.666666666666668 V 28.0" fill="none" /><path d="M 332.8125,28.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="332.8125" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">O2</text><path d="M 321.71875,9.333333333333334 V 18.666666666666668" fill="none" /><path d="M 321.71875,18.666666666666668 H 310.625" fill="none" /><path d="M 321.71875,9.333333333333334 V 18.666666666666668" fill="none" /><path d="M 321.71875,18.666666666666668 H 332.8125" fill="none" /><path d="M 234.7021484375,0.0 V 9.333333333333334" fill="none" /><path d="M 234.7021484375,9.333333333333334 H 147.685546875" fill="none" /><path d="M 234.7021484375,0.0 V 9.333333333333334" fill="none" /><path d="M 234.7021484375,9.333333333333334 H 321.71875" fill="none" /></g>
+        </g>
+        <g transform="translate(415, 30)">
+            
+<svg viewBox="0 0 355 340" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" width="355" height="340"><g transform="translate(0, 20)" stroke="#c8c8c8" stroke-width="1.5"><path d="M 22.1875,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 22.1875,46.66666666666667 V 290" fill="none" stroke-dasharray="4,4" /><text x="22.1875" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">A1</text><path d="M 44.375,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 44.375,46.66666666666667 V 290" fill="none" stroke-dasharray="4,4" /><text x="44.375" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">A2</text><path d="M 33.28125,28.0 V 37.333333333333336" fill="none" /><path d="M 33.28125,37.333333333333336 H 22.1875" fill="none" /><path d="M 33.28125,28.0 V 37.333333333333336" fill="none" /><path d="M 33.28125,37.333333333333336 H 44.375" fill="none" /><path d="M 66.5625,56.0 V 65.33333333333334" fill="none" /><path d="M 66.5625,65.33333333333334 V 290" fill="none" stroke-dasharray="4,4" /><text x="66.5625" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">C1</text><path d="M 88.75,56.0 V 65.33333333333334" fill="none" /><path d="M 88.75,65.33333333333334 V 290" fill="none" stroke-dasharray="4,4" /><text x="88.75" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">C2</text><path d="M 77.65625,46.66666666666667 V 56.0" fill="none" /><path d="M 77.65625,56.0 H 66.5625" fill="none" /><path d="M 77.65625,46.66666666666667 V 56.0" fill="none" /><path d="M 77.65625,56.0 H 88.75" fill="none" /><path d="M 110.9375,46.66666666666667 V 56.0" fill="none" /><path d="M 110.9375,56.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="110.9375" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">B2</text><path d="M 94.296875,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 94.296875,46.66666666666667 H 77.65625" fill="none" /><path d="M 94.296875,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 94.296875,46.66666666666667 H 110.9375" fill="none" /><path d="M 133.125,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 133.125,46.66666666666667 V 290" fill="none" stroke-dasharray="4,4" /><text x="133.125" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">B1</text><path d="M 113.7109375,28.0 V 37.333333333333336" fill="none" /><path d="M 113.7109375,37.333333333333336 H 94.296875" fill="none" /><path d="M 113.7109375,28.0 V 37.333333333333336" fill="none" /><path d="M 113.7109375,37.333333333333336 H 133.125" fill="none" /><path d="M 73.49609375,18.666666666666668 V 28.0" fill="none" /><path d="M 73.49609375,28.0 H 33.28125" fill="none" /><path d="M 73.49609375,18.666666666666668 V 28.0" fill="none" /><path d="M 73.49609375,28.0 H 113.7109375" fill="none" /><path d="M 155.3125,46.66666666666667 V 56.0" fill="none" /><path d="M 155.3125,56.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="155.3125" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">D1</text><path d="M 177.5,46.66666666666667 V 56.0" fill="none" /><path d="M 177.5,56.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="177.5" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">D2</text><path d="M 166.40625,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 166.40625,46.66666666666667 H 155.3125" fill="none" /><path d="M 166.40625,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 166.40625,46.66666666666667 H 177.5" fill="none" /><path d="M 199.6875,46.66666666666667 V 56.0" fill="none" /><path d="M 199.6875,56.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="199.6875" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">E1</text><path d="M 221.875,46.66666666666667 V 56.0" fill="none" /><path d="M 221.875,56.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="221.875" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">E2</text><path d="M 210.78125,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 210.78125,46.66666666666667 H 199.6875" fill="none" /><path d="M 210.78125,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 210.78125,46.66666666666667 H 221.875" fill="none" /><path d="M 188.59375,28.0 V 37.333333333333336" fill="none" /><path d="M 188.59375,37.333333333333336 H 166.40625" fill="none" /><path d="M 188.59375,28.0 V 37.333333333333336" fill="none" /><path d="M 188.59375,37.333333333333336 H 210.78125" fill="none" /><path d="M 244.0625,46.66666666666667 V 56.0" fill="none" /><path d="M 244.0625,56.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="244.0625" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">F2</text><path d="M 266.25,46.66666666666667 V 56.0" fill="none" /><path d="M 266.25,56.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="266.25" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">F3</text><path d="M 255.15625,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 255.15625,46.66666666666667 H 244.0625" fill="none" /><path d="M 255.15625,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 255.15625,46.66666666666667 H 266.25" fill="none" /><path d="M 288.4375,37.333333333333336 V 46.66666666666667" fill="none" /><path d="M 288.4375,46.66666666666667 V 290" fill="none" stroke-dasharray="4,4" /><text x="288.4375" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">F1</text><path d="M 271.796875,28.0 V 37.333333333333336" fill="none" /><path d="M 271.796875,37.333333333333336 H 255.15625" fill="none" /><path d="M 271.796875,28.0 V 37.333333333333336" fill="none" /><path d="M 271.796875,37.333333333333336 H 288.4375" fill="none" /><path d="M 230.1953125,18.666666666666668 V 28.0" fill="none" /><path d="M 230.1953125,28.0 H 188.59375" fill="none" /><path d="M 230.1953125,18.666666666666668 V 28.0" fill="none" /><path d="M 230.1953125,28.0 H 271.796875" fill="none" /><path d="M 151.845703125,9.333333333333334 V 18.666666666666668" fill="none" /><path d="M 151.845703125,18.666666666666668 H 73.49609375" fill="none" /><path d="M 151.845703125,9.333333333333334 V 18.666666666666668" fill="none" /><path d="M 151.845703125,18.666666666666668 H 230.1953125" fill="none" /><path d="M 310.625,18.666666666666668 V 28.0" fill="none" /><path d="M 310.625,28.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="310.625" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">O1</text><path d="M 332.8125,18.666666666666668 V 28.0" fill="none" /><path d="M 332.8125,28.0 V 290" fill="none" stroke-dasharray="4,4" /><text x="332.8125" y="300" font-family="'Share Tech Mono', monospace" font-size="12" fill="#c8c8c8" text-anchor="middle" dominant-baseline="middle">O2</text><path d="M 321.71875,9.333333333333334 V 18.666666666666668" fill="none" /><path d="M 321.71875,18.666666666666668 H 310.625" fill="none" /><path d="M 321.71875,9.333333333333334 V 18.666666666666668" fill="none" /><path d="M 321.71875,18.666666666666668 H 332.8125" fill="none" /><path d="M 236.7822265625,0.0 V 9.333333333333334" fill="none" /><path d="M 236.7822265625,9.333333333333334 H 151.845703125" fill="none" /><path d="M 236.7822265625,0.0 V 9.333333333333334" fill="none" /><path d="M 236.7822265625,9.333333333333334 H 321.71875" fill="none" /></g>
+        </g>
+    </svg></div>
+<section class="section"><h3>Executing algorithm_five</h3>
+<section class="section"><h3>
+Processing split: (A1, A2, B1, B2, C1, C2)</h3>
+<section class="section"><h3>S-Edge Tree Comparison</h3>
+<p class="info">
+S-Edge Classification:</p>
+<p class="info">Split: (A1, A2, B1, B2, C1, C2)</p>
+<p class="info">Tree 1 Node: ('A1', 'A2', 'B1', 'B2', 'C1', 'C2')</p>
+<p class="info">Tree 2 Node: ('A1', 'A2', 'B1', 'B2', 'C1', 'C2')</p>
+<p class="info">+-------------+------------------------+
+| Tree Arms   | Sets                   |
++=============+========================+
+| A1          | {(B1), (B2)}           |
++-------------+------------------------+
+| A2          | {(A1), (A2), (C1, C2)} |
++-------------+------------------------+
+| B1          | {(A1), (A2)}           |
++-------------+------------------------+
+| B2          | {(C1, C2), (B1), (B2)} |
++-------------+------------------------+</p>
+<h4>Arms Definition</h4>
+<p class="info">+------------------------------------------------------------------------------+----------------+--------------+--------------+
+| Covet                                                                        | Intersection   | A-B          | B-A          |
++==============================================================================+================+==============+==============+
+| Covet A1 × B1:<br> ⎡[[{(B1), (B2)}]⎤<br>⎣[{(A1), (A2)}]⎦                     | ∅              | {(B1), (B2)} | {(A1), (A2)} |
++------------------------------------------------------------------------------+----------------+--------------+--------------+
+| Covet A1 × B2:<br> ⎡[[{(B1), (B2)}]⎤<br>⎣[{(C1, C2), (B1), (B2)}]⎦           | {(B1), (B2)}   | ∅            | {(C1, C2)}   |
++------------------------------------------------------------------------------+----------------+--------------+--------------+
+| Covet A2 × B1:<br> ⎡[[{(A1), (A2), (C1, C2)}]⎤<br>⎣[{(A1), (A2)}]⎦           | {(A1), (A2)}   | {(C1, C2)}   | ∅            |
++------------------------------------------------------------------------------+----------------+--------------+--------------+
+| Covet A2 × B2:<br> ⎡[[{(A1), (A2), (C1, C2)}]⎤<br>⎣[{(C1, C2), (B1), (B2)}]⎦ | {(C1, C2)}     | {(A1), (A2)} | {(B1), (B2)} |
++------------------------------------------------------------------------------+----------------+--------------+--------------+</p>
+<h4>Comparison Results</h4>
+<p class="info">Intersection: {(B1), (B2)}; Arm A: {(B1), (B2)}; Arm B: {(C1, C2), (B1), (B2)}; Independent: {((A1)), ((A2))}</p>
+<section class="section"><h3>Independence Check for intersection: {(B1), (B2)}</h3>
+<p class="info">Arm A: {(B1), (B2)}</p>
+<p class="info">Arm B: {(C1, C2), (B1), (B2)}</p>
+<p class="info">Not A ⊆ B: True</p>
+<p class="info">Not B ⊆ A: False</p>
+<p class="info">A - B: {(B1), (B2)}</p>
+<p class="info">B - A: {(B1), (B2)}</p>
+<p class="info">✓ Independent: B is not subset of A and A-B is non-empty</p>
+<p class="info">Final independence determination: {((A1)), ((A2))}</p>
+<p class="info">Intersection: {(A1), (A2)}; Arm A: {(A1), (A2), (C1, C2)}; Arm B: {(A1), (A2)}; Independent: {((B1)), ((B2))}</p>
+<section class="section"><h3>Independence Check for intersection: {(A1), (A2)}</h3>
+<p class="info">Arm A: {(A1), (A2), (C1, C2)}</p>
+<p class="info">Arm B: {(A1), (A2)}</p>
+<p class="info">Not A ⊆ B: False</p>
+<p class="info">Not B ⊆ A: True</p>
+<p class="info">A - B: {(A1), (A2)}</p>
+<p class="info">B - A: {(A1), (A2)}</p>
+<p class="info">✓ Independent: A is not subset of B and B-A is non-empty</p>
+<p class="info">Final independence determination: {((B1)), ((B2))}</p>
+<p class="info">Intersection: {(C1, C2)}; Arm A: {(A1), (A2), (C1, C2)}; Arm B: {(C1, C2), (B1), (B2)}; Independent: False</p>
+<section class="section"><h3>Independence Check for intersection: {(C1, C2)}</h3>
+<p class="info">Arm A: {(A1), (A2), (C1, C2)}</p>
+<p class="info">Arm B: {(C1, C2), (B1), (B2)}</p>
+<p class="info">Not A ⊆ B: False</p>
+<p class="info">Not B ⊆ A: False</p>
+<p class="info">A - B: {(C1, C2)}</p>
+<p class="info">B - A: {(C1, C2)}</p>
+<p class="info">✗ Not independent: None of the independence conditions met</p>
+<p class="info">Final independence determination: False</p>
+<section class="section"><h3>Bidirectional Analysis</h3>
+
+            <div class="table-container" style="
+                width: auto !important;
+                max-width: 100% !important;
+                overflow-x: auto !important;
+                margin: 1em 0;
+            ">
+            
+
+            <table class="table table-striped table-bordered" style="
+                table-layout: fixed !important;
+                white-space: nowrap !important;
+                width: auto !important;
+                min-width: fit-content !important;
+                border-collapse: collapse !important;
+            ">
+        
+<thead>
+<tr>
+
+                    <th style="
+                        min-width: 26px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Pair</th>
+                
+
+                    <th style="
+                        min-width: 42px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">A Elements</th>
+                
+
+                    <th style="
+                        min-width: 42px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">B Elements</th>
+                
+
+                    <th style="
+                        min-width: 32px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">A ∩ B</th>
+                
+
+                    <th style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">A - B</th>
+                
+
+                    <th style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">B - A</th>
+                
+</tr>
+</thead>
+<tbody>
+<tr>
+
+                    <td style="
+                        min-width: 26px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">(1, 1)</td>
+                
+
+                    <td style="
+                        min-width: 42px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(B1), (B2)}</td>
+                
+
+                    <td style="
+                        min-width: 42px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(C1, C2), (B1), (B2)}</td>
+                
+
+                    <td style="
+                        min-width: 32px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(B1), (B2)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">∅</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(C1, C2)}</td>
+                
+</tr>
+<tr>
+
+                    <td style="
+                        min-width: 26px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">(2, 2)</td>
+                
+
+                    <td style="
+                        min-width: 42px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(A1), (A2), (C1, C2)}</td>
+                
+
+                    <td style="
+                        min-width: 42px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(A1), (A2)}</td>
+                
+
+                    <td style="
+                        min-width: 32px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(A1), (A2)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(C1, C2)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">∅</td>
+                
+</tr>
+</tbody>
+</table>
+</div>
+<h4>Comprehensive Direction Analysis</h4>
+<div class="matrix-container">
+        <div class="matrix-toggle">
+            <div class="toggle-buttons">
+                <button class="toggle-button active" data-view="mathjax">Mathematical</button>
+                <button class="toggle-button" data-view="ascii">ASCII</button>
+                <button class="toggle-button" data-view="table">Table</button>
+            </div>
+        </div>
+        <div class="mathjax-view matrix-view">$$
+\begin{bmatrix}
+\{\left(B1\right), \left(B2\right)\} & \{\left(C1, C2\right), \left(B1\right), \left(B2\right)\} \\
+\{\left(C1, C2\right), \left(A2\right), \left(A1\right)\} & \{\left(A1\right), \left(A2\right)\}
+\end{bmatrix}
+$$</div><div class="ascii-view matrix-view" style="display:none;"><div class="ascii-matrix">
+<pre><span class="bracket">⎡</span> <span class="set">{<span class="element">(B1)</span>, <span class="element">(B2)</span>}</span>               <span class="divider">│</span> <span class="set">{<span class="element">(C1, C2)</span>, <span class="element">(B1)</span>, <span class="element">(B2)</span>}</span>     <span class="bracket">⎤</span>
+<span class="bracket">⎢</span> <span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span> <span class="bracket">⎥</span>
+<span class="bracket">⎣</span> <span class="set">{<span class="element">(C1, C2)</span>, <span class="element">(A2)</span>, <span class="element">(A1)</span>}</span>     <span class="divider">│</span> <span class="set">{<span class="element">(A1)</span>, <span class="element">(A2)</span>}</span>               <span class="bracket">⎦</span>
+</pre>
+</div></div><div class="table-view matrix-view" style="display:none;">
+            <div class="table-container" style="
+                width: auto !important;
+                max-width: 100% !important;
+                overflow-x: auto !important;
+                margin: 1em 0;
+            ">
+            
+
+            <table class="table table-striped table-bordered" style="
+                table-layout: fixed !important;
+                white-space: nowrap !important;
+                width: auto !important;
+                min-width: fit-content !important;
+                border-collapse: collapse !important;
+            ">
+        
+<thead>
+<tr>
+
+                    <th style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    "></th>
+                
+
+                    <th style="
+                        min-width: 42px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Column 0</th>
+                
+
+                    <th style="
+                        min-width: 42px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Column 1</th>
+                
+</tr>
+</thead>
+<tbody>
+<tr>
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Row 0</td>
+                
+
+                    <td style="
+                        min-width: 42px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(B1), (B2)}</td>
+                
+
+                    <td style="
+                        min-width: 42px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(C1, C2), (B1), (B2)}</td>
+                
+</tr>
+<tr>
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Row 1</td>
+                
+
+                    <td style="
+                        min-width: 42px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(C1, C2), (A2), (A1)}</td>
+                
+
+                    <td style="
+                        min-width: 42px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(A1), (A2)}</td>
+                
+</tr>
+</tbody>
+</table>
+</div></div></div>
+<p class="info">2x2 matrix with independent rows detected - keeping as is</p>
+<section class="section"><h3>Meet Result Computation</h3>
+<p class="info">Final Result: {(C1, C2)}</p>
+<p class="info">+-----------------------+
+| Meet Product Result   |
++=======================+
+| {(C1, C2)}            |
++-----------------------+</p>
+<h4>Final Computation Result</h4>
+<p class="info">Minimum size of results: 2</p>
+<p class="info">Taken Result: {2, 3}</p>
+<p class="info">Component: {2}</p>
+<p class="info">Component: {3}</p>
+<p class="info">Global Components: [(2, 3)]</p>
+<section class="section"><h3>
+Processing split: (D1, D2, E1, E2, F1, F2, F3)</h3>
+<section class="section"><h3>S-Edge Tree Comparison</h3>
+<p class="info">
+S-Edge Classification:</p>
+<p class="info">Split: (D1, D2, E1, E2, F1, F2, F3)</p>
+<p class="info">Tree 1 Node: ('D1', 'D2', 'E1', 'E2', 'F1', 'F2', 'F3')</p>
+<p class="info">Tree 2 Node: ('D1', 'D2', 'E1', 'E2', 'F1', 'F2', 'F3')</p>
+<p class="info">+-------------+----------------------------+
+| Tree Arms   | Sets                       |
++=============+============================+
+| A1          | {(D1, D2)}                 |
++-------------+----------------------------+
+| A2          | {(E1, E2), (F2, F3), (F1)} |
++-------------+----------------------------+
+| B1          | {(F2, F3), (F1)}           |
++-------------+----------------------------+
+| B2          | {(D1, D2), (E1, E2)}       |
++-------------+----------------------------+</p>
+<h4>Arms Definition</h4>
+<p class="info">+--------------------------------------------------------------------------------+------------------+------------------+------------------+
+| Covet                                                                          | Intersection     | A-B              | B-A              |
++================================================================================+==================+==================+==================+
+| Covet A1 × B1:<br> ⎡[[{(D1, D2)}]⎤<br>⎣[{(F2, F3), (F1)}]⎦                     | ∅                | {(D1, D2)}       | {(F2, F3), (F1)} |
++--------------------------------------------------------------------------------+------------------+------------------+------------------+
+| Covet A1 × B2:<br> ⎡[[{(D1, D2)}]⎤<br>⎣[{(D1, D2), (E1, E2)}]⎦                 | {(D1, D2)}       | ∅                | {(E1, E2)}       |
++--------------------------------------------------------------------------------+------------------+------------------+------------------+
+| Covet A2 × B1:<br> ⎡[[{(E1, E2), (F2, F3), (F1)}]⎤<br>⎣[{(F2, F3), (F1)}]⎦     | {(F2, F3), (F1)} | {(E1, E2)}       | ∅                |
++--------------------------------------------------------------------------------+------------------+------------------+------------------+
+| Covet A2 × B2:<br> ⎡[[{(E1, E2), (F2, F3), (F1)}]⎤<br>⎣[{(D1, D2), (E1, E2)}]⎦ | {(E1, E2)}       | {(F2, F3), (F1)} | {(D1, D2)}       |
++--------------------------------------------------------------------------------+------------------+------------------+------------------+</p>
+<h4>Comparison Results</h4>
+<p class="info">Intersection: {(D1, D2)}; Arm A: {(D1, D2)}; Arm B: {(D1, D2), (E1, E2)}; Independent: {((F1)), ((F2, F3))}</p>
+<section class="section"><h3>Independence Check for intersection: {(D1, D2)}</h3>
+<p class="info">Arm A: {(D1, D2)}</p>
+<p class="info">Arm B: {(D1, D2), (E1, E2)}</p>
+<p class="info">Not A ⊆ B: True</p>
+<p class="info">Not B ⊆ A: False</p>
+<p class="info">A - B: {(D1, D2)}</p>
+<p class="info">B - A: {(D1, D2)}</p>
+<p class="info">✓ Independent: B is not subset of A and A-B is non-empty</p>
+<p class="info">Final independence determination: {((F1)), ((F2, F3))}</p>
+<p class="info">Intersection: {(F2, F3), (F1)}; Arm A: {(E1, E2), (F2, F3), (F1)}; Arm B: {(F2, F3), (F1)}; Independent: {((D1, D2))}</p>
+<section class="section"><h3>Independence Check for intersection: {(F2, F3), (F1)}</h3>
+<p class="info">Arm A: {(E1, E2), (F2, F3), (F1)}</p>
+<p class="info">Arm B: {(F2, F3), (F1)}</p>
+<p class="info">Not A ⊆ B: False</p>
+<p class="info">Not B ⊆ A: True</p>
+<p class="info">A - B: {(F2, F3), (F1)}</p>
+<p class="info">B - A: {(F2, F3), (F1)}</p>
+<p class="info">✓ Independent: A is not subset of B and B-A is non-empty</p>
+<p class="info">Final independence determination: {((D1, D2))}</p>
+<p class="info">Intersection: {(E1, E2)}; Arm A: {(E1, E2), (F2, F3), (F1)}; Arm B: {(D1, D2), (E1, E2)}; Independent: False</p>
+<section class="section"><h3>Independence Check for intersection: {(E1, E2)}</h3>
+<p class="info">Arm A: {(E1, E2), (F2, F3), (F1)}</p>
+<p class="info">Arm B: {(D1, D2), (E1, E2)}</p>
+<p class="info">Not A ⊆ B: False</p>
+<p class="info">Not B ⊆ A: False</p>
+<p class="info">A - B: {(E1, E2)}</p>
+<p class="info">B - A: {(E1, E2)}</p>
+<p class="info">✗ Not independent: None of the independence conditions met</p>
+<p class="info">Final independence determination: False</p>
+<section class="section"><h3>Bidirectional Analysis</h3>
+
+            <div class="table-container" style="
+                width: auto !important;
+                max-width: 100% !important;
+                overflow-x: auto !important;
+                margin: 1em 0;
+            ">
+            
+
+            <table class="table table-striped table-bordered" style="
+                table-layout: fixed !important;
+                white-space: nowrap !important;
+                width: auto !important;
+                min-width: fit-content !important;
+                border-collapse: collapse !important;
+            ">
+        
+<thead>
+<tr>
+
+                    <th style="
+                        min-width: 26px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Pair</th>
+                
+
+                    <th style="
+                        min-width: 46px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">A Elements</th>
+                
+
+                    <th style="
+                        min-width: 40px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">B Elements</th>
+                
+
+                    <th style="
+                        min-width: 36px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">A ∩ B</th>
+                
+
+                    <th style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">A - B</th>
+                
+
+                    <th style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">B - A</th>
+                
+</tr>
+</thead>
+<tbody>
+<tr>
+
+                    <td style="
+                        min-width: 26px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">(1, 1)</td>
+                
+
+                    <td style="
+                        min-width: 46px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(D1, D2)}</td>
+                
+
+                    <td style="
+                        min-width: 40px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(D1, D2), (E1, E2)}</td>
+                
+
+                    <td style="
+                        min-width: 36px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(D1, D2)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">∅</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(E1, E2)}</td>
+                
+</tr>
+<tr>
+
+                    <td style="
+                        min-width: 26px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">(2, 2)</td>
+                
+
+                    <td style="
+                        min-width: 46px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(E1, E2), (F2, F3), (F1)}</td>
+                
+
+                    <td style="
+                        min-width: 40px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(F2, F3), (F1)}</td>
+                
+
+                    <td style="
+                        min-width: 36px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(F2, F3), (F1)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(E1, E2)}</td>
+                
+
+                    <td style="
+                        min-width: 30px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">∅</td>
+                
+</tr>
+</tbody>
+</table>
+</div>
+<h4>Comprehensive Direction Analysis</h4>
+<div class="matrix-container">
+        <div class="matrix-toggle">
+            <div class="toggle-buttons">
+                <button class="toggle-button active" data-view="mathjax">Mathematical</button>
+                <button class="toggle-button" data-view="ascii">ASCII</button>
+                <button class="toggle-button" data-view="table">Table</button>
+            </div>
+        </div>
+        <div class="mathjax-view matrix-view">$$
+\begin{bmatrix}
+\{\left(D1, D2\right)\} & \{\left(D1, D2\right), \left(E1, E2\right)\} \\
+\{\left(E1, E2\right), \left(F1\right), \left(F2, F3\right)\} & \{\left(F1\right), \left(F2, F3\right)\}
+\end{bmatrix}
+$$</div><div class="ascii-view matrix-view" style="display:none;"><div class="ascii-matrix">
+<pre><span class="bracket">⎡</span> <span class="set">{<span class="element">(D1, D2)</span>}</span>                     <span class="divider">│</span> <span class="set">{<span class="element">(D1, D2)</span>, <span class="element">(E1, E2)</span>}</span>     <span class="bracket">⎤</span>
+<span class="bracket">⎢</span> <span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span><span class="divider">─</span> <span class="bracket">⎥</span>
+<span class="bracket">⎣</span> <span class="set">{<span class="element">(E1, E2)</span>, <span class="element">(F1)</span>, <span class="element">(F2, F3)</span>}</span>     <span class="divider">│</span> <span class="set">{<span class="element">(F1)</span>, <span class="element">(F2, F3)</span>}</span>         <span class="bracket">⎦</span>
+</pre>
+</div></div><div class="table-view matrix-view" style="display:none;">
+            <div class="table-container" style="
+                width: auto !important;
+                max-width: 100% !important;
+                overflow-x: auto !important;
+                margin: 1em 0;
+            ">
+            
+
+            <table class="table table-striped table-bordered" style="
+                table-layout: fixed !important;
+                white-space: nowrap !important;
+                width: auto !important;
+                min-width: fit-content !important;
+                border-collapse: collapse !important;
+            ">
+        
+<thead>
+<tr>
+
+                    <th style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    "></th>
+                
+
+                    <th style="
+                        min-width: 46px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Column 0</th>
+                
+
+                    <th style="
+                        min-width: 40px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Column 1</th>
+                
+</tr>
+</thead>
+<tbody>
+<tr>
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Row 0</td>
+                
+
+                    <td style="
+                        min-width: 46px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(D1, D2)}</td>
+                
+
+                    <td style="
+                        min-width: 40px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(D1, D2), (E1, E2)}</td>
+                
+</tr>
+<tr>
+
+                    <td style="
+                        min-width: 25px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">Row 1</td>
+                
+
+                    <td style="
+                        min-width: 46px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(E1, E2), (F1), (F2, F3)}</td>
+                
+
+                    <td style="
+                        min-width: 40px !important;
+                        padding: 8px 15px !important;
+                        white-space: nowrap !important;
+                        overflow: visible !important;
+                    ">{(F1), (F2, F3)}</td>
+                
+</tr>
+</tbody>
+</table>
+</div></div></div>
+<p class="info">2x2 matrix with independent rows detected - keeping as is</p>
+<section class="section"><h3>Meet Result Computation</h3>
+<p class="info">Matrix is canonical</p>
+<p class="info">Final Result: {(E1, E2)}</p>
+<p class="info">+-----------------------+
+| Meet Product Result   |
++=======================+
+| {(E1, E2)}            |
++-----------------------+</p>
+<h4>Final Computation Result</h4>
+<p class="info">Minimum size of results: 2</p>
+<p class="info">Taken Result: {8, 9}</p>
+<p class="info">Component: {8}</p>
+<p class="info">Component: {9}</p>
+<p class="info">Global Components: [(2, 3), (8, 9)]</p>
+<p class="info">Current Proposed Deletions: 4</p>
+<section class="section"><h3>Deleting Leaves</h3>
+<p class="info">Deleting Leaves: [8, 9, 2, 3]</p>
+<p class="info">Pruned Tree One: ((((A1:1.0,A2:1.0):1.0,(B1:1.0,B2:1.0):1.0):1.0,((D1:1.0,D2:1.0):1.0,((F2:1.0,F3:1.0):1.0,F1:1.0):1.0):1.0):1.0,(O1:1.0,O2:1.0):1.0):1;</p>
+<p class="info">Pruned Tree Two: ((((A1:1.0,A2:1.0):1.0,(B1:1.0,B2:1.0):1.0):1.0,((D1:1.0,D2:1.0):1.0,((F2:1.0,F3:1.0):1.0,F1:1.0):1.0):1.0):1.0,(O1:1.0,O2:1.0):1.0):1;</p>
+<p class="info">Remaining leaves: 11</p>
+<p class="info">Current Proposed Deletions: 0</p>
+<p class="info">No more common splits found. Algorithm completed.</p>
+<p class="info">algorithm_five completed successfully</p>
+</section>
+</div>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up matrix toggle buttons
+            const toggleButtons = document.querySelectorAll('.matrix-toggle .toggle-button');
+            toggleButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Find the parent matrix container
+                    const matrixContainer = this.closest('.matrix-container');
+                    if (!matrixContainer) return;
+                    
+                    // Get the view to show
+                    const viewType = this.getAttribute('data-view');
+                    
+                    // Update active button state
+                    const buttons = matrixContainer.querySelectorAll('.toggle-button');
+                    buttons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Hide all views in this container
+                    const views = matrixContainer.querySelectorAll('.matrix-view');
+                    views.forEach(view => view.style.display = 'none');
+                    
+                    // Show the selected view
+                    const selectedView = matrixContainer.querySelector('.' + viewType + '-view');
+                    if (selectedView) {
+                        selectedView.style.display = 'block';
+                        
+                        // If it's MathJax, trigger typesetting
+                        if (viewType === 'mathjax' && typeof MathJax !== 'undefined') {
+                            MathJax.typeset([selectedView]);
+                        }
+                    }
+                });
+            });
+        });
+        </script>
+        
+        </main>
+        <footer>
+            <p style="margin-top: 2em; text-align: center; color: #666;">
+                Generated by Branch Architect
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

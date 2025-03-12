@@ -1,7 +1,7 @@
 from brancharchitect.io import read_newick, write_svg
 from brancharchitect.newick_parser import parse_newick
-import click
 from pathlib import Path
+import click
 import json
 
 def read_file(path, newick):

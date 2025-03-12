@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BranchArchitect Test Debug Index</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f8f9fa; }
+        h1 { color: #333; margin-bottom: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; }
+        .stats { font-size: 0.9em; color: #666; }
+        table { border-collapse: collapse; width: 100%; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f2f2f2; cursor: pointer; }
+        tr:hover { background-color: #f5f5f5; }
+        .timestamp { font-size: 0.9em; color: #666; }
+        .file-size { text-align: right; }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .search { margin-bottom: 20px; padding: 8px; width: 100%; border: 1px solid #ddd; border-radius: 4px; }
+        footer { margin-top: 30px; text-align: center; font-size: 0.8em; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>BranchArchitect Test Debug Index</h1>
+        <div class="stats">
+            <strong>Total Files:</strong> 65 |
+            <strong>Last Run:</strong> 2025-03-07 10:50:03
+        </div>
+    </div>
+
+    <input type="text" class="search" id="searchInput" placeholder="Search for test names..." />
+
+    <table id="debugTable">
+        <thead>
+            <tr>
+                <th onclick="sortTable(0)">Test Name ↕</th>
+                <th onclick="sortTable(1)">Timestamp ↕</th>
+                <th onclick="sortTable(2)">Size (KB) ↕</th>
+            </tr>
+        </thead>
+        <tbody>
+    
+            <tr>
+                <td><a href="debug_log_reverse_test_tree_moving_downwards.html">Reverse Test Tree Moving Downwards</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">61.2</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_initial_test_tree.json.html">Initial Test Tree.Json</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">37.5</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_simon_test_tree_2.html">Reverse Simon Test Tree 2</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">72.8</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_small-change-in-subtree.html">Small-Change-In-Subtree</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">42.3</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_small-test-two-leaves-moving.html">Reverse Small-Test-Two-Leaves-Moving</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">56.7</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_small-test-sub-tree-moving.html">Reverse Small-Test-Sub-Tree-Moving</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">38.1</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_heiko_6_test_tree.html">Heiko 6 Test Tree</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">96.9</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_test_tree_moving_downwards_easier2.html">Test Tree Moving Downwards Easier2</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">56.4</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_simon_test_tree_6.html">Simon Test Tree 6</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">72.9</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_simon_test_tree_7.html">Simon Test Tree 7</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">54.1</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_test_tree_moving_downwards_easier2.html">Reverse Test Tree Moving Downwards Easier2</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">56.5</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_basic_1_taxon_none.html">Basic 1 Taxon None</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">44.6</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_alltrees-140-141.html">Alltrees-140-141</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">53.8</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_fullNone1.html">Reverse Fullnone1</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">57.4</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_simon_test_tree_3.html">Reverse Simon Test Tree 3</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">47.3</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_small-test-one-leave-crossing-moving_with_outgroup.html">Reverse Small-Test-One-Leave-Crossing-Moving With Outgroup</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">58.9</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_test_tree_moving_downwards_easier.html">Reverse Test Tree Moving Downwards Easier</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">39.6</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_small-test-two-leaves-moving.html">Small-Test-Two-Leaves-Moving</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">56.7</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_small-test-one-leave-moving.html">Reverse Small-Test-One-Leave-Moving</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">34.0</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_small-test-one-leave-crossing-moving.html">Reverse Small-Test-One-Leave-Crossing-Moving</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">55.7</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_test_tree_moving_updwards.html">Test Tree Moving Updwards</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">61.2</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_alltrees-140-141.html">Reverse Alltrees-140-141</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">54.1</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_simon_test_tree_4.html">Reverse Simon Test Tree 4</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">48.6</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_heiko_5_test_tree.html">Heiko 5 Test Tree</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">77.5</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_alltrees-112.html">Reverse Alltrees-112</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">51.0</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_basic_2_none_with_grounding_jumps.html">Basic 2 None With Grounding Jumps</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">85.9</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_heiko_4_test_tree.html">Heiko 4 Test Tree</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">65.9</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_test_tree_moving_updwards.html">Reverse Test Tree Moving Updwards</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">61.2</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_small-test-one-leave-moving.html">Small-Test-One-Leave-Moving</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">37.6</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_test_tree_moving_downwards.html">Test Tree Moving Downwards</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">61.2</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_simon_test_tree_5.html">Reverse Simon Test Tree 5</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">66.2</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_example.phy-wtc-nbest1-seed738142.html">Example.Phy-Wtc-Nbest1-Seed738142</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">70.4</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_transition_2.html">Transition 2</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">37.7</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_basic_3_nested_jump.html">Basic 3 Nested Jump</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">127.7</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_small-test-sub-tree-moving.html">Small-Test-Sub-Tree-Moving</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">38.0</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_small-test-one-leave-crossing-moving.html">Small-Test-One-Leave-Crossing-Moving</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">55.7</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_simon_test_tree_2.html">Simon Test Tree 2</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">72.8</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_basic_1_taxon_1.html">Basic 1 Taxon 1</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">45.1</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_alltrees.html">Alltrees</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">95.5</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_small-test-subtree-crossing-moving.html">Reverse Small-Test-Subtree-Crossing-Moving</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">22.1</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_heiko_6_test_tree.html">Reverse Heiko 6 Test Tree</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">97.2</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_alltrees-index-0.html">Alltrees-Index-0</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">94.9</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_alltrees-index-78-79.html">Alltrees-Index-78-79</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">53.4</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_test_tree_moving_downwards_easier.html">Test Tree Moving Downwards Easier</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">34.7</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_tree_reconstructed_test_3.html">Reverse Tree Reconstructed Test 3</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">65.8</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_small-change-in-subtree.html">Reverse Small-Change-In-Subtree</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">42.3</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_simon_test_tree_6.html">Reverse Simon Test Tree 6</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">73.0</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_small-test-one-leave-crossing-moving_with_outgroup.html">Small-Test-One-Leave-Crossing-Moving With Outgroup</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">58.8</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_simon_test_tree_7.html">Reverse Simon Test Tree 7</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">54.2</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_simon_test_tree_3.html">Simon Test Tree 3</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">47.4</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_small-test-subtree-crossing-moving.html">Small-Test-Subtree-Crossing-Moving</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">22.1</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_tree_reconstructed_test_3.html">Tree Reconstructed Test 3</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">66.2</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_alltrees.html">Reverse Alltrees</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">129.7</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_alltrees-index-78-79.html">Reverse Alltrees-Index-78-79</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">53.5</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_simon_test_tree_4.html">Simon Test Tree 4</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">48.6</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_alltrees-112.html">Alltrees-112</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">51.0</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_heiko_5_test_tree.html">Reverse Heiko 5 Test Tree</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">77.5</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_switch_tree_test_24062021.html">Switch Tree Test 24062021</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">70.6</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_heiko_4_test_tree.html">Reverse Heiko 4 Test Tree</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">65.7</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_simon_test_tree_5.html">Simon Test Tree 5</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">66.1</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_alltrees-31.html">Alltrees-31</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">34.9</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_alltrees-index-0.html">Reverse Alltrees-Index-0</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">95.0</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_transition_2.html">Reverse Transition 2</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">37.7</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_reverse_switch_tree_test_24062021.html">Reverse Switch Tree Test 24062021</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">70.6</td>
+            </tr>
+        
+            <tr>
+                <td><a href="debug_log_basic_1_taxon_partial.html">Basic 1 Taxon Partial</a></td>
+                <td class="timestamp">2025-03-07 10:50:03</td>
+                <td class="file-size">45.6</td>
+            </tr>
+        
+        </tbody>
+    </table>
+
+    <footer>
+        <p>Last updated: 2025-03-07 10:50:03</p>
+    </footer>
+
+    <script>
+    // Simple search
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('keyup', function() {
+        const query = searchInput.value.toLowerCase();
+        const rows = document.querySelectorAll('#debugTable tbody tr');
+        rows.forEach(row => {
+            row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
+        });
+    });
+
+    // Sort table columns
+    function sortTable(n) {
+        const table = document.getElementById("debugTable");
+        let switching = true, dir = "asc", switchcount = 0;
+        while (switching) {
+            switching = false;
+            const rows = table.rows;
+            for (let i = 1; i < rows.length - 1; i++) {
+                let shouldSwitch = false;
+                const x = rows[i].getElementsByTagName("TD")[n];
+                const y = rows[i + 1].getElementsByTagName("TD")[n];
+                if (dir === "asc" && x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+                    shouldSwitch = true; break;
+                } else if (dir === "desc" && x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+                    shouldSwitch = true; break;
+                }
+            }
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount++;
+            } else {
+                if (switchcount === 0 && dir === "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+    </script>
+</body>
+</html>

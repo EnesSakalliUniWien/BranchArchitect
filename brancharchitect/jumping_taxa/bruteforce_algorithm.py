@@ -1,5 +1,4 @@
-from brancharchitect.jumping_taxa.deletion_algorithm import delete_taxa
-from itertools import combinations
+
 import time
 
 def traverse(root):
@@ -108,14 +107,14 @@ def core(t1, t2, timeout=60*60, max_depth=None):
                 stack.append((t1, t2, idxs, cs))
 
                 to_remove = lc[li]
-                it1 = delete_taxa(t1.deep_copy(), to_remove)
-                it2 = delete_taxa(t2.deep_copy(), to_remove)
+                it1 = t1.deep_copy().delete_taxa(to_remove)
+                it2 = t2.deep_copy().delete_taxa(to_remove)
 
                 stack.append((it1, it2, idxs + [0], cs + [get_components(it1, it2)]))
             else:
                 to_remove = lc[li]
-                it1 = delete_taxa(t1.deep_copy(), to_remove)
-                it2 = delete_taxa(t2.deep_copy(), to_remove)
+                it1 = t1.deep_copy().delete_taxa(to_remove)
+                it2 = t2.deep_copy().delete_taxa(to_remove)
 
                 if trees_equal(it1, it2):
                     jumping_taxa.append(list(tuple([t for t in c[i]]) for c, i in zip(cs, idxs)))

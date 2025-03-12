@@ -1,316 +1,370 @@
-from brancharchitect.jumping_taxa.elemental import merge_sedges, decode_indices_to_taxa
-from brancharchitect.jumping_taxa.deletion_algorithm import delete_taxa
-from brancharchitect.jumping_taxa.algorithm_one import find_jumping_taxa_algorithm_one
-from brancharchitect.jumping_taxa.elemental import calculate_component_set
-from logging import getLogger
-from brancharchitect.jumping_taxa.functional_tree import (
-    FunctionalTree,
-    ComponentSet,
-    Component,
-    build_functional_tree,
-)
-from brancharchitect.jumping_taxa.elemental import (
-    argmax,
-    count,
-    argmin,
-    size,
-    filter_components_from_arms,
-    map2,
-    intersect,
-    symm,
-    cartesian,
-    filter_,
-    map1,
-    remove_last_component_if_longer_than_one,
-    union,
-    reduce,
-)
-from brancharchitect.jumping_taxa.tree_interpolation import (
-    interpolate_adjacent_tree_pairs,
-    interpolate_tree,
-)
-from brancharchitect.newick_parser import get_taxa_name_circular_order
 from brancharchitect.tree import Node
+from brancharchitect.jumping_taxa.elemental import find_exact_max_intersection
+from brancharchitect.jumping_taxa.debug import (
+    jt_logger,
+    format_set,
+)
+from brancharchitect.jumping_taxa.matrix_ops import (
+    generalized_meet_product,
+    create_matrix,
+    split_matrix,
+    canonicalize_diagonal_swap_2,
+    matrix_has_singleton_entries,
+    solve_matrix_puzzle,
+    
+)
+from brancharchitect.jumping_taxa.functional_tree import (
+    compare_tree_splits,
+    HasseEdge,
+)
 
-logger = getLogger(__name__)
+
+def format_covet_matrix(a_idx, b_idx, a_set, b_set):
+    """Format arms as a 2x2 matrix with diagonal distribution and labels"""
+    return f"""Covet A{a_idx} × B{b_idx}:<br> ⎡[[{format_set(a_set)}]⎤<br>⎣[{format_set(b_set)}]⎦"""
 
 
-def print_component_map(component_set, sorted_nodes, title=None):
-    if title:
-        logger.info(title)
-    logger.info(component_set)
-    for component_set in component_set:
-        components_converted = []
-        for components in component_set:
-            components_converted.append(
-                [sorted_nodes[sub_component] for sub_component in components]
+# ============================================== Case For Edge Types ====================================================== #
+def case_partial_none(sedge: HasseEdge):
+    r = find_exact_max_intersection(sedge.arms_t_one, sedge.arms_t_two)
+    return r
+
+
+def set_rule_based_algorithm(s_edge: HasseEdge):
+    inter = []
+    sym = []
+    results = []
+
+    jt_logger.log_covet(s_edge.left_cover, s_edge.right_cover)
+    process_of_direction_intersection: dict = {}
+    process_of_direction_a_without_b: dict = {}
+    process_of_direction_b_without_a: dict = {}
+
+    for a_idx, a in enumerate(s_edge.left_cover, 1):
+        for b_idx, b in enumerate(s_edge.right_cover, 1):
+
+            i = set(a) & set(b)
+            a, b = set(a), set(b)
+
+            a_without_b = set(a) - set(b)
+            b_without_a = set(b) - set(a)
+
+            if i:
+                inter.append(tuple(i))
+            if a_without_b:
+                sym.append(a_without_b)
+            if b_without_a:
+                sym.append(b_without_a)
+
+            process_of_direction_intersection[frozenset(i)] = {
+                "covet_left": a,
+                "covet_right": b,
+                "b-a": b_without_a,
+                "a-b": a_without_b,
+            }
+
+            process_of_direction_a_without_b[frozenset(a - b)] = {
+                "covet_left": a,
+                "covet_right": b,
+                "index": (a_idx, b_idx),
+                "b-a": b_without_a,
+                "a-b": a_without_b,
+            }
+
+            process_of_direction_b_without_a[frozenset(b - a)] = {
+                "covet_left": a,
+                "covet_right": b,
+                "index": (a_idx, b_idx),
+                "b-a": b_without_a,
+                "a-b": a_without_b,
+            }
+
+            results.append(
+                [
+                    format_covet_matrix(a_idx, b_idx, a, b),  # Show arms as matrix
+                    format_set(i).ljust(40),
+                    format_set(a_without_b).ljust(40),
+                    format_set(b_without_a).ljust(40),
+                ]
             )
-        logger.info(components_converted)
 
+    # Log comparison analysis
+    jt_logger.comparison_analysis(results, inter, sym)
 
-def get_ancestor_edge(t: FunctionalTree, c: ComponentSet) -> Node:
-    return t._ancestor_edges[tuple(c)]
+    direction_by_intersection = []
+    for intersection in process_of_direction_intersection:
+        if not intersection:
+            continue
 
+        # Check if intersection exists in both difference dictionaries
+        exists_in_both = (
+            intersection in process_of_direction_a_without_b
+            and intersection in process_of_direction_b_without_a
+        )
 
-def algo5_partial_partial_cond(t1, t2):
-    def cond(component):
-        ancestor_edge1 = get_ancestor_edge(t1, component)
-        ancestor_edge2 = get_ancestor_edge(t2, component)
+        if not exists_in_both:
+            continue
 
-        partial1 = is_partial_s_edge(t1, ancestor_edge1)
-        partial2 = is_partial_s_edge(t2, ancestor_edge2)
+        # Get arm information for this intersection
+        a_info = process_of_direction_a_without_b[intersection]
+        b_info = process_of_direction_b_without_a[intersection]
 
-        anti1 = is_anti_s_edge(t1, ancestor_edge1)
-        anti2 = is_anti_s_edge(t2, ancestor_edge2)
+        if not (a_info and b_info):
+            continue
 
-        return (partial1 and anti2) or (anti1 and partial2)
+        # Get arms for comparison
+        arm_a = a_info["covet_left"]
+        arm_b = b_info["covet_right"]
 
-    return cond
+        # Check if neither arm is subset of the other
+        is_independent = (
+            (
+                (not arm_a.issubset(arm_b))
+                and process_of_direction_a_without_b[intersection]["b-a"]
+            )
+            or (
+                (not arm_b.issubset(arm_a))
+                and process_of_direction_b_without_a[intersection]["a-b"]
+            )
+            or (arm_a.issubset(arm_b) and len(arm_a) == 1)
+            or (arm_b.issubset(arm_a) and len(arm_b) == 1)
+        )
 
-# ============================================== Case For Edge Types ====================================================== #
-def is_anti_s_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
-    return t._edge_types[ancestor_edge.split_indices] == "anti"
+        jt_logger.info(
+            f"Intersection: {format_set(intersection)}; Arm A: {format_set(arm_a)}; Arm B: {format_set(arm_b)}; Independent: {is_independent}"
+        )
 
+        # Check if neither arm is subset of the other
+        jt_logger.section(
+            f"Independence Check for intersection: {format_set(intersection)}"
+        )
+        jt_logger.info(f"Arm A: {format_set(arm_a)}")
+        jt_logger.info(f"Arm B: {format_set(arm_b)}")
 
-def is_full_s_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
-    return t._edge_types[ancestor_edge.split_indices] == "full"
+        # Evaluate each condition separately for detailed logging
+        condition1 = (not arm_a.issubset(arm_b)) and process_of_direction_a_without_b[
+            intersection
+        ]["b-a"]
+        condition2 = (not arm_b.issubset(arm_a)) and process_of_direction_b_without_a[
+            intersection
+        ]["a-b"]
+        condition3 = arm_a.issubset(arm_b) and len(arm_a) == 1 and len(arm_b) > 1
+        condition4 = arm_b.issubset(arm_a) and len(arm_b) == 1 and len(arm_a) > 1
 
+        # Log detailed subset relationships
+        jt_logger.info(f"Not A ⊆ B: {arm_a.issubset(arm_b)}")
+        jt_logger.info(f"Not B ⊆ A: {arm_b.issubset(arm_a)}")
+        jt_logger.info(
+            f"A - B: {format_set(process_of_direction_a_without_b[intersection]['a-b'])}"
+        )
+        jt_logger.info(
+            f"B - A: {format_set(process_of_direction_b_without_a[intersection]['b-a'])}"
+        )
 
-def is_partial_s_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
-    return t._edge_types[ancestor_edge.split_indices] == "partial"
+        # Log which condition was satisfied
+        if condition1:
+            jt_logger.info("✓ Independent: A is not subset of B and B-A is non-empty")
+        elif condition2:
+            jt_logger.info("✓ Independent: B is not subset of A and A-B is non-empty")
+        elif condition3:
+            jt_logger.info("✓ Independent: A is singleton subset of B")
+        elif condition4:
+            jt_logger.info("✓ Independent: B is singleton subset of A")
+        else:
+            jt_logger.info("✗ Not independent: None of the independence conditions met")
 
+        is_independent = condition1 or condition2 or condition3 or condition4
+        jt_logger.info(f"Final independence determination: {is_independent}")
 
-def is_none_edge(t: FunctionalTree, ancestor_edge: Node) -> bool:
-    return t._edge_types[ancestor_edge.split_indices] == "none"
+        if is_independent:
 
-# ============================================== Case For Edge Types ====================================================== #
-def case_full_full(sedge: Node, t1: FunctionalTree, t2):
-    return find_jumping_taxa_algorithm_one(sedge, t1, t2)
+            direction_by_intersection.append(
+                {
+                    "pair": a_info["index"],  # Changed from "index" to "pair"
+                    "A": frozenset(arm_a),
+                    "B": frozenset(arm_b),
+                    "direction_a": (1, 0),
+                    "direction_b": (0, 1),
+                    "common": intersection,  # Add intersection as common elements
+                }
+            )
 
+    # Replace print with proper logging
+    jt_logger.log_bidirectional_analysis(direction_by_intersection)
 
-def case_full_none(sedge, t1, t2):
-    return find_jumping_taxa_algorithm_one(sedge, t1, t2)
+    # Create matrices using new function
+    matrix = create_matrix(direction_by_intersection)
 
+    jt_logger.matrix(matrix)
 
-def case_partial_partial(sedge, t1, t2, sorted_nodes):
-    c1 = calculate_component_set(t1, sedge)
-    c2 = calculate_component_set(t2, sedge)
+    matrices = split_matrix(matrix)
 
-    print_component_map(c1, sorted_nodes, "C1")
-    print_component_map(c2, sorted_nodes, "C2")
+    solutions = []
 
-    cf1 = filter_components_from_arms(algo5_partial_partial_cond(t1, t2), c1)
-    cf2 = filter_components_from_arms(algo5_partial_partial_cond(t2, t1), c2)
+    jt_logger.section("Meet Result Computation")
 
-    print_component_map(cf1, sorted_nodes, "CF1")
-    print_component_map(cf2, sorted_nodes, "CF2")
+    if len(matrices) == 2:
+        dependent_solutions = solve_matrix_puzzle(matrices[0], matrices[1])
+        for solution in dependent_solutions:
+            jt_logger.info(f"Dependent Solution: {solution}")
+            
+        return dependent_solutions[0]
+    for matrix in matrices:
+        meet_results = None
+        if (matrix_has_singleton_entries(matrix)) and len(matrix) > 1:
+            jt_logger.info("Matrix is canonical")
+            matrix = canonicalize_diagonal_swap_2(matrix)
+            meet_results = generalized_meet_product(matrix)
+        else:
+            meet_results = generalized_meet_product(matrix)
 
-    cff1 = filter_(lambda x: len(x) != 0, cf1)
-    cff2 = filter_(lambda x: len(x) != 0, cf2)
+        jt_logger.log_meet_result(meet_results)
 
-    print_component_map(cff1, sorted_nodes, "CFF1")
-    print_component_map(cff2, sorted_nodes, "CFF2")
+        # Find minimum size of results
+        min_size = min(len(result) for result in meet_results)
+        # Get all results of minimum size
 
-    c12 = cartesian(cff1, cff2)
+        min_results = [result for result in meet_results if len(result) == min_size]
 
-    intersections = map2(intersect, c12)
-    print_component_map(intersections, sorted_nodes, "Intersections")
+        jt_logger.info(f"Minimum size of results: {min_size}")
 
-    symmetric_differences = map2(symm, c12)
+        solutions.append(tuple(min_results[0]))
 
-    print_component_map(symmetric_differences, sorted_nodes, "Symmetric Differences")
+        jt_logger.info(f"Taken Result: {format_set(min_results[0])}")
 
-    voting_map = intersections + symmetric_differences
-
-    voting_map_filtered = filter_(lambda x: x, voting_map)
-
-    m: list[Component] = argmax(
-        voting_map_filtered, lambda x: count(voting_map_filtered, x)
-    )
-
-    m = argmin(m, size)
-
-    c = map1(remove_last_component_if_longer_than_one, m)
-
-    c = reduce(union, c)
-
-    return c
-
-
-def algo5_partial_none_only_partial(t1):
-    def cond(component):
-        ancestor_edge1 = get_ancestor_edge(t1, component)
-
-        partial1 = is_partial_s_edge(t1, ancestor_edge1)
-
-        return partial1
-
-    return cond
-
-
-def algo5_partial_none_only_anti_sedge(t1):
-    def cond(component):
-        ancestor_edge1 = get_ancestor_edge(t1, component)
-
-        anti1 = is_anti_s_edge(t1, ancestor_edge1)
-
-        return anti1
-
-    return cond
-
-
-def case_partial_none(sedge, t1, t2, sorted_nodes):
-    c1 = calculate_component_set(t1, sedge)
-    c2 = calculate_component_set(t2, sedge)
-
-    print_component_map(c1, sorted_nodes, "C1")
-    print_component_map(c2, sorted_nodes, "C2")
-
-    cf1_anti_s_edge = filter_components_from_arms(
-        algo5_partial_none_only_anti_sedge(t1), c1
-    )
-
-    cf1_partial_s_edge = filter_components_from_arms(
-        algo5_partial_none_only_partial(t1), c1
-    )
-
-    print_component_map(cf1_anti_s_edge, sorted_nodes, "CF1 Anti S-edge")
-
-    print_component_map(cf1_partial_s_edge, sorted_nodes, "Partial S-edge")
-
-    cf1_partial_s_edge = [reduce(union, cf1_partial_s_edge)]
-
-    print_component_map(cf1_partial_s_edge, sorted_nodes, "Reduced partial s-edges")
-
-    combined = cf1_partial_s_edge + cf1_anti_s_edge
-
-    print_component_map(combined, sorted_nodes, "Combined")
-
-    cf1 = argmin(combined, size)
-
-    c = map1(remove_last_component_if_longer_than_one, cf1)
-
-    c = reduce(union, c)
-
-    return c
-
+    return solutions if solutions else tuple()
 
 # ============================================== Algorithm 5 ====================================================== #
 
 
-def algorithm_5_for_sedge(sedge, t1: FunctionalTree, t2: FunctionalTree, sorted_nodes):
-    if is_full_s_edge(t1, sedge) and is_full_s_edge(t2, sedge):
-        logger.info("Full Full")
-        return case_full_full(sedge, t1, t2)
+def algorithm_5_for_sedge(s_edge: HasseEdge):
+    """
+    Process a single s-edge based on its classification.
+    """
+    # Add tree visualization before processing
+    jt_logger.print_sedge_comparison(s_edge)
 
-    if is_full_s_edge(t1, sedge) and is_partial_s_edge(t2, sedge):
-        logger.info("Full Partial")
-        return case_full_full(sedge, t1, t2)
+    # Log s-edge classification information
+    jt_logger.info("\nS-Edge Classification:")
+    jt_logger.info(f"Split: {s_edge.split}")
+    jt_logger.info(f"Tree 1 Node: {s_edge.left_node}")
+    jt_logger.info(f"Tree 2 Node: {s_edge.right_node}")
 
-    if is_partial_s_edge(t1, sedge) and is_full_s_edge(t2, sedge):
-        logger.info("Partial Full")
-        return case_full_full(sedge, t2, t1)
+    # Map the pair of edge types to the corresponding function call.
+    conditions = {
+        ("divergent", "divergent"): lambda: set_rule_based_algorithm(s_edge),
+        ("divergent", "intermediate"): lambda: set_rule_based_algorithm(s_edge),
+        ("intermediate", "divergent"): lambda: set_rule_based_algorithm(s_edge),
+        ("intermediate", "intermediate"): lambda: set_rule_based_algorithm(s_edge),
+        ("intermediate", "collapsed"): lambda: set_rule_based_algorithm(s_edge),
+        ("collapsed", "intermediate"): lambda: set_rule_based_algorithm(s_edge),
+    }
 
-    if is_partial_s_edge(t1, sedge) and is_partial_s_edge(t2, sedge):
-        logger.info("Partial Partial")
+    # Create the key from the s-edge's types.
+    key = s_edge.get_edge_types()
 
-        return case_partial_partial(sedge, t1, t2, sorted_nodes)
-
-    if is_partial_s_edge(t1, sedge) and is_none_edge(t2, sedge):
-        logger.info("PARTIAL NONE")
-        return case_partial_none(sedge, t1, t2, sorted_nodes)
-
-    if is_none_edge(t1, sedge) and is_partial_s_edge(t2, sedge):
-        logger.info("NONE PARTIAL")
-
-        return case_partial_none(sedge, t2, t1, sorted_nodes)
-
-    if is_full_s_edge(t1, sedge):
-        return case_full_full(sedge, t1, t2)
-
-    if is_full_s_edge(t2, sedge):
-        return case_full_full(sedge, t1, t2)
-
+    result = None
+    if key in conditions:
+        result = conditions[key]()
+        for comp in result:
+            for c in comp:
+                jt_logger.info(f"Component: {format_set({c})}")
     else:
-        raise Exception(f"We forgot one case: {sedge}")
+        raise Exception(f"We forgot one case: {s_edge}")
+
+    return result
 
 
-def algorithm_five(it1 : Node, it2: Node, sorted_nodes: list[str]):
-    # Build functional trees from the intermediate trees
-    t1 = build_functional_tree(it1)
-    t2 = build_functional_tree(it2)
+@jt_logger.log_execution
+def algorithm_five(input_tree1: Node, input_tree2: Node, leaf_order: list[str]):
+    """
+    Runs 'algorithm five' on two trees, pruning iteratively based on discovered components.
 
-    # Initialize a list to store the global decoded results
-    global_component_list: list[int] = []
+    Args:
+        input_tree1 (Node): The first input tree (root node).
+        input_tree2 (Node): The second input tree (root node).
+        leaf_order (list[str]): The list of leaf labels in a certain (sorted) order.
 
-    # Merge the S-edges from both trees
-    all_s_edges = merge_sedges(t1._all_sedges, t2._all_sedges)
+    Returns:
+        list[int]: A list of unique components (encoded as integer indices) discovered by the algorithm.
+    """
 
-    # Initialize pruned trees
-    p_it1 = it1
-    p_it2 = it2
+    try:
+        global_components: list[int] = []
 
-    while True:
-        taxa = []
-        component_indices = []
+        pruned_original_tree1, pruned_original_tree2 = input_tree1, input_tree2
+        current_s_edges = compare_tree_splits(input_tree1, input_tree2)
+        remaining_leaves = len(leaf_order)
 
-        # Iterate over all S-edges
-        for s_edge in all_s_edges:
-            
-            # Execute Algorithm 5 for the current S-edge
-            component_indices = algorithm_5_for_sedge(s_edge, t1, t2, sorted_nodes)
-                                    
-            global_component_list += component_indices
-            
-            # Translate taxa to indices
-            taxa = list(set([y for x in component_indices for y in x]))
-            
-            # Append to global decoded result list
-            global_component_list += component_indices
-            
-        # Stop condition for pruning
-        if len(component_indices) > 0 and (len(sorted_nodes) - len(taxa) > 3):
-            
-            # Delete leaves and interpolate
-            p_it1, p_it2, _ = delete_leave_and_interpolate(p_it1, p_it2, taxa)
-            
-            # Rebuild functional trees and S-edges after pruning            
-            t1 = build_functional_tree(p_it1)
-            t2 = build_functional_tree(p_it2)            
-            
-            all_s_edges = t1._all_sedges.union(t2._all_sedges)
-            
-        else:
-            # Break the loop if no further pruning is required
-            break
+        while True:
+            iteration_components = []
+            iteration_taxa = set()
 
-    # Return the unique set of global decoded results
-    return list(set(global_component_list))
+            for current_s_edge in current_s_edges.values():
+                jt_logger.section(f"\nProcessing split: {current_s_edge.split}")
+
+                new_components = algorithm_5_for_sedge(current_s_edge)
+                iteration_components.extend(list(new_components))
+
+                # Update iteration_taxa with proper set operations
+                for comp in new_components:
+                    iteration_taxa.update(tuple(comp))
+
+                global_components.extend(new_components)
+
+                jt_logger.info(f"Global Components: {global_components}")
+
+            current_proposed_deletions = len(iteration_taxa)
+
+            jt_logger.info(f"Current Proposed Deletions: {current_proposed_deletions}")
+
+            if (
+                iteration_components
+                and (remaining_leaves - current_proposed_deletions) > 3
+            ):
+                remaining_leaves -= current_proposed_deletions
+
+                pruned_original_tree1, pruned_original_tree2 = delete_leaves(
+                    pruned_original_tree1, pruned_original_tree2, list(iteration_taxa)
+                )
+
+                current_s_edges = compare_tree_splits(
+                    pruned_original_tree1, pruned_original_tree2
+                )
+
+                jt_logger.info(
+                    f"Remaining leaves: {remaining_leaves}"
+                )  # Change print to print_if_enabled
+
+            elif not current_s_edges:
+                jt_logger.info("No more common splits found. Algorithm completed.")
+                break
+            else:
+                jt_logger.info(
+                    "Minimum leaf count reached or no new components found. Algorithm completed."
+                )
+                break
+
+        return list(global_components)
+    except Exception as e:
+        from brancharchitect.jumping_taxa.debug import log_stacktrace
+
+        # Log to HTML output
+        log_stacktrace(e)
+        # Also print to console
+        raise Exception(f"Error in algorithm_five: {str(e)}")
+
 
 # ============================================== Pruning ====================================================== #
+def delete_leaves(
+    original_tree_one: Node, original_tree_two: Node, to_be_deleted_leaves=[]
+):
+    jt_logger.section("Deleting Leaves")
+    jt_logger.info(f"Deleting Leaves: {to_be_deleted_leaves}")
 
+    pruned_tree_one = original_tree_one.delete_taxa(to_be_deleted_leaves)
+    jt_logger.info(f"Pruned Tree One: {pruned_tree_one.to_newick()}")
 
-def delete_leave_and_interpolate(original_tree_one : Node, original_tree_two : Node, to_be_deleted_leaves=[]):
-    pruned_tree_one = delete_taxa(original_tree_one, to_be_deleted_leaves)
-    pruned_tree_two = delete_taxa(original_tree_two, to_be_deleted_leaves)
-
-    interpolated_trees = interpolate_tree(pruned_tree_one, pruned_tree_two)
-    circular_order = get_taxa_name_circular_order(interpolated_trees[0])
-
-    return interpolated_trees[0], interpolated_trees[3], circular_order
-
-
-# ============================================== Main ====================================================== #
-
-if __name__ == "__main__":
-    adjacent_tree_list = interpolate_adjacent_tree_pairs(
-        [
-            "(((A:1,B:1):1,(C:1,D:1):1):1,(O1:1,O2:1):1);",
-            "(((A:1,B:1,D:1):1,C:1):1,(O1:1,O2:1):1);",
-        ]
-    )
-    first_order_tree = adjacent_tree_list[0]
-    circular_order = get_taxa_name_circular_order(first_order_tree)
-    results = algorithm_five(
-        adjacent_tree_list[1], adjacent_tree_list[4], circular_order
-    )
+    pruned_tree_two = original_tree_two.delete_taxa(to_be_deleted_leaves)
+    jt_logger.info(f"Pruned Tree Two: {pruned_tree_one.to_newick()}")
+    return pruned_tree_one, pruned_tree_two

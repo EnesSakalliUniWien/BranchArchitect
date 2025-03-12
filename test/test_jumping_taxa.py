@@ -12,5 +12,5 @@ def test_jumping_taxa_1():
     jt = call_jumping_taxa(t1, t2)
 
     assert len(jt) == 1
-    assert ('E',) in jt
+    assert [(2,)] == jt
 
