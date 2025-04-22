@@ -1,0 +1,6 @@
+O,D,E,B,A,C
+D,O,E,B,A,C
+D,E,B,O,A,C
+D,E,O,B,A,C
+D,E,B,A,O,C
+D,E,B,A,C,O
