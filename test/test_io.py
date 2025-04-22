@@ -1,6 +1,6 @@
 from brancharchitect.io import read_newick, write_json
 from brancharchitect.newick_parser import parse_newick
-from brancharchitect.plot.svg import generate_svg_multiple_trees
+from brancharchitect.plot.svg import generate_multiple_circular_trees_svg
 from brancharchitect.tree import Node
 import json
 
@@ -61,4 +61,4 @@ def test_read_newick_write_json():
 def test_generate_svg():
     newick = "((A[value=3],(B,C),((D,E),((F,G),H))),I);"
     tree = parse_newick(newick)
-    svg = generate_svg_multiple_trees([tree], 100)
+    svg = generate_multiple_circular_trees_svg([tree], 100)

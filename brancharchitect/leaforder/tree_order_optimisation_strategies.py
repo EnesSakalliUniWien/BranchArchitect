@@ -4,7 +4,7 @@ from brancharchitect.tree import Node
 
 # from brancharchitect.io import read_newick
 
-from brancharchitect.consensus import create_majority_consensus_tree_extended
+from brancharchitect.consensus_tree import create_majority_consensus_tree_extended
 from brancharchitect.leaforder.tree_order_optimisation_local import (
     smooth_order_unique_sedge,
 )
@@ -22,10 +22,10 @@ def order_by_global_consensus(
     n_iterations=20,
     pair_wise_optimization=True,
     back_and_forth=True,
-) -> List[Node]:
+):
     mcte = create_majority_consensus_tree_extended(trees)
     # # Optimize tree rotation
-    optimized_tree, distances = optimize_tree_rotation(mcte, trees, n_iterations=20)
+    optimized_tree, distances = optimize_tree_rotation(mcte, trees, n_iterations=iterations_tree_optimization)
     optimized_order = optimized_tree.get_current_order()
     for tree in trees:
         tree.reorder_taxa(optimized_order)
@@ -33,7 +33,6 @@ def order_by_global_consensus(
         smooth_order_unique_sedge(
             trees, n_iterations=n_iterations, backward=back_and_forth
         )
-
 
 def order_by_random_permutation(
     trees,

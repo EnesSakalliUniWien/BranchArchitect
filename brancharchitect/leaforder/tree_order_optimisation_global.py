@@ -1,6 +1,5 @@
 import random
 import itertools
-from tqdm import tqdm
 from copy import deepcopy
 from math import factorial
 from collections import Counter
@@ -142,7 +141,7 @@ def find_minimal_distance_permutation(trees: List, permutations: List):
     # Find the permutation that minimizes the total circular distance
     min_total_distance = float("inf")
     best_perm = None
-    for perm in tqdm(permutations, desc="Finding global optimal order"):
+    for perm in permutations:
         # Apply permutation to all trees
         for tree in trees:
             tree.reorder_taxa(perm)

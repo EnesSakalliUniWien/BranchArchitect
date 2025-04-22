@@ -8,16 +8,27 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.12"
 numpy = "^1.26.4"
+pydantic = "^2.0"
 
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.0"
 
-
 [tool.poetry.group.dev.dependencies]
 pytest-timeout = "^2.3.1"
 ipykernel = "^6.29.4"
+pytest-html = "^3.2.0"
+
+# --- Add these two lines to enable static type checks in tests ---
+mypy = "^1.5.1"
+pytest-mypy = "^0.10.3"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+# --- This section tells pytest to run MyPy automatically ---
+[tool.pytest.ini_options]
+addopts = "--mypy"  # Tells pytest to run mypy checks each time
+mypy_ignore_missing_imports = true
+

@@ -1,9 +1,9 @@
 """Debugging utilities for jumping taxa algorithms."""
 
-from brancharchitect.core.logger import AlgorithmLogger
+from brancharchitect.core.combined_logger import Logger
 
 # Create logger instance first - before ANY other imports
-jt_logger = AlgorithmLogger("JumpingTaxa")
+jt_logger = Logger("JumpingTaxa")
 jt_logger.disabled = False
 
 

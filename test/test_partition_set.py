@@ -1,5 +1,5 @@
 import pytest
-from brancharchitect.split import Partition, PartitionSet
+from brancharchitect.partition_set import Partition, PartitionSet
 
 
 def test_partition_set_intersection():
@@ -87,3 +87,31 @@ def test_partition_set_operator():
     assert len(intersection) == 1
     assert p2 in intersection
     assert intersection.look_up == lookup
+
+
+def test_partition_set_discard():
+    """Test that discard raises an exception when element is not in the set."""
+    lookup = {"A": 0, "B": 1, "C": 2, "D": 3}
+    
+    p1 = Partition((0, 1), lookup)
+    p2 = Partition((1, 2), lookup)
+    p3 = Partition((2, 3), lookup)
+    
+    # Create a set with p1 and p2
+    test_set = PartitionSet({p1, p2}, lookup, "test_set")
+    
+    # Test successful discard of an existing element
+    test_set.discard(p1)
+    assert p1 not in test_set
+    assert len(test_set) == 1
+    assert p2 in test_set
+    
+    # Test discard of a non-existing element (should raise ValueError)
+    with pytest.raises(ValueError, match="not found in set"):
+        test_set.discard(p3)
+        
+    # Test discard with a similar but not identical partition
+    p2_copy = Partition((1, 2), lookup)  # Same indices but different object
+    test_set.discard(p2_copy)  # This should work because Partition.__eq__ compares indices
+    assert p2 not in test_set
+    assert len(test_set) == 0

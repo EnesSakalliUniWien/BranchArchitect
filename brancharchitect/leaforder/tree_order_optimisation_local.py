@@ -1,11 +1,10 @@
-from typing import List, Set, Tuple, Dict
+from typing import List, Tuple, Dict, Callable
 from brancharchitect.tree import Node
-from brancharchitect.split import PartitionSet
+from brancharchitect.partition_set import PartitionSet, Partition
 from brancharchitect.leaforder.circular_distances import (
     circular_distance,
     circular_distance_for_node_subset,
     circular_distance_based_on_reference,
-    circular_distance_tree_pair,
 )
 
 rotation_split_history = dict()
@@ -25,14 +24,14 @@ def classify_subtrees_using_set_ops(
       - 'full-unique'   : node's split not in tree_ref, subtree fully outside
       - 'unique-changed': partial overlap
     """
-    Sref = tree_ref.to_splits()
-    Stgt = tree_target.to_splits()
-    S_common = Sref & Stgt
+    Sref : PartitionSet = tree_ref.to_splits()
+    Stgt : PartitionSet = tree_target.to_splits()
+    S_common : PartitionSet = Sref & Stgt
 
-    subtree_splits_map: Dict[Node, Set[Tuple[int, ...]]] = {}
+    subtree_splits_map: Dict[Node, PartitionSet] = {}
 
-    def collect_subtree_splits(node: Node) -> Set[Tuple[int, ...]]:
-        subs = set()
+    def collect_subtree_splits(node: Node) -> PartitionSet:
+        subs: PartitionSet = PartitionSet()  # Added type annotation here
         for ch in node.children:
             subs |= collect_subtree_splits(ch)
         if node.children:
@@ -78,7 +77,8 @@ def get_splits_info(tree1: Node, tree2: Node):
 
     common = s1.union(s2)
 
-    unique2: PartitionSet = PartitionSet(s2.difference(s1))
+    # Fix: Use subtraction operator directly instead of wrapping in PartitionSet constructor
+    unique2: PartitionSet = s2 - s1
 
     unique2 = unique2.atom()
 
@@ -106,7 +106,7 @@ def try_node_reversal_global(
     tree: Node,
     initial_dist: float,
     reference_order: Tuple[str, ...],
-    rotated_splits: Set[Tuple[int, ...]],
+    rotated_splits: PartitionSet,
 ):
     """
     Swap node's children, measure full-tree distance vs. reference_order.
@@ -127,8 +127,8 @@ def try_node_reversal_local(
     tree: Node,
     initial_dist: float,
     reference_order: Tuple[str, ...],
-    rotated_splits: Set[Tuple[int, ...]],
-):
+    rotated_splits: PartitionSet,
+) -> Tuple[bool, float]:
     """
     Swap node's children, measure local (subtree) distance. Revert if no improvement.
     """
@@ -139,7 +139,7 @@ def try_node_reversal_local(
         return True, new_dist
     else:
         node.swap_children()
-        return False, initial_dist
+        return False, new_dist
 
 
 ##################################################
@@ -151,7 +151,7 @@ def optimize_unique_splits(
     tree1: Node,
     tree2: Node,
     reference_order: Tuple[str, ...],
-    rotated_splits: Set[Tuple[int, ...]],
+    rotated_splits: PartitionSet,
 ) -> bool:
     """
     For each 'unique' split in tree2, attempt a local reversal.
@@ -219,96 +219,6 @@ def optimize_s_edge_splits(tree1: Node, tree2: Node, reference_order, rotated_sp
     return any_improvement
 
 
-def optimize_common_splits(
-    tree1: Node,
-    tree2: Node,
-    reference_order: Tuple[str, ...],
-    rotated_splits: Set[Tuple[int, ...]],
-) -> bool:
-    """
-    Attempt to reorder node1's children to match node2 for any s-edge splits,
-    if it leads to better distance for that pair.
-    """
-    if reference_order:
-        tree1.reorder_taxa(reference_order)
-        tree2.reorder_taxa(reference_order)
-
-    unique2, common_splits, _ = get_splits_info(tree1, tree2)
-    initial_dist = circular_distance_tree_pair(tree1, tree2)
-    any_improvement = False
-    curr_distance = initial_dist
-
-    # We'll consider s-edge splits in 'common_splits'
-    s_edges = []
-    for sp in common_splits:
-        node_in_tree2 = tree2.find_node_by_split(sp)
-        if node_in_tree2 and node_in_tree2.children:
-            if any(
-                ch.split_indices in unique2
-                for ch in node_in_tree2.children
-                if ch.split_indices
-            ):
-                s_edges.append(sp)
-
-    s_edges_sorted = sorted(s_edges, key=lambda x: len(x))
-    for sp in s_edges_sorted:
-        node1_s = tree1.find_node_by_split(sp)
-        node2_s = tree2.find_node_by_split(sp)
-        if not (node1_s and node2_s and node1_s.children and node2_s.children):
-            continue
-
-        improved, new_dist = try_reorder_node_children_to_match(
-            node1_s, node2_s, curr_distance
-        )
-        if improved and new_dist < curr_distance:
-            curr_distance = new_dist
-            rotated_splits.add(sp)
-            any_improvement = True
-
-    return any_improvement
-
-
-##################################################
-#   Reorder Node Children to Match
-##################################################
-
-
-def try_reorder_node_children_to_match(
-    node1: Node, node2: Node, current_distance: float
-) -> Tuple[bool, float]:
-    """
-    Attempt reordering node1's children to match node2's child leaf-subsets.
-    """
-    ref_sets = [frozenset(ch.get_current_order()) for ch in node2.children]
-    node1_map = {frozenset(ch.get_current_order()): ch for ch in node1.children}
-    original_children = node1.children[:]
-    reordered = []
-
-    for sset in ref_sets:
-        match = node1_map.get(sset)
-        if match:
-            reordered.append(match)
-    unmatched = [c for c in original_children if c not in reordered]
-    reordered.extend(unmatched)
-
-    if reordered == original_children:
-        return False, current_distance
-
-    node1.children = reordered
-    all_leaves = node1.get_current_order()
-    if len(all_leaves) != len(set(all_leaves)):
-        # revert if duplication found
-        node1.children = original_children
-        return False, current_distance
-
-    new_dist = circular_distance_tree_pair(node1, node2)
-    if new_dist < current_distance:
-        return True, new_dist
-    else:
-        node1.children = original_children
-        return False, current_distance
-
-
 ##################################################
 #  Orientation Map + reorder_tree_if_full_common
 ##################################################
@@ -317,8 +227,8 @@ def try_reorder_node_children_to_match(
 def reorder_tree_if_full_common(
     reference_tree: Node,
     target_tree: Node,
-    orientation_map: Dict[Tuple[int, ...], List[frozenset]],
-) -> Dict[Tuple[int, ...], List[frozenset]]:
+    orientation_map: Dict[Partition, List[frozenset]],
+) -> Dict[Partition, List[frozenset]]:
     """
     For each split in orientation_map, if target_tree sees it as 'full-common',
     reorder children to match reference_tree. If not, remove that split from orientation_map.
@@ -333,9 +243,16 @@ def reorder_tree_if_full_common(
     for sp, child_leafsets in orientation_map.items():
         node_in_tgt = target_tree.find_node_by_split(sp)
         node_in_rf = reference_tree.find_node_by_split(sp)
+        
+        # Add null check before using node_in_tgt as a dictionary key
+        if node_in_tgt is None or node_in_rf is None:
+            splits_to_remove.append(sp)
+            continue
+            
         node_class = classification_map.get(node_in_tgt, None)
         if node_class == "full-common":
-            node_in_tgt.reorder_taxa(node_in_rf.get_current_order())
+            # Convert tuple to list before passing to reorder_taxa
+            node_in_tgt.reorder_taxa(list(node_in_rf.get_current_order()))
         else:
             # not full-common => remove
             splits_to_remove.append(sp)
@@ -348,8 +265,8 @@ def reorder_tree_if_full_common(
 #   Forward & Backward Orientation Prop
 ##################################################
 def build_orientation_map(
-    tree: Node, rotated_splits: Set[Tuple[int, ...]]
-) -> Dict[Tuple[int, ...], List[frozenset]]:
+    tree: Node, rotated_splits: PartitionSet
+) -> Dict[Partition, List[frozenset]]:
     """
     For each rotated split in `tree`, gather final child orientation
     as a list of leaf-subsets in order.
@@ -357,14 +274,17 @@ def build_orientation_map(
     orientation_map = {}
     for sp in rotated_splits:
         node = tree.find_node_by_split(sp)
-        orientation_map[sp] = [
-            frozenset(ch.get_current_order()) for ch in node.children
-        ]
+        # Add null check before accessing node.children
+        if node is not None:
+            orientation_map[sp] = [
+                frozenset(ch.get_current_order()) for ch in node.children
+            ]
+        # Skip this split if node is None
     return orientation_map
 
 
 def propagate_orientation_forward(
-    trees: List[Node], i: int, rotated_splits: Set[Tuple[int, ...]]
+    trees: List[Node], i: int, rotated_splits: PartitionSet
 ):
     """
     T[i+1] => T[i+2], T[i+3], ...
@@ -383,7 +303,7 @@ def propagate_orientation_forward(
 
 
 def propagate_orientation_backward(
-    trees: List[Node], i: int, rotated_splits: Set[Tuple[int, ...]]
+    trees: List[Node], i: int, rotated_splits: PartitionSet
 ):
     """
     T[i] => T[i-1], T[i-2], ...
@@ -406,15 +326,14 @@ def propagate_orientation_backward(
 #   Classification Approach: Local Flips + Prop
 ##################################################
 
-
 def improve_unique_sedge_pair(
-    reference_tree: Node, target_tree: Node, backward: bool = False
-) -> Tuple[bool, Set[Tuple[int, ...]]]:
+    reference_tree: Node, target_tree: Node
+) -> Tuple[bool, PartitionSet]:
     """
     Perform local optimizations in tree2 for unique & s-edge splits,
     return (improved_any, set_of_splits_rotated_in_tree2).
     """
-    rotated_splits_in_target = set()
+    rotated_splits_in_target: PartitionSet = PartitionSet()
     ref_order = reference_tree.get_current_order()
 
     # optimize unique splits
@@ -429,7 +348,7 @@ def improve_unique_sedge_pair(
     return ((improved_unique or improved_sedge), rotated_splits_in_target)
 
 
-def update_rotation_split_history(i, j, rotated_splits, improved):
+def update_rotation_split_history(i: int, j:int, rotated_splits, improved: bool):
     if (i, j) not in rotation_split_history:
         rotation_split_history[(i, j)] = {
             "rotated_splits": rotated_splits,
@@ -442,8 +361,8 @@ def update_rotation_split_history(i, j, rotated_splits, improved):
 
 
 def forward_pass_unique_sedge_prop(trees: List[Node]) -> bool:
-    improved_any = False
-    n = len(trees)
+    improved_any : bool = False
+    n  : int  = len(trees)
 
     for i in range(n - 1):
         improved, rotated_splits = improve_unique_sedge_pair(trees[i], trees[i + 1])
@@ -490,6 +409,7 @@ def smooth_order_unique_sedge_both(trees: List[Node], n_iterations: int = 3):
     Stop if no improvement after a forward+back pass.
     """
     for _ in range(n_iterations):
+        
         forward_pass_unique_sedge_prop(trees)
         backward_pass_unique_sedge_prop(trees)
 
@@ -507,19 +427,19 @@ def smooth_order_unique_sedge_both(trees: List[Node], n_iterations: int = 3):
 def improve_single_pair_classic(
     tree1: Node,
     tree2: Node,
-    rotation_functions: List = [optimize_s_edge_splits, optimize_unique_splits],
-) -> Tuple[bool, Node, Node]:
+    rotation_functions: list[Callable] = [optimize_s_edge_splits, optimize_unique_splits],
+) -> bool:
     """
     Applies each rotation function in sequence to (tree1, tree2).
     We pass a dummy 'rotated_splits' because the classic approach
     does not track orientation across pairs.
     """
 
-    ref_order = tree1.get_current_order()
-    best_dist = circular_distance(ref_order, tree2.get_current_order())
-    improved = False
+    ref_order : Tuple[str, ...] = tree1.get_current_order()
+    best_dist : float = circular_distance(ref_order, tree2.get_current_order())
+    improved : bool = False
 
-    dummy_rotated_splits: Set[Tuple[int, ...]] = set()
+    dummy_rotated_splits: PartitionSet = PartitionSet()
 
     for func in rotation_functions:
         func(tree1, tree2, ref_order, dummy_rotated_splits)
@@ -554,7 +474,7 @@ def smooth_order_unique_sedge(
 
 
 def perform_one_iteration_classic(
-    trees: List[Node], rotation_functions: List, optimize_two_side: bool = False
+    trees: List[Node], rotation_functions: List[Callable], optimize_two_side: bool = False
 ) -> bool:
     """
     One iteration of the classic approach over all adjacent pairs,

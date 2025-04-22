@@ -1,5 +1,5 @@
 from brancharchitect.tree import Node
-from brancharchitect.split import Partition
+from brancharchitect.partition_set import Partition, PartitionSet
 from collections import Counter
 from typing import List
 
@@ -34,16 +34,16 @@ def component_distance(
 
 
 def jump_distance(
-    node: Node, reference: Node, component: Partition, weighted=False
+    node: Node, reference: PartitionSet, component: Partition, weighted: bool=False
 ) -> float:
     path = jump_path(node, reference, component)
     if weighted:
-        return sum(node.length for node in path)
+        return sum(n.length for n in path if n.length is not None)
     else:
-        return len(path)
+        return float(len(path))
 
 
-def jump_path(node, reference, component):
+def jump_path(node: Node, reference: PartitionSet, component: Partition) -> list[Node]:
     path = []
     while set(node.split_indices) != set(component):
         if node.split_indices in reference:
@@ -62,7 +62,7 @@ def jump_path(node, reference, component):
 
 def jump_path_distance(
     tree1: Node, tree2: Node, components: List[tuple[str, ...]], weighted: bool = False
-) -> dict[tuple[str, ...], float]:
+) -> list[float]:
     translator = ComponentTranslator(tree1)
     components = [translator.to_idx(c) for c in components]
 

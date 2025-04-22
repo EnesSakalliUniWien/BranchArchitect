@@ -1,5 +1,5 @@
 from brancharchitect.newick_parser import parse_newick
-from brancharchitect.plot.svg import generate_svg_multiple_trees
+from brancharchitect.plot.svg import generate_multiple_circular_trees_svg
 import pytest
 
 
@@ -37,4 +37,4 @@ def test_shallow_tree():
 def test_visualisation():
     newick = "((A,(B,C),((D,E),((F,G),H))),I);"
     tree = parse_newick(newick)
-    svg = generate_svg_multiple_trees([tree])
+    svg = generate_multiple_circular_trees_svg([tree])

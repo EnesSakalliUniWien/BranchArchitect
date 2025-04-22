@@ -28,6 +28,20 @@ jt_logger.disabled = False
 PROJECT_ROOT = Path(__file__).parent.parent
 OUTPUT_DIR = PROJECT_ROOT / "output" / "test_debug"
 
+# Load test data once at module level
+TEST_DATA_LIST = []
+tree_files = Path("./test/data/trees/")
+for _dir in tree_files.iterdir():
+    if _dir.is_dir():
+        for file_path in _dir.iterdir():
+            if file_path.is_file() and file_path.suffix == ".json":
+                with open(file_path) as f:
+                    data = json.load(f)
+                    data["name"] = file_path.name
+                    if "solutions" in data:
+                        data["solutions"] = [sorted([tuple(sorted(component)) for component in solution]) for solution in (data["solutions"] or [[]])]
+                        TEST_DATA_LIST.append(data)
+
 def setup_debug_output_dir():
     """Create output directory for debug files."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -55,7 +69,7 @@ def process_and_log_test_case(t1, t2, test_name, output_dir):
         jt_logger.section("Rectangular Tree Pair")
         jt_logger.add_svg(rect_svg)
 
-        return call_jumping_taxa(t1, t2, algorithm="rule")
+        return call_jumping_taxa(t1, t2, algorithm="lattice")
 
     except Exception as e:
         log_detailed_error(e, {
@@ -69,25 +83,16 @@ def process_and_log_test_case(t1, t2, test_name, output_dir):
     finally:
         write_debug_output(output_path=str(output_path), title=f"Test Analysis: {test_name}")
 
-# Load test data once at module level
-TEST_DATA_LIST = []
-tree_files = Path("test/data/trees/").glob("*")
-for file_path in tree_files:
-    if file_path.is_file():
-        with open(file_path) as f:
-            data = json.load(f)
-            data["name"] = file_path.name
-            if "solutions" in data:
-                data["solutions"] = [sorted([tuple(sorted(component)) for component in solution])
-                                   for solution in (data["solutions"] or [[]])]
-                TEST_DATA_LIST.append(data)
+
 
 @pytest.fixture(params=TEST_DATA_LIST, ids=[test_data["name"] for test_data in TEST_DATA_LIST])
 def test_data(request):
     return request.param
 
+
+@pytest.mark.type_check()
 @pytest.mark.timeout(1)
-def test_algorithm(test_data):
+def test_tree_coloring(test_data):
     """Test the jumping taxa algorithm against known solutions."""
     output_dir = setup_debug_output_dir()
 
@@ -96,15 +101,28 @@ def test_algorithm(test_data):
         t2 = parse_newick(test_data["tree2"], t1._order)
 
         result = process_and_log_test_case(t1, t2, test_data["name"], output_dir)
-        processed_result = sorted([tuple(sorted(t1._order[i] for i in component)) 
-                                 for component in result])
-
+        processed_result = sorted([tuple(sorted(pair)) for pair in result])
+        
+        translated_names = []
+        rever_encoding = {v: k for k, v in t1._encoding.items()}
+        for results in processed_result:
+            pair = []
+            for taxa in results:
+                pair.append(rever_encoding[taxa])
+                pair = sorted(pair, key=lambda x: x)
+            translated_names.append(tuple(sorted(pair)))
+        
+        sorted_translated_names = sorted(translated_names)
         jt_logger.section("Test Results")
-        jt_logger.info(f"Test passed: {processed_result in test_data['solutions']}")
-        jt_logger.info(f"Found solution: {processed_result}")
+        jt_logger.info(f"Test passed: {sorted_translated_names in [sorted(sol) for sol in test_data['solutions']]}")
+        jt_logger.info(f"Found solution: {sorted_translated_names}")
         jt_logger.info(f"Expected solutions: {test_data['solutions']}")
 
-        assert processed_result in test_data["solutions"]
+        if sorted_translated_names not in [sorted(sol) for sol in test_data["solutions"]]:
+            jt_logger.section("Detailed Mismatch")
+            jt_logger.info(f"Got: {sorted_translated_names}")
+            jt_logger.info(f"Expected one of: {[sorted(sol) for sol in test_data['solutions']]}")
+            raise AssertionError(f"Mismatch: got {sorted_translated_names}, expected one of {test_data['solutions']}")
 
     except Exception as e:
         log_detailed_error(e, {

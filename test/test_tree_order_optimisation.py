@@ -2,12 +2,13 @@ import pytest
 from brancharchitect.tree import Node
 from brancharchitect.io import parse_newick
 from brancharchitect.plot.tree_plot import plot_circular_trees_in_a_row
-
 from brancharchitect.leaforder.tree_order_optimisation_local import (
-    circular_distance_tree_pair,
     optimize_unique_splits,
     optimize_s_edge_splits,
     improve_single_pair_classic,
+)
+from brancharchitect.leaforder.circular_distances import (
+    circular_distance_tree_pair,
 )
 
 
@@ -107,9 +108,9 @@ def test_improve_single_pair_on_example_one():
     distance_after = circular_distance_tree_pair(tree1, tree2)
 
     # Verify that distance did not increase
-    assert (
-        distance_after <= distance_before
-    ), "Distance should not increase after optimization."
+    assert distance_after <= distance_before, (
+        "Distance should not increase after optimization."
+    )
 
 
 def test_improve_single_pair_on_example_two():
@@ -125,9 +126,9 @@ def test_improve_single_pair_on_example_two():
     distance_after = circular_distance_tree_pair(tree1, tree2)
 
     # Check that distance reduced
-    assert (
-        distance_after < distance_before
-    ), "Distance should reduce after optimization."
+    assert distance_after < distance_before, (
+        "Distance should reduce after optimization."
+    )
 
 
 def test_improve_single_pair_reverts_on_no_improvement():
@@ -148,9 +149,9 @@ def test_improve_single_pair_reverts_on_no_improvement():
     final_distance = circular_distance_tree_pair(tree1, tree2)
 
     assert final_distance == initial_distance, "Distance should remain the same."
-    assert (
-        tree2.get_current_order() == original_tree2_order
-    ), "Tree2 order should revert to original."
+    assert tree2.get_current_order() == original_tree2_order, (
+        "Tree2 order should revert to original."
+    )
 
 
 def test_optimize_s_edge_and_unique_splits_on_common_splits_example_one():
@@ -169,9 +170,9 @@ def test_optimize_s_edge_and_unique_splits_on_common_splits_example_one():
     distance_after = circular_distance_tree_pair(tree1, tree2)
 
     # Verify that distance did not increase
-    assert (
-        distance_after <= distance_before
-    ), "Distance should not increase after optimization."
+    assert distance_after <= distance_before, (
+        "Distance should not increase after optimization."
+    )
 
 
 def test_improve_single_pair_with_common_splits_example_two():
@@ -190,9 +191,9 @@ def test_improve_single_pair_with_common_splits_example_two():
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
 
-    assert (
-        distance_after <= distance_before
-    ), "Distance should not increase after optimization."
+    assert distance_after <= distance_before, (
+        "Distance should not increase after optimization."
+    )
 
 
 @pytest.mark.parametrize(
@@ -232,9 +233,9 @@ def test_can_improve_single_pair_example_one(tmp_path, tree_newick):
     distance_after = circular_distance_tree_pair(tree1, tree2)
 
     # Assert that distance has not increased
-    assert (
-        distance_after <= distance_before
-    ), f"Optimization should not make distance worse. Before={distance_before}, After={distance_after}"
+    assert distance_after <= distance_before, (
+        f"Optimization should not make distance worse. Before={distance_before}, After={distance_after}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -263,9 +264,9 @@ def test_can_improve_single_pair_example_two(tmp_path, tree_newick):
         f.write(fig_after)
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
-    assert (
-        distance_after <= distance_before
-    ), f"Distance should reduce or remain equal. Before={distance_before}, After={distance_after}"
+    assert distance_after <= distance_before, (
+        f"Distance should reduce or remain equal. Before={distance_before}, After={distance_after}"
+    )
 
 
 def test_no_improvement_reverts_trees(tmp_path):
@@ -296,9 +297,9 @@ def test_no_improvement_reverts_trees(tmp_path):
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
     # No improvement should occur
-    assert (
-        distance_after == distance_before
-    ), f"Distance should remain the same if no improvement is found. Before={distance_before}, After={distance_after}"
+    assert distance_after == distance_before, (
+        f"Distance should remain the same if no improvement is found. Before={distance_before}, After={distance_after}"
+    )
 
 
 def test_s_edge_and_unique_splits_on_common_splits_example_one(tmp_path):
@@ -329,9 +330,9 @@ def test_s_edge_and_unique_splits_on_common_splits_example_one(tmp_path):
         f.write(fig_after)
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
-    assert (
-        distance_after <= distance_before
-    ), f"Distance should not increase after optimization. Before={distance_before}, After={distance_after}"
+    assert distance_after <= distance_before, (
+        f"Distance should not increase after optimization. Before={distance_before}, After={distance_after}"
+    )
 
 
 def test_improve_single_pair_common_splits_example_two(tmp_path):
@@ -364,9 +365,9 @@ def test_improve_single_pair_common_splits_example_two(tmp_path):
         f.write(fig_after)
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
-    assert (
-        distance_after <= distance_before
-    ), f"Distance should not be higher. Before={distance_before}, After={distance_after}"
+    assert distance_after <= distance_before, (
+        f"Distance should not be higher. Before={distance_before}, After={distance_after}"
+    )
 
 
 def test_improve_single_pair_common_splits_example_three(tmp_path):
@@ -397,9 +398,9 @@ def test_improve_single_pair_common_splits_example_three(tmp_path):
         f.write(fig_after)
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
-    assert (
-        distance_after <= distance_before
-    ), f"Distance should not increase. Before={distance_before}, After={distance_after}"
+    assert distance_after <= distance_before, (
+        f"Distance should not increase. Before={distance_before}, After={distance_after}"
+    )
 
 
 def test_improve_single_pair_common_splits_example_four(tmp_path):
@@ -433,14 +434,14 @@ def test_improve_single_pair_common_splits_example_four(tmp_path):
         f.write(fig_after)
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
-    assert (
-        distance_after <= distance_before
-    ), f"Distance should not increase. Before={distance_before}, After={distance_after}"
+    assert distance_after <= distance_before, (
+        f"Distance should not increase. Before={distance_before}, After={distance_after}"
+    )
 
 
 def test_optimize_s_edge_and_unique_splits_on_common_splits_example_five(tmp_path):
     """Verifies that s-edge + unique splits can optimize on a final example."""
-    tree_newick = "(((B,C),((E,F),(D,A))),(O1,O2));" "(((B,D),(C,E)),(O1,F),(A,O2));"
+    tree_newick = "(((B,C),((E,F),(D,A))),(O1,O2));(((B,D),(C,E)),(O1,F),(A,O2));"
     tree1, tree2 = parse_newick(
         tree_newick, order=["A", "B", "C", "D", "E", "F", "O1", "O2"]
     )

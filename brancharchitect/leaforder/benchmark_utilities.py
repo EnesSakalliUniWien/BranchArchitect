@@ -10,6 +10,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
+from brancharchitect.partition_set import Partition
 
 # OLD classic approach
 from brancharchitect.leaforder.tree_order_optimisation_local import (
@@ -599,10 +600,10 @@ def collect_splits_for_tree_pair_trajectories(
     ratio_common_splits: List[float] = []
 
     # We'll compute the intersection of splits across *all* trees
-    all_splits_per_tree: List[Set[Tuple]] = []
+    all_splits_per_tree: List[Set[Partition]] = []
     for tree in trees:
         # collect all internal splits (excluding trivial leaves)
-        splits = tree.to_splits()
+        splits = set(tree.to_splits())
         all_splits_per_tree.append(splits)
 
     # Step 3: For each adjacent pair
@@ -664,8 +665,9 @@ def collect_splits_for_tree_pair_trajectories(
         "unique_splits2_distances": ratio_unique_splits2,
         "common_splits_distances": ratio_common_splits,
     }
-
-    return distance_split_container
+    # Create a placeholder splits_container (could be extended in future)
+    splits_container: Dict = {}
+    return (splits_container, distance_split_container)
 
 
 def benchmark_comparison(

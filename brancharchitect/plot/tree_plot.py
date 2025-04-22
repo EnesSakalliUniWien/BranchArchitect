@@ -3,9 +3,10 @@
 from brancharchitect.tree import Node
 from typing import List, Optional
 from brancharchitect.plot.svg import (
-    generate_svg_two_trees,
-    generate_rectangular_tree,
-    generate_svg_multiple_trees,
+    generate_circular_two_trees_svg,
+    generate_rectangular_tree_svg,
+    generate_multiple_rectangular_trees_svg,
+    generate_multiple_circular_trees_svg,
 )
 
 
@@ -19,7 +20,7 @@ def plot_circular_tree_pair(
     ignore_branch_lengths: bool = True,
 ) -> str:
     """Display two circular trees side-by-side."""
-    return generate_svg_two_trees(
+    return generate_circular_two_trees_svg(
         tree1,
         tree2,
         size=width // 2,
@@ -51,10 +52,10 @@ def plot_rectangular_tree_pair(
     </svg>
     """.strip()
 
-    tree1_svg = generate_rectangular_tree(
+    tree1_svg = generate_rectangular_tree_svg(
         tree1, width=tree_width, height=height - 2 * margin
     )
-    tree2_svg = generate_rectangular_tree(
+    tree2_svg = generate_rectangular_tree_svg(
         tree2, width=tree_width, height=height - 2 * margin
     )
 
@@ -76,7 +77,24 @@ def plot_circular_trees_in_a_row(
     ignore_branch_lengths: bool = False,
 ) -> str:
     """Display multiple circular trees in a row."""
-    return generate_svg_multiple_trees(
+    return generate_multiple_circular_trees_svg(
+        roots=roots,
+        size=size,
+        margin=margin,
+        label_offset=label_offset,
+        ignore_branch_lengths=ignore_branch_lengths,
+    )
+
+
+def plot_rectangular_trees_in_a_row(
+    roots: List[Node],
+    size: int = 200,
+    margin: int = 30,
+    label_offset: int = 2,
+    ignore_branch_lengths: bool = False,
+) -> str:
+    """Display multiple circular trees in a row."""
+    return generate_multiple_rectangular_trees_svg(
         roots=roots,
         size=size,
         margin=margin,
@@ -88,8 +106,8 @@ def plot_circular_trees_in_a_row(
 def plot_trees_side_by_side(
     tree1: Node, tree2: Node, width: int = 800, height: int = 400
 ) -> str:
-    """Generate SVG visualization of two trees side by side."""
-    return generate_svg_two_trees(
+    """Generate SVG visualization of two circular trees side by side."""
+    return generate_circular_two_trees_svg(
         tree1, tree2, size=width // 2, margin=30, label_offset=2
     )
 
@@ -98,4 +116,4 @@ def plot_rectangular_tree(
     tree: Node, width: Optional[int] = 400, height: Optional[int] = 200
 ) -> str:
     """Generate rectangular layout visualization for a single tree."""
-    return generate_rectangular_tree(tree, width=width, height=height)
+    return generate_rectangular_tree_svg(tree, width=width, height=height)

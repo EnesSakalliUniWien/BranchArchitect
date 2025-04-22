@@ -1,5 +1,5 @@
 from brancharchitect.newick_parser import parse_newick
-from brancharchitect.consensus import (
+from brancharchitect.consensus_tree import (
     create_majority_consensus_tree,
     create_majority_consensus_tree_extended,
     create_consensus_tree,
@@ -63,7 +63,7 @@ def test_create_consensus_tree():
     trees = parse_newick(s)
 
     consensus_tree = create_consensus_tree(trees)
-    assert "(A,B,C,D,E,F)Root;" == consensus_tree.to_newick(lengths=False)
+    assert "(A,B,C,D,E,F)R;" == consensus_tree.to_newick(lengths=False)
 
 
 def test_create_majority_consensus_tree_extended():
@@ -78,7 +78,7 @@ def test_create_majority_consensus_tree_extended():
     )
 
     # assert '((A,(B,C)),D,E,F)Root' == tree.to_newick(lengths=False)
-    assert "((A,(B,C)),(D,(E,F)))Root;" == tree.to_newick(lengths=False)
+    assert '(((D,(E,F))),((A,(B,C))))R;' == tree.to_newick(lengths=False)
 
 
 def test_create_majority_consensus():
@@ -91,4 +91,4 @@ def test_create_majority_consensus():
         )
     )
 
-    assert "((A,B,C),D)Root;" == tree.to_newick(lengths=False)
+    assert "(D,(A,B,C))R;" == tree.to_newick(lengths=False)

@@ -1,11 +1,10 @@
 from typing import List, Tuple
 import functools
-import brancharchitect.tree as Node
+from brancharchitect.tree import Node
 
 ##################################################
 #                Distance Utilities
 ##################################################
-
 
 def _circular_distance_cached(x: Tuple[int, ...], y: Tuple[int, ...]) -> float:
     """
@@ -98,7 +97,7 @@ def circular_distances_trees(trees: List[Node]) -> float:
     """
     Total circular distance for a list of trees.
     """
-    total_dist = 0
+    total_dist: float = 0.0
     for i in range(len(trees) - 1):
         total_dist += circular_distance_tree_pair(trees[i], trees[i + 1])
     return total_dist / (len(trees) - 1)

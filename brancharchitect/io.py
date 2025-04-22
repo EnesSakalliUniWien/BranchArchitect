@@ -1,6 +1,6 @@
 from brancharchitect.newick_parser import parse_newick
 from brancharchitect.tree import Node
-from brancharchitect.plot.svg import generate_svg_multiple_trees
+from brancharchitect.plot.svg import generate_multiple_circular_trees_svg
 from uuid import UUID
 import json
 
@@ -42,7 +42,7 @@ def write_json(tree, path):
 
 
 def write_svg(tree, path, ignore_branch_lengths=False):
-    svg = generate_svg_multiple_trees(
+    svg = generate_multiple_circular_trees_svg(
         [tree], ignore_branch_lengths=ignore_branch_lengths
     )
     with open(path, mode="wb") as f:

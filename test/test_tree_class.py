@@ -1,7 +1,7 @@
 # Assume Node, ReorderStrategy, and circular_distance are already defined from the given code.
 from brancharchitect.tree import Node, ReorderStrategy
 from brancharchitect.io import parse_newick
-
+from brancharchitect.partition_set import PartitionSet
 
 def create_linear_tree(names):
     """
@@ -156,19 +156,10 @@ def test_to_splits():
     encoding = {name: idx for idx, name in enumerate(order)}
     tree._initialize_split_indices(encoding)
     splits = tree.to_splits()
-    assert isinstance(splits, set), "to_splits should return a set"
+    assert isinstance(splits, PartitionSet), "to_splits should return a set"
     # We know A,B,C are internal. So at least A,B,C node splits present
     assert len(splits) > 0, "Should have internal splits"
 
-
-# 12. Test _index
-def test_index_method():
-    tree = create_balanced_tree()
-    tree._order = ["A", "B", "C", "D", "E", "F", "G"]
-    comp = ("A", "C")
-    idx = tree._index(comp)
-    # A=0, C=2 => idx=(0,2)
-    assert idx == (0, 2), "_index should return sorted indices of given component"
 
 
 # 13. Test get_leaves
