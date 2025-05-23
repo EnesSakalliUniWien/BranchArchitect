@@ -1,6 +1,7 @@
 from brancharchitect.newick_parser import parse_newick
 from brancharchitect.tree import Node
-from brancharchitect.plot.svg import generate_multiple_circular_trees_svg
+from brancharchitect.plot.circular_tree import (
+    generate_multiple_circular_trees_svg,)
 from uuid import UUID
 import json
 
@@ -51,8 +52,11 @@ def write_svg(tree, path, ignore_branch_lengths=False):
 
 def serialize_tree_list_to_json(tree_list: list[Node]):
     serialized_tree_list = []
-    for tree in tree_list:
-        serialized_tree_list.append(tree.to_dict())
+    for i, tree in enumerate(tree_list):
+        d = tree.to_dict()
+        if i == 0:
+            print(f"[SERIALIZE DEBUG] type: {type(d['split_indices'])}, value: {d['split_indices']}")
+        serialized_tree_list.append(d)
     return serialized_tree_list
 
 

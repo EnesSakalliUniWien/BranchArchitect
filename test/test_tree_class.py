@@ -166,7 +166,7 @@ def test_to_splits():
 def test_get_leaves():
     tree = create_balanced_tree()
     leaves = tree.get_leaves()
-    leaf_names = [l.name for l in leaves]
+    leaf_names = [leaf.name for leaf in leaves]
     assert set(leaf_names) == {"D", "E", "F", "G"}, "Leaves should match expected set"
 
 

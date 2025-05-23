@@ -1,12 +1,15 @@
 """Tree plotting interface using svg.py implementations."""
 
 from brancharchitect.tree import Node
+import xml.etree.ElementTree as ET
 from typing import List, Optional
-from brancharchitect.plot.svg import (
+from brancharchitect.plot.circular_tree import (
     generate_circular_two_trees_svg,
+    generate_multiple_circular_trees_svg,
+)
+from brancharchitect.plot.rectangular_tree import (
     generate_rectangular_tree_svg,
     generate_multiple_rectangular_trees_svg,
-    generate_multiple_circular_trees_svg,
 )
 
 
@@ -75,15 +78,59 @@ def plot_circular_trees_in_a_row(
     margin: int = 30,
     label_offset: int = 2,
     ignore_branch_lengths: bool = False,
-) -> str:
-    """Display multiple circular trees in a row."""
-    return generate_multiple_circular_trees_svg(
+    bezier_colors: Optional[List[List[str]]] = None,
+    bezier_stroke_widths: Optional[List[List[float]]] = None,
+    highlight_branches: Optional[list] = None,  # Can be list of lists or single list
+    highlight_width: float = 4.0,  # Can be list or single value
+    highlight_colors: Optional[list] = None,  # New: list of dicts or None
+    font_family: str = 'Monospace',
+    font_size: str = '12',
+    stroke_color: str = '#000',
+    leaf_font_size: str = None,  # NEW: propagate leaf_font_size
+) -> ET.Element:
+    """Display multiple circular trees in a row. Returns SVG root element.
+    bezier_colors and bezier_stroke_widths should be lists of lists, one per tree-pair, each containing per-taxa values.
+    highlight_branches: list of lists (per tree) or single list (applies to all)
+    highlight_width: list (per tree) or single value (applies to all)
+    highlight_colors: list of dicts (per tree) or None
+    """
+    n = len(roots)
+    # Normalize highlight_branches to per-tree list
+    if highlight_branches is None or isinstance(highlight_branches, list) and (len(highlight_branches) == 0 or not isinstance(highlight_branches[0], (list, tuple))):
+        # Single list or None: apply to all
+        highlight_branches_list = [highlight_branches] * n
+    else:
+        highlight_branches_list = highlight_branches
+    # Normalize highlight_width to per-tree list
+    if isinstance(highlight_width, (int, float)):
+        highlight_width_list = [highlight_width] * n
+    else:
+        highlight_width_list = highlight_width
+    # Normalize highlight_colors to per-tree list
+    if highlight_colors is None:
+        highlight_colors_list = [None] * n
+    elif isinstance(highlight_colors, list) and (len(highlight_colors) == n):
+        highlight_colors_list = highlight_colors
+    else:
+        highlight_colors_list = [highlight_colors] * n
+    # Use leaf_font_size if provided, else fallback to font_size
+    font_size_to_use = leaf_font_size if leaf_font_size is not None else font_size
+    svg_element, _ = generate_multiple_circular_trees_svg(
         roots=roots,
         size=size,
         margin=margin,
         label_offset=label_offset,
         ignore_branch_lengths=ignore_branch_lengths,
+        bezier_colors=bezier_colors,
+        bezier_stroke_widths=bezier_stroke_widths,
+        highlight_branches=highlight_branches_list,
+        highlight_width=highlight_width_list,
+        highlight_colors=highlight_colors_list,
+        font_family=font_family,
+        font_size=font_size_to_use,
+        stroke_color=stroke_color,
     )
+    return svg_element
 
 
 def plot_rectangular_trees_in_a_row(
@@ -117,3 +164,95 @@ def plot_rectangular_tree(
 ) -> str:
     """Generate rectangular layout visualization for a single tree."""
     return generate_rectangular_tree_svg(tree, width=width, height=height)
+
+# --- Utility functions for annotation ---
+def add_svg_gridlines(
+    svg_element,
+    width,
+    height,
+    y_steps=7,
+    color="#bdbdbd",
+    stroke_width=1,
+    dasharray="3,4",
+    opacity="0.7",
+):
+    """
+    Add horizontal gridlines to the SVG element for visual orientation.
+    """
+    grid_group = ET.Element("g", {"id": "background_gridlines"})
+    for i in range(y_steps + 1):
+        y = int(i * height / y_steps)
+        line = ET.Element(
+            "line",
+            {
+                "x1": "0",
+                "y1": str(y),
+                "x2": str(width),
+                "y2": str(y),
+                "stroke": color,
+                "stroke-width": str(stroke_width),
+                "stroke-dasharray": dasharray,
+                "opacity": opacity,
+            },
+        )
+        grid_group.append(line)
+    svg_element.insert(1, grid_group)
+
+
+def add_tree_labels(svg_element, num_trees, size, height, y_offset=2, font_size=14):
+    label_group = ET.Element("g", {"id": "tree_labels"})
+    for i in range(num_trees):
+        x = int(i * size + size / 2)
+        y = y_offset
+        label = ET.Element(
+            "text",
+            {
+                "x": str(x),
+                "y": str(y),
+                "text-anchor": "middle",
+                "font-size": str(font_size),
+                "font-family": "sans-serif",
+                "fill": "#333",
+                "font-weight": "bold",
+            },
+        )
+        label.text = f"Tree {i + 1}"
+        label_group.append(label)
+    svg_element.append(label_group)
+
+
+def add_direction_arrow(svg_element, width, y=16):
+    arrow_group = ET.Element("g", {"id": "direction_arrow"})
+    line = ET.Element(
+        "line",
+        {
+            "x1": "20",
+            "y1": str(y),
+            "x2": str(width - 20),
+            "y2": str(y),
+            "stroke": "#333",
+            "stroke-width": "2",
+            "marker-end": "url(#arrowhead)",
+        },
+    )
+    arrow_group.append(line)
+    defs = svg_element.find("defs")
+    if defs is None:
+        defs = ET.Element("defs")
+        svg_element.insert(0, defs)
+    marker = ET.Element(
+        "marker",
+        {
+            "id": "arrowhead",
+            "markerWidth": "10",
+            "markerHeight": "7",
+            "refX": "10",
+            "refY": "3.5",
+            "orient": "auto",
+            "markerUnits": "strokeWidth",
+        },
+    )
+    polygon = ET.Element("polygon", {"points": "0 0, 10 3.5, 0 7", "fill": "#333"})
+    marker.append(polygon)
+    defs.append(marker)
+    svg_element.append(arrow_group)

@@ -152,6 +152,21 @@ def find_minimal_distance_permutation(trees: List, permutations: List):
             best_perm = perm.copy()
     return best_perm
 
+def find_max_distance_permutation(trees: list, permutations: list):
+    import copy# Find the permutation that maximizes the total circular distance
+    max_total_distance = float("-inf")
+    best_perm = None
+    for perm in permutations:
+        # Deep copy the trees so we don't mutate the originals
+        trees_copy = [copy.deepcopy(tree) for tree in trees]
+        for tree in trees_copy:
+            tree.reorder_taxa(perm)
+        # Compute total distance
+        total_distance = circular_distances_trees(trees_copy)
+        if total_distance > max_total_distance:
+            max_total_distance = total_distance
+            best_perm = perm.copy()
+    return best_perm
 
 ### Split Based Approach ####
 def get_taxa_order_in_subtree(node: Node) -> List[str]:

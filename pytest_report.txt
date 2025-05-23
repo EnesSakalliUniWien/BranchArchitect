@@ -1,0 +1,107 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.10, pytest-8.3.5, pluggy-1.5.0 -- /Users/berksakalli/Library/Caches/pypoetry/virtualenvs/brancharchitect-V3Oy3FqG-py3.12/bin/python
+cachedir: .pytest_cache
+metadata: {'Python': '3.12.10', 'Platform': 'macOS-15.4.1-arm64-arm-64bit', 'Packages': {'pytest': '8.3.5', 'pluggy': '1.5.0'}, 'Plugins': {'html': '3.2.0', 'metadata': '3.1.1', 'mypy': '0.10.3', 'timeout': '2.3.1', 'typeguard': '4.4.2', 'anyio': '4.6.2.post1'}, 'JAVA_HOME': '/Users/berksakalli/.sdkman/candidates/java/current'}
+rootdir: /Users/berksakalli/Projects/BranchArchitect
+configfile: pyproject.toml
+plugins: html-3.2.0, metadata-3.1.1, mypy-0.10.3, timeout-2.3.1, typeguard-4.4.2, anyio-4.6.2.post1
+collecting ... collected 278 items
+
+brancharchitect/__init__.py::mypy PASSED                                 [  0%]
+brancharchitect/__init__.py::mypy-status FAILED                          [  0%]
+brancharchitect/co_clustering_frequencies.py::mypy PASSED                [  1%]
+brancharchitect/component_distance.py::mypy PASSED                       [  1%]
+brancharchitect/consensus_tree.py::mypy PASSED                           [  1%]
+brancharchitect/core/__init__.py::mypy PASSED                            [  2%]
+brancharchitect/core/base_logger.py::mypy PASSED                         [  2%]
+brancharchitect/core/combined_logger.py::mypy PASSED                     [  2%]
+brancharchitect/core/formatting.py::mypy PASSED                          [  3%]
+brancharchitect/core/html_content.py::mypy PASSED                        [  3%]
+brancharchitect/core/matrix_logger.py::mypy PASSED                       [  3%]
+brancharchitect/core/table_logger.py::mypy PASSED                        [  4%]
+brancharchitect/core/tree_logger.py::mypy PASSED                         [  4%]
+brancharchitect/distances.py::mypy PASSED                                [  5%]
+brancharchitect/io.py::mypy PASSED                                       [  5%]
+brancharchitect/jumping_taxa/__init__.py::mypy PASSED                    [  5%]
+brancharchitect/jumping_taxa/algorithm_5/algorithm_5.py::mypy FAILED     [  6%]
+brancharchitect/jumping_taxa/algorithm_5/elemental.py::mypy PASSED       [  6%]
+brancharchitect/jumping_taxa/algorithm_5/functional_tree.py::mypy FAILED [  6%]
+brancharchitect/jumping_taxa/api.py::mypy FAILED                         [  7%]
+brancharchitect/jumping_taxa/bruteforce/bruteforce_algorithm.py::mypy PASSED [  7%]
+brancharchitect/jumping_taxa/debug/__init__.py::mypy PASSED              [  7%]
+brancharchitect/jumping_taxa/debug/error_handling.py::mypy PASSED        [  8%]
+brancharchitect/jumping_taxa/debug/output.py::mypy FAILED                [  8%]
+brancharchitect/jumping_taxa/just_set_based/algo_new.py::mypy PASSED     [  8%]
+brancharchitect/jumping_taxa/lattice/__init__.py::mypy PASSED            [  9%]
+brancharchitect/jumping_taxa/lattice/lattice_construction.py::mypy PASSED [  9%]
+brancharchitect/jumping_taxa/lattice/lattice_edge.py::mypy PASSED        [ 10%]
+brancharchitect/jumping_taxa/lattice/lattice_solution.py::mypy PASSED    [ 10%]
+brancharchitect/jumping_taxa/lattice/lattice_solver.py::mypy PASSED      [ 10%]
+brancharchitect/jumping_taxa/lattice/matrix_ops.py::mypy PASSED          [ 11%]
+brancharchitect/jumping_taxa/lattice/old_functions.py::mypy FAILED       [ 11%]
+brancharchitect/jumping_taxa/lattice/types.py::mypy PASSED               [ 11%]
+brancharchitect/jumping_taxa/tree_interpolation.py::mypy PASSED          [ 12%]
+brancharchitect/leaforder/__init__.py::mypy PASSED                       [ 12%]
+brancharchitect/leaforder/benchmark_utilities.py::mypy PASSED            [ 12%]
+brancharchitect/leaforder/benchmark_visualisation.py::mypy PASSED        [ 13%]
+brancharchitect/leaforder/circular_distances.py::mypy FAILED             [ 13%]
+brancharchitect/leaforder/fieldler_order.py::mypy FAILED                 [ 14%]
+brancharchitect/leaforder/old/tree_order_optimisation_local.py::mypy PASSED [ 14%]
+brancharchitect/leaforder/rotation_functions.py::mypy FAILED             [ 14%]
+brancharchitect/leaforder/tree_order_optimisation_classic.py::mypy PASSED [ 15%]
+brancharchitect/leaforder/tree_order_optimisation_global.py::mypy PASSED [ 15%]
+brancharchitect/leaforder/tree_order_optimisation_local.py::mypy PASSED  [ 15%]
+brancharchitect/leaforder/tree_order_optimisation_strategies.py::mypy PASSED [ 16%]
+brancharchitect/leaforder/tree_order_optimiser.py::mypy PASSED           [ 16%]
+brancharchitect/leaforder/tree_order_utils.py::mypy PASSED               [ 16%]
+brancharchitect/newick_parser.py::mypy FAILED                            [ 17%]
+
+=================================== FAILURES ===================================
+_________________________________ test session _________________________________
+mypy exited with status 1.
+___________ brancharchitect/jumping_taxa/algorithm_5/algorithm_5.py ____________
+58: error: Invalid index type "Partition" for "dict[NodeName, str]"; expected type "NodeName"  [index]
+62: error: Invalid index type "Partition" for "dict[NodeName, str]"; expected type "NodeName"  [index]
+66: error: Invalid index type "Partition" for "dict[NodeName, str]"; expected type "NodeName"  [index]
+70: error: Invalid index type "Partition" for "dict[NodeName, str]"; expected type "NodeName"  [index]
+129: error: Too many arguments for "algo1"  [call-arg]
+203: error: Name "voting_map" already defined on line 197  [no-redef]
+214: error: Argument 1 to "iter" has incompatible type "list[Component]"; expected "SupportsIter[SupportsNext[list[Component]]]"  [arg-type]
+326: error: Argument "indices_to_delete" to "delete_taxa" of "Node" has incompatible type "set[Any]"; expected "list[int]"  [arg-type]
+327: error: Argument "indices_to_delete" to "delete_taxa" of "Node" has incompatible type "set[Any]"; expected "list[int]"  [arg-type]
+_________ brancharchitect/jumping_taxa/algorithm_5/functional_tree.py __________
+139: error: Invalid index type "Partition" for "dict[list[str], str]"; expected type "list[str]"  [index]
+147: error: Invalid index type "Partition" for "dict[list[str], list[tuple[Component, ...]]]"; expected type "list[str]"  [index]
+158: error: Argument 1 to "FunctionalTree" has incompatible type "list[Node]"; expected "set[Node]"  [arg-type]
+158: error: Argument 2 to "FunctionalTree" has incompatible type "dict[list[str], str]"; expected "dict[NodeName, str]"  [arg-type]
+158: error: Argument 4 to "FunctionalTree" has incompatible type "dict[list[str], list[tuple[Component, ...]]]"; expected "dict[NodeName, list[tuple[Component, ...]]]"  [arg-type]
+_____________________ brancharchitect/jumping_taxa/api.py ______________________
+43: error: "object" not callable  [operator]
+_________________ brancharchitect/jumping_taxa/debug/output.py _________________
+232: error: "Partition" has no attribute "reverse_lookup"  [attr-defined]
+____________ brancharchitect/jumping_taxa/lattice/old_functions.py _____________
+176: error: Incompatible return value type (got "tuple[bool, bool, bool]", expected "tuple[bool, bool, bool, bool]")  [return-value]
+_______________ brancharchitect/leaforder/circular_distances.py ________________
+106: error: Incompatible return value type (got "list[Any]", expected "float")  [return-value]
+_________________ brancharchitect/leaforder/fieldler_order.py __________________
+22: error: Need type annotation for "_leaf_distance_matrix_cache" (hint: "_leaf_distance_matrix_cache: dict[<type>, <type>] = ...")  [var-annotated]
+_______________ brancharchitect/leaforder/rotation_functions.py ________________
+13: error: Need type annotation for "_split_pair_cache" (hint: "_split_pair_cache: dict[<type>, <type>] = ...")  [var-annotated]
+55: error: Need type annotation for "s_edges"  [var-annotated]
+_______________________ brancharchitect/newick_parser.py _______________________
+165: error: "Node" has no attribute "_list_index"; maybe "_split_index"?  [attr-defined]
+===================================== mypy =====================================
+Found 136 errors in 27 files (checked 103 source files)
+=========================== short test summary info ============================
+FAILED brancharchitect/__init__.py::mypy-status
+FAILED brancharchitect/jumping_taxa/algorithm_5/algorithm_5.py::mypy
+FAILED brancharchitect/jumping_taxa/algorithm_5/functional_tree.py::mypy
+FAILED brancharchitect/jumping_taxa/api.py::mypy
+FAILED brancharchitect/jumping_taxa/debug/output.py::mypy
+FAILED brancharchitect/jumping_taxa/lattice/old_functions.py::mypy
+FAILED brancharchitect/leaforder/circular_distances.py::mypy
+FAILED brancharchitect/leaforder/fieldler_order.py::mypy
+FAILED brancharchitect/leaforder/rotation_functions.py::mypy
+FAILED brancharchitect/newick_parser.py::mypy
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 10 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+================== 10 failed, 38 passed, 5 warnings in 2.85s ===================

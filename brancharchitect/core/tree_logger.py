@@ -8,15 +8,12 @@ from brancharchitect.plot.tree_plot import plot_rectangular_tree_pair
 from brancharchitect.core.html_content import (
     COMPARE_TREE_SPLIT_CSS,
     TABLE_SPLIT_JS,
-    NEWICK_VISUALIZATION_CSS,
-    NEWICK_COPY_JS,
-    NEWICK_TEMPLATE_ONE_TREE,
-    NEWICK_TEMPLATE_TWO_TREES,
     NEWICK_COMBINED_CSS,
     NEWICK_TEMPLATE_COMBINED,
     NEWICK_TEMPLATE_SINGLE_COMBINED,
     NEWICK_HIGHLIGHT_JS,
 )
+
 
 class TreeLogger(AlgorithmLogger):
     """Extension of AlgorithmLogger with tree visualization support."""
@@ -52,18 +49,18 @@ class TreeLogger(AlgorithmLogger):
 
     def print_trees_side_by_side(self, tree1, tree2, show_internal_names=False):
         """Print two trees side by side."""
-        self.log_tree_comparison(tree1, tree2, show_internal_names=show_internal_names)
+        self.log_tree_comparison(tree1, tree2)  # removed show_internal_names
 
     def log_tree_comparison(
-        self, node_one: Node, node_two: Node, title: str = "Tree Comparison", show_internal_names=False
+        self,
+        node_one: Node,
+        node_two: Node,
+        title: str = "Tree Comparison",
+        show_internal_names=False,
     ):
         """Log visual comparison of two trees - rectangular layout only."""
         self.section(title)
-        svg_content = plot_rectangular_tree_pair(
-            node_one, 
-            node_two, 
-            show_internal_names=show_internal_names
-        )
+        svg_content = plot_rectangular_tree_pair(node_one, node_two)
         self.add_svg(svg_content)
 
     def log_solutions_for_sub_lattice(self, s_edge, solutions):
@@ -77,12 +74,12 @@ class TreeLogger(AlgorithmLogger):
             self.info(f"Solution: {sol}")
 
     def log_cover_cartesian_product(
-        self, left_cover: List[Any], right_cover: List[Any]
+        self, t1_common_covers: List[Any], t2_common_covers: List[Any]
     ):
         """Log the Cartesian product of covers."""
         self.section("Cartesian Product of Covers")
-        for i, left_set in enumerate(left_cover):
-            for j, right_set in enumerate(right_cover):
+        for i, left_set in enumerate(t1_common_covers):
+            for j, right_set in enumerate(t2_common_covers):
                 self.info(
                     f"Pair: (Left {i}, Right {j}) => Left: {left_set}, Right: {right_set}"
                 )
@@ -169,9 +166,27 @@ class TreeLogger(AlgorithmLogger):
 
         # Sort the data according to the specified criterion
         if sort_by == "indices":
-            all_data.sort(key=lambda x: (x["size"], tuple(sorted(x["left_indices"]))))
+            all_data.sort(
+                key=lambda x: (
+                    x["size"],
+                    tuple(
+                        sorted(list(x["left_indices"]))
+                        if isinstance(x["left_indices"], (set, frozenset))
+                        else ()
+                    ),
+                )
+            )
         elif sort_by == "taxa":
-            all_data.sort(key=lambda x: (x["size"], tuple(sorted(x["left_taxa"]))))
+            all_data.sort(
+                key=lambda x: (
+                    x["size"],
+                    tuple(
+                        sorted(list(x["left_taxa"]))
+                        if isinstance(x["left_taxa"], (set, frozenset))
+                        else ()
+                    ),
+                )
+            )
         elif sort_by == "common_first":
             all_data.sort(key=lambda x: (not x["common"], x["size"]))
         elif sort_by == "diff_first":
@@ -250,7 +265,7 @@ class TreeLogger(AlgorithmLogger):
 
         summary = f"""
         <div class="summary-box">
-            <p><strong>Summary:</strong> {common_splits} of {total_splits} splits are common ({(common_splits/total_splits*100):.1f}%)</p>
+            <p><strong>Summary:</strong> {common_splits} of {total_splits} splits are common ({(common_splits / total_splits * 100):.1f}%)</p>
             <p><strong>Left Tree:</strong> {len(splits1)} splits</p>
             <p><strong>Right Tree:</strong> {len(splits2)} splits</p>
             <p><strong>Unique to Left:</strong> {len(splits1) - common_splits}</p>
@@ -261,10 +276,12 @@ class TreeLogger(AlgorithmLogger):
         # Add everything to the page
         self.raw_html(COMPARE_TREE_SPLIT_CSS + html + summary + TABLE_SPLIT_JS)
 
-    def log_newick_strings(self, tree1: Node, tree2: Optional[Node] = None, title: str = "Newick Strings"):
+    def log_newick_strings(
+        self, tree1: Node, tree2: Optional[Node] = None, title: str = "Newick Strings"
+    ):
         """
         Log newick string representation of trees with copy functionality.
-        
+
         Args:
             tree1: First tree
             tree2: Optional second tree for comparison
@@ -274,29 +291,31 @@ class TreeLogger(AlgorithmLogger):
             return
 
         self.section(title)
-        
+
         # Get Newick string representations properly
         # The to_newick method already adds a semicolon at the end
         newick1 = tree1.to_newick(lengths=False)
-        
+
         # Enhance the CSS with explicit white text color and better formatting
         enhanced_css = NEWICK_COMBINED_CSS.replace(
-            ".combined-content {", 
-            ".combined-content { color: white; font-size: 14px; "
+            ".combined-content {", ".combined-content { color: white; font-size: 14px; "
         )
-        
+
         # Ensure proper spacing and fix line breaks
         if tree2:
             newick2 = tree2.to_newick(lengths=False)
             # Create HTML with properly formatted trees
-            html_content = enhanced_css + NEWICK_TEMPLATE_COMBINED.format(
-                newick1.strip(), 
-                newick2.strip()
-            ) + NEWICK_HIGHLIGHT_JS
+            html_content = (
+                enhanced_css
+                + NEWICK_TEMPLATE_COMBINED.format(newick1.strip(), newick2.strip())
+                + NEWICK_HIGHLIGHT_JS
+            )
         else:
             # Single tree case
-            html_content = enhanced_css + NEWICK_TEMPLATE_SINGLE_COMBINED.format(
-                newick1.strip()
-            ) + NEWICK_HIGHLIGHT_JS
-            
+            html_content = (
+                enhanced_css
+                + NEWICK_TEMPLATE_SINGLE_COMBINED.format(newick1.strip())
+                + NEWICK_HIGHLIGHT_JS
+            )
+
         self.raw_html(html_content)

@@ -1,27 +1,45 @@
 # split.py
-from typing import Set, Tuple, Optional, Dict, TypeVar, Generic, Iterable, Self, cast, Iterator, List, Any, Union
+import sys
+from typing import (
+    Set,
+    Tuple,
+    Optional,
+    Dict,
+    TypeVar,
+    Generic,
+    Iterable,
+    Self,
+    cast,
+    Iterator,
+    List,
+    Any,
+    Union,
+    Set as TypingSet,    
+)
 from functools import total_ordering
 from itertools import product
-from pydantic_core.core_schema import set_schema
 from collections.abc import MutableSet
 from brancharchitect.partition import Partition
 
 # Type variable for generic typing
 T = TypeVar("T", bound="Partition")
+# Define the generic type variable if needed globally in this file
+T_Partition = TypeVar("T_Partition", bound="Partition")
+TypingSet, TypeVar, cast
 
 
 @total_ordering
 class FrozenPartitionSet(Generic[T]):
     """
     Immutable version of PartitionSet that can be used as dictionary keys.
-    
+
     This class provides an immutable view of a set of Partitions with
-    the same lookup. It supports set operations and comparisons.
-    
+    the same encoding. It supports set operations and comparisons.
+
     Attributes:
         _data: The underlying frozenset of Partitions
-        _look_up: Mapping from string names to indices
-        _reversed_lookup: Mapping from indices to string names
+        _encoding: Mapping from string names to indices
+        _reversed_encoding: Mapping from indices to string names
         _order: Optional ordering for the indices
         _name: Name of this partition set
     """
@@ -29,24 +47,28 @@ class FrozenPartitionSet(Generic[T]):
     def __init__(
         self,
         splits: Optional[Set[T]] = None,
-        look_up: Optional[Dict[str, int]] = None,
+        encoding: Optional[Dict[str, int]] = None,
         name: str = "FrozenPartitionSet",
-        order: Optional[tuple] = None
+        order: Optional[tuple] = None,
     ) -> None:
         """
         Initialize a new FrozenPartitionSet.
-        
+
         Args:
             splits: Set of Partitions to include
-            look_up: Mapping from string names to indices
+            encoding: Mapping from string names to indices
             name: Name of this partition set
             order: Optional ordering for the indices
         """
         self._data = frozenset(splits) if splits else frozenset()
-        self._look_up = dict(look_up) if look_up else {}
-        self._reversed_lookup : dict[int,str] = {v: k for k, v in self._look_up.items()}
-        self._order = order if order is not None else (tuple(self._look_up.values()) if self._look_up else None)
-        self._name : str = name
+        self._encoding = dict(encoding) if encoding else {}
+        self._reversed_encoding: dict[int, str] = {v: k for k, v in self._encoding.items()}
+        self._order = (
+            order
+            if order is not None
+            else (tuple(self._encoding.values()) if self._encoding else None)
+        )
+        self._name: str = name
 
     def __contains__(self, x: object) -> bool:
         """Check if this partition set contains the given element."""
@@ -97,265 +119,279 @@ class FrozenPartitionSet(Generic[T]):
 
 
 class PartitionSet(Generic[T], MutableSet[T]):
+    __slots__ = ('_bitmask_set', '_bitmask_to_partition', 'encoding', 'reversed_encoding', 'order', 'name')
     """
-    A set of partitions with common lookup information.
-    
+    A set of partitions with common encoding information.
+
     This class represents a mutable set of Partition objects that share
-    the same lookup information. It supports set operations, comparisons,
+    the same encoding information. It supports set operations, comparisons,
     and other standard set operations.
-    
+
     Attributes:
-        _data: The underlying set of Partitions
-        look_up: Mapping from string names to indices
-        reversed_lookup: Mapping from indices to string names
+        _bitmask_set: The underlying set of bitmasks
+        _bitmask_to_partition: Mapping from bitmask to Partition objects
+        encoding: Mapping from string names to indices
+        reversed_encoding: Mapping from indices to string names
         order: Optional ordering for the indices
         name: Name of this partition set
     """
-    
+
     def __init__(
         self,
         splits: Optional[Union[Set[T], Set[Partition]]] = None,
-        look_up: Optional[Dict[str, int]] = None,
+        encoding: Optional[Dict[str, int]] = None,
         name: str = "PartitionSet",
-        order: Optional[tuple] = None
+        order: Optional[tuple] = None,
     ) -> None:
-        """
-        Initialize a new PartitionSet.
-        
-        Args:
-            splits: Set of Partitions to include
-            look_up: Mapping from string names to indices
-            name: Name of this partition set
-            order: Optional ordering for the indices
-        """
-        self._data: set[T] = set()
-        
-        self.look_up = look_up or {}
-        self.reversed_lookup = {v: k for k, v in self.look_up.items()}
-        self.order = order if order is not None else (tuple(self.look_up.values()) if self.look_up else None)
+        self._bitmask_set: set[int] = set()
+        self._bitmask_to_partition: dict[int, Partition] = {}
+        self.encoding = encoding or {}
+        self.reversed_encoding = {v: k for k, v in self.encoding.items()}
+        self.order = (
+            order
+            if order is not None
+            else (tuple(self.encoding.values()) if self.encoding else None)
+        )
         self.name = name
 
         if splits:
             for split in splits:
                 self.add(split)
 
-        
-        if not self.look_up:
-            self.look_up = {str(i): i for i in range(len(self))}
-            self.reversed_lookup = {v: k for k, v in self.look_up.items()}
+        if not self.encoding:
+            self.encoding = {str(i): i for i in range(len(self))}
+            self.reversed_encoding = {v: k for k, v in self.encoding.items()}
             self.order = tuple(range(len(self)))
 
-    @classmethod
-    def __get_pydantic_core_schema__(cls, source_type, handler):
-        """Generate a Pydantic schema for this class."""
-        partition_schema = handler(Partition)
-        return set_schema(partition_schema)
-    
     def __contains__(self, x: object) -> bool:
-        """Check if this partition set contains the given element."""
-        return x in self._data
+        if isinstance(x, Partition):
+            return x.bitmask in self._bitmask_set
+        elif isinstance(x, tuple):
+            p = Partition(x, self.encoding)
+            return p.bitmask in self._bitmask_set
+        elif isinstance(x, int):
+            p = Partition((x,), self.encoding)
+            return p.bitmask in self._bitmask_set
+        return False
 
     def __iter__(self) -> Iterator[T]:
-        """Iterate over the partitions in this set."""
-        return iter(self._data)
+        # Yield Partition objects sorted by bitmask for determinism
+        return iter(sorted(self._bitmask_to_partition.values(), key=lambda p: p.bitmask))
 
     def __len__(self) -> int:
-        """Return the number of partitions in this set."""
-        return len(self._data)
+        return len(self._bitmask_set)
 
     def add(self, element: Union[T, Tuple[int, ...], int, Partition]) -> None:
-        """
-        Add an element to this partition set.
-        
-        Args:
-            element: The element to add (Partition, tuple, or int)
-            
-        Raises:
-            TypeError: If the element is not a Partition, tuple, or int
-        """
-        if not isinstance(element, (Partition, tuple, int)):
-            raise TypeError(f"Expected Partition/tuple/int but got {type(element)}")
         if isinstance(element, Partition):
-            self._data.add(cast(T, element))  # Cast to T for type safety
+            bitmask = element.bitmask
+            if bitmask not in self._bitmask_set:
+                self._bitmask_set.add(bitmask)
+                self._bitmask_to_partition[bitmask] = element
         elif isinstance(element, tuple):
-            self._data.add(cast(T, Partition(element, self.look_up or {})))  # Cast to T
+            p = Partition(element, self.encoding)
+            bitmask = p.bitmask
+            if bitmask not in self._bitmask_set:
+                self._bitmask_set.add(bitmask)
+                self._bitmask_to_partition[bitmask] = p
         elif isinstance(element, int):
-            self._data.add(cast(T, Partition((element,), self.look_up or {})))  # Cast to T
+            p = Partition((element,), self.encoding)
+            bitmask = p.bitmask
+            if bitmask not in self._bitmask_set:
+                self._bitmask_set.add(bitmask)
+                self._bitmask_to_partition[bitmask] = p
         else:
-            raise TypeError(f"Can only add Partition objects or compatible types, got {type(element)}")
+            raise TypeError(f"Can only add Partition, tuple, or int, got {type(element)}")
+
+    def batch_add(self, elements: Iterable[Union[T, Tuple[int, ...], int, Partition]]) -> None:
+        """
+        Add multiple elements (Partition, tuple, or int) to the PartitionSet efficiently in a batch.
+        Skips duplicates and only adds new partitions.
+        """
+        for element in elements:
+            self.add(element)
 
     def discard(self, element: T) -> None:
-        """
-        Remove an element from this partition set if it is present.
-        
-        Args:
-            element: The element to remove
-            
-        Raises:
-            ValueError: If the element is not in the set
-        """
-        if element not in self._data:
+        if isinstance(element, Partition):
+            bitmask = element.bitmask
+        elif isinstance(element, tuple):
+            bitmask = Partition(element, self.encoding).bitmask
+        elif isinstance(element, int):
+            bitmask = Partition((element,), self.encoding).bitmask
+        else:
+            raise TypeError(f"Can only discard Partition, tuple, or int, got {type(element)}")
+        if bitmask not in self._bitmask_set:
             raise ValueError(f"Element {element} not found in set")
-        self._data.discard(element)
+        self._bitmask_set.discard(bitmask)
+        self._bitmask_to_partition.pop(bitmask, None)
 
     def __hash__(self) -> int:
         """Return a hash of this partition set."""
-        return hash((frozenset(self._data), self.order))
+        return hash((frozenset(self._bitmask_set), self.order))
 
     def atom(self) -> Self:
         """Return a new PartitionSet containing only minimal elements."""
         try:
-            minimal = {s for s in self if not any((other != s and other.taxa < s.taxa) for other in self)}
-            return type(self)(minimal, look_up=self.look_up, name="atoms", order=self.order)
+            minimal = {
+                s
+                for s in self
+                if not any((other != s and other.taxa < s.taxa) for other in self)
+            }
+            return type(self)(
+                minimal, encoding=self.encoding, name="atoms", order=self.order
+            )
         except Exception as e:
-            import sys
             print(f"Warning: Error in PartitionSet.atom: {e}", file=sys.stderr)
-            return type(self)(set(), look_up=self.look_up, name="atoms_error", order=self.order)
+            return type(self)(
+                set(), encoding=self.encoding, name="atoms_error", order=self.order
+            )
 
     def cover(self) -> Self:
         """Return a new PartitionSet containing only maximal elements."""
         try:
-            maximal = {s for s in self if not any((other != s and other.taxa > s.taxa) for other in self)}
-            return type(self)(maximal, look_up=self.look_up, name="covering", order=self.order)
+            maximal = {
+                s
+                for s in self
+                if not any((other != s and other.taxa > s.taxa) for other in self)
+            }
+            return type(self)(
+                maximal, encoding=self.encoding, name="covering", order=self.order
+            )
         except Exception as e:
-            import sys
             print(f"Warning: Error in PartitionSet.cover: {e}", file=sys.stderr)
-            return type(self)(set(), look_up=self.look_up, name="covering_error", order=self.order)
+            return type(self)(
+                set(), encoding=self.encoding, name="covering_error", order=self.order
+            )
 
     def union(self, *others: Iterable[T]) -> Self:
-        """
-        Return a new PartitionSet with elements from the set and all others.
-        
-        Args:
-            *others: Iterables to form union with
-        
-        Returns:
-            A new PartitionSet containing the union
-        """
         try:
-            # First, collect all the sets into a list
-            result = self._data.copy()  # Start with a copy of our data
-            
+            result_bitmask_set = set(self._bitmask_set)
+            result_bitmask_to_partition = dict(self._bitmask_to_partition)
             for other in others:
-                if isinstance(other, PartitionSet):
-                    result = result.union(other._data)
-                else:
-                    result = result.union(set(other))
-            
-            # Create a new PartitionSet with the result
+                for elem in other:
+                    if isinstance(elem, Partition):
+                        bitmask = elem.bitmask
+                        if bitmask not in result_bitmask_set:
+                            result_bitmask_set.add(bitmask)
+                            result_bitmask_to_partition[bitmask] = elem
+                    elif isinstance(elem, tuple):
+                        p = Partition(elem, self.encoding)
+                        bitmask = p.bitmask
+                        if bitmask not in result_bitmask_set:
+                            result_bitmask_set.add(bitmask)
+                            result_bitmask_to_partition[bitmask] = p
+                    elif isinstance(elem, int):
+                        p = Partition((elem,), self.encoding)
+                        bitmask = p.bitmask
+                        if bitmask not in result_bitmask_set:
+                            result_bitmask_set.add(bitmask)
+                            result_bitmask_to_partition[bitmask] = p
             return type(self)(
-                result, 
-                look_up=self.look_up, 
-                name=self.name + "_union", 
-                order=self.order
+                splits=set(result_bitmask_to_partition.values()),
+                encoding=self.encoding,
+                name=self.name + "_union",
+                order=self.order,
             )
         except Exception as e:
-            # Log the error but return a valid PartitionSet
-            import sys
             print(f"Warning: Error in PartitionSet.union: {e}", file=sys.stderr)
-            # Return a new PartitionSet with the current elements to avoid data loss
-            return type(self)(self._data.copy(), look_up=self.look_up, name=self.name + "_union_error", order=self.order)
+            return type(self)(
+                splits=set(self._bitmask_to_partition.values()),
+                encoding=self.encoding,
+                name=self.name + "_union_error",
+                order=self.order,
+            )
 
     def intersection(self, *others: Iterable[T]) -> Self:
-        """
-        Return a new PartitionSet with elements common to the set and all others.
-        
-        Args:
-            *others: Iterables to intersect with
-        
-        Returns:
-            A new PartitionSet containing the intersection
-        """
         try:
-            # First, collect all the sets into a list
-            other_sets = []
+            result_bitmask_set = set(self._bitmask_set)
             for other in others:
-                if isinstance(other, PartitionSet):
-                    other_sets.append(other._data)
-                else:
-                    other_sets.append(set(other))
-            
-            # Perform the intersection
-            result = self._data.intersection(*other_sets)
-            
-            # Create a new PartitionSet with the result
+                other_bitmasks = set()
+                for elem in other:
+                    if isinstance(elem, Partition):
+                        other_bitmasks.add(elem.bitmask)
+                    elif isinstance(elem, tuple):
+                        other_bitmasks.add(Partition(elem, self.encoding).bitmask)
+                    elif isinstance(elem, int):
+                        other_bitmasks.add(Partition((elem,), self.encoding).bitmask)
+                result_bitmask_set &= other_bitmasks
+            result_partitions = [self._bitmask_to_partition[b] for b in result_bitmask_set]
             return type(self)(
-                result, 
-                look_up=self.look_up, 
-                name=self.name + "_intersection", 
-                order=self.order
+                splits=set(result_partitions),
+                encoding=self.encoding,
+                name=self.name + "_intersection",
+                order=self.order,
             )
         except Exception as e:
-            # Log the error but return a valid PartitionSet
-            import sys
             print(f"Warning: Error in PartitionSet.intersection: {e}", file=sys.stderr)
-            # Return a new empty PartitionSet with the same metadata
-            return type(self)(set(), look_up=self.look_up, name=self.name + "_intersection_error", order=self.order)
+            return type(self)(
+                splits=set(),
+                encoding=self.encoding,
+                name=self.name + "_intersection_error",
+                order=self.order,
+            )
 
     def difference(self, *others: Iterable[T]) -> Self:
-        """
-        Return a new PartitionSet with elements in this set but not in others.
-        
-        Args:
-            *others: Iterables to exclude
-        
-        Returns:
-            A new PartitionSet containing the difference
-        """
         try:
-            # First, collect all the sets into a list
-            result = self._data.copy()  # Start with a copy of our data
-            
+            result_bitmask_set = set(self._bitmask_set)
             for other in others:
-                if isinstance(other, PartitionSet):
-                    result = result.difference(other._data)
-                else:
-                    result = result.difference(set(other))
-            
-            # Create a new PartitionSet with the result
+                other_bitmasks = set()
+                for elem in other:
+                    if isinstance(elem, Partition):
+                        other_bitmasks.add(elem.bitmask)
+                    elif isinstance(elem, tuple):
+                        other_bitmasks.add(Partition(elem, self.encoding).bitmask)
+                    elif isinstance(elem, int):
+                        other_bitmasks.add(Partition((elem,), self.encoding).bitmask)
+                result_bitmask_set -= other_bitmasks
+            result_partitions = [self._bitmask_to_partition[b] for b in result_bitmask_set]
             return type(self)(
-                result, 
-                look_up=self.look_up, 
-                name=self.name + "_difference", 
-                order=self.order
+                splits=set(result_partitions),
+                encoding=self.encoding,
+                name=self.name + "_difference",
+                order=self.order,
             )
         except Exception as e:
-            # Log the error but return a valid PartitionSet
-            import sys
             print(f"Warning: Error in PartitionSet.difference: {e}", file=sys.stderr)
-            # Return a new PartitionSet with the current elements to avoid data loss
-            return type(self)(self._data.copy(), look_up=self.look_up, name=self.name + "_difference_error", order=self.order)
+            return type(self)(
+                splits=set(self._bitmask_to_partition.values()),
+                encoding=self.encoding,
+                name=self.name + "_difference_error",
+                order=self.order,
+            )
 
     def symmetric_difference(self, other: Iterable[T]) -> Self:
-        """
-        Return a new PartitionSet with elements in either the set or other but not both.
-        
-        Args:
-            other: Iterable to compare with
-        
-        Returns:
-            A new PartitionSet containing the symmetric difference
-        """
         try:
-            # Perform the symmetric difference
-            if isinstance(other, PartitionSet):
-                result = self._data.symmetric_difference(other._data)
-            else:
-                result = self._data.symmetric_difference(set(other))
-            
-            # Create a new PartitionSet with the result
+            other_bitmask_to_partition = {}
+            other_bitmasks = set()
+            for elem in other:
+                if isinstance(elem, Partition):
+                    other_bitmasks.add(elem.bitmask)
+                    other_bitmask_to_partition[elem.bitmask] = elem
+                elif isinstance(elem, tuple):
+                    p = Partition(elem, self.encoding)
+                    other_bitmasks.add(p.bitmask)
+                    other_bitmask_to_partition[p.bitmask] = p
+                elif isinstance(elem, int):
+                    p = Partition((elem,), self.encoding)
+                    other_bitmasks.add(p.bitmask)
+                    other_bitmask_to_partition[p.bitmask] = p
+            result_bitmask_set = (self._bitmask_set ^ other_bitmasks)
+            all_partitions = dict(self._bitmask_to_partition)
+            all_partitions.update(other_bitmask_to_partition)
+            result_partitions = [all_partitions[b] for b in result_bitmask_set]
             return type(self)(
-                result, 
-                look_up=self.look_up, 
-                name=self.name + "_symdiff", 
-                order=self.order
+                splits=set(result_partitions),
+                encoding=self.encoding,
+                name=self.name + "_symdiff",
+                order=self.order,
             )
         except Exception as e:
-            # Log the error but return a valid PartitionSet
-            import sys
             print(f"Warning: Error in PartitionSet.symmetric_difference: {e}", file=sys.stderr)
-            # Return a new PartitionSet with the current elements to avoid data loss
-            return type(self)(self._data.copy(), look_up=self.look_up, name=self.name + "_symdiff_error", order=self.order)
+            return type(self)(
+                splits=set(self._bitmask_to_partition.values()),
+                encoding=self.encoding,
+                name=self.name + "_symdiff_error",
+                order=self.order,
+            )
 
     def __or__(self, other: object) -> Self:
         """Implement the | operator (union)."""
@@ -397,13 +433,13 @@ class PartitionSet(Generic[T], MutableSet[T]):
     def cartesian(self, other: "PartitionSet[T]") -> Self:
         """
         Return a new PartitionSet with the Cartesian product of this set and another.
-        
+
         Args:
             other: Another PartitionSet to form the product with
-            
+
         Returns:
             A new PartitionSet containing the Cartesian product
-            
+
         Raises:
             TypeError: If other is not a PartitionSet
             ValueError: If the sets don't have compatible orders
@@ -412,37 +448,47 @@ class PartitionSet(Generic[T], MutableSet[T]):
             if not isinstance(other, PartitionSet):
                 raise TypeError("Cartesian product only defined for PartitionSet")
             if self.order is None or other.order is None:
-                raise ValueError("Both PartitionSet objects must have an order to compute Cartesian product")
+                raise ValueError(
+                    "Both PartitionSet objects must have an order to compute Cartesian product"
+                )
             if self.order != other.order:
-                raise ValueError("PartitionSet objects must have the same order to compute Cartesian product")
-                
+                raise ValueError(
+                    "PartitionSet objects must have the same order to compute Cartesian product"
+                )
+
             # Compute product of self and other, then merge each pair into a new Partition.
             new_partitions = {
-                Partition(tuple(sorted(set(p1.indices) | set(p2.indices))), self.look_up or {})
+                Partition(
+                    tuple(sorted(set(p1.indices) | set(p2.indices))), self.encoding or {}
+                )
                 for p1, p2 in product(self, other)
             }
-            
+
             return type(self)(
-                new_partitions, 
-                look_up=self.look_up, 
-                order=self.order, 
-                name=f"{self.name}_cartesian_{other.name}"
+                new_partitions,
+                encoding=self.encoding,
+                order=self.order,
+                name=f"{self.name}_cartesian_{other.name}",
             )
         except Exception as e:
             # Log the error but return a valid PartitionSet
-            import sys
             print(f"Warning: Error in PartitionSet.cartesian: {e}", file=sys.stderr)
             # Return a new empty PartitionSet with the same metadata
-            return type(self)(set(), look_up=self.look_up, name=self.name + "_cartesian_error", order=self.order)
+            return type(self)(
+                set(),
+                encoding=self.encoding,
+                name=self.name + "_cartesian_error",
+                order=self.order,
+            )
 
     def __mul__(self, other: "PartitionSet[T]") -> Self:
         """Implement the * operator (Cartesian product)."""
         return self.cartesian(other)
-        
+
     def resolve_to_indices(self) -> List[Tuple[int, ...]]:
         """
         Convert the PartitionSet to a list of tuples of indices.
-        
+
         Returns:
             A list of tuples where each tuple contains the indices from a Partition in this set.
         """
@@ -453,140 +499,207 @@ class PartitionSet(Generic[T], MutableSet[T]):
             return result
         except Exception as e:
             # Log the error but return a valid result
-            import sys
-            print(f"Warning: Error in PartitionSet.resolve_to_indices: {e}", file=sys.stderr)
+            print(
+                f"Warning: Error in PartitionSet.resolve_to_indices: {e}",
+                file=sys.stderr,
+            )
             return []
-    
+
     @property
     def list_taxa_name(self) -> List[Tuple[str, ...]]:
         """Return a list of tuples of taxa names for each partition."""
         try:
-            return [tuple(sorted(p.taxa)) for p in sorted(self, key=lambda p: sorted(p.taxa))]
+            return [
+                tuple(sorted(p.taxa))
+                for p in sorted(self, key=lambda p: sorted(p.taxa))
+            ]
         except Exception as e:
             # Log the error but return a valid result
-            import sys
-            print(f"Warning: Error in PartitionSet.list_taxa_name: {e}", file=sys.stderr)
+            print(
+                f"Warning: Error in PartitionSet.list_taxa_name: {e}", file=sys.stderr
+            )
             return []
 
     def issubset(self, other: Iterable[T]) -> bool:
         """
         Return True if all elements in self are also in other.
-        
+
         Args:
             other: Iterable to check against
-            
+
         Returns:
             True if self is a subset of other, False otherwise
         """
         if isinstance(other, PartitionSet):
-            return self._data.issubset(other._data)
+            return self._bitmask_set.issubset(other._bitmask_set)
         elif isinstance(other, (set, frozenset)):
-            return self._data.issubset(other)
-        return all(elem in other for elem in self)
-    
+            return self._bitmask_set.issubset({p.bitmask if isinstance(p, Partition) else Partition(p, self.encoding).bitmask for p in other})
+        return all(elem in self for elem in other)
+
     def __le__(self, other: Iterable[T]) -> bool:
         """Return True if self <= other (issubset)."""
         return self.issubset(other)
-    
+
     def __lt__(self, other: Iterable[T]) -> bool:
         """Return True if self < other (strict subset)."""
         return self.issubset(other) and self != other
-    
+
     def issuperset(self, other: Iterable[T]) -> bool:
         """
         Return True if all elements in other are also in self.
-        
+
         Args:
             other: Iterable to check against
-            
+
         Returns:
             True if self is a superset of other, False otherwise
         """
         if isinstance(other, PartitionSet):
-            return self._data.issuperset(other._data)
+            return self._bitmask_set.issuperset(other._bitmask_set)
         elif isinstance(other, (set, frozenset)):
-            return self._data.issuperset(other)
+            return self._bitmask_set.issuperset({Partition(o, self.encoding).bitmask for o in other})
         return all(elem in self for elem in other)
-    
+
     def __ge__(self, other: Iterable[T]) -> bool:
         """Return True if self >= other (issuperset)."""
         return self.issuperset(other)
-    
+
     def __gt__(self, other: Iterable[T]) -> bool:
         """Return True if self > other (strict superset)."""
         return self.issuperset(other) and self != other
-    
+
     @classmethod
-    def from_existing(cls, source: Self, elements: Optional[Set[Any]] = None, name: Optional[str] = None) -> Self:
-        """
-        Create a new PartitionSet from an existing one, optionally with different elements.
-        
-        This method preserves important attributes like look_up and order from the source PartitionSet.
-        """
+    def from_existing(
+        cls,
+        source: Self,
+        elements: Optional[set[Any]] = None,
+        name: Optional[str] = None,
+    ) -> Self:
         try:
-            # Use a more explicit approach to convert the type
             if elements is None:
-                # Create a new set of the correct type by iterating
-                elements_to_use: Set[T] = set()
-                for item in source._data:
-                    elements_to_use.add(cast(T, item))
-            else:
-                elements_to_use = cast(Set[T], elements)
-                
-            name_to_use = source.name if name is None else name
-            
-            result = cls(elements_to_use, look_up=source.look_up, name=name_to_use, order=source.order)
-            return result
+                elements = set(source._bitmask_to_partition.values())
+            return cls(
+                splits=elements,
+                encoding=source.encoding,
+                name=name or source.name,
+                order=source.order,
+            )
         except Exception as e:
-            # Log the error but return a valid PartitionSet
-            import sys
             print(f"Warning: Error in PartitionSet.from_existing: {e}", file=sys.stderr)
-            # Return a new empty PartitionSet with the source metadata
-            return cls(set(), look_up=source.look_up, name=name_to_use or "from_existing_error", order=source.order)
-        
+            return cls(
+                splits=set(),
+                encoding=source.encoding,
+                name=(name or source.name) + "_from_existing_error",
+                order=source.order,
+            )
+
     def copy(self, name: Optional[str] = None) -> Self:
-        """
-        Return a shallow copy of this PartitionSet, preserving its 'look_up',
-        'order', and elements. A custom 'name' can be provided if desired.
-        
-        Args:
-            name: Optional new name for the copy
-            
-        Returns:
-            A new PartitionSet with the same elements and metadata
-        """
         try:
             return type(self).from_existing(self, name=name)
         except Exception as e:
-            # Log the error but return a valid PartitionSet
-            import sys
             print(f"Warning: Error in PartitionSet.copy: {e}", file=sys.stderr)
-            # Return a new PartitionSet with the current elements
-            return type(self)(self._data.copy(), look_up=self.look_up, name=name or self.name + "_copy_error", order=self.order)
-    
+            return type(self)(
+                splits=set(self._bitmask_to_partition.values()),
+                encoding=self.encoding,
+                name=(name or self.name) + "_copy_error",
+                order=self.order,
+            )
+
     def freeze(self) -> FrozenPartitionSet[T]:
-        """
-        Convert to an immutable FrozenPartitionSet.
-        
-        Returns:
-            A new FrozenPartitionSet with the same elements and metadata
-        """
         try:
             return FrozenPartitionSet(
-                splits=self._data,
-                look_up=self.look_up,
-                name=self.name + "_frozen",
-                order=self.order
+                splits=set(self._bitmask_to_partition.values()),
+                encoding=self.encoding,
+                name=self.name,
+                order=self.order,
             )
         except Exception as e:
-            # Log the error but return a valid FrozenPartitionSet
-            import sys
             print(f"Warning: Error in PartitionSet.freeze: {e}", file=sys.stderr)
-            # Return an empty FrozenPartitionSet with the same metadata
             return FrozenPartitionSet(
                 splits=set(),
-                look_up=self.look_up,
-                name=self.name + "_frozen_error",
-                order=self.order
+                encoding=self.encoding,
+                name=self.name + "_freeze_error",
+                order=self.order,
             )
-        
+
+
+def count_full_overlaps(target: Partition, partition_set: PartitionSet) -> int:
+    """
+    Count how many partitions in partition_set fully contain the target partition (by indices).
+    """
+    count = 0
+    for part in partition_set:
+        if is_full_overlap(target, part):
+            
+            count += 1
+    return count
+
+def is_full_overlap(target: Partition, reference: Partition) -> bool:
+    """
+    Return True if the target partition is fully contained in the reference partition (i.e., all indices of target are in reference).
+    """
+    return set(target.indices).issubset(set(reference.indices))
+
+def subtract_partition_indices(
+    source_set: PartitionSet[T_Partition], deletion_set: PartitionSet[T_Partition]
+) -> PartitionSet[T_Partition]:
+    """
+    Creates a new PartitionSet by modifying partitions from the source_set.
+
+    For each Partition in source_set, it removes any indices that are
+    present in *any* Partition within the deletion_set. Partitions that
+    become empty after subtraction are omitted from the result.
+
+    Args:
+        source_set: The PartitionSet containing partitions to be modified.
+        deletion_set: The PartitionSet defining which indices to remove.
+
+    Returns:
+        A new PartitionSet containing the modified partitions from source_set,
+        preserving the metadata (encoding, order) from the source_set.
+        Returns an empty set if source_set is empty or all partitions become empty.
+    """
+    try:
+        # 1. Aggregate all indices to be deleted
+        indices_to_delete: TypingSet[int] = set()
+        for del_partition in deletion_set:
+            indices_to_delete.update(del_partition.indices)
+
+        if not indices_to_delete:
+            # If nothing to delete, return a copy of the source set
+            # Ensure copy method exists and handles metadata correctly
+            return source_set.copy(name=f"{source_set.name}_subtracted_noop")
+
+        # 2. Create new partitions by subtracting indices
+        modified_partitions: TypingSet[T_Partition] = set()
+        for source_partition in source_set:
+            current_indices = set(source_partition.indices)
+            # Perform the set difference on indices
+            new_indices_set = current_indices - indices_to_delete
+
+            # Only add the partition if it's not empty after subtraction
+            if new_indices_set:
+                # Create a new Partition object with the remaining indices
+                # Ensure indices are sorted tuple as expected by Partition constructor
+                new_indices_tuple = tuple(sorted(new_indices_set))
+                # Use the source_set's encoding for the new partition
+                # Ensure Partition can be created this way
+                new_partition = Partition(
+                    indices=new_indices_tuple, encoding=source_set.encoding
+                )
+                # Cast to T_Partition before adding
+                modified_partitions.add(cast(T_Partition, new_partition))
+
+        # 3. Create the resulting PartitionSet using metadata from the source
+        # Ensure from_existing method exists and works as expected
+        result_set = type(source_set).from_existing(
+            source_set,
+            elements=modified_partitions,
+            name=f"{source_set.name}_subtracted",
+        )
+        return result_set
+
+    except Exception as e:
+        raise ValueError(
+            f"Error in subtract_partition_indices: {e}"
+        )

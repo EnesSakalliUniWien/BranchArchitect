@@ -1,10 +1,10 @@
 import json
 from enum import Enum
 from statistics import mean
-from collections import deque
 from dataclasses import dataclass, field
-from typing import Optional, Any, Tuple, Dict, List, Generator, Self, cast
+from typing import Optional, Any, Tuple, Dict, List, Self, cast
 from brancharchitect.partition_set import PartitionSet, Partition
+
 
 class ReorderStrategy(Enum):
     AVERAGE = "average"
@@ -16,35 +16,28 @@ class ReorderStrategy(Enum):
 @dataclass()
 class Node:
     children: List[Self] = field(default_factory=list, compare=False)
-    
     length: Optional[float] = field(default=None, compare=True)
-
     values: Dict[str, Any] = field(default_factory=dict, compare=True)
-
-    split_indices: Partition = field(default_factory=lambda: Partition(()), compare=True)
-
+    split_indices: Partition = field(
+        default_factory=lambda: Partition(()), compare=True
+    )
     parent: Optional[Self] = None
-
     _encoding: Dict[str, int] = field(default_factory=dict, compare=False)
-    
-    _cached_splits_without_leaves: Optional[PartitionSet] = field(
-        default=None, init=False, compare=False
-    )
-    _cached_splits_with_leaves: Optional[PartitionSet] = field(
-        default=None, init=False, compare=False
-    )
-
     _split_index = None
-    
-    
-    _list_index : int = field(default=-1, init=False, compare=False)
-
-    # ------------------------------------------------------------------------
-    # (NEW) Cache for get_current_order
-    # ------------------------------------------------------------------------
-    _cached_current_order: Optional[Tuple[str, ...]] = field(
+    # Only keep caches that are actually used in the code below
+    _cached_subtree_order: Optional[Tuple[str, ...]] = field(
         default=None, init=False, compare=False
-    )  # (NEW)
+    )
+    _cached_subtree_cost: Optional[float] = field(
+        default=None, init=False, compare=False
+    )
+    _cache_valid: bool = field(default=False, init=False, compare=False)
+    _traverse_cache: Optional[List[Self]] = field(
+        default=None, init=False, compare=False
+    )
+    _splits_cache: Optional[PartitionSet] = field(
+        default=None, init=False, compare=False
+    )
 
     def __init__(
         self,
@@ -62,11 +55,12 @@ class Node:
         self.values = values or {}
         self.split_indices = split_indices
         self._order = _order or []
-        self._cached_splits_without_leaves = None
-        self._cached_splits_with_leaves = None
         self._split_index = None
-        self._list_inxdex = None
-        self._cached_current_order = None
+        self._cached_subtree_order = None
+        self._cached_subtree_cost = None
+        self._cache_valid = False
+        self._traverse_cache = None
+        self._splits_cache = None
 
         if not self._order:
             self._order = self.get_current_order()
@@ -75,7 +69,7 @@ class Node:
 
         if not self._encoding:
             raise ValueError("Encoding dictionary cannot be empty")
-        
+
     @property
     def leaves(self) -> List[Self]:
         """
@@ -118,12 +112,16 @@ class Node:
     # ------------------------------------------------------------------------
 
     def to_splits(self, with_leaves=False) -> PartitionSet:
-        splits : PartitionSet = PartitionSet(look_up=self._encoding)
+        if self._splits_cache is not None and not with_leaves:
+            return self._splits_cache
+        splits: PartitionSet = PartitionSet(encoding=self._encoding)
         for nd in self.traverse():
             if nd.children:
                 splits.add(nd.split_indices)
             if with_leaves:
                 splits.add(nd.split_indices)
+        if not with_leaves:
+            self._splits_cache = splits
         return splits
 
     def build_split_index(self):
@@ -136,24 +134,29 @@ class Node:
         for ch in node.children:
             self._populate_split_index(ch)
 
-    def find_node_by_split(self, target_split: Partition) -> Optional[Self]:
-        """Find a node by its split indices with more robust error handling."""
+    def find_node_by_split(self, target_split) -> Optional[Self]:
+        """
+        Find a node by its split indices (accepts tuple or Partition).
+        """
         try:
             if self._split_index is None:
                 self.build_split_index()
             if self._split_index is None:
-                # In case build_split_index fails to initialize _split_index, return None.
                 return None
+            # Convert tuple to Partition if needed
+            if not isinstance(target_split, Partition):
+                target_split = Partition(tuple(target_split), self._encoding)
             return self._split_index.get(target_split)
         except Exception as e:
             raise ValueError(f"Error finding node by split: {e}")
-
+ 
     # ------------------------------------------------------------------------
     # append_child sets parent pointer (pointer-based approach)
     # ------------------------------------------------------------------------
     def append_child(self, node: Self) -> None:
         node.parent = self
         self.children.append(node)
+        self.invalidate_caches(propagate_up=True)
 
     # ------------------------------------------------------------------------
     # deep_copy (unchanged, except we skip copying .parent)
@@ -176,24 +179,24 @@ class Node:
     # ------------------------------------------------------------------------
 
     def _initialize_split_indices(self, encoding: Dict[str, int]) -> None:
-        """Initialize split indices with better error handling and validation."""                    
+        """Initialize split indices with better error handling and validation."""
         # Process children first
         for child in self.children:
             child._initialize_split_indices(encoding)
-        
+
         try:
-            if not self.children:                
-                self.split_indices = Partition((encoding[self.name],), lookup=encoding)
+            if not self.children:
+                self.split_indices = Partition((encoding[self.name],), encoding)
             else:
                 # For internal nodes, collect child indices
                 idxs: list[int] = []
                 for ch in self.children:
                     idxs.extend(tuple(sorted(ch.split_indices)))
-                self.split_indices = Partition(tuple(sorted(idxs)), lookup=encoding)
-                
+                self.split_indices = Partition(tuple(sorted(idxs)), encoding)
+
             # Rebuild split index after modification
             self.build_split_index()
-            
+
         except Exception as e:
             raise ValueError(f"Failed to initialize split indices: {str(e)}")
 
@@ -201,13 +204,19 @@ class Node:
     # traversal, fix_child_order, to_hierarchy, etc.
     # ------------------------------------------------------------------------
 
-    def traverse(self) -> Generator["Node", None, None]:
-        yield self
-        for ch in self.children:
-            yield from ch.traverse()
+    def traverse(self) -> List[Self]:
+        if self._traverse_cache is not None:
+            return self._traverse_cache
+        nodes = [self]
+        for child in self.children:
+            nodes.extend(child.traverse())
+        self._traverse_cache = nodes
+        return nodes
 
     def _index(self, component: Tuple[str, ...]) -> Partition:
-        return Partition(tuple(sorted(self._order.index(name) for name in component)), lookup=self._encoding)
+        return Partition(
+            tuple(sorted(self._order.index(name) for name in component)), self._encoding
+        )
 
     def _fix_child_order(self) -> None:
         self.children.sort(key=lambda node: min(node.split_indices))
@@ -226,9 +235,13 @@ class Node:
     def swap_children(self):
         if len(self.children) >= 2:
             self.children[0], self.children[1] = self.children[1], self.children[0]
+            self.invalidate_caches(propagate_up=True)
 
     def to_weighted_splits(self) -> Dict[Partition, float]:
-        return {nd.split_indices: (nd.length if nd.length is not None else 0.0) for nd in self.traverse()}
+        return {
+            nd.split_indices: (nd.length if nd.length is not None else 0.0)
+            for nd in self.traverse()
+        }
 
     # ------------------------------------------------------------------------
     # reorder_taxa => if children changed => invalidate
@@ -271,13 +284,17 @@ class Node:
                 node.children.sort(key=lambda child: strategy_fn(child.get_leaves()))
 
         _reorder(self)
+        self.invalidate_caches(propagate_up=True)
 
     def get_leaves(self) -> List[Self]:
+        """
+        Return all leaf nodes in the subtree rooted at this node.
+        Always traverses the current tree structure (no memoization).
+        """
         if not self.children:
             return [self]
-        leaves: List[Self] = []
+        leaves = []
         for child in self.children:
-            # Use cast to tell the type checker these are compatible with Self
             leaves.extend(cast(List[Self], child.get_leaves()))
         return leaves
 
@@ -316,18 +333,19 @@ class Node:
         return json.dumps(self.to_dict(), indent=4)
 
     def to_dict(self) -> Dict[str, Any]:
+        # Always serialize split_indices as a list of ints for JSON compatibility
         if self.is_leaf():
             return {
                 "name": self.name,
                 "length": self.length,
-                "split_indices": self.split_indices,
+                "split_indices": self.split_indices.resolve_to_indices(),
                 "children": [],
             }
         else:
             return {
                 "name": "",
                 "length": self.length,
-                "split_indices": self.split_indices,
+                "split_indices": self.split_indices.indices,
                 "children": [child.to_dict() for child in self.children],
             }
 
@@ -343,90 +361,6 @@ class Node:
     def is_internal(self) -> bool:
         return bool(self.children)
 
-    # ----------- Tree Operations -----------
-    def midpoint_root(self) -> Self:
-        """
-        Correct midpoint rooting implementation that creates new nodes when needed.
-        Follows established phylogenetic algorithms for proper midpoint rooting.
-        """
-        # Create a deep copy to avoid modifying original tree
-        working_tree = self.get_root().deep_copy()
-        original_root = working_tree.get_root()
-        leaves = original_root.get_leaves()
-
-        if len(leaves) < 2:
-            return original_root
-
-        # 1. Find the tree diameter (longest path between any two leaves)
-        L1, _ = _farthest_leaf_pointer(leaves[0])
-        L2, diam_length = _farthest_leaf_pointer(L1)
-
-        # 2. Find path between diameter endpoints
-        path_nodes, path_dists = _build_pointer_path(L1, L2)
-        half_distance = diam_length / 2
-        accumulated = 0.0
-        new_root = cast(Self, type(self)())  # Create node of the same type as self
-
-        # 3. Locate midpoint position
-        for i in range(len(path_dists)):
-            edge_length = path_dists[i]
-            parent_node = path_nodes[i]
-            child_node = path_nodes[i + 1]
-
-            if accumulated + edge_length >= half_distance:
-                # Calculate exact split point
-                dist_from_parent = half_distance - accumulated
-                dist_from_child = edge_length - dist_from_parent
-
-                # 4. Create new node if needed
-                if dist_from_parent > 0 and dist_from_child > 0:
-                    # Split the edge
-                    midpoint = cast(Self, type(self)(name="Midpoint", length=dist_from_parent))
-
-                    # Update parent-child relationships
-                    if child_node.parent == parent_node:  # Forward direction
-                        # Remove child from parent
-                        parent_node.children.remove(child_node)
-                        # Add midpoint to parent
-                        parent_node.children.append(cast(Self, midpoint))
-                        midpoint.parent = cast(Self, parent_node)
-                        # Set up child node
-                        child_node.parent = cast(Self, midpoint)
-                        child_node.length = dist_from_child
-                        midpoint.children.append(cast(Self, child_node))
-                    else:  # Reverse direction
-                        # Remove parent from child
-                        child_node.children.remove(parent_node)
-                        # Add midpoint to child
-                        child_node.children.append(cast(Self, midpoint))
-                        midpoint.parent = cast(Self, child_node)
-                        # Set up parent node
-                        parent_node.parent = cast(Self, midpoint)
-                        parent_node.length = dist_from_child
-                        midpoint.children.append(cast(Self, parent_node))
-
-                    # Fix: Cast midpoint to Self before assignment to new_root
-                    new_root = cast(Self, midpoint)  # Cast explicitly here
-                else:
-                    # Midpoint exactly at an existing node
-                    # Fix: Cast each term separately in the ternary expression
-                    new_root = cast(Self, parent_node) if dist_from_parent == 0 else cast(Self, child_node)
-
-                break
-
-            accumulated += edge_length
-
-        # 5. Reroot the tree
-        final_root = cast(Self, _flip_upward(new_root))
-
-        # 6. Maintain tree properties
-        final_root._order = original_root._order.copy()
-        # Correct the call by providing the encoding argument
-        final_root._initialize_split_indices(self._encoding)
-        final_root._fix_child_order()
-
-        return final_root
-
     def delete_taxa(self, indices_to_delete: list[int]) -> Self:
         """Delete taxa and update indices/caches."""
         # First delete the taxa
@@ -441,6 +375,7 @@ class Node:
         self._split_index = None  # Force rebuild of split index
         # Rebuild split index with new indices
         self.build_split_index()
+        self.invalidate_caches(propagate_up=True)
         return self
 
     def _delete_taxa_internal(self, indices_to_delete: list[int]) -> Self:
@@ -453,9 +388,10 @@ class Node:
         ]
 
         # Update split indices for this node
-        self.split_indices = Partition(tuple(
-            idx for idx in self.split_indices if idx not in indices_to_delete
-        ),lookup=self._encoding)
+        self.split_indices = Partition(
+            tuple(idx for idx in self.split_indices if idx not in indices_to_delete),
+            self._encoding,
+        )
 
         # Recursively process children
         for child in self.children:
@@ -465,7 +401,9 @@ class Node:
 
     def _delete_superfluous_nodes(self) -> Self:
         """Remove nodes with single children."""
-        self.children = [self._get_end_child(cast(Self, child)) for child in self.children]
+        self.children = [
+            self._get_end_child(cast(Self, child)) for child in self.children
+        ]
         for child in self.children:
             child._delete_superfluous_nodes()
         return self
@@ -486,189 +424,61 @@ class Node:
                 indices.append(child.name)
         return indices
 
+    # ------------------------------------------------------------------------
+    # (NEW) Subtree cache management
+    # ------------------------------------------------------------------------
+    def invalidate_caches(self, propagate_up: bool = True) -> None:
+        """
+        Invalidate cached subtree order and cost for this node and, optionally, all ancestors.
+        """
+        self._cached_subtree_order = None
+        self._cached_subtree_cost = None
+        self._cache_valid = False
+        self._traverse_cache = None
+        self._splits_cache = None
+        if propagate_up and self.parent is not None:
+            self.parent.invalidate_caches(propagate_up=True)
 
-# ---------------------------
-# Midpoint Rooting Helpers
-# ---------------------------
-def _farthest_leaf_pointer(start: Node) -> Tuple[Node, float]:
-    """
-    Find the farthest leaf node from a starting node in a tree and its cumulative distance.
+    def update_caches(self) -> None:
+        """
+        Update (recompute) cached subtree order and cost for this node.
+        """
+        self._cached_subtree_order = tuple(leaf.name for leaf in self.get_leaves())
+        self._cached_subtree_cost = self.compute_subtree_cost()
+        self._cache_valid = True
 
-    This function traverses the tree bidirectionally (upward to parent and downward to children)
-    using BFS and returns the leaf node with the maximum cumulative distance from the start node.
+    def get_cached_subtree_cost(self) -> float:
+        """
+        Return cached subtree cost, updating if invalid.
+        """
+        if not self._cache_valid or self._cached_subtree_cost is None:
+            self.update_caches()
+        return self._cached_subtree_cost
 
-    Args:
-        start (Node): The starting node in the tree. Each node must have:
-            - `parent`: Parent node (None if root).
-            - `children`: List of child nodes.
-            - `length`: Edge distance to its parent (None or 0.0 if undefined).
-            - `is_leaf()`: Method returning True if the node has no children.
+    def compute_subtree_cost(self) -> float:
+        """
+        Compute the cost for the subtree rooted at this node.
+        Placeholder: replace with actual cost/distance logic as needed.
+        """
+        # Example: sum of branch lengths in subtree
+        cost = 0.0
+        if self.length is not None:
+            cost += self.length
+        for child in self.children:
+            cost += child.get_cached_subtree_cost()
+        return cost
 
-    Returns:
-        Tuple[Node, float]: The farthest leaf node and its distance from the start.
-
-    Notes:
-        - A "leaf" is a node with no children.
-        - Traversal includes both parent and children directions.
-        - Edge distances are determined dynamically:
-            - When moving **to a parent**, the current node's `length` is used.
-            - When moving **to a child**, the child's `length` (distance to its parent) is used.
-        - If `length` is None or missing, it defaults to 0.0.
-
-    Examples:
-        Consider the following tree:
-        ```
-                A (root)
-               / \\
-            2.0  3.0
-             /     \\
-            B       C
-             \\
-              4.0
-               \\
-                D (leaf)
-        ```
-        - **Scenario 1**: Start at node `B`:
-          - Traversal paths: `B → A (distance 2.0)`, `B → D (distance 4.0)`, `A → C (distance 3.0)`.
-          - Farthest leaf is `C` with total distance `2.0 + 3.0 = 5.0`.
-          - Returns: `(C, 5.0)`.
-
-        - **Scenario 2**: Start at node `A`:
-          - Traversal paths: `A → B (distance 2.0)`, `A → C (distance 3.0)`, `B → D (distance 4.0)`.
-          - Farthest leaf is `D` with total distance `2.0 + 4.0 = 6.0`.
-          - Returns: `(D, 6.0)`.
-    """
-    visited = set()
-    queue = deque([(start, 0.0)])
-    farthest, max_dist = start, 0.0
-
-    while queue:
-        node, dist = queue.popleft()
-        if node.is_leaf() and dist > max_dist:
-            farthest, max_dist = node, dist
-
-        # Traverse parent and children
-        
-        for neighbor in [node.parent] + node.children:
-            if neighbor and neighbor not in visited:
-                visited.add(neighbor)
-                edge_len = neighbor.length if neighbor.parent == node else node.length
-                queue.append((neighbor, dist + (edge_len or 0.0)))
-
-    return farthest, max_dist
-
-
-def _build_pointer_path(L1: Node, L2: Node) -> Tuple[List[Node], List[float]]:
-    """
-    Find the shortest path between two nodes in a bifurcating tree and return the node sequence and edge distances.
-
-    This function uses BFS to trace the path from `L1` to `L2`, exploring both parent (upward) and child (downward)
-    directions. It returns the path as a list of nodes and the corresponding edge distances between consecutive nodes.
-
-    Args:
-        L1 (Node): The starting node. Must belong to the same bifurcating tree as `L2`.
-        L2 (Node): The target node to find a path to.
-
-    Returns:
-        Tuple[List[Node], List[float]]: 
-            - `path`: Ordered list of nodes from `L1` to `L2`.
-            - `dists`: Edge distances between consecutive nodes in `path`.
-
-    Notes:
-        - **Tree Structure**: The tree is bifurcating (each internal node has exactly two children) and has four leaves.
-        - **Edge Lengths**:
-            - When moving **to a child**, the distance is the child's `length` (distance from the current node to the child).
-            - When moving **to a parent**, the distance is the current node's `length` (distance from the parent to the current node).
-            - Defaults to `0.0` if `length` is `None` or undefined.
-        - **Shortest Path**: BFS guarantees the shortest path in terms of **number of edges**, not cumulative distance.
-
-    Examples:
-        Consider this bifurcating tree with four leaves (`D`, `E`, `F`, `G`):
-        ```
-                A (root)
-               / \\
-        2.0   B     C  3.0
-             / \\   / \\
-        1.0 D   E F   G 2.0
-        ```
-        - **Edge Lengths**:
-          - `B.length = 2.0` (distance from `A` to `B`).
-          - `C.length = 3.0` (distance from `A` to `C`).
-          - `D.length = 1.0` (distance from `B` to `D`), `E.length = 1.5` (distance from `B` to `E`).
-          - `F.length = 1.0` (distance from `C` to `F`), `G.length = 2.0` (distance from `C` to `G`).
-
-        - **Scenario 1**: `L1 = B`, `L2 = F`
-          - Path: `B → A → C → F`
-          - Distances: `B`'s length (2.0), `C`'s length (3.0), `F`'s length (1.0)
-          - Returns: `([B, A, C, F], [2.0, 3.0, 1.0])`
-
-        - **Scenario 2**: `L1 = D`, `L2 = G`
-          - Path: `D → B → A → C → G`
-          - Distances: `D`'s length (1.0), `B`'s length (2.0), `C`'s length (3.0), `G`'s length (2.0)
-          - Returns: `([D, B, A, C, G], [1.0, 2.0, 3.0, 2.0])`
-    """
-    parent_map = {}
-    queue = deque([L1])
-    visited = set([L1])
-
-    while queue:
-        node = queue.popleft()
-        if node == L2:
-            break
-
-        # Explore parent and children
-        for neighbor in [node.parent] + node.children:
-            if neighbor and neighbor not in visited:
-                visited.add(neighbor)
-                parent_map[neighbor] = (node, neighbor.length or node.length or 0.0)
-                queue.append(neighbor)
-
-    # Reconstruct path
-    path, dists = [L2], []
-    while path[-1] != L1:
-        parent, length = parent_map[path[-1]]
-        path.append(parent)
-        dists.append(length)
-
-    return path[::-1], dists[::-1]
-
-
-def _flip_upward(new_root: Node) -> Node:
-    """Proper implementation of tree reorientation with parent-child preservation"""
-    current = new_root
-    prev_node = None
-    prev_length = 0.0
-
-    while current.parent:
-        parent = current.parent
-        old_length = current.length or 0.0
-
-        # Remove circular reference
-        if parent in current.children:
-            current.children.remove(parent)
-
-        # Remove current from parent's children
-        if current in parent.children:
-            parent.children.remove(current)
-
-        # Reverse relationship
-        current.parent = prev_node
-        current.length = prev_length
-
-        if prev_node is not None:
-            prev_node.children.append(current)
-
-        # Move up the tree
-        prev_node = current
-        prev_length = old_length
-        current = parent
-
-    # Handle original root
-    if current is not None:
-        current.parent = prev_node
-        current.length = prev_length
-        if prev_node is not None and current not in prev_node.children:
-            prev_node.children.append(current)
-
-    return new_root
-
+    def assign_internal_node_names(self):
+        """
+        Assigns a unique name to each internal node based on its descendant leaf names, sorted alphabetically and joined.
+        Leaves retain their original names.
+        """
+        if not self.children:
+            return self.name
+        child_names = []
+        for child in self.children:
+            child_name = child.assign_internal_node_names()
+            child_names.append(child_name)
+        # Internal node name: join sorted unique descendant names
+        self.name = ''.join(sorted(set(child_names)))
+        return self.name

@@ -9,7 +9,7 @@ from datetime import datetime
 from brancharchitect.newick_parser import parse_newick
 from brancharchitect.jumping_taxa import call_jumping_taxa
 from brancharchitect.plot.tree_plot import plot_rectangular_tree_pair
-from brancharchitect.plot.svg import plot_tanglegram
+from brancharchitect.plot.rectangular_tree import plot_tanglegram
 from brancharchitect.jumping_taxa.debug import jt_logger
 from brancharchitect.jumping_taxa.debug.output import write_debug_output, create_debug_index
 from brancharchitect.jumping_taxa.debug.error_handling import log_detailed_error, debug_algorithm_execution
@@ -38,6 +38,8 @@ for _dir in tree_files.iterdir():
                 with open(file_path) as f:
                     data = json.load(f)
                     data["name"] = file_path.name
+                    # Store the absolute path to the JSON file for VS Code link
+                    data["source_path"] = str(file_path.absolute())
                     if "solutions" in data:
                         data["solutions"] = [sorted([tuple(sorted(component)) for component in solution]) for solution in (data["solutions"] or [[]])]
                         TEST_DATA_LIST.append(data)
@@ -49,7 +51,7 @@ def setup_debug_output_dir():
     return OUTPUT_DIR
 
 @debug_algorithm_execution
-def process_and_log_test_case(t1, t2, test_name, output_dir):
+def process_and_log_test_case(t1, t2, test_name, output_dir, source_path=None):
     """Process a test case and generate debugging output."""
     output_filename = f"debug_log_{os.path.splitext(test_name)[0]}.html"
     output_path = output_dir / output_filename
@@ -59,6 +61,20 @@ def process_and_log_test_case(t1, t2, test_name, output_dir):
         jt_logger.clear()
 
         jt_logger.section(f"Test Case: {test_name}")
+        
+        # Add VS Code button if source path is provided
+        if source_path:
+            vscode_uri = f"vscode://file/{source_path}"
+            button_html = (
+                f'<div style="margin: 10px 0;">'
+                f'<a href="{vscode_uri}" style="display: inline-block; '
+                f'background-color: #007acc; color: white; padding: 8px 16px; '
+                f'text-decoration: none; border-radius: 4px; font-weight: bold;">'
+                f'Open JSON Test File in VS Code</a>'
+                f'</div>'
+            )
+            # Fixed: use html() instead of add_html()
+            jt_logger.html(button_html)
         
         # Add visualizations
         tanglegram_svg = plot_tanglegram(t1, t2)
@@ -84,7 +100,6 @@ def process_and_log_test_case(t1, t2, test_name, output_dir):
         write_debug_output(output_path=str(output_path), title=f"Test Analysis: {test_name}")
 
 
-
 @pytest.fixture(params=TEST_DATA_LIST, ids=[test_data["name"] for test_data in TEST_DATA_LIST])
 def test_data(request):
     return request.param
@@ -100,7 +115,9 @@ def test_tree_coloring(test_data):
         t1 = parse_newick(test_data["tree1"])
         t2 = parse_newick(test_data["tree2"], t1._order)
 
-        result = process_and_log_test_case(t1, t2, test_data["name"], output_dir)
+        # Pass source_path to the processing function
+        result = process_and_log_test_case(t1, t2, test_data["name"], output_dir, 
+                                          source_path=test_data.get("source_path"))
         processed_result = sorted([tuple(sorted(pair)) for pair in result])
         
         translated_names = []
@@ -109,7 +126,6 @@ def test_tree_coloring(test_data):
             pair = []
             for taxa in results:
                 pair.append(rever_encoding[taxa])
-                pair = sorted(pair, key=lambda x: x)
             translated_names.append(tuple(sorted(pair)))
         
         sorted_translated_names = sorted(translated_names)
@@ -130,15 +146,3 @@ def test_tree_coloring(test_data):
             "timestamp": datetime.now().isoformat(),
         })
         raise
-
-@pytest.fixture(scope="session", autouse=True)
-def create_index_after_tests(request):
-    """Create debug index after all tests have completed."""
-    def _create_index():
-        try:
-            index_path = create_debug_index()
-            logger.info(f"Debug index created at: {index_path}")
-        except Exception as e:
-            logger.error(f"Failed to create debug index: {e}")
-
-    request.addfinalizer(_create_index)

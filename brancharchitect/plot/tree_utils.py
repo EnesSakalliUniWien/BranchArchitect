@@ -9,6 +9,7 @@ from collections import deque
 from typing import List, Generator, Dict, Optional, Tuple, Union, Set
 from brancharchitect.tree import Node
 from brancharchitect.plot.paper_plot.paper_plot_constants import DEFAULT_NODE_LENGTH
+import ast
 
 ZERO_LENGTH_TOLERANCE = 1e-9
 
@@ -26,65 +27,82 @@ def get_node_length(node: Node) -> float:
 def get_node_id(node: Node, raw: bool = False) -> str:
     """
     Get a consistent identifier for a node that can be matched across trees.
-    
+
     Args:
         node: The node to generate an ID for
         raw: If True, returns the raw node name without any prefix for internal nodes.
              This is needed for compatibility with highlight options in notebooks.
-        
+
     Returns:
         A string ID that uniquely identifies the node
     """
     # Special case: if node is None, return empty string
     if not node:
         return ""
-        
+
     # For raw mode (used in highlighting), just return the node name
     if raw:
         return node.name if node.name else ""
-    
+
     # Standard behavior: use name directly for leaves, add prefix for internal nodes
     if is_leaf(node):
         return node.name
     return f"internal-{node.name}" if node.name else "internal"
 
 
-def normalize_edge_id(edge_id: Union[Tuple[str, str], Tuple[Node, Node]]) -> Tuple[str, str]:
+def normalize_edge_id(
+    edge_id: Union[Tuple[str, str], Tuple[Node, Node]],
+) -> Tuple[str, str]:
     """
     Normalize an edge ID to ensure consistent formatting.
-    
+
     Can accept either:
     - A tuple of (parent_node, child_node) Node objects
     - A tuple of (parent_id, child_id) strings
-    
+
     Args:
         edge_id: Edge identifier as either (Node, Node) or (str, str)
-        
+
     Returns:
         Normalized (parent_id, child_id) strings
     """
     if isinstance(edge_id[0], Node) and isinstance(edge_id[1], Node):
         # If we have Node objects, get their raw IDs (without internal- prefix)
         return (get_node_id(edge_id[0], raw=True), get_node_id(edge_id[1], raw=True))
-    
+
     # Otherwise, assume the edge_id is already string IDs and keep them as is
     return edge_id
 
 
-def prepare_highlight_edges(edges: Set[Tuple]) -> Set[Tuple[str, str]]:
+def parse_tuple_key(key):
     """
-    Process a set of edge tuples to ensure they use the correct ID format.
-    
-    This function handles the case where the highlight edges specified in notebooks
-    use the raw node names without the 'internal-' prefix.
-    
-    Args:
-        edges: Set of edge tuples to normalize
-        
-    Returns:
-        Set of edge tuples with normalized IDs
+    Convert a string representation of a tuple (e.g., "('Root', 'ABCG')") back to a tuple.
+    If the key is already a tuple, return as is.
     """
-    return {normalize_edge_id(edge) for edge in edges}
+    if isinstance(key, tuple):
+        return key
+    if isinstance(key, str) and key.startswith("(") and key.endswith(")"):
+        try:
+            return ast.literal_eval(key)
+        except Exception:
+            pass
+    return key
+
+
+def prepare_highlight_edges(edges):
+    """
+    Process a set or dict of edge tuples to ensure they use the correct ID format.
+    Handles string keys (from JSON) by converting them back to tuples.
+    """
+    if isinstance(edges, dict):
+        # Convert string keys to tuples if needed
+        return {normalize_edge_id(parse_tuple_key(k)): v for k, v in edges.items()}
+    elif isinstance(edges, set):
+        return {normalize_edge_id(parse_tuple_key(edge)) for edge in edges}
+    elif isinstance(edges, list):
+        return {normalize_edge_id(parse_tuple_key(edge)) for edge in edges}
+    else:
+        return set()
 
 
 def get_order(root: Node) -> List[str]:
@@ -102,10 +120,10 @@ def get_order(root: Node) -> List[str]:
 def traverse(root: Node) -> Generator[Node, None, None]:
     """
     Breadth-first traversal of a tree.
-    
+
     Args:
         root: The root node of the tree
-        
+
     Yields:
         Each node in the tree in breadth-first order
     """
@@ -128,11 +146,11 @@ def traverse(root: Node) -> Generator[Node, None, None]:
 def tree_depth(node: Node, depth: int = 0) -> int:
     """
     Calculate the maximum depth of a tree.
-    
+
     Args:
         node: The current node
         depth: The current depth (for recursion)
-        
+
     Returns:
         The maximum depth of the tree
     """
@@ -144,10 +162,10 @@ def tree_depth(node: Node, depth: int = 0) -> int:
 def get_node_label(node: Node) -> str:
     """
     Get the display label for a node.
-    
+
     Args:
         node: The node to get the label for
-        
+
     Returns:
         The label for the node
     """
@@ -159,11 +177,11 @@ def get_node_label(node: Node) -> str:
 def find_node(root: Node, target_id: str) -> Optional[Node]:
     """
     Find a node in the tree by its ID.
-    
+
     Args:
         root: The root node of the tree
         target_id: The ID to search for
-        
+
     Returns:
         The found node, or None if not found
     """
@@ -176,10 +194,10 @@ def find_node(root: Node, target_id: str) -> Optional[Node]:
 def get_leaves(root: Node) -> List[Node]:
     """
     Get all leaf nodes in a tree.
-    
+
     Args:
         root: The root node of the tree
-        
+
     Returns:
         A list of all leaf nodes
     """
@@ -208,6 +226,7 @@ def collapse_zero_length_branches(root: Node) -> Node:
         else:
             # Fall back to standard library deepcopy
             import copy
+
             tree_copy = copy.deepcopy(root)
     except Exception as e:
         print(f"Warning: Could not deep copy tree: {e}. Using original tree.")
@@ -224,7 +243,7 @@ def _collapse_zero_branches_recursive(node: Node) -> None:
     Recursively collapse zero-length internal branches.
 
     This is a post-order traversal - we process children first, then the current node.
-    
+
     Args:
         node: The current node to process
     """
@@ -262,10 +281,10 @@ def _collapse_zero_branches_recursive(node: Node) -> None:
 def calculate_max_path_length(root: Node) -> float:
     """
     Calculate the maximum cumulative path length from root to any leaf.
-    
+
     Args:
         root: The root node of the tree
-        
+
     Returns:
         The maximum path length
     """
@@ -300,26 +319,28 @@ def calculate_max_path_length(root: Node) -> float:
     return max_length
 
 
-def calculate_node_depths(root: Node, depth: int = 0, depth_dict: Optional[Dict[Node, int]] = None) -> Dict[Node, int]:
+def calculate_node_depths(
+    root: Node, depth: int = 0, depth_dict: Optional[Dict[Node, int]] = None
+) -> Dict[Node, int]:
     """
     Calculate depth for each node in a tree.
-    
+
     Args:
         root: The root node of the tree
         depth: Current depth (0 for root)
         depth_dict: Dictionary to store node -> depth mapping
-        
+
     Returns:
         A dictionary mapping each node to its depth
     """
     if depth_dict is None:
         depth_dict = {}
-    
+
     # Set the depth for this node
     depth_dict[root] = depth
-    
+
     # Recursively set depths for children
-    for child in getattr(root, 'children', []):
+    for child in getattr(root, "children", []):
         calculate_node_depths(child, depth + 1, depth_dict)
     return depth_dict
 
@@ -327,15 +348,15 @@ def calculate_node_depths(root: Node, depth: int = 0, depth_dict: Optional[Dict[
 def get_tree_size(root: Node) -> int:
     """
     Count the total number of nodes in a tree.
-    
+
     Args:
         root: The root node of the tree
-        
+
     Returns:
         The total number of nodes in the tree
     """
     count = 1  # Count the root
-    for child in getattr(root, 'children', []):
+    for child in getattr(root, "children", []):
         count += get_tree_size(child)
     return count
 
@@ -343,10 +364,10 @@ def get_tree_size(root: Node) -> int:
 def calculate_all_node_depths(roots):
     """
     Calculate depths for all nodes across multiple roots.
-    
+
     Args:
         roots: List of root nodes
-        
+
     Returns:
         A dictionary mapping each node to its depth
     """
@@ -359,12 +380,12 @@ def calculate_all_node_depths(roots):
 def inject_depth_information(roots, layouts, all_node_depths):
     """
     Inject depth information into layouts based on node depths.
-    
+
     Args:
         roots: List of root nodes
         layouts: Layouts to update
         all_node_depths: Dictionary of node depths
-        
+
     Returns:
         Updated layouts with depth information
     """
@@ -373,5 +394,5 @@ def inject_depth_information(roots, layouts, all_node_depths):
             if node in all_node_depths:
                 depth = all_node_depths[node]
                 if node in layouts:
-                    layouts[node]['depth'] = depth
+                    layouts[node]["depth"] = depth
     return layouts

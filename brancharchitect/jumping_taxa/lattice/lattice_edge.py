@@ -6,32 +6,34 @@ from brancharchitect.tree import Node
 
 @dataclass
 class LatticeEdge:
-
     split: Partition
 
     left_node: Node
-    
+
     right_node: Node
 
-    left_cover: List[PartitionSet]
-    
-    right_cover: List[PartitionSet]
-    
-    left_unique_atoms: List[PartitionSet]
-    
-    right_unique_atoms: List[PartitionSet]
+    t1_common_covers: List[PartitionSet]
 
-    left_unique_covet: List[PartitionSet]
-    
-    right_unique_covet: List[PartitionSet]
+    t2_common_covers: List[PartitionSet]
 
+    t1_unique_atoms: List[PartitionSet]
+
+    t2_unique_atoms: List[PartitionSet]
+
+    t1_unique_covers: List[PartitionSet]
+
+    t2_unique_covers: List[PartitionSet]
+    
+    t1_unique_partition_sets: List[PartitionSet]
+    
+    t2_unique_partition_sets: List[PartitionSet]
 
     child_meet: PartitionSet
-    
+
     visits: int = field(default=0, init=False)  # added visits counter
-    
-    look_up: dict
-    
+
+    encoding: dict
+
     def is_divergent(self, tree: int = 1) -> bool:
         """
         Returns True if the covering relation for the specified side is "divergent",
@@ -97,49 +99,42 @@ class LatticeEdge:
         Returns the covering relation types for left and right nodes as a tuple.
         """
         left_type = determine_covering_relation(
-            get_child_splits(self.left_node), 
-            self.child_meet, 
-            self.left_node
+            get_child_splits(self.left_node), self.child_meet, self.left_node
         )
         right_type = determine_covering_relation(
-            get_child_splits(self.right_node), 
-            self.child_meet, 
-            self.right_node
+            get_child_splits(self.right_node), self.child_meet, self.right_node
         )
         return (left_type, right_type)
 
-    
     def remove_solutions_from_covers(self, solutions: List[PartitionSet]):
-        
-         for partitionset in solutions:
-             for partition in partitionset:
-                 for i in range(len(self.left_cover)):
-                     if partition in self.left_cover[i]:
-                         self.left_cover[i].remove(partition)
-                 for i in range(len(self.right_cover)):
-                     if partition in self.right_cover[i]:
-                         self.right_cover[i].remove(partition)
-
+        for partitionset in solutions:
+            for partition in partitionset:
+                for i in range(len(self.t1_common_covers)):
+                    if partition in self.t1_common_covers[i]:
+                        self.t1_common_covers[i].remove(partition)
+                for i in range(len(self.t2_common_covers)):
+                    if partition in self.t2_common_covers[i]:
+                        self.t2_common_covers[i].remove(partition)
 
     @property
     def relationship(self) -> str:
         """
         Dynamically compute the relationship type based on both trees.
-        
+
         Returns:
-            A string describing the overall relationship: "divergent", "collapsed", 
+            A string describing the overall relationship: "divergent", "collapsed",
             "mixed", or "intermediate"
         """
         left_type, right_type = self.get_edge_types()
-        
+
         # If both sides have the same type, use that
         if left_type == right_type:
             return left_type
-        
+
         # If one side is divergent and the other is collapsed, call it "mixed"
         if set([left_type, right_type]) == set(["divergent", "collapsed"]):
             return "mixed"
-        
+
         # If one side is intermediate and the other is either divergent or collapsed
         return "intermediate"
 
@@ -178,4 +173,6 @@ def get_child_splits(node: "Node") -> PartitionSet:
       If n has children { c₁, c₂, …, cₖ }, then
           D(n) = { s(c) : s(c) = c.split_indices for each c ∈ children(n) }.
     """
-    return PartitionSet({child.split_indices for child in node.children}, look_up=node._encoding)
+    return PartitionSet(
+        {child.split_indices for child in node.children}, encoding=node._encoding
+    )

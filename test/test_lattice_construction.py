@@ -6,10 +6,9 @@ from brancharchitect.partition_set import PartitionSet
 from brancharchitect.jumping_taxa.lattice.lattice_construction import (
     construct_sub_lattices,
     get_child_splits,
-    compute_covet_elements,
+    compute_cover_elements,
     compute_unique_atoms,
 )
-
 
 def load_test_trees():
     """Load test tree data from JSON files."""
@@ -94,10 +93,10 @@ def test_compute_cover_elements_simple():
     child_splits = get_child_splits(root)
 
     # Create a proper common_excluding set with preserved lookup
-    common_excluding = PartitionSet(common_splits, splits1.look_up, "common_excluding")
+    common_excluding = PartitionSet(common_splits, splits1.encoding, "common_excluding")
 
     # Test compute_cover_elements
-    covers = compute_covet_elements(root, child_splits, common_excluding)
+    covers = compute_cover_elements(root, child_splits, common_excluding)
 
     # Debug information - print what's in each set
     print(f"Common splits: {[str(s) for s in common_splits]}")
@@ -155,13 +154,13 @@ def test_direct_compare_tree_splits():
     for edge in s_edges:
         # Verify lef
         # t and right cover elements are all in common_splits
-        for cover_split in edge.left_cover:
+        for cover_split in edge.t1_common_covers:
             for s in cover_split:
                 assert (
                     s in common_splits
                 ), f"Cover split {cover_split} not common to both trees"
 
-        for cover_split in edge.right_cover:
+        for cover_split in edge.t2_common_covers:
             for s in cover_split:
                 assert (
                     s in common_splits
@@ -192,7 +191,7 @@ def test_compute_cover_elements_preserves_common():
     child_splits = get_child_splits(test_node)
 
     # Compute cover elements
-    covers = compute_covet_elements(test_node, child_splits, common_splits)
+    covers = compute_cover_elements(test_node, child_splits, common_splits)
 
     # All elements in the cover should be common to both trees
     for split in covers:
@@ -219,14 +218,14 @@ def test_atoms():
     D1 = get_child_splits(t1)
     D2 = get_child_splits(t2)
 
-    left_unique_atoms = compute_unique_atoms(t1, t2, D1)
-    right_unique_atoms = compute_unique_atoms(t2, t1, D2)
+    t1_unique_atoms = compute_unique_atoms(t1, t2, D1)
+    t2_unique_atoms = compute_unique_atoms(t2, t1, D2)
 
-    assert left_unique_atoms == [
-        PartitionSet({(0, 1)}, look_up=encoding),
-        PartitionSet({}, look_up=encoding),
+    assert t1_unique_atoms == [
+        PartitionSet({(0, 1)}, encoding=encoding),
+        PartitionSet({}, encoding=encoding),
     ]
-    assert right_unique_atoms == [
-        PartitionSet({}, look_up=encoding),
-        PartitionSet({(1, 2)}, look_up=encoding),
+    assert t2_unique_atoms == [
+        PartitionSet({}, encoding=encoding),
+        PartitionSet({(1, 2)}, encoding=encoding),
     ]

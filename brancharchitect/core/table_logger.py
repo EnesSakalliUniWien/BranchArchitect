@@ -126,12 +126,12 @@ class TableLogger(AlgorithmLogger):
 
     def log_combined_data(
         self,
-        arms_t_one: List[Any] = None,
-        arms_t_two: List[Any] = None,
-        left_unique_atoms: List[Any] = None,
-        right_unique_atoms: List[Any] = None,
-        left_unique_covet: List[Any] = None,
-        right_unique_covet: List[Any] = None,
+        arms_t_one: Optional[List[Any]] = None,
+        arms_t_two: Optional[List[Any]] = None,
+        t1_unique_atoms: Optional[List[Any]] = None,
+        t2_unique_atoms: Optional[List[Any]] = None,
+        t1_unique_covers: Optional[List[Any]] = None,
+        t2_unique_covers: Optional[List[Any]] = None,
         name: str = "Combined Analysis Data",
         look_up=None,
     ):
@@ -144,10 +144,10 @@ class TableLogger(AlgorithmLogger):
         Args:
             arms_t_one: List of PartitionSets for the left tree's arms
             arms_t_two: List of PartitionSets for the right tree's arms
-            left_unique_atoms: List of PartitionSets unique to the left tree's atoms
-            right_unique_atoms: List of PartitionSets unique to the right tree's atoms
-            left_unique_covet: List of PartitionSets unique to the left tree's covets
-            right_unique_covet: List of PartitionSets unique to the right tree's covets
+            t1_unique_atoms: List of PartitionSets unique to the left tree's atoms
+            t2_unique_atoms: List of PartitionSets unique to the right tree's atoms
+            t1_unique_covers: List of PartitionSets unique to the left tree's covets
+            t2_unique_covers: List of PartitionSets unique to the right tree's covets
             name: Name for the display section
             look_up: Optional dictionary for encoding/decoding
         """
@@ -212,9 +212,9 @@ class TableLogger(AlgorithmLogger):
             html_parts.append('</tr>')
 
         # 2. Second table row: Unique Atoms (if provided)
-        if left_unique_atoms is not None and right_unique_atoms is not None:
-            left_count = len(left_unique_atoms)
-            right_count = len(right_unique_atoms)
+        if t1_unique_atoms is not None and t2_unique_atoms is not None:
+            left_count = len(t1_unique_atoms)
+            right_count = len(t2_unique_atoms)
             
             # Create the header cells
             column_headers = []
@@ -225,9 +225,9 @@ class TableLogger(AlgorithmLogger):
             
             # Create content cells
             content_cells = []
-            for atom in left_unique_atoms:
+            for atom in t1_unique_atoms:
                 content_cells.append(format_set(atom))
-            for atom in right_unique_atoms:
+            for atom in t2_unique_atoms:
                 content_cells.append(format_set(atom))
             
             # Add the row with label
@@ -250,9 +250,9 @@ class TableLogger(AlgorithmLogger):
             html_parts.append('</tr>')
         
         # 3. Third table row: Unique Covets (if provided)
-        if left_unique_covet is not None and right_unique_covet is not None:
-            left_count = len(left_unique_covet)
-            right_count = len(right_unique_covet)
+        if t1_unique_covers is not None and t2_unique_covers is not None:
+            left_count = len(t1_unique_covers)
+            right_count = len(t2_unique_covers)
             
             # Create the header cells
             column_headers = []
@@ -263,9 +263,9 @@ class TableLogger(AlgorithmLogger):
             
             # Create content cells
             content_cells = []
-            for covet in left_unique_covet:
+            for covet in t1_unique_covers:
                 content_cells.append(format_set(covet))
-            for covet in right_unique_covet:
+            for covet in t2_unique_covers:
                 content_cells.append(format_set(covet))
             
             # Add the row with label
@@ -344,20 +344,20 @@ class TableLogger(AlgorithmLogger):
                 # Include expected results only if arms data is present
                 code_parts.append('    "expected": (True, True, True, False),  # Update with expected results')
             
-            if left_unique_atoms is not None and right_unique_atoms is not None:
-                code_parts.append('    "left_unique_atoms": [')
-                code_parts.append(f"        {',        '.join(format_partitionset_as_code(atom) for atom in left_unique_atoms)}")
+            if t1_unique_atoms is not None and t2_unique_atoms is not None:
+                code_parts.append('    "t1_unique_atoms": [')
+                code_parts.append(f"        {',        '.join(format_partitionset_as_code(atom) for atom in t1_unique_atoms)}")
                 code_parts.append('    ],')
-                code_parts.append('    "right_unique_atoms": [')
-                code_parts.append(f"        {',        '.join(format_partitionset_as_code(atom) for atom in right_unique_atoms)}")
+                code_parts.append('    "t2_unique_atoms": [')
+                code_parts.append(f"        {',        '.join(format_partitionset_as_code(atom) for atom in t2_unique_atoms)}")
                 code_parts.append('    ],')
             
-            if left_unique_covet is not None and right_unique_covet is not None:
-                code_parts.append('    "left_unique_covet": [')
-                code_parts.append(f"        {',        '.join(format_partitionset_as_code(covet) for covet in left_unique_covet)}")
+            if t1_unique_covers is not None and t2_unique_covers is not None:
+                code_parts.append('    "t1_unique_covers": [')
+                code_parts.append(f"        {',        '.join(format_partitionset_as_code(covet) for covet in t1_unique_covers)}")
                 code_parts.append('    ],')
-                code_parts.append('    "right_unique_covet": [')
-                code_parts.append(f"        {',        '.join(format_partitionset_as_code(covet) for covet in right_unique_covet)}")
+                code_parts.append('    "t2_unique_covers": [')
+                code_parts.append(f"        {',        '.join(format_partitionset_as_code(covet) for covet in t2_unique_covers)}")
                 code_parts.append('    ],')
             
             code_parts.append("},")
@@ -420,10 +420,10 @@ class TableLogger(AlgorithmLogger):
         def format_map_entry(key, val):
             return [
                 f"{beautify_frozenset(key)}",
-                f"{format_set(val['covet_left'])}",
-                f"{format_set(val['covet_right'])}",
-                f"{format_set(val['a-b'])}",
-                f"{format_set(val['b-a'])}",
+                f"{format_set(val['cover_left'])}",
+                f"{format_set(val['cover_right'])}",
+                f"{format_set(val['left_only'])}",
+                f"{format_set(val['right_only'])}",
                 f"{val['index'] if 'index' in val else 'N/A'}",
             ]
 
@@ -436,7 +436,7 @@ class TableLogger(AlgorithmLogger):
                 self.section(title_str)
                 self.table(
                     rows,
-                    headers=["Key", "covet_left", "covet_right", "a-b", "b-a", "index"],
+                    headers=["Key", "cover_left", "cover_right", "left_only", "right_only", "index"],
                     tablefmt="html",
                 )
 
@@ -466,10 +466,10 @@ class TableLogger(AlgorithmLogger):
 
     def log_unique_atoms_and_covets(
         self,
-        left_unique_atoms: List[Any],
-        right_unique_atoms: List[Any],
-        left_unique_covet: List[Any],
-        right_unique_covet: List[Any],
+        t1_unique_atoms: List[Any],
+        t2_unique_atoms: List[Any],
+        t1_unique_covers: List[Any],
+        t2_unique_covers: List[Any],
         name: str = "Unique Atoms and Covets",
         look_up=None,
     ):
@@ -479,10 +479,10 @@ class TableLogger(AlgorithmLogger):
         This method is maintained for backward compatibility and delegates to log_combined_data.
         """
         self.log_combined_data(
-            left_unique_atoms=left_unique_atoms,
-            right_unique_atoms=right_unique_atoms,
-            left_unique_covet=left_unique_covet,
-            right_unique_covet=right_unique_covet,
+            t1_unique_atoms=t1_unique_atoms,
+            t2_unique_atoms=t2_unique_atoms,
+            t1_unique_covers=t1_unique_covers,
+            t2_unique_covers=t2_unique_covers,
             name=name,
             look_up=look_up
         )

@@ -2,8 +2,6 @@ import math
 import ast
 from typing import Optional, Union, List, Dict, Tuple, Any
 from brancharchitect.tree import Node
-from typeguard import typechecked
-from pydantic import validate_call
 
 
 ### Metadata
@@ -49,7 +47,6 @@ def parse_metadata(data: str) -> Dict[str, Any]:
     return dict(token_pairs)
 
 
-@validate_call
 def flush_meta_buffer(meta_buffer: List[str], stack: List[Node]) -> None:
     """
     Process the accumulated metadata buffer and apply it to the current node.
@@ -111,7 +108,6 @@ def close_node(
     return stack, buffer, mode
 
 
-@validate_call
 def create_new_node(
     stack: List[Node], buffer: List[str], mode: str, default_length: float
 ) -> Tuple[List[Node], List[str], str]:
@@ -139,14 +135,12 @@ def create_new_node(
     return stack, buffer, mode
 
 
-@validate_call
 def init_nodestack() -> List[Node]:
     # We still create a dummy 'root' node at the top
     root = Node(name="root", length=1)
     return [root]
 
 
-@validate_call
 def parse_newick(
     tokens: str,
     order: Optional[List[str]] = None,
@@ -179,7 +173,6 @@ def parse_newick(
     return trees
 
 
-@validate_call
 def _parse_newick(tokens: str, default_length: float) -> List[Node]:
     """
     Return a list of top-level Node trees from the token string.

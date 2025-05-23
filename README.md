@@ -160,8 +160,8 @@ def gather_independent_partitions(intersection_map, left_minus_right_map, right_
         left_entry = left_minus_right_map[common_partition]
         right_entry = right_minus_left_map[common_partition]
         
-        independent_left = left_entry["covet_left"]
-        independent_right = right_entry["covet_right"]
+        independent_left = left_entry["cover_left"]
+        independent_right = right_entry["cover_right"]
         
         # Check independence conditions
         conditions = check_independence_conditions(left_entry, right_entry)
@@ -182,15 +182,15 @@ The independence check explicitly compares the relationship between left and rig
 ```python
 def check_independence_conditions(left, right):
     # Extract partition sets
-    left_arm = left.get("covet_left", PartitionSet())  # From left tree
-    right_arm = right.get("covet_right", PartitionSet())  # From right tree
+    left_arm = left.get("cover_left", PartitionSet())  # From left tree
+    right_arm = right.get("cover_right", PartitionSet())  # From right tree
     
     # Condition 1: Left partition is not fully contained in right
     # and has a non-empty right-side residual
     left_non_subsumption = check_non_subsumption_with_residual(
         primary_set=left_arm,
         comparison_set=right_arm,
-        residual=left.get("b-a", PartitionSet()),  # Right minus left
+        residual=left.get(""right_only"", PartitionSet()),  # Right minus left
     )
     
     # Condition 2: Right partition is not fully contained in left
@@ -198,7 +198,7 @@ def check_independence_conditions(left, right):
     right_non_subsumption = check_non_subsumption_with_residual(
         primary_set=right_arm,
         comparison_set=left_arm,
-        residual=right.get("a-b", PartitionSet()),  # Left minus right
+        residual=right.get("left_only", PartitionSet()),  # Left minus right
     )
     
     # Additional conditions comparing left and right

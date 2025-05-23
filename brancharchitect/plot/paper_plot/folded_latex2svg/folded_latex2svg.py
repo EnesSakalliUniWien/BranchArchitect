@@ -349,17 +349,27 @@ def latex2svg_modular(
             output_dict["error"] = f"Failed to create temporary directory: {e}"
             output_dict["returncode"] = -1
             return output_dict
-    elif not os.path.isdir(actual_working_directory):
-        output_dict["error"] = (
-            f"Provided working directory is not valid: {actual_working_directory}"
-        )
-        output_dict["returncode"] = -1
-        return output_dict
 
     try:
         # 2. Merge parameters
         effective_params = _merge_params(params)
-        fontsize = effective_params["fontsize"]
+        # Type safety: ensure fontsize is int for LaTeX template
+        try:
+            fontsize = int(float(effective_params["fontsize"]))
+        except Exception as e:
+            output_dict["error"] = (
+                f"Invalid fontsize parameter: {effective_params['fontsize']} ({e})"
+            )
+            output_dict["returncode"] = -1
+            return output_dict
+        try:
+            effective_params["scale"] = float(effective_params["scale"])
+        except Exception as e:
+            output_dict["error"] = (
+                f"Invalid scale parameter: {effective_params['scale']} ({e})"
+            )
+            output_dict["returncode"] = -1
+            return output_dict
         timeout = effective_params.get("timeout")
 
         # 3. Find executables (fallback to common variants)
@@ -419,7 +429,12 @@ def latex2svg_modular(
         )
         output_dict["log"] = latex_result["stdout"]  # Store log
         if latex_result["error"]:
-            output_dict.update(latex_result)
+            output_dict["error"] = str(latex_result["error"])
+            output_dict["returncode"] = (
+                int(latex_result["returncode"])
+                if isinstance(latex_result["returncode"], int)
+                else -1
+            )
             return output_dict  # Update dict with error details
         if not os.path.exists(dvi_filename):
             output_dict["error"] = f"LaTeX ran but DVI file not found: {dvi_filename}"
@@ -439,7 +454,12 @@ def latex2svg_modular(
             "stderr"
         ]  # Store stderr (info/warnings/errors)
         if dvisvgm_result["error"]:
-            output_dict.update(dvisvgm_result)
+            output_dict["error"] = str(dvisvgm_result["error"])
+            output_dict["returncode"] = (
+                int(dvisvgm_result["returncode"])
+                if isinstance(dvisvgm_result["returncode"], int)
+                else -1
+            )
             return output_dict
         if not os.path.exists(svg_filename):
             output_dict["error"] = f"dvisvgm ran but SVG file not found: {svg_filename}"
@@ -450,21 +470,25 @@ def latex2svg_modular(
         width, height, depth = _parse_dvisvgm_output(
             dvisvgm_result["stderr"] or "", fontsize
         )
-        output_dict["width"] = round(width, 6) if width is not None else None
-        output_dict["height"] = round(height, 6) if height is not None else None
-        output_dict["valign"] = round(-depth, 6)
+        if width is None or height is None:
+            output_dict["error"] = (
+                "Failed to parse width/height from dvisvgm output. "
+                "This usually means the LaTeX code could not be rendered. "
+                "Falling back to plain text rendering."
+            )
+            output_dict["returncode"] = -1
+            return output_dict
+        output_dict["width"] = float(round(width, 6))
+        output_dict["height"] = float(round(height, 6))
+        output_dict["valign"] = float(round(-depth, 6))
 
         # 10. Modify SVG (Optional but recommended for consistent output)
         modified_svg_content = _modify_svg(svg_filename, width, height, depth)
         if modified_svg_content is None:
-            # Failed to read/modify, error logged by helper
-            # Decide if this is fatal? For now, let's say no, but no SVG content.
             output_dict["error"] = (
                 output_dict.get("error") or "Failed to modify/read SVG file"
             )
-            # Keep parsed dimensions if available
         else:
-            # Write modified content back for optimizer or final result
             try:
                 with open(svg_filename, "w", encoding="utf-8") as f:
                     f.write(modified_svg_content)
@@ -489,18 +513,26 @@ def latex2svg_modular(
                 timeout,
             )
             if opt_err:
-                # Store optimizer error/warning in stderr field?
                 output_dict["stderr"] = (
-                    output_dict["stderr"] or ""
-                ) + f"\nOptimizer Warning/Error: {opt_err}"
+                    (output_dict["stderr"] or "")
+                    + f"\nOptimizer Warning/Error: {opt_err}"
+                    if output_dict["stderr"]
+                    else f"Optimizer Warning/Error: {opt_err}"
+                )
             if opt_path and os.path.exists(opt_path):
                 final_svg_path = opt_path  # Use optimized path if successful
 
         # 12. Read final SVG content
         svg_content, read_err = _read_svg_file(final_svg_path)
-        if read_err:
-            output_dict["error"] = read_err
+        if read_err or not svg_content:
+            output_dict["error"] = (
+                str(read_err) if read_err else "SVG output is empty or None."
+            )
             output_dict["returncode"] = -1
+            print(
+                f"Warning: LaTeX2SVG failed for code: '{code}'. Reason: {output_dict['error']}"
+            )
+            output_dict["svg"] = None
             return output_dict
         output_dict["svg"] = svg_content
 

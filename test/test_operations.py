@@ -1,5 +1,5 @@
 from brancharchitect.newick_parser import parse_newick
-from brancharchitect.plot.svg import generate_multiple_circular_trees_svg
+from brancharchitect.plot.circular_tree import generate_multiple_circular_trees_svg
 import pytest
 
 

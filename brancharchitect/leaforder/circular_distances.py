@@ -9,8 +9,7 @@ from brancharchitect.tree import Node
 def _circular_distance_cached(x: Tuple[int, ...], y: Tuple[int, ...]) -> float:
     """
     Helper for normalized circular distance between two integer-ranked tuples x and y.
-    Uses the formula:
-      distance = sum( min(|pos_x - pos_y|, n - |pos_x - pos_y|) )
+    Uses the formula: distance = sum( min(|pos_x - pos_y|, n - |pos_x - pos_y|) )
       / ( n * (n//2) )
     """
     n = len(x)
@@ -93,11 +92,16 @@ def circular_distance_for_node_subset(
     return circular_distance(filtered_ref, filtered_target)
 
 
-def circular_distances_trees(trees: List[Node]) -> float:
+def circular_distances_trees(trees: List[Node], return_pairwise: bool = False) -> float:
     """
-    Total circular distance for a list of trees.
+    Total circular distance for a list of trees. Optionally return pairwise distances.
     """
     total_dist: float = 0.0
+    pairwise: list = []
     for i in range(len(trees) - 1):
-        total_dist += circular_distance_tree_pair(trees[i], trees[i + 1])
+        d = circular_distance_tree_pair(trees[i], trees[i + 1])
+        total_dist += d
+        pairwise.append(d)
+    if return_pairwise:
+        return pairwise
     return total_dist / (len(trees) - 1)

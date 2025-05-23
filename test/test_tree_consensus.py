@@ -35,6 +35,10 @@ def test_count_splits():
     trees = parse_newick(s)
     observed_number_of_splits = collect_splits(trees)
 
+    observed_number_of_splits_int = {
+        tuple(split.indices): freq for split, freq in observed_number_of_splits.items()
+    }
+
     expected_number_of_splits = {
         (0, 1, 2): 0.8,
         (0, 1): 0.2,
@@ -48,7 +52,7 @@ def test_count_splits():
         (0, 1, 5): 0.2,
     }
 
-    assert expected_number_of_splits == observed_number_of_splits
+    assert expected_number_of_splits == observed_number_of_splits_int
 
 
 def test_create_consensus_tree():

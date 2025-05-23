@@ -5,7 +5,7 @@ from brancharchitect.tree import Node
 # from brancharchitect.io import read_newick
 
 from brancharchitect.consensus_tree import create_majority_consensus_tree_extended
-from brancharchitect.leaforder.tree_order_optimisation_local import (
+from brancharchitect.leaforder.old.tree_order_optimisation_local import (
     smooth_order_unique_sedge,
 )
 
@@ -52,3 +52,5 @@ def order_by_random_permutation(
         smooth_order_unique_sedge(
             trees, n_iterations=n_iterations, backward=back_and_forth
         )
+
+

@@ -1,14 +1,17 @@
 {
-    "cSpell.words": [
-        "brancharchitect",
-        "clades",
-        "dataframes",
-        "foulds",
-        "treecmp"
-    ],
-    "cSpell.enabledFileTypes": {
-        "python": false,
-        "html": false
-    },
-    "liveServer.settings.port": 5503
+  "cSpell.words": [
+    "brancharchitect",
+    "clades",
+    "dataframes",
+    "foulds",
+    "treecmp"
+  ],
+  "cSpell.enabledFileTypes": {
+    "python": false,
+
+    "html": false
+  },
+  "liveServer.settings.port": 5503,
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active"
 }

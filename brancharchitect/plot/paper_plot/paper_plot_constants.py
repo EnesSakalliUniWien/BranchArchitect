@@ -5,16 +5,44 @@
 DEFAULT_H_SPACING_PER_LEAF = 15
 DEFAULT_V_SPACING_PER_DEPTH = 50
 DEFAULT_LABEL_AREA_HEIGHT = 50
-CAPTION_HEIGHT = 30
-INTER_TREE_SPACING = 2
+
+CAPTION_HEIGHT = 15
+
+INTER_TREE_SPACING = 1
+
 MARGIN_X = 2
-MARGIN_Y = 30
+
+MARGIN_Y = 10
+
 ZERO_LENGTH_TOLERANCE = 1e-9
+
 FOOTER_FONT_SIZE_ADD = 1
-# Font Constants
+
+# --- Default Layout Constants ---
+ZERO_LENGTH_TOLERANCE = 1e-9  # Threshold below which branch lengths are treated as zero.
+DEFAULT_CLADOGRAM_V_SPACING = 50 # Default vertical space between depth levels in cladograms.
+DEFAULT_TARGET_HEIGHT_BASE = 150 # Minimum target height for phylograms.
+DEFAULT_TARGET_HEIGHT_PER_DEPTH = 50 # Added height per depth level for default phylogram height.
+
+
+# Font Constantsw
 FONT_SANS_SERIF = "'Helvetica Neue', Helvetica, Arial, sans-serif"
 FONT_SERIF = "Georgia, Times, 'Times New Roman', serif"
 DEFAULT_NODE_LENGTH = 1.0
+
+# Style Defaults
+DEFAULT_SPLIT_DASH = True
+DEFAULT_ENCLOSE_PADDING = 8
+DEFAULT_ENCLOSE_RX = 5
+DEFAULT_ENCLOSE_STROKE_WIDTH = "1.5"
+DEFAULT_ENCLOSE_DASHARRAY = "none"
+
+# Footer related constants
+FOOTER_HEIGHT = 10  # Default height for the footer area
+FOOTER_PADDING = 5  # Padding between tree and footer text
+FOOTER_FONT_SIZE_ADD = 1  # Increase font size for footer text
+
+
 # Color Schemes
 QUANTA_COLORS = {
     "background": "#1e1e1e",
@@ -72,7 +100,7 @@ MATERIAL_LIGHT_COLORS = {
     # Material Design 3 elevation and shadows
     "use_elevation": True,
     "branch_roundness": 3,  # Corner radius for paths
-    "node_marker_size": 3.5,  # Size of node markers,
+    "node_marker_size": 6,  # Size of node markers,
 }
 
 MATERIAL_DARK_COLORS = {
@@ -231,7 +259,7 @@ MD3_SCIENTIFIC_PRINT = {
     # Print-friendly components
     "use_elevation": False,  # No shadows for print
     "branch_roundness": 1.5,  # Subtle corner radius
-    "node_marker_size": 3.0,  # Optimal size for print
+    "node_marker_size": 6.0,
 }
 
 # MD3 TREE INTERPOLATION - Specialized for phylogenetic tree transitions
@@ -343,37 +371,23 @@ MD3_TREE_INTERPOLATION.update({
     "label_color": "#FFFFFF"  # White labels
 })
 
-# Style Defaults
-DEFAULT_SPLIT_DASH = True
-DEFAULT_ENCLOSE_PADDING = 8
-DEFAULT_ENCLOSE_RX = 5
-DEFAULT_ENCLOSE_STROKE_WIDTH = "1.5"
-DEFAULT_ENCLOSE_DASHARRAY = "none"
-
-# Footer related constants
-FOOTER_HEIGHT = 40  # Default height for the footer area
-FOOTER_PADDING = 15  # Padding between tree and footer text
-FOOTER_FONT_SIZE_ADD = 1  # Increase font size for footer text
-
-# MathJax script for LaTeX rendering in SVG
-MATHJAX_SCRIPT = """
-MathJax = {
-  tex: {
-    inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
-    displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
-    processEscapes: true,
-    processEnvironments: true,
-    packages: ['base', 'ams', 'noerrors', 'noundefined']
-  },
-  svg: {
-    fontCache: 'global',
-    scale: 1.1
-  },
-  startup: {
-    typeset: true
-  }
-};
-"""
-
-# Add script tag separately to avoid XML parsing issues
-MATHJAX_SRC = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+# Publication-inspired color scheme (deep blue, coral, cyan, purple) for print
+PUB_DEEP_CORAL_PRINT = {
+    "background": "#FFFFFF",         # White for print
+    "base_stroke": "#18304b",        # Deep blue for standard branches
+    "base_text": "#222222",          # Dark gray for text
+    "caption": "#7fd8f6",            # Soft blue for captions
+    "highlight_leaf": "#ff5e5b",     # Bright coral for highlighted leaves
+    "highlight_branch": "#ff6f61",   # Coral for highlighted branches
+    "highlight_enclose": "#a16ae8",  # Muted purple for enclosures
+    "faded_opacity": 0.35,
+    "default_stroke_width": "1.5",
+    "highlight_stroke_width": "2.8",
+    "font_family": FONT_SANS_SERIF,
+    "font_size": "12",
+    "caption_font_family": FONT_SERIF,
+    "caption_font_size_add": 1,
+    "use_elevation": False,           # No shadows for print
+    "branch_roundness": 2.5,
+    "node_marker_size": 4.0,
+}
