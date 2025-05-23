@@ -1,0 +1,40 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.10, pytest-8.3.5, pluggy-1.5.0 -- /Users/berksakalli/Library/Caches/pypoetry/virtualenvs/brancharchitect-V3Oy3FqG-py3.12/bin/python
+cachedir: .pytest_cache
+metadata: {'Python': '3.12.10', 'Platform': 'macOS-15.4.1-arm64-arm-64bit', 'Packages': {'pytest': '8.3.5', 'pluggy': '1.5.0'}, 'Plugins': {'html': '3.2.0', 'metadata': '3.1.1', 'mypy': '0.10.3', 'timeout': '2.3.1', 'typeguard': '4.4.2', 'anyio': '4.6.2.post1'}, 'JAVA_HOME': '/Users/berksakalli/.sdkman/candidates/java/current'}
+rootdir: /Users/berksakalli/Projects/BranchArchitect
+configfile: pyproject.toml
+plugins: html-3.2.0, metadata-3.1.1, mypy-0.10.3, timeout-2.3.1, typeguard-4.4.2, anyio-4.6.2.post1
+collecting ... collected 10 items
+
+test/test_io.py::mypy PASSED                                             [ 10%]
+test/test_io.py::mypy-status FAILED                                      [ 20%]
+
+=================================== FAILURES ===================================
+_________________________________ test session _________________________________
+mypy exited with status 1.
+=============================== warnings summary ===============================
+../../Library/Caches/pypoetry/virtualenvs/brancharchitect-V3Oy3FqG-py3.12/lib/python3.12/site-packages/_pytest/config/__init__.py:1441
+  /Users/berksakalli/Library/Caches/pypoetry/virtualenvs/brancharchitect-V3Oy3FqG-py3.12/lib/python3.12/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: mypy_ignore_missing_imports
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+===================================== mypy =====================================
+brancharchitect/partition.py:10: error: Incompatible default for argument "encoding" (default has type "None", argument has type "dict[str, int]")  [assignment]
+brancharchitect/partition.py:10: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+brancharchitect/partition.py:10: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+brancharchitect/partition_set.py:97: error: Item "PartitionSet[Any]" of "FrozenPartitionSet[Any] | PartitionSet[Any]" has no attribute "_data"  [union-attr]
+brancharchitect/partition_set.py:103: error: Item "PartitionSet[Any]" of "FrozenPartitionSet[Any] | PartitionSet[Any]" has no attribute "_data"  [union-attr]
+brancharchitect/partition_set.py:113: error: Item "PartitionSet[Any]" of "FrozenPartitionSet[Any] | PartitionSet[Any]" has no attribute "_data"  [union-attr]
+brancharchitect/partition_set.py:179: error: Argument 1 to "sorted" has incompatible type "dict_values[int, Partition]"; expected "Iterable[T]"  [arg-type]
+brancharchitect/partition_set.py:611: error: Argument 1 to "set" has incompatible type "dict_values[int, Partition]"; expected "Iterable[T]"  [arg-type]
+brancharchitect/tree.py:484: error: Incompatible return value type (got "float | None", expected "float")  [return-value]
+brancharchitect/newick_parser.py:165: error: "Node" has no attribute "_list_index"; maybe "_split_index"?  [attr-defined]
+brancharchitect/plot/circular_tree.py:319: error: Argument 3 to "calculate_circular_tree_coordinates" has incompatible type "tuple[str, ...]"; expected "list[str]"  [arg-type]
+brancharchitect/plot/circular_tree.py:440: error: Argument 2 to "add_labels" has incompatible type "tuple[str, ...]"; expected "list[str]"  [arg-type]
+Found 10 errors in 5 files (checked 1 source file)
+=========================== short test summary info ============================
+FAILED test/test_io.py::mypy-status
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+==================== 1 failed, 1 passed, 1 warning in 0.40s ====================

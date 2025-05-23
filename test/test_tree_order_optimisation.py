@@ -2,13 +2,17 @@ import pytest
 from brancharchitect.tree import Node
 from brancharchitect.io import parse_newick
 from brancharchitect.plot.tree_plot import plot_circular_trees_in_a_row
-
-from brancharchitect.leaforder.tree_order_optimisation_local import (
-    circular_distance_tree_pair,
+from brancharchitect.leaforder.old.tree_order_optimisation_local import (
     optimize_unique_splits,
     optimize_s_edge_splits,
+)
+from brancharchitect.leaforder.circular_distances import (
+    circular_distance_tree_pair,
+)
+from brancharchitect.leaforder.tree_order_optimisation_classic import (
     improve_single_pair_classic,
 )
+import xml.etree.ElementTree as ET
 
 
 def create_simple_tree(order):
@@ -85,7 +89,6 @@ def test_optimization_with_example_reordering_common_splits_two():
     )
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
-    print(distance_after)
     # Assertions to check if the optimization reduced the distance
     assert distance_after < distance_before, "Optimization did not reduce the distance"
 
@@ -107,9 +110,9 @@ def test_improve_single_pair_on_example_one():
     distance_after = circular_distance_tree_pair(tree1, tree2)
 
     # Verify that distance did not increase
-    assert (
-        distance_after <= distance_before
-    ), "Distance should not increase after optimization."
+    assert distance_after <= distance_before, (
+        "Distance should not increase after optimization."
+    )
 
 
 def test_improve_single_pair_on_example_two():
@@ -125,9 +128,9 @@ def test_improve_single_pair_on_example_two():
     distance_after = circular_distance_tree_pair(tree1, tree2)
 
     # Check that distance reduced
-    assert (
-        distance_after < distance_before
-    ), "Distance should reduce after optimization."
+    assert distance_after < distance_before, (
+        "Distance should reduce after optimization."
+    )
 
 
 def test_improve_single_pair_reverts_on_no_improvement():
@@ -148,9 +151,9 @@ def test_improve_single_pair_reverts_on_no_improvement():
     final_distance = circular_distance_tree_pair(tree1, tree2)
 
     assert final_distance == initial_distance, "Distance should remain the same."
-    assert (
-        tree2.get_current_order() == original_tree2_order
-    ), "Tree2 order should revert to original."
+    assert tree2.get_current_order() == original_tree2_order, (
+        "Tree2 order should revert to original."
+    )
 
 
 def test_optimize_s_edge_and_unique_splits_on_common_splits_example_one():
@@ -169,9 +172,9 @@ def test_optimize_s_edge_and_unique_splits_on_common_splits_example_one():
     distance_after = circular_distance_tree_pair(tree1, tree2)
 
     # Verify that distance did not increase
-    assert (
-        distance_after <= distance_before
-    ), "Distance should not increase after optimization."
+    assert distance_after <= distance_before, (
+        "Distance should not increase after optimization."
+    )
 
 
 def test_improve_single_pair_with_common_splits_example_two():
@@ -190,9 +193,9 @@ def test_improve_single_pair_with_common_splits_example_two():
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
 
-    assert (
-        distance_after <= distance_before
-    ), "Distance should not increase after optimization."
+    assert distance_after <= distance_before, (
+        "Distance should not increase after optimization."
+    )
 
 
 @pytest.mark.parametrize(
@@ -216,7 +219,7 @@ def test_can_improve_single_pair_example_one(tmp_path, tree_newick):
     figure_dir.mkdir(parents=True, exist_ok=True)
     fig_before = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "before.svg", "w", encoding="utf-8") as f:
-        f.write(fig_before)
+        f.write(ET.tostring(fig_before, encoding="unicode"))
 
     # Optimize
     improve_single_pair_classic(
@@ -226,15 +229,15 @@ def test_can_improve_single_pair_example_one(tmp_path, tree_newick):
     # Save a plot of the trees after optimization
     fig_after = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "after.svg", "w", encoding="utf-8") as f:
-        f.write(fig_after)
+        f.write(ET.tostring(fig_after, encoding="unicode"))
 
     # Measure distance after optimization
     distance_after = circular_distance_tree_pair(tree1, tree2)
 
     # Assert that distance has not increased
-    assert (
-        distance_after <= distance_before
-    ), f"Optimization should not make distance worse. Before={distance_before}, After={distance_after}"
+    assert distance_after <= distance_before, (
+        f"Optimization should not make distance worse. Before={distance_before}, After={distance_after}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -252,7 +255,7 @@ def test_can_improve_single_pair_example_two(tmp_path, tree_newick):
     figure_dir.mkdir(parents=True, exist_ok=True)
     fig_before = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "before.svg", "w", encoding="utf-8") as f:
-        f.write(fig_before)
+        f.write(ET.tostring(fig_before, encoding="unicode"))
 
     improve_single_pair_classic(
         tree1, tree2, [optimize_s_edge_splits, optimize_unique_splits]
@@ -260,12 +263,12 @@ def test_can_improve_single_pair_example_two(tmp_path, tree_newick):
 
     fig_after = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "before.svg", "w", encoding="utf-8") as f:
-        f.write(fig_after)
+        f.write(ET.tostring(fig_after, encoding="unicode"))
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
-    assert (
-        distance_after <= distance_before
-    ), f"Distance should reduce or remain equal. Before={distance_before}, After={distance_after}"
+    assert distance_after <= distance_before, (
+        f"Distance should reduce or remain equal. Before={distance_before}, After={distance_after}"
+    )
 
 
 def test_no_improvement_reverts_trees(tmp_path):
@@ -280,7 +283,7 @@ def test_no_improvement_reverts_trees(tmp_path):
     figure_dir.mkdir(parents=True, exist_ok=True)
     fig_before = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "before.svg", "w", encoding="utf-8") as f:
-        f.write(fig_before)
+        f.write(ET.tostring(fig_before, encoding="unicode"))
 
     # Attempt optimizations
     improve_single_pair_classic(
@@ -292,13 +295,13 @@ def test_no_improvement_reverts_trees(tmp_path):
 
     fig_after = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "after.svg", "w", encoding="utf-8") as f:
-        f.write(fig_after)
+        f.write(ET.tostring(fig_after, encoding="unicode"))
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
     # No improvement should occur
-    assert (
-        distance_after == distance_before
-    ), f"Distance should remain the same if no improvement is found. Before={distance_before}, After={distance_after}"
+    assert distance_after == distance_before, (
+        f"Distance should remain the same if no improvement is found. Before={distance_before}, After={distance_after}"
+    )
 
 
 def test_s_edge_and_unique_splits_on_common_splits_example_one(tmp_path):
@@ -318,7 +321,7 @@ def test_s_edge_and_unique_splits_on_common_splits_example_one(tmp_path):
     figure_dir.mkdir(parents=True, exist_ok=True)
     fig_before = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "before.svg", "w", encoding="utf-8") as f:
-        f.write(fig_before)
+        f.write(ET.tostring(fig_before, encoding="unicode"))
 
     improve_single_pair_classic(
         tree1, tree2, [optimize_s_edge_splits, optimize_unique_splits]
@@ -326,12 +329,12 @@ def test_s_edge_and_unique_splits_on_common_splits_example_one(tmp_path):
 
     fig_after = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "after.svg", "w", encoding="utf-8") as f:
-        f.write(fig_after)
+        f.write(ET.tostring(fig_after, encoding="unicode"))
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
-    assert (
-        distance_after <= distance_before
-    ), f"Distance should not increase after optimization. Before={distance_before}, After={distance_after}"
+    assert distance_after <= distance_before, (
+        f"Distance should not increase after optimization. Before={distance_before}, After={distance_after}"
+    )
 
 
 def test_improve_single_pair_common_splits_example_two(tmp_path):
@@ -351,7 +354,7 @@ def test_improve_single_pair_common_splits_example_two(tmp_path):
 
     fig_before = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "before.svg", "w", encoding="utf-8") as f:
-        f.write(fig_before)
+        f.write(ET.tostring(fig_before, encoding="unicode"))
 
     improve_single_pair_classic(
         tree1=tree1,
@@ -361,12 +364,12 @@ def test_improve_single_pair_common_splits_example_two(tmp_path):
 
     fig_after = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "after.svg", "w", encoding="utf-8") as f:
-        f.write(fig_after)
+        f.write(ET.tostring(fig_after, encoding="unicode"))
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
-    assert (
-        distance_after <= distance_before
-    ), f"Distance should not be higher. Before={distance_before}, After={distance_after}"
+    assert distance_after <= distance_before, (
+        f"Distance should not be higher. Before={distance_before}, After={distance_after}"
+    )
 
 
 def test_improve_single_pair_common_splits_example_three(tmp_path):
@@ -386,7 +389,7 @@ def test_improve_single_pair_common_splits_example_three(tmp_path):
 
     fig_before = plot_circular_trees_in_a_row([tree1, tree2, tree3])
     with open(figure_dir / "before.svg", "w", encoding="utf-8") as f:
-        f.write(fig_before)
+        f.write(ET.tostring(fig_before, encoding="unicode"))
 
     improve_single_pair_classic(
         tree1, tree2, [optimize_s_edge_splits, optimize_s_edge_splits]
@@ -394,12 +397,12 @@ def test_improve_single_pair_common_splits_example_three(tmp_path):
 
     fig_after = plot_circular_trees_in_a_row([tree1, tree2, tree3])
     with open(figure_dir / "after.svg", "w", encoding="utf-8") as f:
-        f.write(fig_after)
+        f.write(ET.tostring(fig_after, encoding="unicode"))
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
-    assert (
-        distance_after <= distance_before
-    ), f"Distance should not increase. Before={distance_before}, After={distance_after}"
+    assert distance_after <= distance_before, (
+        f"Distance should not increase. Before={distance_before}, After={distance_after}"
+    )
 
 
 def test_improve_single_pair_common_splits_example_four(tmp_path):
@@ -414,7 +417,7 @@ def test_improve_single_pair_common_splits_example_four(tmp_path):
     figure_dir.mkdir(parents=True, exist_ok=True)
     fig_before = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "before.svg", "w", encoding="utf-8") as f:
-        f.write(fig_before)
+        f.write(ET.tostring(fig_before, encoding="unicode"))
 
     for _ in range(10):
         improve_single_pair_classic(
@@ -430,17 +433,17 @@ def test_improve_single_pair_common_splits_example_four(tmp_path):
 
     fig_after = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "after.svg", "w", encoding="utf-8") as f:
-        f.write(fig_after)
+        f.write(ET.tostring(fig_after, encoding="unicode"))
 
     distance_after = circular_distance_tree_pair(tree1, tree2)
-    assert (
-        distance_after <= distance_before
-    ), f"Distance should not increase. Before={distance_before}, After={distance_after}"
+    assert distance_after <= distance_before, (
+        f"Distance should not increase. Before={distance_before}, After={distance_after}"
+    )
 
 
 def test_optimize_s_edge_and_unique_splits_on_common_splits_example_five(tmp_path):
     """Verifies that s-edge + unique splits can optimize on a final example."""
-    tree_newick = "(((B,C),((E,F),(D,A))),(O1,O2));" "(((B,D),(C,E)),(O1,F),(A,O2));"
+    tree_newick = "(((B,C),((E,F),(D,A))),(O1,O2));(((B,D),(C,E)),(O1,F),(A,O2));"
     tree1, tree2 = parse_newick(
         tree_newick, order=["A", "B", "C", "D", "E", "F", "O1", "O2"]
     )
@@ -453,7 +456,7 @@ def test_optimize_s_edge_and_unique_splits_on_common_splits_example_five(tmp_pat
     figure_dir.mkdir(parents=True, exist_ok=True)
     fig_before = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "before.svg", "w", encoding="utf-8") as f:
-        f.write(fig_before)
+        f.write(ET.tostring(fig_before, encoding="unicode"))
 
     optimize_s_edge_splits(
         tree1=tree2,
@@ -471,7 +474,7 @@ def test_optimize_s_edge_and_unique_splits_on_common_splits_example_five(tmp_pat
     distance_after = circular_distance_tree_pair(tree1, tree2)
     fig_after = plot_circular_trees_in_a_row([tree1, tree2])
     with open(figure_dir / "after.svg", "w", encoding="utf-8") as f:
-        f.write(fig_after)
+        f.write(ET.tostring(fig_after, encoding="unicode"))
 
     # Optionally verify the distance
     assert distance_after <= distance_before, (

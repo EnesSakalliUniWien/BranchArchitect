@@ -1,0 +1,10 @@
+C,A,B,O,D
+C,A,O,D,B
+C,O,A,B,D
+O,C,A,B,D
+C,A,D,B,O
+C,A,B,D,O
+C,O,A,D,B
+C,A,O,B,D
+C,A,D,O,B
+O,C,A,D,B
