@@ -1,6 +1,8 @@
+from typing import Sequence
 from typing import List, Tuple, Callable
 from brancharchitect.tree import Node
-from brancharchitect.partition_set import PartitionSet
+from brancharchitect.elements.partition_set import PartitionSet
+from brancharchitect.elements.partition import Partition
 from brancharchitect.leaforder.circular_distances import (
     circular_distance,
 )
@@ -13,10 +15,12 @@ from brancharchitect.leaforder.rotation_functions import (
 def improve_single_pair_classic(
     tree1: Node,
     tree2: Node,
-    rotation_functions: list[Callable] = [
+    rotation_functions: Sequence[
+        Callable[[Node, Node, Tuple[str, ...], PartitionSet[Partition]], bool]
+    ] = (
         optimize_s_edge_splits,
         optimize_unique_splits,
-    ],
+    ),
 ) -> bool:
     """
     Applies each rotation function in sequence to (tree1, tree2).
@@ -28,10 +32,8 @@ def improve_single_pair_classic(
     best_dist: float = circular_distance(ref_order, tree2.get_current_order())
     improved: bool = False
 
-    dummy_rotated_splits: PartitionSet = PartitionSet()
-
     for func in rotation_functions:
-        func(tree1, tree2, ref_order, dummy_rotated_splits)
+        func(tree1, tree2, ref_order)
         curr_dist = circular_distance(ref_order, tree2.get_current_order())
         if curr_dist < best_dist:
             best_dist = curr_dist
@@ -42,7 +44,12 @@ def improve_single_pair_classic(
 
 def smooth_order_of_trees_classic(
     trees: List[Node],
-    rotation_functions: List,
+    rotation_functions: Sequence[
+        Callable[[Node, Node, Tuple[str, ...], PartitionSet[Partition]], bool]
+    ] = (
+        optimize_s_edge_splits,
+        optimize_unique_splits,
+    ),
     n_iterations: int = 3,
     optimize_two_side: bool = False,
     backward: bool = False,
@@ -63,7 +70,7 @@ def smooth_order_of_trees_classic(
         if backward:
             trees.reverse()
 
-            backward_improved = perform_one_iteration_classic(
+            backward_improved: bool = perform_one_iteration_classic(
                 trees, rotation_functions, optimize_two_side
             )
 
@@ -75,7 +82,12 @@ def smooth_order_of_trees_classic(
 
 def perform_one_iteration_classic(
     trees: List[Node],
-    rotation_functions: List[Callable],
+    rotation_functions: Sequence[
+        Callable[[Node, Node, Tuple[str, ...], PartitionSet[Partition]], bool]
+    ] = (
+        optimize_s_edge_splits,
+        optimize_unique_splits,
+    ),
     optimize_two_side: bool = False,
 ) -> bool:
     """
@@ -94,7 +106,7 @@ def perform_one_iteration_classic(
                 overall_improvement = True
 
         # normal direction: T[i] to T[i+1]
-        improved = improve_single_pair_classic(
+        improved: bool = improve_single_pair_classic(
             trees[i], trees[i + 1], rotation_functions
         )
 

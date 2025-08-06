@@ -1,10 +1,11 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import functools
 from brancharchitect.tree import Node
 
 ##################################################
 #                Distance Utilities
 ##################################################
+
 
 def _circular_distance_cached(x: Tuple[int, ...], y: Tuple[int, ...]) -> float:
     """
@@ -37,7 +38,7 @@ def create_ranks(
 
 
 @functools.lru_cache(maxsize=None)
-def circular_distance(order_x: Tuple[str, ...], order_y: Tuple[str, ...]) -> float:
+def circular_distance(order_x: tuple[str, ...], order_y: tuple[str, ...]) -> float:
     """
     Normalized circular distance between two tuple orders of leaves.
     """
@@ -53,7 +54,6 @@ def circular_distance(order_x: Tuple[str, ...], order_y: Tuple[str, ...]) -> flo
             order_y,
             "\n",
         )
-
     rank_x, rank_y = create_ranks(order_x, order_y)
     return _circular_distance_cached(rank_x, rank_y)
 
@@ -62,44 +62,49 @@ def circular_distance_tree_pair(reference_tree: Node, target_tree: Node) -> floa
     """
     Circular distance between the current leaf orders of two trees.
     """
-    ox = reference_tree.get_current_order()
-    oy = target_tree.get_current_order()
+    ox: tuple[str, ...] = reference_tree.get_current_order()
+    oy: tuple[str, ...] = target_tree.get_current_order()
     return circular_distance(ox, oy)
 
 
 def circular_distance_based_on_reference(
-    target_tree: Node, reference_order: Tuple[str, ...]
+    target_tree: Node, reference_order: tuple[str, ...]
 ) -> float:
     """
     Full-tree distance vs. a known reference_order (tuple).
     """
-    tree_order = target_tree.get_current_order()
-    return circular_distance(reference_order, tree_order)
+
+    tree_order: tuple[str, ...] = target_tree.get_current_order()
+    return circular_distance(tuple(reference_order), tuple(tree_order))
 
 
 def circular_distance_for_node_subset(
-    target_tree: Node, reference_order: Tuple[str, ...], target_node: Node
+    target_tree: Node, reference_order: tuple[str, ...], target_node: Node
 ) -> float:
     """
     Circular distance for only the subset of leaves under target_node in target_tree.
     """
-    node_leaves = target_node.get_leaves()
-    node_leaf_names = {leaf.name for leaf in node_leaves}
-
+    node_leaves: List[Node] = target_node.get_leaves()
+    node_leaf_names: set[str | None] = {leaf.name for leaf in node_leaves}
     filtered_ref = tuple(n for n in reference_order if n in node_leaf_names)
-    full_target = target_tree.get_current_order()
+    full_target: tuple[str, ...] = target_tree.get_current_order()
     filtered_target = tuple(n for n in full_target if n in node_leaf_names)
     return circular_distance(filtered_ref, filtered_target)
 
 
-def circular_distances_trees(trees: List[Node], return_pairwise: bool = False) -> float:
+def circular_distances_trees(
+    trees: List[Node], return_pairwise: bool = False
+) -> Union[float, list[float]]:
     """
     Total circular distance for a list of trees. Optionally return pairwise distances.
     """
     total_dist: float = 0.0
-    pairwise: list = []
-    for i in range(len(trees) - 1):
-        d = circular_distance_tree_pair(trees[i], trees[i + 1])
+    pairwise: list[float] = []
+    for i in range(0, len(trees) - 1, 1):
+        # Pass the taxa order, not the Node, as reference_order
+        d: float = circular_distance_based_on_reference(
+            trees[i + 1], trees[i].get_current_order()
+        )
         total_dist += d
         pairwise.append(d)
     if return_pairwise:

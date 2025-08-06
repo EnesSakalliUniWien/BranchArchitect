@@ -1,5 +1,5 @@
-
 import time
+
 
 def traverse(root):
     yield root
@@ -35,14 +35,14 @@ def _get_components(node, s):
         return [node.split_indices], True
 
     is_component = []
-    components = [] 
+    components = []
     for child in node.children:
         cs, is_c = _get_components(child, s)
         is_component.append(is_c)
         components.extend(cs)
 
     if node.split_indices in s and all(is_component):
-            return [node.split_indices], True
+        return [node.split_indices], True
     return components, False
 
 
@@ -59,13 +59,13 @@ def get_components(t1, t2):
     return components
 
 
-def algorithm(t1, t2, _=None, timeout=60*60):
+def algorithm(t1, t2, _=None, timeout=60 * 60):
     jts = core(t1, t2, timeout)
     sorted(jts, key=lambda solution: sum(len(component) for component in solution))
     return jts[0]
 
 
-def core(t1, t2, timeout=60*60, max_depth=None):
+def core(t1, t2, timeout=60 * 60, max_depth=None):
     leaves = [c for c in traverse(t1) if len(c.children) == 0]
     if max_depth is None:
         max_depth = int(len(leaves) / 2)
@@ -78,9 +78,7 @@ def core(t1, t2, timeout=60*60, max_depth=None):
     stack = [(t1, t2, [0], [get_components(t1, t2)])]
     i = 0
     while len(jumping_taxa) == 0 and depth < max_depth:
-
-        while(len(stack)) > 0:
-
+        while (len(stack)) > 0:
             t1, t2, idxs, cs = stack.pop()
 
             li = idxs[-1]
@@ -89,7 +87,7 @@ def core(t1, t2, timeout=60*60, max_depth=None):
             if li >= len(lc):
                 if len(stack) >= 1:
                     t1, t2, idxs, cs = stack.pop()
-                    stack.append((t1, t2, idxs[:-1] + [idxs[-1]+1], cs))
+                    stack.append((t1, t2, idxs[:-1] + [idxs[-1] + 1], cs))
             elif len(idxs) < depth:
                 stack.append((t1, t2, idxs, cs))
 
@@ -104,16 +102,17 @@ def core(t1, t2, timeout=60*60, max_depth=None):
                 it2 = t2.deep_copy().delete_taxa(to_remove)
 
                 if trees_equal(it1, it2):
-                    jumping_taxa.append(list(tuple([t for t in c[i]]) for c, i in zip(cs, idxs)))
+                    jumping_taxa.append(
+                        list(tuple([t for t in c[i]]) for c, i in zip(cs, idxs))
+                    )
 
-                stack.append((t1, t2, idxs[:-1] + [idxs[-1]+1], cs))
+                stack.append((t1, t2, idxs[:-1] + [idxs[-1] + 1], cs))
 
             i += 1
             if i % 1000 == 0:
                 if time.time() - start >= timeout:
-                    raise ValueError('too much time, giving up')
+                    raise ValueError("too much time, giving up")
 
         depth += 1
         stack = [(t1, t2, [0], [get_components(t1, t2)])]
     return jumping_taxa
-

@@ -1,5 +1,5 @@
 from brancharchitect.tree import Node
-from brancharchitect.partition_set import PartitionSet, count_full_overlaps
+from brancharchitect.elements.partition_set import PartitionSet, count_full_overlaps
 from brancharchitect.jumping_taxa.lattice.lattice_edge import LatticeEdge
 from brancharchitect.jumping_taxa.lattice.matrix_ops import PMatrix
 from brancharchitect.jumping_taxa.debug import (
@@ -9,11 +9,129 @@ from brancharchitect.jumping_taxa.debug import (
 from typing import (
     Optional,
     List,
-    Tuple,
+    Callable,
 )  # Added TypingSet, TypeVar, cast
+from brancharchitect.elements.partition import Partition
+
+"""
+Lattice Construction Utilities
+-----------------------------
+This module provides the main logic and helpers for constructing the lattice of reticulation events
+between two phylogenetic trees, including split/cover/partition analysis and edge depth propagation.
+"""
 
 
-def get_child_splits(node: Node) -> PartitionSet:
+# ============================================================================
+# Lattice Construction API (Entry Point)
+# ============================================================================
+def construct_sub_lattices(
+    left_tree: Node, right_tree: Node
+) -> Optional[List[LatticeEdge]]:
+    """Compute detailed split information for two trees."""
+    # Ensure both trees have their indices built
+
+    # Get splits with validation
+    # Use cached splits for performance (do not include leaves)
+    left_splits: PartitionSet[Partition] = left_tree.to_splits()  # uses cache
+    right_splits: PartitionSet[Partition] = right_tree.to_splits()  # uses cache
+
+    # Get common splits and verify they exist in both trees
+    union_splits: PartitionSet[Partition] = left_splits.intersection(right_splits)
+    lattice_edges: List[LatticeEdge] = []
+
+    jt_logger.compare_tree_splits(tree1=left_tree, tree2=right_tree)
+
+    for split in union_splits:
+        if len(split) == 1:
+            continue
+
+        left_node: Node | None = left_tree.find_node_by_split(split)
+
+        right_node: Node | None = right_tree.find_node_by_split(split)
+
+        # Ensure nodes are found before proceeding
+        if left_node is None or right_node is None:
+            jt_logger.warning(
+                f"Could not find node for split {format_set(set(split))} in one of the trees."
+            )
+            continue
+
+        # For shared_splits_with_leaves, we need all splits including leaves, so bypass cache intentionally
+        shared_splits_with_leaves: PartitionSet[Partition] = left_node.to_splits(
+            with_leaves=True
+        ) & right_node.to_splits(with_leaves=True)
+
+        left_child_splits: PartitionSet[Partition] = get_child_splits(left_node)
+
+        right_child_splits: PartitionSet[Partition] = get_child_splits(right_node)
+
+        common_child_splits: PartitionSet[Partition] = (
+            left_child_splits & right_child_splits
+        )
+
+        has_unique_child_splits: bool = (
+            left_child_splits != common_child_splits
+            or common_child_splits != right_child_splits
+        )
+
+        # Process further if there are child splits unique to either the left or right tree.
+        if has_unique_child_splits:
+            shared_splits_with_leaves.discard(split)
+            jt_logger.info(
+                f"Processing common split {split.bipartition()} in both trees"
+            )
+
+            left_common_covers: list[PartitionSet[Partition]] = compute_cover_elements(
+                left_node, left_child_splits, shared_splits_with_leaves
+            )
+            right_common_covers: list[PartitionSet[Partition]] = compute_cover_elements(
+                right_node, right_child_splits, shared_splits_with_leaves
+            )
+            left_unique_atoms: list[PartitionSet[Partition]] = compute_unique(
+                left_node, right_node, left_child_splits, lambda ps: ps.atom()
+            )
+            right_unique_atoms: list[PartitionSet[Partition]] = compute_unique(
+                right_node, left_node, right_child_splits, lambda ps: ps.atom()
+            )
+            left_unique_covers: list[PartitionSet[Partition]] = compute_unique(
+                left_node, right_node, left_child_splits, lambda ps: ps.cover()
+            )
+
+            right_unique_covers: list[PartitionSet[Partition]] = compute_unique(
+                right_node, left_node, right_child_splits, lambda ps: ps.cover()
+            )
+
+            left_unique_partition_sets: list[PartitionSet[Partition]] = compute_unique(
+                left_node, right_node, left_child_splits, lambda ps: ps
+            )
+            right_unique_partition_sets: list[PartitionSet[Partition]] = compute_unique(
+                right_node, left_node, right_child_splits, lambda ps: ps
+            )  # Assign s_edge_depth based on tree depth to all descendants
+            # Add 1 to ensure internal nodes have non-zero s_edge_depth values
+            lattice_edges.append(
+                LatticeEdge(
+                    split=split,
+                    t1_common_covers=left_common_covers,
+                    t2_common_covers=right_common_covers,
+                    child_meet=common_child_splits,
+                    left_node=left_node,
+                    right_node=right_node,
+                    encoding=left_tree.taxa_encoding,
+                    t1_unique_atoms=left_unique_atoms,
+                    t2_unique_atoms=right_unique_atoms,
+                    t1_unique_covers=left_unique_covers,
+                    t2_unique_covers=right_unique_covers,
+                    t1_unique_partition_sets=left_unique_partition_sets,
+                    t2_unique_partition_sets=right_unique_partition_sets,
+                )
+            )
+    return lattice_edges
+
+
+###############################################################################
+# Core Lattice Construction Logic
+###############################################################################
+def get_child_splits(node: Node) -> PartitionSet[Partition]:
     """
     Compute the set of child splits for a node n.
 
@@ -22,107 +140,21 @@ def get_child_splits(node: Node) -> PartitionSet:
     """
     # Ensure node._encoding is not None by using "or {}"
     return PartitionSet(
-        {child.split_indices for child in node.children}, encoding=node._encoding or {}
+        {child.split_indices for child in node.children},
+        encoding=node.taxa_encoding or {},
     )
 
 
-def construct_sub_lattices(tree1: Node, tree2: Node) -> Optional[List[LatticeEdge]]:
-    """Compute detailed split information for two trees."""
-    # Ensure both trees have their indices built
-
-    # Get splits with validation
-    S1: PartitionSet = tree1.to_splits()
-    S2: PartitionSet = tree2.to_splits()
-
-    # Get common splits and verify they exist in both trees
-    U: PartitionSet = S1.union(S2)
-    sub_lattices: List[LatticeEdge] = []
-
-    jt_logger.compare_tree_splits(tree1=tree1, tree2=tree2)
-
-    for s in U:
-        if len(s) == 1:
-            continue
-
-        if s in S1 and s in S2:
-            n_left: Optional[Node] = tree1.find_node_by_split(s)
-            n_right: Optional[Node] = tree2.find_node_by_split(s)
-
-            if n_left is None or n_right is None:
-                raise ValueError(f"Split {format_set(s)} not found in both trees")
-
-            node_meet: PartitionSet = n_left.to_splits(
-                with_leaves=True
-            ) & n_right.to_splits(with_leaves=True)
-
-            D1: PartitionSet = get_child_splits(n_left)
-
-            D2: PartitionSet = get_child_splits(n_right)
-
-            direct_child_meet: PartitionSet = D1 & D2
-
-            # Process further if at least one node has a nontrivial mixture of child splits.
-            if D1 != direct_child_meet or direct_child_meet != D2:
-                node_meet.discard(s)
-
-                jt_logger.info(f"Processing common split {format_set(s)} in both trees")
-
-                # Fix: Use node_meet directly instead of wrapping it in another PartitionSet
-                t1_common_covers: List[PartitionSet] = compute_cover_elements(
-                    n_left, D1, node_meet
-                )
-
-                t2_common_covers: List[PartitionSet] = compute_cover_elements(
-                    n_right, D2, node_meet
-                )
-
-                t1_unique_atoms: List[PartitionSet] = compute_unique_atoms(
-                    n_left, n_right, D1
-                )
-
-                t2_unique_atoms: List[PartitionSet] = compute_unique_atoms(
-                    n_right, n_left, D2
-                )
-
-                t1_unique_covers: List[PartitionSet] = compute_unique_covers(
-                    n_left, n_right, D1
-                )
-
-                t2_unique_covers: List[PartitionSet] = compute_unique_covers(
-                    n_right, n_left, D2
-                )
-
-                t1_unique_partition_sets: List[PartitionSet] = (
-                    compute_unique_partition_sets(n_left, n_right, D1)
-                )
-                t2_unique_partition_sets: List[PartitionSet] = (
-                    compute_unique_partition_sets(n_right, n_left, D2)
-                )
-
-                sub_lattices.append(
-                    LatticeEdge(
-                        split=s,
-                        t1_common_covers=t1_common_covers,
-                        t2_common_covers=t2_common_covers,
-                        child_meet=direct_child_meet,
-                        left_node=n_left,
-                        right_node=n_right,
-                        encoding=tree1._encoding,
-                        t1_unique_atoms=t1_unique_atoms,
-                        t2_unique_atoms=t2_unique_atoms,
-                        t1_unique_covers=t1_unique_covers,
-                        t2_unique_covers=t2_unique_covers,
-                        t1_unique_partition_sets=t1_unique_partition_sets,
-                        t2_unique_partition_sets=t2_unique_partition_sets,
-                    )
-                )
-
-    return sub_lattices
+###############################################################################
+# Utility Functions
+###############################################################################
 
 
 def compute_cover_elements(
-    node: Node, child_splits: PartitionSet, common_excluding: PartitionSet
-) -> List[PartitionSet]:
+    parent_node: Node,
+    child_split_set: PartitionSet[Partition],
+    shared_splits: PartitionSet[Partition],
+) -> List[PartitionSet[Partition]]:
     """
     For each child split of a node, compute its covering element.
 
@@ -130,184 +162,254 @@ def compute_cover_elements(
 
     Returns a PartitionSet of cover elements.
     """
-    cover_list: List[PartitionSet] = []
-    for split in child_splits:
-        child_node = node.find_node_by_split(split)
+    cover_elements: List[PartitionSet[Partition]] = []
+    for split in child_split_set:
+        child_node = parent_node.find_node_by_split(split)
         if child_node is not None:
-            node_splits: PartitionSet = child_node.to_splits(with_leaves=True)
-            cover_candidate: PartitionSet = node_splits & common_excluding
-            covering_element: PartitionSet = cover_candidate.cover()
-            cover_list.append(covering_element)
+            # For cover computation, we need all splits including leaves, so bypass cache intentionally
+            node_splits: PartitionSet[Partition] = child_node.to_splits(
+                with_leaves=True
+            )
+            cover_candidate: PartitionSet[Partition] = node_splits & shared_splits
+            covering_element: PartitionSet[Partition] = cover_candidate.cover()
+            cover_elements.append(covering_element)
         else:
-            raise ValueError(f"Split {split} not found in tree {node}")
+            raise ValueError(f"Split {split} not found in tree {parent_node}")
     # Add safety check for arms
-    if not cover_list:
-        raise ValueError(f"Arms not found for split {node.split_indices} ")
-    return cover_list
+    if not cover_elements:
+        raise ValueError(f"Arms not found for split {parent_node.split_indices} ")
+    return cover_elements
 
 
-def compute_unique_atoms(
-    node_target: Node,
-    node_reference: Node,
-    child_splits: PartitionSet,
-) -> List[PartitionSet]:
-    unique_atom_sets: List[PartitionSet] = []
-
-    for split in child_splits:
-        child_node = node_target.find_node_by_split(split)
+def compute_unique(
+    target_node: Node,
+    reference_node: Node,
+    target_child_splits: PartitionSet[Partition],
+    transform: Callable[[PartitionSet[Partition]], PartitionSet[Partition]],
+) -> List[PartitionSet[Partition]]:
+    """
+    Generalized unique computation for atoms, covers, or partition sets.
+    """
+    unique_elements: List[PartitionSet[Partition]] = []
+    reference_node_splits: PartitionSet[Partition] = (
+        reference_node.to_splits()
+    )  # uses cache
+    for split in target_child_splits:
+        child_node = target_node.find_node_by_split(split)
         if child_node:
-            node_splits: PartitionSet = child_node.to_splits()
-            unique_splits_target: PartitionSet = (
-                node_splits - node_reference.to_splits()
+            node_splits: PartitionSet[Partition] = child_node.to_splits()  # uses cache
+            unique_splits_target: PartitionSet[Partition] = (
+                node_splits - reference_node_splits
             )
-            unique_atom_sets.append(unique_splits_target.atom())
-    return unique_atom_sets
+            unique_elements.append(transform(unique_splits_target))
+    return unique_elements
 
 
-def compute_unique_covers(
-    node_target: Node,
-    node_reference: Node,
-    child_splits: PartitionSet,
-) -> List[PartitionSet]:
-    unique_cover_sets: List[PartitionSet] = []
-    for split in child_splits:
-        child_node = node_target.find_node_by_split(split)
-        if child_node:
-            node_splits: PartitionSet = child_node.to_splits()
-            unique_splits_target: PartitionSet = (
-                node_splits - node_reference.to_splits()
-            )
-            unique_cover_sets.append(unique_splits_target.cover())
-    return unique_cover_sets
-
-
-def compute_unique_partition_sets(
-    node_target: Node, node_reference: Node, child_splits: PartitionSet
-) -> List[PartitionSet]:
-    unique_atom_sets: List[PartitionSet] = []
-    for split in child_splits:
-        child_node = node_target.find_node_by_split(split)
-        if child_node:
-            node_splits: PartitionSet = child_node.to_splits()
-            unique_splits_target: PartitionSet = (
-                node_splits - node_reference.to_splits()
-            )
-            unique_atom_sets.append(unique_splits_target)
-    return unique_atom_sets
-
-
-def build_partition_conflict_matrix(s_edge: LatticeEdge) -> Optional[PMatrix]:
+def build_partition_conflict_matrix(lattice_edge: LatticeEdge) -> Optional[PMatrix]:
     """
     Identifies conflicting pairs of covers between two trees and returns them as a matrix.
 
     Each row in the returned matrix contains a conflicting pair [t1_cover, t2_cover].
 
     Args:
-        s_edge: A LatticeEdge object containing cover information from both trees
+        lattice_edge: A LatticeEdge object containing cover information from both trees
 
     Returns:
         A matrix (list of lists) of conflicting PartitionSet pairs, or None if
         no conflicts are found or if cover lists are empty.
     """
-    t1_covers = s_edge.t1_common_covers
-    t2_covers = s_edge.t2_common_covers
+
+    left_covers = lattice_edge.t1_common_covers
+    right_covers = lattice_edge.t2_common_covers
 
     # Early return if either cover list is empty
-    if not t1_covers or not t2_covers:
+    if not left_covers or not right_covers:
         jt_logger.warning("Cannot build matrix with empty cover lists.")
         return None
 
     jt_logger.info(
-        f"Building Partition Conflict Matrix for edge {format_set(set(s_edge.split))} "
-        f"({len(t1_covers)} T1 covers vs {len(t2_covers)} T2 covers)"
+        f"Building Partition Conflict Matrix for edge {format_set(set(lattice_edge.split))} "
+        f"({len(left_covers)} left covers vs {len(right_covers)} right covers)"
     )
 
-    conflict_matrix: PMatrix = []
+    conflicting_cover_pairs: PMatrix = []
 
     # Check for singleton covers (special case handling)
-    singleton_index_t1 = find_first_singleton_cover_index(t1_covers)
-    singleton_index_t2 = find_first_singleton_cover_index(t2_covers)
+    left_singleton_index: int | None = find_first_singleton_cover_index(left_covers)
+    right_singleton_index: int | None = find_first_singleton_cover_index(right_covers)
 
     # Case 1: Both trees have singleton covers
-    if singleton_index_t1 is not None and singleton_index_t2 is not None:
+    if left_singleton_index is not None and right_singleton_index is not None:
         return _handle_both_trees_with_singletons(
-            t1_covers,
-            t2_covers,
-            s_edge.t1_unique_partition_sets,
-            s_edge.t2_unique_partition_sets,
+            left_covers,
+            right_covers,
+            lattice_edge.t1_unique_partition_sets,
+            lattice_edge.t2_unique_partition_sets,
         )
 
-    # Case 2: General case - find all conflicting pairs
-    for t1_cover in t1_covers:
-        for t2_cover in t2_covers:
-            intersection = t1_cover & t2_cover
-            t1_minus_t2 = t1_cover - t2_cover
-            t2_minus_t1 = t2_cover - t1_cover
+    # Case 2: Asymmetric singleton case - one tree has only singletons, other has compound covers
+    if (
+        left_singleton_index is None
+        and right_singleton_index is not None
+        and all(len(cover) == 1 for cover in right_covers)
+    ) or (
+        right_singleton_index is None
+        and left_singleton_index is not None
+        and all(len(cover) == 1 for cover in left_covers)
+    ):
+        for left_cover in left_covers:
+            for right_cover in right_covers:
+                intersection = left_cover & right_cover
+                if intersection:
+                    conflicting_cover_pairs.append([left_cover, right_cover])
+        return conflicting_cover_pairs
+
+    # Case 3: General case - find all conflicting pairs
+    for left_cover in left_covers:
+        for right_cover in right_covers:
+            intersection: PartitionSet[Partition] = left_cover & right_cover
+            left_minus_right: PartitionSet[Partition] = left_cover - right_cover
+            right_minus_left: PartitionSet[Partition] = right_cover - left_cover
 
             # A conflict exists when all three sets are non-empty
-            if intersection and t1_minus_t2 and t2_minus_t1:
-                conflict_matrix.append([t1_cover, t2_cover])
+            if intersection and left_minus_right and right_minus_left:
+                conflicting_cover_pairs.append([left_cover, right_cover])
 
-    return conflict_matrix
+    return conflicting_cover_pairs
 
 
 def _handle_both_trees_with_singletons(
-    t1_covers: List[PartitionSet],
-    t2_covers: List[PartitionSet],
-    t1_unique_splits: List[PartitionSet],
-    t2_unique_splits: List[PartitionSet],
+    left_covers: list[PartitionSet[Partition]],
+    right_covers: list[PartitionSet[Partition]],
+    left_unique_partition_sets: list[PartitionSet[Partition]],
+    right_unique_partition_sets: list[PartitionSet[Partition]],
 ) -> PMatrix:
-    """Helper function to handle the case when both trees have singleton covers."""
-    conflict_matrix: PMatrix = []
+    """
+    Handle the case when both trees have singleton covers.
 
-    # Get singleton PartitionSets
-    t1_singleton = return_singleton_partitionsset(t1_covers)
-    t2_singleton = return_singleton_partitionsset(t2_covers)
+    Args:
+        left_covers: List of PartitionSet objects for the left tree.
+        right_covers: List of PartitionSet objects for the right tree.
+        left_unique_partition_sets: List of unique PartitionSets for the left tree.
+        right_unique_partition_sets: List of unique PartitionSets for the right tree.
 
-    if t1_singleton is None or t2_singleton is None:
+    Returns:
+        PMatrix: List of conflicting cover pairs.
+    """
+    conflicting_cover_pairs: PMatrix = []
+
+    # Find singleton covers using the modularized helper
+    left_singleton = find_singleton_cover(left_covers)
+    right_singleton = find_singleton_cover(right_covers)
+
+    if left_singleton is None or right_singleton is None:
         raise ValueError("No singleton PartitionSet found in one or both cover lists.")
 
     jt_logger.info(
-        f"Singletons found in both trees: {format_set(set(t1_singleton))} and {format_set(set(t2_singleton))}"
+        f"Singletons found in both trees: {format_set(set(left_singleton))} and {format_set(set(right_singleton))}"
     )
 
     # Get the first partition from each singleton (since singleton is a PartitionSet of length 1)
-    partition1 = next(iter(t1_singleton))
-    partition2 = next(iter(t2_singleton))
+    left_partition: Partition = next(iter(left_singleton))
+    right_partition: Partition = next(iter(right_singleton))
 
-    # Find conflicting non-singleton PartitionSets
-    t1_conflict = find_conflicting_singleton_partition_set(t1_covers, t2_singleton)
-    t2_conflict = find_conflicting_singleton_partition_set(t2_covers, t1_singleton)
+    # Find conflicting non-singleton PartitionSets using the modularized helper
+    left_conflict = find_conflicting_cover_index(left_covers, right_singleton)
+    right_conflict = find_conflicting_cover_index(right_covers, left_singleton)
 
-    if t1_conflict is None or t2_conflict is None:
+    if left_conflict is None or right_conflict is None:
         raise ValueError(
             "No conflicting singleton PartitionSet found in one or both cover lists."
         )
 
-    index_t1_conflict, t1_conflict_set = t1_conflict
-    index_t2_conflict, t2_conflict_set = t2_conflict
+    left_conflict_index, left_conflict_set = left_conflict
+    right_conflict_index, right_conflict_set = right_conflict
 
-    # Count overlaps to determine which conflicts to include
-    overlaps_from_t1 = count_full_overlaps(
-        partition1, t2_unique_splits[index_t2_conflict]
+    left_overlap_count = count_full_overlaps(
+        left_partition, right_unique_partition_sets[right_conflict_index]
     )
-    overlaps_from_t2 = count_full_overlaps(
-        partition2, t1_unique_splits[index_t1_conflict]
+    right_overlap_count = count_full_overlaps(
+        right_partition, left_unique_partition_sets[left_conflict_index]
     )
 
-    if overlaps_from_t1 > overlaps_from_t2:
-        conflict_matrix.append([t1_singleton, t2_conflict_set])
-    elif overlaps_from_t1 < overlaps_from_t2:
-        conflict_matrix.append([t1_conflict_set, t2_singleton])
+    # Detailed overlap mapping and matrix analysis
+    jt_logger.section("=== OVERLAP ANALYSIS & MATRIX MAPPING ===")
+    jt_logger.info(f"Left singleton: {format_set(set(left_singleton))}")
+    jt_logger.info(f"Left partition (indices): {left_partition}")
+    jt_logger.info(f"Right conflict set: {format_set(set(right_conflict_set))}")
+    jt_logger.info(f"Right partition (indices): {right_partition}")
+    jt_logger.info(f"Left conflict set: {format_set(set(left_conflict_set))}")
+    jt_logger.info(f"Right singleton: {format_set(set(right_singleton))}")
+
+    jt_logger.info(
+        f"Left overlap target: {format_set(set(right_unique_partition_sets[right_conflict_index]))}"
+    )
+    jt_logger.info(
+        f"Right overlap target: {format_set(set(left_unique_partition_sets[left_conflict_index]))}"
+    )
+    jt_logger.info(f"Left overlap count: {left_overlap_count}")
+    jt_logger.info(f"Right overlap count: {right_overlap_count}")
+
+    # Show both possible matrices
+    jt_logger.info("=== MATRIX OPTIONS ===")
+    jt_logger.info(
+        f"Option A: [{format_set(set(left_singleton))}, {format_set(set(right_conflict_set))}]"
+    )
+    jt_logger.info(
+        f"Option B: [{format_set(set(left_conflict_set))}, {format_set(set(right_singleton))}]"
+    )
+
+    # Show what each matrix intersection would produce
+    intersection_A = left_singleton & right_conflict_set
+    intersection_B = left_conflict_set & right_singleton
+    jt_logger.info(
+        f"Option A intersection: {format_set(set(intersection_A))} (size: {len(intersection_A)})"
+    )
+    jt_logger.info(
+        f"Option B intersection: {format_set(set(intersection_B))} (size: {len(intersection_B)})"
+    )
+
+    if left_overlap_count > right_overlap_count:
+        jt_logger.info(
+            f"=== DECISION: Choose Option A (overlap {left_overlap_count} > {right_overlap_count}) ==="
+        )
+        conflicting_cover_pairs.append([left_singleton, right_conflict_set])
+        jt_logger.info(
+            f"Matrix will be: [{format_set(set(left_singleton))}, {format_set(set(right_conflict_set))}]"
+        )
+        jt_logger.info(f"Vector meet will produce: {format_set(set(intersection_A))}")
+    elif left_overlap_count < right_overlap_count:
+        jt_logger.info(
+            f"=== DECISION: Choose Option B (overlap {left_overlap_count} < {right_overlap_count}) ==="
+        )
+        conflicting_cover_pairs.append([left_conflict_set, right_singleton])
+        jt_logger.info(
+            f"Matrix will be: [{format_set(set(left_conflict_set))}, {format_set(set(right_singleton))}]"
+        )
+        jt_logger.info(f"Vector meet will produce: {format_set(set(intersection_B))}")
     else:  # Equal overlaps
-        conflict_matrix.append([t1_conflict_set, t2_singleton])
-        conflict_matrix.append([t1_singleton, t2_conflict_set])
+        jt_logger.info(
+            f"=== DECISION: Equal overlaps ({left_overlap_count}), create 2x2 matrix ==="
+        )
+        conflicting_cover_pairs.append([left_conflict_set, right_singleton])
+        conflicting_cover_pairs.append([left_singleton, right_conflict_set])
+        jt_logger.info("2x2 Matrix:")
+        jt_logger.info(
+            f"  Row 1: [{format_set(set(left_conflict_set))}, {format_set(set(right_singleton))}]"
+        )
+        jt_logger.info(
+            f"  Row 2: [{format_set(set(left_singleton))}, {format_set(set(right_conflict_set))}]"
+        )
+        jt_logger.info(f"  Row 1 intersection: {format_set(set(intersection_B))}")
+        jt_logger.info(f"  Row 2 intersection: {format_set(set(intersection_A))}")
 
-    return conflict_matrix
+    jt_logger.info("=== END OVERLAP ANALYSIS ===\n")
+
+    return conflicting_cover_pairs
 
 
 def find_first_singleton_cover_index(
-    list_of_covers: List[PartitionSet],
+    list_of_covers: List[PartitionSet[Partition]],
 ) -> Optional[int]:
     """
     Finds the index of the first PartitionSet in a list that represents a singleton.
@@ -329,9 +431,9 @@ def find_first_singleton_cover_index(
     return None  # No singleton found in the list
 
 
-def return_singleton_partitionsset(
-    covers: List[PartitionSet],
-) -> Optional[PartitionSet]:
+def find_singleton_cover(
+    covers: list[PartitionSet[Partition]],
+) -> Optional[PartitionSet[Partition]]:
     """
     Returns the first singleton PartitionSet from a list of PartitionSet objects.
 
@@ -339,8 +441,7 @@ def return_singleton_partitionsset(
         covers: A list of PartitionSet objects to search through.
 
     Returns:
-        The first singleton PartitionSet found in the list.
-        Returns None if no singleton is found.
+        The first singleton PartitionSet found in the list, or None if not found.
     """
     for cover in covers:
         if len(cover) == 1:
@@ -348,29 +449,28 @@ def return_singleton_partitionsset(
     return None
 
 
-def find_conflicting_singleton_partition_set(
-    search_covers_list: List[PartitionSet],
-    singleton_partition_set: PartitionSet,
-) -> Optional[Tuple[int, PartitionSet]]:
+def find_conflicting_cover_index(
+    covers: list[PartitionSet[Partition]],
+    singleton: PartitionSet[Partition],
+) -> Optional[tuple[int, PartitionSet[Partition]]]:
     """
-    Finds the first singleton PartitionSet in a list of PartitionSets.
-
-    A singleton PartitionSet is defined as one that contains exactly one Partition.
+    Finds the first PartitionSet in covers that contains the singleton PartitionSet as a subset.
 
     Args:
-        partition_sets: A list of PartitionSet objects to search through.
+        covers: List of PartitionSet objects to search through.
+        singleton: The singleton PartitionSet to check for as a subset.
 
     Returns:
-        The first singleton PartitionSet found, or None if no singleton is found.
+        Tuple of (index, PartitionSet) if found, else None.
     """
-    for i, reference_paritition_set in enumerate(search_covers_list):
-        if singleton_partition_set.issubset(reference_paritition_set):
-            return i, reference_paritition_set
+    for i, reference_partition_set in enumerate(covers):
+        if singleton.issubset(reference_partition_set):
+            return i, reference_partition_set
     return None
 
 
 def are_cover_lists_equivalent(
-    list1: List[PartitionSet], list2: List[PartitionSet]
+    list1: List[PartitionSet[Partition]], list2: List[PartitionSet[Partition]]
 ) -> bool:
     """
     Checks if two lists of PartitionSet objects contain the same elements,
@@ -384,30 +484,6 @@ def are_cover_lists_equivalent(
         True if the lists contain the same PartitionSets (ignoring order),
         False otherwise.
     """
-    if len(list1) != len(list2):
-        return False
+    from collections import Counter
 
-    # Create a mutable copy of the second list to remove items from
-    list2_copy = list(list2)
-
-    for item1 in list1:
-        found_match_in_list2 = False
-        # Iterate through the current state of the copy
-        for i in range(
-            len(list2_copy) - 1, -1, -1
-        ):  # Iterate backwards for safe removal
-            item2 = list2_copy[i]
-            # Use the equality check defined for PartitionSet
-            if item1 == item2:
-                list2_copy.pop(i)  # Remove the matched item
-                found_match_in_list2 = True
-                break  # Found a match for item1, move to the next item1
-
-        # If after checking all items in list2_copy, no match was found for item1
-        if not found_match_in_list2:
-            return False
-
-    # If the loop completes, it means every item in list1 found a match
-    # Since the lengths were initially equal, list2_copy should now be empty
-    # The function returns True implicitly if it hasn't returned False yet.
-    return True
+    return Counter(list1) == Counter(list2)

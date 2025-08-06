@@ -1,34 +1,73 @@
-import logging
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, FrozenSet, Any
+
+# Assuming these imports point to valid modules in your project structure
 from brancharchitect.tree import Node
-from brancharchitect.partition_set import PartitionSet
-from brancharchitect.leaforder.old.tree_order_optimisation_local import (
-    build_orientation_map,
-    reorder_tree_if_full_common,
-)
+from brancharchitect.elements.partition_set import PartitionSet
+from brancharchitect.elements.partition import Partition
 from brancharchitect.leaforder.rotation_functions import (
     get_unique_splits,
     get_s_edge_splits,
+    get_common_splits,
     optimize_splits,
+    clear_split_pair_cache,
 )
 from brancharchitect.leaforder.fieldler_order import (
     fiedler_ordering_for_tree_pair,
 )
+from brancharchitect.leaforder.tree_order_utils import (
+    build_orientation_map,
+    reorder_tree_if_full_common,
+)
 
-SplitChildOrderMap = Dict  # Dict[Partition, List[frozenset]]
+
+# Correctly defined type alias
+SplitChildOrderMap = Dict[Partition, List[FrozenSet[str]]]
+
+
+def final_pairwise_alignment_pass(trees: List[Node]) -> None:
+    """
+    Performs a final alignment pass on a list of trees to ensure that for
+    any adjacent pair, subtrees that are topologically identical are also
+    oriented identically.
+
+    This function iterates through the tree sequence and, for each pair, uses
+    the first tree as a template to orient the common splits in the second tree.
+
+    Args:
+        trees: The list of optimized phylogenetic trees to be aligned. This list is modified in-place.
+    """
+    if len(trees) < 2:
+        return  # No pairs to align
+
+    for i in range(len(trees) - 1):
+        tree1 = trees[i]
+        tree2 = trees[i + 1]
+
+        # Find splits that are common to this specific adjacent pair
+        common_splits_pair = get_common_splits(tree1, tree2)
+
+        if not common_splits_pair:
+            # If there are no common splits, there's nothing to align for this pair
+            continue
+
+        # Use tree1 as the template to get the desired orientation
+        orientation_map = build_orientation_map(tree1, common_splits_pair)
+
+        # Apply this orientation to tree2, but only for subtrees that are
+        # topologically identical ("full-common")
+        reorder_tree_if_full_common(tree1, tree2, orientation_map)
+
+    # Clear any cached split information after modifications are complete
+    clear_split_pair_cache()
 
 
 class TreeOrderOptimizer:
     """
-    Optimizes the order of a list of phylogenetic trees using local and propagated split operations.
+    Optimizes the leaf order of a list of phylogenetic trees using local and
+    propagated split operations. The primary entry point is the `optimize` method.
 
     Attributes:
         trees (List[Node]): The list of trees to optimize.
-        split_rotation_history (dict): Tracks which splits were rotated and whether improvement occurred.
-
-    Example:
-        >>> optimizer = TreeOrderOptimizer(trees)
-        >>> optimizer.optimize(n_iterations=5, bidirectional=True)
     """
 
     def __init__(self, trees: List[Node]):
@@ -39,65 +78,49 @@ class TreeOrderOptimizer:
             trees (List[Node]): The trees to optimize.
         """
         self.trees: List[Node] = trees
-        self.split_rotation_history: dict = dict()
+        self.split_rotation_history: Dict[Tuple[int, int], Dict[str, Any]] = {}
+        self._history_counter = 0
 
     def apply_fiedler_ordering(self):
         """
         Apply consensus Fiedler (spectral) ordering to all trees in self.trees.
-        This reorders internal nodes for a good initial layout using the consensus Fiedler vector.
         """
         fiedler_ordering_for_tree_pair(self.trees)
+        clear_split_pair_cache()
 
     def _optimize_tree_pair_splits(
         self, reference_tree: Node, target_tree: Node
-    ) -> Tuple[bool, PartitionSet]:
+    ) -> Tuple[bool, PartitionSet[Partition]]:
         """
         Optimize the target tree by performing local split operations based on the reference tree.
-        Operates on unique splits and s-edge splits, as determined by helper functions.
-
-        Args:
-            reference_tree (Node): The reference tree for comparison.
-            target_tree (Node): The tree to optimize.
-
-        Returns:
-            Tuple[bool, PartitionSet]: (improved_any, splits_rotated_in_target)
         """
-        rotated_splits_in_target: PartitionSet = PartitionSet()
+        rotated_splits_in_target: PartitionSet[Partition] = PartitionSet()
         ref_order = reference_tree.get_current_order()
 
-        # Optimize unique splits
-        unique_splits = get_unique_splits(reference_tree, target_tree)
-        improved_unique = optimize_splits(
-            target_tree, unique_splits, ref_order, rotated_splits_in_target
+        s_edge_splits: PartitionSet[Partition] = get_s_edge_splits(
+            reference_tree, target_tree
+        )
+        improved_sedge: bool = optimize_splits(
+            target_tree, s_edge_splits, ref_order, rotated_splits_in_target
         )
 
-        # Optimize s-edge splits
-        s_edge_splits = get_s_edge_splits(reference_tree, target_tree)
-
-        improved_sedge = optimize_splits(
-            target_tree, s_edge_splits, ref_order, rotated_splits_in_target
+        unique_splits: PartitionSet[Partition] = get_unique_splits(
+            reference_tree, target_tree
+        )
+        improved_unique: bool = optimize_splits(
+            target_tree, unique_splits, ref_order, rotated_splits_in_target
         )
 
         return (improved_unique or improved_sedge), rotated_splits_in_target
 
     def _propagate_child_order_forward(
-        self, reference_index: int, splits_to_propagate: PartitionSet
+        self, reference_index: int, splits_to_propagate: PartitionSet[Partition]
     ) -> None:
-        """
-        Propagate the child orderings for the given splits forward through the tree list.
-
-        Args:
-            reference_index (int): Index of the reference tree.
-            splits_to_propagate (PartitionSet): Splits whose child orderings are to be propagated.
-
-        Side Effects:
-            Mutates the order of child nodes in subsequent trees if the split is present and full-common.
-        """
-
-        if reference_index < 0 or reference_index >= len(self.trees) - 1:
+        """Propagate child orderings forward from tree at `reference_index + 1`."""
+        if not splits_to_propagate or reference_index >= len(self.trees) - 1:
             return
 
-        ref_tree = self.trees[reference_index + 1]
+        ref_tree: Node = self.trees[reference_index + 1]
         split_child_order_map = build_orientation_map(ref_tree, splits_to_propagate)
 
         for j in range(reference_index + 2, len(self.trees)):
@@ -108,23 +131,15 @@ class TreeOrderOptimizer:
                 break
 
     def _propagate_child_order_backward(
-        self, reference_index: int, splits_to_propagate: PartitionSet
+        self, reference_index: int, splits_to_propagate: PartitionSet[Partition]
     ) -> None:
-        """
-        Propagate the child orderings for the given splits backward through the tree list.
-
-        Args:
-            reference_index (int): Index of the reference tree.
-            splits_to_propagate (PartitionSet): Splits whose child orderings are to be propagated.
-
-        Side Effects:
-            Mutates the order of child nodes in previous trees if the split is present and full-common.
-        """
-        if reference_index <= 0 or reference_index >= len(self.trees):
+        """Propagate child orderings backward from tree at `reference_index`."""
+        if not splits_to_propagate or reference_index <= 0:
             return
-        ref_tree = self.trees[reference_index]
 
+        ref_tree: Node = self.trees[reference_index]
         split_child_order_map = build_orientation_map(ref_tree, splits_to_propagate)
+
         for j in range(reference_index - 1, -1, -1):
             split_child_order_map = reorder_tree_if_full_common(
                 ref_tree, self.trees[j], split_child_order_map
@@ -132,101 +147,92 @@ class TreeOrderOptimizer:
             if not split_child_order_map:
                 break
 
-    def _run_optimization_pass(self, direction: str) -> bool:
+    def _run_optimization_pass(self, direction: str, bidirectional_mode: bool) -> bool:
         """
-        Run a single optimization pass in the specified direction ('forward' or 'backward').
-        Returns True if any improvement was made.
-
-        Args:
-            direction (str): 'forward' or 'backward'.
-
-        Returns:
-            bool: True if any improvement was made, False otherwise.
-
-        Raises:
-            ValueError: If direction is not 'forward' or 'backward'.
+        [CORRECTED] Run a single optimization pass. This version uses the correct
+        indexing to ensure propagation always originates from the modified tree.
         """
         improved_any = False
         n = len(self.trees)
         if direction == "forward":
-            for reference_index in range(n - 1):
+            for i in range(n - 1):
                 improved, splits_rotated = self._optimize_tree_pair_splits(
-                    self.trees[reference_index], self.trees[reference_index + 1]
+                    self.trees[i], self.trees[i + 1]
                 )
-
-                self.split_rotation_history[(reference_index, reference_index + 1)] = {
-                    "splits_rotated": splits_rotated,
-                    "improved": improved,
-                }
-
                 if improved:
                     improved_any = True
-                    self._propagate_child_order_forward(reference_index, splits_rotated)
+                    self.split_rotation_history[
+                        (self._history_counter, i)
+                    ] = {  # Store with a unique key
+                        "improved": improved,
+                        "splits_rotated": splits_rotated,
+                        "direction": direction,
+                    }
+                    self._history_counter += 1
+                    if bidirectional_mode:
+                        # Modified tree is at i+1. Propagate from it.
+                        # Forward propagation helper needs index i to use tree i+1 as ref.
+                        self._propagate_child_order_forward(i, splits_rotated)
+                        # Backward propagation helper needs index i+1 to use tree i+1 as ref.
+                        self._propagate_child_order_backward(i + 1, splits_rotated)
+                    else:
+                        # Standard mode: only propagate forward from the modified tree.
+                        self._propagate_child_order_forward(i, splits_rotated)
+                    clear_split_pair_cache()
         elif direction == "backward":
-            for reference_index in range(n - 1, 0, -1):
+            for i in range(n - 1, 0, -1):
                 improved, splits_rotated = self._optimize_tree_pair_splits(
-                    self.trees[reference_index], self.trees[reference_index - 1]
+                    self.trees[i], self.trees[i - 1]
                 )
                 if improved:
                     improved_any = True
-                    self._propagate_child_order_backward(
-                        reference_index, splits_rotated
-                    )
+                    self.split_rotation_history[
+                        (self._history_counter, i)
+                    ] = {  # Store with a unique key
+                        "improved": improved,
+                        "splits_rotated": splits_rotated,
+                        "direction": direction,
+                    }
+                    self._history_counter += 1
+                    # A backward pass only runs in bidirectional mode, which demands
+                    # full global propagation from the modified tree.
+                    # The modified tree is at i-1.
+
+                    # Propagate backward from i-1. Helper needs index i-1.
+                    self._propagate_child_order_backward(i - 1, splits_rotated)
+                    # Propagate forward from i-1. Helper needs index i-2.
+                    self._propagate_child_order_forward(i - 2, splits_rotated)
+                    clear_split_pair_cache()
         else:
             raise ValueError(f"Unknown direction: {direction}")
         return improved_any
 
-    def optimize_forward(self) -> bool:
-        """
-        Perform a forward optimization pass (left-to-right) over the tree list.
+    def _optimize_forward(self, bidirectional_mode: bool) -> bool:
+        """Perform a forward pass, passing on the mode flag."""
+        return self._run_optimization_pass("forward", bidirectional_mode)
 
-        Returns:
-            bool: True if any improvement was made, False otherwise.
-        """
-        result = self._run_optimization_pass("forward")
-        return result
-
-    def optimize_backward(self) -> bool:
-        """
-        Perform a backward optimization pass (right-to-left) over the tree list.
-
-        Returns:
-            bool: True if any improvement was made, False otherwise.
-        """
-        result = self._run_optimization_pass("backward")
-        return result
-
-    def optimize_bidirectional(self, n_iterations: int = 3) -> None:
-        """
-        Run both forward and backward optimization passes for several iterations.
-        Each iteration consists of forward, backward, then reversed forward and backward passes.
-
-        Args:
-            n_iterations (int): Number of bidirectional optimization iterations to perform.
-        """
-        for i in range(n_iterations):
-            self.optimize_forward()
-            self.optimize_backward()
-            self.trees.reverse()
-            self.optimize_forward()
-            self.optimize_backward()
-            self.trees.reverse()
+    def _optimize_backward(self) -> bool:
+        """Perform a backward pass, which always assumes bidirectional mode."""
+        return self._run_optimization_pass("backward", bidirectional_mode=True)
 
     def optimize(self, n_iterations: int = 3, bidirectional: bool = False) -> None:
         """
-        Main entry point for optimization. Repeatedly runs forward passes, and if bidirectional=True, also runs reverse passes.
-        Stops early if no improvement is made in an iteration.
+        Main entry point for optimization. Repeatedly runs optimization passes.
 
         Args:
             n_iterations (int): Number of optimization iterations to perform.
-            bidirectional (bool): Whether to use bidirectional optimization.
+            bidirectional (bool): If True, enables a more powerful optimization
+                strategy with global change propagation. If False, uses a
+                simpler, faster forward-only approach.
         """
-        for i in range(n_iterations):
-            forward_impr = self.optimize_forward()
+        for _ in range(n_iterations):
+            forward_impr = self._optimize_forward(bidirectional_mode=bidirectional)
+
             back_impr = False
             if bidirectional:
-                self.trees.reverse()
-                back_impr = self.optimize_forward()
-                self.trees.reverse()
+                back_impr = self._optimize_backward()
+
             if not (forward_impr or back_impr):
                 break
+
+            final_pairwise_alignment_pass(self.trees)

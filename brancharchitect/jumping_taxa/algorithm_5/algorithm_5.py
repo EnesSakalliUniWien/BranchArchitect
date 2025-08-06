@@ -1,4 +1,3 @@
-
 from brancharchitect.tree import Node
 from typing import List
 from .functional_tree import (
@@ -7,7 +6,7 @@ from .functional_tree import (
     Component,
     build_functional_tree,
 )
-from brancharchitect.jumping_taxa.tree_interpolation import (
+from brancharchitect.tree_interpolation.interpolation import (
     interpolate_tree,
 )
 from brancharchitect.jumping_taxa.algorithm_5.elemental import (
@@ -32,13 +31,13 @@ from brancharchitect.jumping_taxa.algorithm_5.elemental import (
     find_exact_max_intersection,
 )
 
+
 def get_ancestor_edge(t: FunctionalTree, c: ComponentSet) -> Node:
     return t._ancestor_edges[tuple(c)]
 
 
 def algo5_partial_partial_cond(t1, t2):
     def cond(component):
-
         ancestor_edge1 = get_ancestor_edge(t1, component)
         ancestor_edge2 = get_ancestor_edge(t2, component)
 
@@ -49,7 +48,7 @@ def algo5_partial_partial_cond(t1, t2):
         anti2 = is_anti_s_edge(t2, ancestor_edge2)
 
         return (partial1 and anti2) or (anti1 and partial2)
-    
+
     return cond
 
 
@@ -129,13 +128,11 @@ def case_full_none(
     return algo1(sedge, t1, t2, original_tree_one, original_tree_two)
 
 
-
 def case_partial_partial(
     sedge,
     t1: FunctionalTree,
     t2: FunctionalTree,
 ):
-    
     c1 = calculate_component_set(t1, sedge)
     c2 = calculate_component_set(t2, sedge)
 
@@ -167,7 +164,6 @@ def case_partial_partial(
     c = reduce(union, c)
 
     return c
-
 
 
 def case_partial_none(
@@ -214,6 +210,7 @@ def algo1(
         rr = next(iter(r))  # Preserve order without converting to set
 
     return rr
+
 
 # ============================================== Algorithm 5 ====================================================== #
 def algorithm_5_for_sedge(
@@ -322,10 +319,9 @@ def algorithm_five(input_tree1: Node, input_tree2: Node, leaf_order: list[str]):
             # Update remaining leaves count
             remaining_leaves -= current_proposed_deletions
 
-
             input_tree1.delete_taxa(indices_to_delete=iteration_taxa)
             input_tree2.delete_taxa(indices_to_delete=iteration_taxa)
-            
+
             interpolated_pruned_tree1, interpolated_pruned_tree2 = (
                 get_intermediate_trees(pruned_original_tree1, pruned_original_tree2)
             )

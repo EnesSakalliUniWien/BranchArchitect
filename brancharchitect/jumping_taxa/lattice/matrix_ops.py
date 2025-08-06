@@ -1,88 +1,67 @@
-from brancharchitect.partition_set import PartitionSet, Partition
+from brancharchitect.elements.partition_set import PartitionSet
+from brancharchitect.elements.partition import Partition
 from brancharchitect.jumping_taxa.debug import jt_logger
 from brancharchitect.jumping_taxa.lattice.types import PMatrix
+from typing import List
+
+# Use FrozenPartitionSet for hashable, immutable keys
+from brancharchitect.elements.frozen_partition_set import FrozenPartitionSet
+from functools import reduce
+
+# Ensure Partition is imported for type hints
 
 
-def vector_meet_product(matrix: PMatrix) -> list[PartitionSet]:
-    """
-    Compute the meet product for a 1×2 matrix (a row vector with two PartitionSets).
+def _validate_matrix(matrix: PMatrix) -> tuple[int, int]:
+    if not matrix or not matrix[0]:
+        raise ValueError("Matrix must not be empty and must have at least one column.")
+    rows, cols = len(matrix), len(matrix[0])
+    if any(len(row) != cols for row in matrix):
+        raise ValueError("All rows must have the same number of columns.")
+    return rows, cols
 
-    Args:
-        matrix: PMatrix expected to be [[A, B]]
 
-    Returns:
-        A list containing the intersection (meet) of A and B, if non-empty.
-    """
-    if not matrix or len(matrix) != 1 or len(matrix[0]) != 2:
-        raise ValueError("Expected a 1x2 matrix (single row with two PartitionSets).")
-
-    row = matrix[0]
+def _vector_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
     jt_logger.section("Vector Meet Product")
-    jt_logger.info(f"Computing meet for row: {row}")
-
-    a: PartitionSet = row[0]
-    b: PartitionSet = row[1]
-
-    result: PartitionSet = a & b  # meet
+    rows, cols = _validate_matrix(matrix)
+    if rows != 1 or cols != 2:
+        raise ValueError("Expected a 1x2 matrix for vector meet product.")
+    a, b = matrix[0]
+    result = a & b
     jt_logger.info(f"Meet result: {result}")
-
     return [result] if result else []
 
 
-def generalized_meet_product(matrix: PMatrix) -> list[PartitionSet]:
-    """
-    Compute meet product based on matrix size and structure.
-    """
+def generalized_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
     jt_logger.section("Generalized Meet Product")
-    # Validate matrix
-    if not matrix or not matrix[0]:
-        return []
-
-    rows, cols = len(matrix), len(matrix[0])
-
-    # Ensure consistent dimensions
-    if any(len(row) != cols for row in matrix):
-        raise ValueError("All rows must have the same number of columns")
-
-    # Dispatch to appropriate handler based on dimensions
+    rows, cols = _validate_matrix(matrix)
     if rows == 1 and cols == 2:
-        # Single row, two columns (vector case)
-        return vector_meet_product(matrix)
+        return _vector_meet_product(matrix)
     elif rows == cols:
-        # Square matrix case
-        return square_meet_product(matrix)
+        return _square_meet_product(matrix)
     else:
-        # General case not implemented
         raise ValueError(
-            f"Generalized meet product not implemented for {rows}×{cols} matrices"
+            f"Generalized meet product not implemented for {rows}x{cols} matrices."
         )
 
 
-def square_meet_product(matrix: PMatrix) -> list[PartitionSet]:
+def _square_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
     jt_logger.section("Square Meet Product")
     jt_logger.matrix_pretty(matrix)
-    n: int = len(matrix)
-    solutions: list[PartitionSet] = []
-
-    # Special case: 1×1 matrix
-    if n == 1:
-        # Use matrix elements directly since they're already PartitionSets
-        result: PartitionSet = matrix[0][0] & matrix[0][1]
-        solutions.append(result)
-        return solutions
-
-    # Direct calculation for 2×2 matrix
-    if n == 2:
-        # Use matrix elements directly since they're already PartitionSets
-        main_diagonal: PartitionSet = matrix[0][0] & matrix[1][1]
-        counter_diagonal: PartitionSet = matrix[0][1] & matrix[1][0]
-
-        if main_diagonal:
-            solutions.append(main_diagonal)
-        if counter_diagonal:
-            solutions.append(counter_diagonal)
-        return solutions
-
+    rows, cols = _validate_matrix(matrix)
+    if rows != cols:
+        raise ValueError("Matrix must be square for square meet product.")
+    if rows == 1:
+        result = matrix[0][0]
+        return [result] if result else []
+    if rows == 2:
+        main_diag = matrix[0][0] & matrix[1][1]
+        counter_diag = matrix[0][1] & matrix[1][0]
+        results: list[PartitionSet[Partition]] = []
+        if main_diag:
+            results.append(main_diag)
+        if counter_diag:
+            results.append(counter_diag)
+        return results
     raise ValueError(
         "Square meet product not implemented for matrices larger than 2x2."
     )
@@ -110,25 +89,29 @@ def split_matrix(matrix: PMatrix) -> list[PMatrix]:
         jt_logger.info("2x2 matrix with independent rows detected - keeping as is")
         return [matrix]
 
-    # Specify the type annotation for groups:
-    groups: dict[frozenset, list[list[PartitionSet]]] = {}
+    groups: dict[
+        FrozenPartitionSet[Partition], list[list[PartitionSet[Partition]]]
+    ] = {}
 
     for row in matrix:
         if not row or len(row) < 2:
             continue
 
-        key = row[0]  # The left column value
-        hashable_key = frozenset(key)
-        if hashable_key not in groups:
-            groups[hashable_key] = []
-        groups[hashable_key].append(row)
+        key: PartitionSet[Partition] = row[0]  # The left column value
+        # Convert to FrozenPartitionSet for grouping
+        frozen_key = FrozenPartitionSet(
+            set(key), encoding=getattr(key, "encoding", None)
+        )
+        if frozen_key not in groups:
+            groups[frozen_key] = []
+        groups[frozen_key].append(row)
 
     if len(groups) <= 1:
         return [matrix]
 
-    result_matrices = []
+    result_matrices: List[PMatrix] = []
     for _, rows in groups.items():
-        new_matrix = [r[:] for r in rows]
+        new_matrix: PMatrix = [r[:] for r in rows]
         result_matrices.append(new_matrix)
 
     jt_logger.section("Matrix Splitting")
@@ -136,69 +119,69 @@ def split_matrix(matrix: PMatrix) -> list[PMatrix]:
 
     for i, split in enumerate(result_matrices):
         jt_logger.info(f"Matrix {i + 1} (based on left value):")
-        jt_logger.matrix(split)
-
+        jt_logger.matrix(matrix=split)
     return result_matrices
+
 
 # ---------------------------
 # Lattice and Dependent Solution Functions
 # ---------------------------
 
-def meet(sets: list[PartitionSet]) -> PartitionSet:
+
+def meet(sets: list[PartitionSet[Partition]]) -> PartitionSet[Partition]:
     """
     Compute the meet (intersection) of a collection of PartitionSets.
     In a Boolean lattice, the meet is just the intersection.
     If sets is empty, returns an empty PartitionSet.
     """
-    it = iter(sets)
-    try:
-        first = next(it)
-    except StopIteration:
-        return PartitionSet()  # Return an empty PartitionSet.
-    # Create a new PartitionSet based on the first element,
-    # preserving the lookup and name for consistency.
-    result = first.copy()
-    for s in it:
-        result = result & s  # Uses PartitionSet.__and__ to intersect
-    return result
+    if not sets:
+        return PartitionSet()
+    return reduce(lambda a, b: a & b, sets)
 
 
-def compute_row_intersections(matrix: PMatrix) -> list[PartitionSet]:
+def compute_row_intersections(matrix: PMatrix) -> list[PartitionSet[Partition]]:
     """
     Given a matrix represented as a list of rows (each row is an iterable of blocks,
     and each block is a set), compute the intersection (the meet) for each row.
 
     Returns a list where each entry is the intersection set for that row.
     """
-    intersections = []
-    for idx, row in enumerate(matrix):
-        inter = meet(row)
-        intersections.append(inter)
-    return intersections
+    return [meet(row) for row in matrix]
 
 
 def infer_mapping(matrix1: PMatrix, matrix2: PMatrix) -> list[tuple[int, int]]:
     """
     Infer a dependency mapping from the two matrices.
-    We assume both matrices have the same number of rows, n.
-    We infer the mapping as: pair row i of matrix1 with row (n-1-i) of matrix2.
-    For example, if n = 2, mapping = [(0,1), (1,0)].
+    If matrices have the same number of rows, use the standard reverse mapping.
+    If they differ, create a mapping that pairs as many rows as possible.
     """
     n1: int = len(matrix1)
     n2: int = len(matrix2)
-    if n1 != n2:
-        raise ValueError(
-            "Matrices must have the same number of rows to infer mapping automatically."
-        )
-
-    n: int = n1
-    mapping: list[tuple[int, int]] = [(i, n - 1 - i) for i in range(n)]
-    return mapping
+    
+    if n1 == n2:
+        # Standard case: same number of rows
+        n: int = n1
+        mapping: list[tuple[int, int]] = [(i, n - 1 - i) for i in range(n)]
+        return mapping
+    else:
+        # Fallback case: different number of rows
+        # Map as many as possible, using the smaller matrix size
+        min_n = min(n1, n2)
+        mapping: list[tuple[int, int]] = []
+        
+        for i in range(min_n):
+            # For matrix1, use index i
+            # For matrix2, use reverse index but within its bounds
+            j = min(n2 - 1 - i, n2 - 1)
+            j = max(0, j)  # Ensure non-negative
+            mapping.append((i, j))
+        
+        return mapping
 
 
 def dependent_solutions(
     matrix1: PMatrix, matrix2: PMatrix, mapping: list[tuple[int, int]]
-) -> list[PartitionSet]:
+) -> list[PartitionSet[Partition]]:
     """
     Given two matrices (each a list of rows, where each row is an iterable of blocks)
     and a dependency mapping (a list of tuples (i,j)), form the dependent solutions.
@@ -208,22 +191,22 @@ def dependent_solutions(
 
     Returns a list of solution tuples.
     """
-    inters1: list[PartitionSet] = compute_row_intersections(matrix1)
-    inters2: list[PartitionSet] = compute_row_intersections(matrix2)
+    inters1: list[PartitionSet[Partition]] = compute_row_intersections(matrix1)
+    inters2: list[PartitionSet[Partition]] = compute_row_intersections(matrix2)
 
-    solutions: list[PartitionSet] = []
+    solutions: list[PartitionSet[Partition]] = []
     for i, j in mapping:
         for a in inters1[i]:
             for b in inters2[j]:
                 solutions.append(
-                    PartitionSet({a, b},encoding=a.encoding, name="dependent" )
+                    PartitionSet({a, b}, encoding=a.encoding, name="dependent")
                 )
     return solutions
 
 
 def dependent_unique_solutions(
     matrix1: PMatrix, matrix2: PMatrix
-) -> list[PartitionSet]:
+) -> list[PartitionSet[Partition]]:
     """
     Returns only those dependent solutions for which the intersections in the mapped rows
     are singletons. For each mapping (i, j), if the intersection set from matrix1's row i
@@ -250,12 +233,12 @@ def dependent_unique_solutions(
     jt_logger.info(str(inters2))
 
     mapping: list[tuple[int, int]] = infer_mapping(matrix1, matrix2)
-    unique_solutions: list[PartitionSet] = []
+    unique_solutions: list[PartitionSet[Partition]] = []
     for i, j in mapping:
         if len(inters1[i]) == 1 and len(inters2[j]) == 1:
             a: Partition = next(iter(inters1[i]))
             b: Partition = next(iter(inters2[j]))
-            solution: PartitionSet = PartitionSet(
+            solution: PartitionSet[Partition] = PartitionSet(
                 {a, b}, name="dependent", encoding=a.encoding
             )
             unique_solutions.append(solution)
@@ -263,48 +246,10 @@ def dependent_unique_solutions(
 
 
 def solve_matrix_puzzle(
-    matrix1: list[list[PartitionSet]], matrix2: list[list[PartitionSet]]
-) -> list[PartitionSet]:
-    unique = dependent_unique_solutions(matrix1, matrix2)
+    matrix1: list[list[PartitionSet[Partition]]],
+    matrix2: list[list[PartitionSet[Partition]]],
+) -> list[PartitionSet[Partition]]:
+    unique: list[PartitionSet[Partition]] = dependent_unique_solutions(matrix1, matrix2)
     if unique:
         return unique
     return []
-
-
-def canonicalize_diagonal_swap(matrix):
-    """
-    Given a 2-row matrix (each row is a list of cells, each cell a set),
-    perform a diagonal swap as follows:
-    
-      - For each column j:
-          If the bottom cell is a singleton (len(cell)==1) and the top cell is not,
-          and if either the left or right adjacent column (if any) has a singleton in the top row,
-          then swap the two cells in column j so that the singleton moves to the top row.
-
-      - Only swap one column per such occurrence.
-
-    Returns a tuple (new_matrix, swapped_any) where:
-      new_matrix: the canonicalized 2-row matrix.
-      swapped_any: True if any column was swapped, else False.
-    """
-    num_cols = len(matrix[0])
-    # Make a copy of the original matrix.
-    new_matrix = [list(matrix[0]), list(matrix[1])]
-    swapped_any = False
-
-    for j in range(num_cols):
-        top = new_matrix[0][j]
-        bottom = new_matrix[1][j]
-        top_is_singleton = len(top) == 1
-        bottom_is_singleton = len(bottom) == 1
-
-        # We consider swapping only if the bottom cell is singleton and top is not.
-        if bottom_is_singleton and not top_is_singleton:
-            # Check for adjacent column(s) that already have a top-row singleton.
-            left_top = j > 0 and len(new_matrix[0][j - 1]) == 1
-            right_top = j < num_cols - 1 and len(new_matrix[0][j + 1]) == 1
-            if left_top or right_top:
-                # Swap the column so that the singleton moves to the top row.
-                new_matrix[0][j], new_matrix[1][j] = bottom, top
-                swapped_any = True
-    return new_matrix, swapped_any

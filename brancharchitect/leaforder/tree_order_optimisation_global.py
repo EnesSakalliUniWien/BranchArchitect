@@ -4,17 +4,18 @@ from copy import deepcopy
 from math import factorial
 from collections import Counter
 from brancharchitect.tree import Node
-from typing import Tuple, List, Any
+from typing import Tuple, List, Any, Optional, Set
 from brancharchitect.leaforder.circular_distances import (
     circular_distance_tree_pair,
     circular_distances_trees,
 )
 
+
 # --- Utilities ---
 def flatten_tree_list(tree_list: Any) -> List[str]:
     """Flatten a nested tree list into a linear list of taxa names."""
     if isinstance(tree_list, list):
-        flattened = []
+        flattened: List[str] = []
         for element in tree_list:
             flattened.extend(flatten_tree_list(element))
         return flattened
@@ -23,8 +24,12 @@ def flatten_tree_list(tree_list: Any) -> List[str]:
 
 
 def generate_permutations(
-    elements, fixed_positions=None, fixed_elements=None, sample_size=None, seed=None
-):
+    elements: List[Any],
+    fixed_positions: Optional[List[int]] = None,
+    fixed_elements: Optional[List[Any]] = None,
+    sample_size: Optional[int] = None,
+    seed: Optional[int] = None,
+) -> List[List[Any]]:
     """
     Generate unique random permutations of the elements list, while keeping specified elements fixed.
     If the total search space is small or we need all permutations, we may directly enumerate them.
@@ -43,8 +48,8 @@ def generate_permutations(
     if seed is not None:
         random.seed(seed)
 
-    n = len(elements)
-    positions = list(range(n))
+    n: int = len(elements)
+    positions: List[int] = list(range(n))
 
     # Validate and prepare fixed_positions
     if fixed_positions is None:
@@ -63,13 +68,15 @@ def generate_permutations(
         fixed_positions = list(set(fixed_positions))
 
     # Determine which elements to permute
-    fixed_positions_set = set(fixed_positions)
-    permute_positions = [pos for pos in positions if pos not in fixed_positions_set]
-    permute_elements = [elements[pos] for pos in permute_positions]
+    fixed_positions_set: Set[int] = set(fixed_positions)
+    permute_positions: List[int] = [
+        pos for pos in positions if pos not in fixed_positions_set
+    ]
+    permute_elements: List[Any] = [elements[pos] for pos in permute_positions]
 
     # Calculate the total number of unique permutations of permute_elements
-    element_counts = Counter(permute_elements)
-    total_unique_permutations = factorial(len(permute_elements))
+    element_counts: Counter = Counter(permute_elements)
+    total_unique_permutations: int = factorial(len(permute_elements))
     for count in element_counts.values():
         total_unique_permutations //= factorial(count)
 
@@ -81,44 +88,47 @@ def generate_permutations(
     # Direct enumeration can be expensive if factorial is large, so we limit when to do this.
     # For example, if total_unique_permutations < 50000 (arbitrary limit), we do direct enumeration.
     # Adjust as needed.
-    DIRECT_ENUMERATION_LIMIT = 50000
+    DIRECT_ENUMERATION_LIMIT: int = 50000
     if total_unique_permutations <= DIRECT_ENUMERATION_LIMIT:
         # Generate all unique permutations of permute_elements
-        all_perms_set = set(itertools.permutations(permute_elements))
-        all_perms_list = list(all_perms_set)
+        all_perms_set: Set[Tuple[Any, ...]] = set(
+            itertools.permutations(permute_elements)
+        )
+        all_perms_list: List[Tuple[Any, ...]] = list(all_perms_set)
 
         # If sample_size < total_unique_permutations, randomly sample from them
+        selected: List[Tuple[Any, ...]]
         if sample_size < total_unique_permutations:
             selected = random.sample(all_perms_list, sample_size)
         else:
             selected = all_perms_list  # Return all permutations
 
         # Reinsert fixed elements into their positions
-        result = []
+        result: List[List[Any]] = []
         for perm in selected:
-            perm = list(perm)
-            full = elements.copy()
+            perm_list: List[Any] = list(perm)
+            full: List[Any] = elements.copy()
             # Place permute_elements back
             for idx, pos in enumerate(permute_positions):
-                full[pos] = perm[idx]
+                full[pos] = perm_list[idx]
             # fixed_positions remain unchanged
             result.append(full)
         return result
 
     # Otherwise, try random attempts:
-    generated_permutations = set()
-    attempts = 0
-    max_attempts = sample_size * 10  # to avoid infinite loops
+    generated_permutations: Set[Tuple[Any, ...]] = set()
+    attempts: int = 0
+    max_attempts: int = sample_size * 10  # to avoid infinite loops
 
     while len(generated_permutations) < sample_size and attempts < max_attempts:
         # Generate a random permutation of the permute elements
-        permuted_elements = permute_elements[:]
+        permuted_elements: List[Any] = permute_elements[:]
         random.shuffle(permuted_elements)
         # Reconstruct the full permutation by placing fixed elements back
-        temp = elements.copy()
+        temp: List[Any] = elements.copy()
         for idx, pos in enumerate(permute_positions):
             temp[pos] = permuted_elements[idx]
-        perm_tuple = tuple(temp)
+        perm_tuple: Tuple[Any, ...] = tuple(temp)
         if perm_tuple not in generated_permutations:
             generated_permutations.add(perm_tuple)
         attempts += 1
@@ -137,36 +147,43 @@ def generate_permutations(
     return [list(perm) for perm in generated_permutations]
 
 
-def find_minimal_distance_permutation(trees: List, permutations: List):
+def find_minimal_distance_permutation(
+    trees: List[Node], permutations: List[List[Any]]
+) -> Optional[List[Any]]:
     # Find the permutation that minimizes the total circular distance
-    min_total_distance = float("inf")
-    best_perm = None
+    min_total_distance: float = float("inf")
+    best_perm: Optional[List[Any]] = None
     for perm in permutations:
         # Apply permutation to all trees
         for tree in trees:
             tree.reorder_taxa(perm)
         # Compute total distance
-        total_distance = circular_distances_trees(trees)
+        total_distance: float = circular_distances_trees(trees)
         if total_distance < min_total_distance:
             min_total_distance = total_distance
             best_perm = perm.copy()
     return best_perm
 
-def find_max_distance_permutation(trees: list, permutations: list):
-    import copy# Find the permutation that maximizes the total circular distance
-    max_total_distance = float("-inf")
-    best_perm = None
+
+def find_max_distance_permutation(
+    trees: List[Node], permutations: List[List[Any]]
+) -> Optional[List[Any]]:
+    import copy  # Find the permutation that maximizes the total circular distance
+
+    max_total_distance: float = float("-inf")
+    best_perm: Optional[List[Any]] = None
     for perm in permutations:
         # Deep copy the trees so we don't mutate the originals
-        trees_copy = [copy.deepcopy(tree) for tree in trees]
+        trees_copy: List[Node] = [copy.deepcopy(tree) for tree in trees]
         for tree in trees_copy:
             tree.reorder_taxa(perm)
         # Compute total distance
-        total_distance = circular_distances_trees(trees_copy)
+        total_distance: float = circular_distances_trees(trees_copy)
         if total_distance > max_total_distance:
             max_total_distance = total_distance
             best_perm = perm.copy()
     return best_perm
+
 
 ### Split Based Approach ####
 def get_taxa_order_in_subtree(node: Node) -> List[str]:
@@ -175,13 +192,17 @@ def get_taxa_order_in_subtree(node: Node) -> List[str]:
     return [leaf.name for leaf in leaves]
 
 
-def restore_original_orders(trees: List, original_orders: List):
+def restore_original_orders(
+    trees: List[Node], original_orders: List[List[str]]
+) -> None:
     # Restore original orders
     for tree, original_order in zip(trees, original_orders):
         tree.reorder_taxa(original_order)
 
 
-def optimize_tree_rotation(consensus_tree, target_trees: List, n_iterations: int = 100):
+def optimize_tree_rotation(
+    consensus_tree: Node, target_trees: List[Node], n_iterations: int = 100
+) -> Tuple[Node, List[float]]:
     """
     Optimize the consensus tree by rotating subtrees (swapping children at internal nodes)
     to minimize total distance to target trees.
@@ -192,21 +213,21 @@ def optimize_tree_rotation(consensus_tree, target_trees: List, n_iterations: int
     - If no improvements are found in an iteration, stop early.
     """
 
-    def compare_tree_with_target_trees(c_tree, t_trees):
+    def compare_tree_with_target_trees(c_tree: Node, t_trees: List[Node]) -> float:
         return sum(
             circular_distance_tree_pair(c_tree, target_tree) for target_tree in t_trees
         )
 
-    best_tree = deepcopy(consensus_tree)
-    total_distances = []
-    best_distance = compare_tree_with_target_trees(best_tree, target_trees)
+    best_tree: Node = deepcopy(consensus_tree)
+    total_distances: List[float] = []
+    best_distance: float = compare_tree_with_target_trees(best_tree, target_trees)
     total_distances.append(best_distance)
 
     for iteration in range(n_iterations):
-        improved = False
+        improved: bool = False
 
         # Identify internal nodes that can be permuted (2 or more children)
-        internal_nodes = [
+        internal_nodes: List[Node] = [
             node
             for node in best_tree.traverse()
             if node.children and len(node.children) >= 2
@@ -214,12 +235,12 @@ def optimize_tree_rotation(consensus_tree, target_trees: List, n_iterations: int
 
         # Try improving each node by finding the best swap
         for node in internal_nodes:
-            original_children = node.children[:]
-            node_best_children = original_children
-            node_best_distance = best_distance
-            found_improvement_for_node = False
+            original_children: List[Node] = node.children[:]
+            node_best_children: List[Node] = original_children
+            node_best_distance: float = best_distance
+            found_improvement_for_node: bool = False
 
-            num_children = len(node.children)
+            num_children: int = len(node.children)
             # Evaluate all pairwise swaps to find the best improvement
             for i in range(num_children):
                 for j in range(i + 1, num_children):
@@ -229,7 +250,7 @@ def optimize_tree_rotation(consensus_tree, target_trees: List, n_iterations: int
                         node.children[i],
                     )
 
-                    current_distance = compare_tree_with_target_trees(
+                    current_distance: float = compare_tree_with_target_trees(
                         best_tree, target_trees
                     )
                     if current_distance < node_best_distance:
@@ -273,43 +294,47 @@ def collect_distances_for_trajectory(
     Returns:
         Tuple[List[float], List[Tuple[int, int]]]: Distances and corresponding tree pairs.
     """
-    distances = []
-    pairs = []
+    distances: List[float] = []
+    pairs: List[Tuple[int, int]] = []
     for i in range(len(trees) - 1):
-        distance = circular_distance_tree_pair(trees[i], trees[i + 1])
+        distance: float = circular_distance_tree_pair(trees[i], trees[i + 1])
         distances.append(distance)
         pairs.append((i, i + 1))
     return distances, pairs
 
 
-def global_consensus_smoothing(trees: List["Node"], max_samples: int = 1000) -> None:
+def global_consensus_smoothing(trees: List[Node], max_samples: int = 1000) -> None:
     """
     Attempt to find a global ordering of taxa that minimizes total circular distance
     across all trees, and reorder all trees to that global ordering.
 
     Args:
-        trees (List["Node"]): The list of trees to smooth.
+        trees (List[Node]): The list of trees to smooth.
         max_samples (int): Number of permutations to sample if exhaustive search is not feasible.
     """
 
     # Extract the set of all taxa
-    taxa = list({leaf.name for tree in trees for leaf in tree.get_leaves()})
-    original_orders = [tree.get_current_order() for tree in trees]
+    taxa: List[str] = list({leaf.name for tree in trees for leaf in tree.get_leaves()})
+    original_orders: List[List[str]] = [
+        list(tree.get_current_order()) for tree in trees
+    ]
 
     # Generate random permutations or use heuristics to find a near-optimal global order
     # For simplicity, let's just generate random permutations and pick the best
     # If the number of taxa is large, consider a smarter heuristic or reduce max_samples
-    permutations = generate_permutations(taxa, sample_size=min(max_samples, 1000))
+    permutations: List[List[Any]] = generate_permutations(
+        taxa, sample_size=min(max_samples, 1000)
+    )
 
-    best_perm = None
-    best_distance = float("inf")
+    best_perm: Optional[List[Any]] = None
+    best_distance: float = float("inf")
 
     for perm in permutations:
         # Apply this permutation to all trees
         for tree in trees:
             tree.reorder_taxa(perm)
         # Compute total circular distance across the entire trajectory
-        total_distance = sum(
+        total_distance: float = sum(
             circular_distance_tree_pair(trees[i], trees[i + 1])
             for i in range(len(trees) - 1)
         )

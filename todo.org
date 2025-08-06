@@ -1,4 +1,4 @@
-- [ ] fix test_tree_coloring (add `find_tree_highlights_test_by_building_small_tree_without_components`) :enes:
+- [X] fix test_tree_coloring (add `find_tree_highlights_test_by_building_small_tree_without_components`) :enes:
 - [-] design API for the following usecases:
   - [X] newick strings parsen in python tree
   - [X] tree serializen newick/json
@@ -8,7 +8,7 @@
   - [-] (CANCELLED) subtree pruning and regrafting
   - [-] (CANCELLED) grafting of rooted in other tree
   - [X] export as svg
-- [ ] Assert what PhyloMovies needs as an API from brancharchitect :enes:
+- [X] Assert what PhyloMovies needs as an API from brancharchitect :enes:
 - [X] organize modules :simon:
 - [ ] polish code
 - [ ] figure out why tests failing

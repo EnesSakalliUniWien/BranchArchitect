@@ -1,0 +1,6 @@
+{
+    "tree1": "((A,B),((E,F),(C,D)));",
+    "tree2": "((A,B),((E,F),(C,D)));",
+    "solutions": [[]],
+    "comment": ""
+}

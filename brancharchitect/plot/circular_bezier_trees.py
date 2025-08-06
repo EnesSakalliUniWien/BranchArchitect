@@ -1,378 +1,517 @@
-# --- Section 1: Distance and Utility Functions ---
-def compute_rf_distances(trees):
-    from brancharchitect.distances import robinson_foulds_distance
-    return [robinson_foulds_distance(trees[i], trees[i+1]) for i in range(len(trees)-1)]
+from typing import List, Dict, Tuple, Optional, Union, Any
+from dataclasses import dataclass
+import tempfile
+import os
+
+# Local imports (always available)
+from brancharchitect.distances.distances import robinson_foulds_distance
+
+# Optional imports with proper error handling
+try:
+    import xml.etree.ElementTree as ET
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as mcolors
+    import numpy as np
+    import PIL.Image
+    import cairosvg  # type: ignore
+    from IPython.display import Image, display
+    from brancharchitect.plot.tree_plot import (
+        plot_circular_trees_in_a_row,
+        add_svg_gridlines,
+    )
+
+    OPTIONAL_DEPS_AVAILABLE = True
+except ImportError as e:
+    OPTIONAL_DEPS_AVAILABLE = False
+    _missing_deps = str(e)
 
 
-def per_taxa_circular_distances(tree1, tree2):
+def _require_optional_deps(operation: str = "this operation"):
+    """Check if optional dependencies are available."""
+    if not OPTIONAL_DEPS_AVAILABLE:
+        raise ImportError(
+            f"Optional dependencies required for {operation}. Missing: {_missing_deps}"
+        )
+
+
+# Configuration dataclasses to reduce parameter redundancy
+@dataclass
+class StylingConfig:
+    """Configuration for styling options."""
+
+    font_family: str = "Monospace"
+    font_size: str = "18"
+    leaf_font_size: Optional[str] = None
+    stroke_color: str = "#000"
+    general_stroke_width: float = 2.0
+
+
+@dataclass
+class HighlightConfig:
+    """Configuration for branch highlighting."""
+
+    branches: Optional[Any] = None
+    width: Union[float, List[float]] = 10.0
+    colors: Optional[Any] = None
+
+
+@dataclass
+class BezierConfig:
+    """Configuration for Bezier curve styling."""
+
+    min_width: float = 4.0
+    max_width: float = 14.0
+    cmap_name: str = "viridis"
+    colors: Optional[Any] = None
+    stroke_widths: Optional[Any] = None
+
+
+@dataclass
+class PlotConfig:
+    """Configuration for distance plots."""
+
+    title: Optional[str] = None
+    xlabel: Optional[str] = None
+    ylabel: Optional[str] = None
+    plot_type: str = "both"  # "both", "rf", "circular"
+
+
+@dataclass
+class LayoutConfig:
+    """Configuration for layout dimensions."""
+
+    size: int = 240
+    margin: int = 50
+    label_offset: int = 18
+    y_steps: int = 7
+    top_margin: int = 210
+    bottom_margin: int = 36
+
+
+# --- Parameter Normalization Utilities ---
+@dataclass
+class TreeRenderingParams:
+    """Normalized parameters for tree rendering."""
+
+    highlight_branches: List[Any]
+    highlight_width: List[Union[int, float]]
+    highlight_colors: List[Dict[Any, Any]]
+
+    @classmethod
+    def normalize(cls, n_trees: int, **kwargs) -> "TreeRenderingParams":
+        """Normalize rendering parameters for n_trees."""
+        return cls(
+            highlight_branches=normalize_to_list(
+                kwargs.get("highlight_branches"), n_trees
+            ),
+            highlight_width=normalize_to_list(
+                kwargs.get("highlight_width", 4.0), n_trees
+            ),
+            highlight_colors=normalize_highlight_colors_list(
+                kwargs.get("highlight_colors"), n_trees
+            ),
+        )
+
+
+def normalize_to_list(value: Any, n: int) -> List[Any]:
+    """Normalize a value to a list of length n."""
+    if value is None:
+        return [None] * n
+    if isinstance(value, (int, float)):
+        return [value] * n
+    if isinstance(value, list):
+        if len(value) == n:
+            return value
+        if len(value) == 0 or not isinstance(value[0], (list, tuple)):
+            return [value] * n
+    return [value] * n
+
+
+def normalize_highlight_colors_list(
+    highlight_colors: Optional[Any], n: int
+) -> List[Dict[Any, Any]]:
+    """Normalize highlight colors to a list of dicts."""
+    if highlight_colors is None:
+        return [{} for _ in range(n)]
+    if isinstance(highlight_colors, list) and len(highlight_colors) == n:
+        return [_normalize_single_highlight_color(hc) for hc in highlight_colors]
+    return [_normalize_single_highlight_color(highlight_colors)] * n
+
+
+def _normalize_single_highlight_color(color: Any) -> Dict[Any, Any]:
+    """Normalize a single highlight color specification."""
+    if color is None:
+        return {}
+    if isinstance(color, dict):
+        normalized = {}
+        for k, v in color.items():
+            if isinstance(v, str):
+                normalized[k] = {"highlight_color": v}
+            else:
+                normalized[k] = v
+        return normalized
+    return color
+
+
+# --- Distance Computation Functions ---
+def compute_rf_distances(trees: List[Any]) -> List[float]:
+    """Compute Robinson-Foulds distances between consecutive trees."""
+    return [
+        robinson_foulds_distance(trees[i], trees[i + 1]) for i in range(len(trees) - 1)
+    ]
+
+
+def per_taxa_circular_distances(tree1: Any, tree2: Any) -> List[float]:
+    """Compute per-taxa circular distances between two trees."""
+    from brancharchitect.leaforder.circular_distances import circular_distance_tree_pair
+
+    # Get the single distance between trees
+    single_distance = circular_distance_tree_pair(tree1, tree2)
+
+    # Get common taxa
     order1 = tree1.get_current_order()
     order2 = tree2.get_current_order()
-    n = len(order1)
-    idx1 = {name: i for i, name in enumerate(order1)}
-    idx2 = {name: i for i, name in enumerate(order2)}
-    dists = []
-    for name in order1:
-        diff = abs(idx1[name] - idx2[name])
-        d = min(diff, n - diff) / (n // 2)
-        dists.append(d)
-    return dists
+    common_taxa = set(order1) & set(order2)
+
+    # For now, assign equal distance to all taxa
+    # This is a simplified implementation - could be enhanced later
+    per_taxa_distances = [
+        single_distance / len(common_taxa) if common_taxa else 0.0
+    ] * len(common_taxa)
+
+    return per_taxa_distances
 
 
-def compute_per_pair_taxa_dists(trees):
-    num_pairs = len(trees) - 1
-    return [per_taxa_circular_distances(trees[i], trees[i+1]) for i in range(num_pairs)]
+def compute_per_pair_taxa_dists(trees: List[Any]) -> List[List[float]]:
+    """Compute per-pair taxa distances for all consecutive tree pairs."""
+    return [
+        per_taxa_circular_distances(trees[i], trees[i + 1])
+        for i in range(len(trees) - 1)
+    ]
 
 
-def compute_bezier_colors_and_widths(per_pair_taxa_dists, norm, subtle_color, min_width, max_width):
+def compute_bezier_colors_and_widths(
+    per_pair_taxa_dists: List[List[float]],
+    norm: Any,
+    subtle_color: Any,
+    min_width: float,
+    max_width: float,
+) -> Tuple[List[List[str]], List[List[float]]]:
+    """Compute Bezier curve colors and stroke widths from distance data."""
+    _require_optional_deps("Bezier color computation")
+
     bezier_colors_per_pair = [
         [subtle_color(norm(d)) for d in pair] for pair in per_pair_taxa_dists
     ]
     bezier_stroke_widths_per_pair = [
-        [min_width + (max_width - min_width) * norm(d) for d in pair] for pair in per_pair_taxa_dists
+        [min_width + (max_width - min_width) * norm(d) for d in pair]
+        for pair in per_pair_taxa_dists
     ]
     return bezier_colors_per_pair, bezier_stroke_widths_per_pair
 
 
-def _normalize_highlight_branches(highlight_branches, n):
-    if highlight_branches is None or (isinstance(highlight_branches, list) and (len(highlight_branches) == 0 or not isinstance(highlight_branches[0], (list, tuple)))):
-        return [highlight_branches] * n
-    return highlight_branches
+# --- Main API Functions ---
+def plot_tree_row_with_beziers_and_distances(
+    trees: List[Any],
+    size: int = 240,
+    margin: int = 50,
+    label_offset: int = 18,
+    y_steps: int = 7,
+    min_width: float = 4.0,
+    max_width: float = 14.0,
+    cmap_name: str = "viridis",
+    ignore_branch_lengths: bool = False,
+    font_family: str = "Monospace",
+    font_size: str = "18",
+    leaf_font_size: Optional[str] = None,
+    stroke_color: str = "#000",
+    output_path: Optional[str] = None,
+    save_format: str = "png",
+    show_plot: bool = True,
+    gridlines: bool = True,
+    highlight_branches: Optional[Any] = None,
+    highlight_width: Optional[Any] = None,
+    highlight_colors: Optional[Any] = None,
+    glow: bool = True,
+    show_zero_length_indicators: bool = False,
+    zero_length_indicator_color: str = "#ff4444",
+    zero_length_indicator_size: float = 6.0,
+    bezier_colors: Optional[Any] = None,
+    bezier_stroke_widths: Optional[Any] = None,
+    show_distances: bool = True,  # New parameter to control distance plot generation
+    **kwargs,
+) -> Optional[Any]:
+    """
+    Create a comprehensive visualization showing trees with Bezier connections and distance plots.
 
+    This is the main entry point for creating tree visualizations with distance analysis.
 
-def _normalize_highlight_width(highlight_width, n):
-    if isinstance(highlight_width, (int, float)):
-        return [highlight_width] * n
-    return highlight_width
+    Args:
+        trees: List of tree objects to visualize
+        show_distances: If True, generate and include distance plots (default: True)
+        show_plot: If True, display plots in notebook output (default: True)
+        Other parameters: See function signature for full parameter list
+    """
+    _require_optional_deps("tree plotting with distances")
 
+    # Handle single tree case - no distances, just tree visualization
+    if len(trees) == 1:
+        svg_element = plot_circular_trees_in_a_row(
+            trees,
+            size=size,
+            margin=margin,
+            label_offset=label_offset,
+            ignore_branch_lengths=ignore_branch_lengths,
+            font_family=font_family,
+            font_size=font_size,
+            leaf_font_size=leaf_font_size,
+            stroke_color=stroke_color,
+            show_zero_length_indicators=show_zero_length_indicators,
+            zero_length_indicator_color=zero_length_indicator_color,
+            zero_length_indicator_size=zero_length_indicator_size,
+        )
 
-# --- Section 2: SVG Construction and Manipulation ---
-def _make_svg_element(
-    trees, size, margin, bezier_colors, bezier_stroke_widths, label_offset, highlight_branches, highlight_width, highlight_colors=None,
-    font_family='Monospace', font_size='12', stroke_color='#000', leaf_font_size=None
-):
-    from brancharchitect.plot.tree_plot import plot_circular_trees_in_a_row
-    return plot_circular_trees_in_a_row(
-        trees,
-        size=size,
-        margin=margin,
-        bezier_colors=bezier_colors,
-        bezier_stroke_widths=bezier_stroke_widths,
-        label_offset=label_offset,
+        # Handle output for single tree
+        if output_path:
+            svg_string = ET.tostring(svg_element, encoding="unicode")
+            if save_format.lower() == "png":
+                import tempfile
+
+                with tempfile.NamedTemporaryFile(
+                    suffix=".svg", delete=False
+                ) as tmp_svg:
+                    tmp_svg.write(svg_string.encode())
+                    tmp_svg.flush()
+
+                    cairosvg.svg2png(
+                        url=tmp_svg.name, write_to=output_path, background_color="white"
+                    )
+                    os.unlink(tmp_svg.name)
+            else:
+                with open(output_path, "w") as f:
+                    f.write(svg_string)
+
+        if show_plot:
+            # For single tree, just display the SVG without matplotlib plots
+            if output_path and os.path.exists(output_path):
+                display(Image(filename=output_path))
+
+        return svg_element
+
+    if len(trees) < 2:
+        raise ValueError(
+            "At least 2 trees are required for Bezier connections and distance plots"
+        )
+
+    # Normalize parameters
+    params = TreeRenderingParams.normalize(
+        len(trees),
         highlight_branches=highlight_branches,
         highlight_width=highlight_width,
         highlight_colors=highlight_colors,
-        font_family=font_family,
-        font_size=font_size,
-        stroke_color=stroke_color,
-        leaf_font_size=leaf_font_size,
     )
 
-
-def _get_svg_size(svg_element, size, n):
-    width = int(svg_element.attrib.get("width", size * n))
-    height = int(svg_element.attrib.get("height", size))
-    return width, height
-
-
-def _add_svg_background(svg_element, width, height, top_margin=38, bottom_margin=0):
-    import xml.etree.ElementTree as ET
-    background = ET.Element(
-        "rect",
-        {"x": "0", "y": "0", "width": str(width+100), "height": str(height+top_margin+bottom_margin+100), "fill": "#fff"},
-    )
-    svg_element.insert(0, background)
-
-
-def _add_svg_legend(svg_element, width, height, legend_items, position="topmargin", top_margin=38):
-    import xml.etree.ElementTree as ET
-    legend_group = ET.Element("g", {"id": "svg_legend"})
-    box_width = 320
-    box_height = 28 * len(legend_items) + 28
-    x0 = 18
-    y0 = top_margin - box_height + 2
-    box = ET.Element(
-        "rect",
-        {
-            "x": str(x0),
-            "y": str(y0),
-            "width": str(box_width),
-            "height": str(box_height),
-            "fill": "#fff",
-            "stroke": "#bbb",
-            "stroke-width": "2.2",
-            "rx": "10",
-            "ry": "10",
-            "opacity": "0.96",
-        },
-    )
-    legend_group.append(box)
-    for i, (color, label) in enumerate(legend_items):
-        y = y0 + 28 + i * 28
-        ET.SubElement(
-            legend_group,
-            "line",
-            {
-                "x1": str(x0 + 20),
-                "y1": str(y),
-                "x2": str(x0 + 60),
-                "y2": str(y),
-                "stroke": color,
-                "stroke-width": "13",
-                "stroke-linecap": "round",
-            },
-        )
-        legend_text = ET.SubElement(
-            legend_group,
-            "text",
-            {
-                "x": str(x0 + 70),
-                "y": str(y + 2),
-                "font-size": "24",
-                "font-family": "sans-serif",
-                "fill": "#222",
-                "font-weight": "bold",
-                "dominant-baseline": "middle",
-            },
-        )
-        legend_text.text = label
-    svg_element.append(legend_group)
-
-
-def _make_and_style_svg_element(
-    trees, size, margin, bezier_colors_per_pair, bezier_stroke_widths_per_pair,
-    label_offset, highlight_branches_list, highlight_width_list, highlight_colors_list, y_steps, top_margin=190,
-    font_family='Monospace', font_size='12', stroke_color='#000', leaf_font_size=None
-):
-    svg_element = _make_svg_element(
-        trees, size, margin, bezier_colors_per_pair, bezier_stroke_widths_per_pair,
-        label_offset, highlight_branches_list, highlight_width_list, highlight_colors_list,
-        font_family=font_family, font_size=font_size, stroke_color=stroke_color, leaf_font_size=leaf_font_size
-    )
-    width, height = _get_svg_size(svg_element, size, len(trees))
-    _add_svg_background(svg_element, width, height, top_margin=top_margin, bottom_margin=0)
-    from brancharchitect.plot.tree_plot import add_svg_gridlines, add_tree_labels, add_direction_arrow
-    add_svg_gridlines(svg_element, width, height, y_steps=y_steps)
-    # add_tree_labels(svg_element, len(trees), size=size, height=0, y_offset= height, font_size=32)
-    # add_direction_arrow(svg_element, width, y=top_margin/8)
-    return svg_element, width, height
-
-
-# --- Section 3: Distance Plotting (Matplotlib) ---
-def _make_distance_plot(trees, width, height, title=None, xlabel=None, ylabel=None, bottom_margin=0):
-    import matplotlib.pyplot as plt
-    import numpy as np
-    rf_dists = compute_rf_distances(trees)
-    circ_dists = [np.mean(pair) for pair in compute_per_pair_taxa_dists(trees)]
-    circ_sums = [np.sum(pair) for pair in compute_per_pair_taxa_dists(trees)]
-    total_circular_distance = sum(circ_sums)
-    x = np.arange(0.5, len(trees)-0.5, 1)
-    fig, axs = plt.subplots(2, 1, figsize=(width/80, 3.2 + bottom_margin/80), sharex=True, gridspec_kw={'height_ratios': [1, 1], 'hspace': 0.18})
-    _plot_rf(axs[0], x, rf_dists, len(trees))
-    _plot_circ(axs[1], x, circ_dists, len(trees))
-    fig.subplots_adjust(bottom=0.22 + (bottom_margin/height if bottom_margin else 0))
-    axs[1].annotate(
-        f"Total circular distance: {total_circular_distance:.2f}",
-        xy=(1, -0.32 - (bottom_margin/height if bottom_margin else 0)),
-        xycoords="axes fraction",
-        ha="right",
-        va="top",
-        fontsize=22,
-        color="tab:blue",
-        fontweight="bold",
-        bbox=dict(boxstyle="round,pad=0.3", fc="#f8fafd", ec="#b0c4de", lw=2, alpha=0.92),
-    )
-    if title:
-        fig.suptitle(title, fontsize=28, fontweight="bold", y=1.03)
-    if xlabel:
-        axs[1].set_xlabel(xlabel, fontsize=22, fontweight="bold")
-    if ylabel:
-        axs[1].set_ylabel(ylabel, fontsize=20, color='tab:blue', labelpad=2, fontweight="bold")
-    for ax in axs:
-        ax.tick_params(axis='both', labelsize=16)
-        for label in ax.get_xticklabels() + ax.get_yticklabels():
-            label.set_fontweight('bold')
-    for ax in axs:
-        leg = ax.get_legend()
-        if leg:
-            for text in leg.get_texts():
-                text.set_fontsize(18)
-                text.set_fontweight('bold')
-    plt.tight_layout(pad=0.22)
-    return fig
-
-
-def _plot_rf(ax, x, rf_dists, n):
-    ax.plot(x, rf_dists, color='tab:red', lw=2.2, marker='o', markersize=9, label='Robinson-Foulds')
-    ax.set_ylabel('RF', fontsize=18, color='tab:red', labelpad=2, fontweight="bold")
-    ax.tick_params(axis='y', labelcolor='tab:red', length=0, labelsize=14)
-    ax.set_xlim(0, n-1)
-    ax.set_xticks([])
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_color('tab:red')
-    ax.spines['bottom'].set_visible(False)
-    ax.grid(axis='y', linestyle=':', alpha=0.22)
-    ax.legend(loc='upper right', fontsize=18, frameon=False)
-
-
-def _plot_circ(ax, x, circ_dists, n):
-    import numpy as np
-    ax.plot(x, circ_dists, color='tab:blue', lw=2.2, marker='o', markersize=9, label='Circular (mean)')
-    ax.set_ylabel('Circular', fontsize=18, color='tab:blue', labelpad=2, fontweight="bold")
-    ax.tick_params(axis='y', labelcolor='tab:blue', length=0, labelsize=14)
-    ax.set_xlim(0, n-1)
-    ax.set_xticks(np.arange(n))
-    ax.set_xticklabels([f"T{i+1}" for i in range(n)], fontsize=16, fontweight="bold")
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_color('tab:blue')
-    ax.spines['bottom'].set_color('#888')
-    ax.grid(axis='y', linestyle=':', alpha=0.22)
-    ax.legend(loc='upper right', fontsize=18, frameon=False)
-
-
-# --- Section 4: Image Combination and Output ---
-def _combine_and_display(svg_string, fig, save_format, output_path=None):
-    import tempfile
-    import os
-    from IPython.display import Image
-    from IPython.display import display
-    import cairosvg
-    import PIL.Image
-    if output_path is not None:
-        tmpdir = os.path.dirname(output_path)
-        os.makedirs(tmpdir, exist_ok=True)
-        svg_path = os.path.join(tmpdir, "trees.svg")
-        img_path = output_path
-        dist_path = os.path.join(tmpdir, "dist.png")
-        with open(svg_path, "w") as f:
-            f.write(svg_string)
-        if img_path.lower().endswith('.pdf'):
-            cairosvg.svg2pdf(bytestring=svg_string.encode("utf-8"), write_to=img_path)
-        else:
-            cairosvg.svg2png(url=svg_path, write_to=os.path.join(tmpdir, "trees.png"))
-            tree_img = PIL.Image.open(os.path.join(tmpdir, "trees.png"))
-            fig.savefig(dist_path, bbox_inches='tight', dpi=100)
-            dist_img = PIL.Image.open(dist_path)
-            w = max(tree_img.width, dist_img.width)
-            tree_img = tree_img.resize((w, tree_img.height), PIL.Image.LANCZOS)
-            dist_img = dist_img.resize((w, dist_img.height), PIL.Image.LANCZOS)
-            total_height = tree_img.height + dist_img.height
-            combined = PIL.Image.new("RGBA", (w, total_height), (255,255,255,255))
-            combined.paste(tree_img, (0,0))
-            combined.paste(dist_img, (0, tree_img.height))
-            combined.save(img_path)
-            display(Image(filename=img_path))
-    else:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            svg_path = os.path.join(tmpdir, "trees.svg")
-            img_path = os.path.join(tmpdir, f"combined.{save_format}")
-            with open(svg_path, "w") as f:
-                f.write(svg_string)
-            cairosvg.svg2png(url=svg_path, write_to=os.path.join(tmpdir, "trees.png"))
-            tree_img = PIL.Image.open(os.path.join(tmpdir, "trees.png"))
-            fig.savefig(os.path.join(tmpdir, "dist.png"), bbox_inches='tight', dpi=100)
-            dist_img = PIL.Image.open(os.path.join(tmpdir, "dist.png"))
-            w = max(tree_img.width, dist_img.width)
-            tree_img = tree_img.resize((w, tree_img.height), PIL.Image.LANCZOS)
-            dist_img = dist_img.resize((w, dist_img.height), PIL.Image.LANCZOS)
-            total_height = tree_img.height + dist_img.height
-            combined = PIL.Image.new("RGBA", (w, total_height), (255,255,255,255))
-            combined.paste(tree_img, (0,0))
-            combined.paste(dist_img, (0, tree_img.height))
-            combined.save(img_path)
-            display(Image(filename=img_path))
-
-
-# --- Section 5: Main Plotting API ---
-def plot_tree_row_with_beziers_and_distances(
-    trees,
-    size=240,
-    margin=50,
-    label_offset=18,
-    y_steps=7,
-    min_width=4.0,  # Thicker minimum Bezier width
-    max_width=14.0, # Thicker maximum Bezier width
-    cmap_name='viridis',
-    save_format='png',
-    highlight_branches=None,
-    highlight_width=10.0,  # Thicker highlight by default
-    highlight_colors=None,
-    distance_plot_title=None,
-    distance_plot_xlabel=None,
-    distance_plot_ylabel=None,
-    output_path=None,
-    svg_output_path=None,
-    ignore_branch_lengths=False,
-    font_family='Monospace',
-    font_size='18',
-    leaf_font_size=None,  # Expose leaf_font_size for user control
-    stroke_color='#000',
-    bezier_colors=None,
-    bezier_stroke_widths=None,
-    glow=True,  # Enable glow for better separation
-):
-    import matplotlib.colors as mcolors
-    import matplotlib.pyplot as plt
-    import xml.etree.ElementTree as ET
-    import numpy as np
-    n = len(trees)
-    highlight_branches_list = _normalize_highlight_branches(highlight_branches, n)
-    highlight_width_list = _normalize_highlight_width(highlight_width, n)
-
-    def normalize_effects(effects):
-        if effects is None:
-            return [None] * n
-        out = []
-        for d in effects:
-            if d is None:
-                out.append({})
-            elif isinstance(d, dict):
-                newd = {}
-                for k, v in d.items():
-                    if isinstance(v, str):
-                        newd[k] = {'highlight_color': v}
-                    else:
-                        newd[k] = v
-                out.append(newd)
-            else:
-                out.append(d)
-        return out
-
-    highlight_colors_list = normalize_effects(highlight_colors) if highlight_colors is not None else [{} for _ in range(n)]
+    # Compute distances and generate colors/widths
     per_pair_taxa_dists = compute_per_pair_taxa_dists(trees)
     all_dists = [d for pair in per_pair_taxa_dists for d in pair]
-    min_d, max_d = min(all_dists), max(all_dists)
 
-    def norm(d):
-        return (d - min_d) / (max_d - min_d + 1e-8)
+    if bezier_colors is None or bezier_stroke_widths is None:
+        if not all_dists:
+            # Handle single tree case
+            bezier_colors_per_pair, bezier_stroke_widths_per_pair = [], []
+        else:
+            # Create color mapping
+            cmap = plt.cm.get_cmap(cmap_name)
+            norm = plt.Normalize(vmin=min(all_dists), vmax=max(all_dists))
 
-    cmap = plt.get_cmap(cmap_name)
+            def subtle_color(x):
+                return mcolors.to_hex(cmap(x))
 
-    def subtle_color(val):
-        return "#e0e0e0" if val < 1e-6 else mcolors.to_hex(cmap(val))
+            bezier_colors_per_pair, bezier_stroke_widths_per_pair = (
+                compute_bezier_colors_and_widths(
+                    per_pair_taxa_dists, norm, subtle_color, min_width, max_width
+                )
+            )
+    else:
+        bezier_colors_per_pair = bezier_colors
+        bezier_stroke_widths_per_pair = bezier_stroke_widths
 
-    bezier_colors_per_pair, bezier_stroke_widths_per_pair = compute_bezier_colors_and_widths(
-        per_pair_taxa_dists, norm, subtle_color, min_width, max_width
+    # Generate tree visualization
+    svg_element = plot_circular_trees_in_a_row(
+        trees,
+        size=size,
+        margin=margin,
+        label_offset=label_offset,
+        ignore_branch_lengths=ignore_branch_lengths,
+        font_family=font_family,
+        font_size=font_size,
+        leaf_font_size=leaf_font_size,
+        stroke_color=stroke_color,
+        bezier_colors=bezier_colors_per_pair,
+        bezier_stroke_widths=bezier_stroke_widths_per_pair,
+        highlight_branches=params.highlight_branches,
+        highlight_width=params.highlight_width[0] if params.highlight_width else 4.0,
+        highlight_colors=params.highlight_colors,
+        show_zero_length_indicators=show_zero_length_indicators,
+        zero_length_indicator_color=zero_length_indicator_color,
+        zero_length_indicator_size=zero_length_indicator_size,
     )
-    bottom_margin = 36
-    # Use leaf_font_size if provided, else fallback to font_size
-    effective_leaf_font_size = str(leaf_font_size) if leaf_font_size is not None else font_size
-    svg_element, width, height = _make_and_style_svg_element(
-        trees, size, margin, bezier_colors_per_pair, bezier_stroke_widths_per_pair,
-        label_offset, highlight_branches_list, highlight_width_list, highlight_colors_list, y_steps, top_margin=210,
-        font_family=font_family, font_size=effective_leaf_font_size, stroke_color=stroke_color, leaf_font_size=effective_leaf_font_size
+
+    if gridlines:
+        add_svg_gridlines(svg_element, len(trees), size)
+
+    # Only generate distance plots if show_distances=True
+    if show_distances:
+        # Generate distance plot
+        rf_dists = compute_rf_distances(trees)
+        circ_dists = [
+            sum(pair) / len(pair) if pair else 0 for pair in per_pair_taxa_dists
+        ]
+
+        fig, ax = plt.subplots(figsize=(len(trees) * 1.5, 3))
+        _plot_distances(ax, rf_dists, circ_dists)
+
+        # Handle output with distance plots - always handle the figure when created
+        svg_string = ET.tostring(svg_element, encoding="unicode")
+        _handle_output(svg_string, fig, output_path, save_format, show_plot)
+    else:
+        # Handle output without distance plots - just save/display SVG
+        if output_path:
+            svg_string = ET.tostring(svg_element, encoding="unicode")
+            if save_format.lower() == "png":
+                import tempfile
+
+                with tempfile.NamedTemporaryFile(
+                    suffix=".svg", delete=False
+                ) as tmp_svg:
+                    tmp_svg.write(svg_string.encode())
+                    tmp_svg.flush()
+
+                    cairosvg.svg2png(
+                        url=tmp_svg.name, write_to=output_path, background_color="white"
+                    )
+                    os.unlink(tmp_svg.name)
+            else:
+                with open(output_path, "w") as f:
+                    f.write(svg_string)
+
+        # If show_plot=True but show_distances=False, just display the tree SVG
+        if show_plot:
+            if output_path and os.path.exists(output_path):
+                display(Image(filename=output_path))
+
+    return svg_element
+
+
+def _plot_distances(ax: Any, rf_dists: List[float], circ_dists: List[float]) -> None:
+    """Create distance comparison plot."""
+    _require_optional_deps("distance plotting")
+
+    x_positions = np.arange(len(rf_dists))
+    x_labels = [f"Tree {i}→Tree {i + 1}" for i in range(len(rf_dists))]
+
+    # Normalize distances for comparison
+    rf_norm = (
+        np.array(rf_dists) / max(rf_dists) if max(rf_dists) > 0 else np.array(rf_dists)
     )
-    svg_string = ET.tostring(svg_element, encoding="unicode")
-    if svg_output_path is not None:
-        with open(svg_output_path, "w", encoding="utf-8") as f:
-            f.write(svg_string)
-    fig = _make_distance_plot(
-        trees, width, height,
-        title=distance_plot_title,
-        xlabel=distance_plot_xlabel,
-        ylabel=distance_plot_ylabel,
-        bottom_margin=bottom_margin
+    circ_norm = (
+        np.array(circ_dists) / max(circ_dists)
+        if max(circ_dists) > 0
+        else np.array(circ_dists)
     )
-    _combine_and_display(svg_string, fig, save_format, output_path=output_path)
+
+    ax.plot(x_positions, rf_norm, "o-", label="Robinson-Foulds", markersize=8)
+    ax.plot(x_positions, circ_norm, "s-", label="Circular Distance", markersize=8)
+
+    ax.set_xticks(x_positions)
+    ax.set_xticklabels(x_labels, rotation=45, ha="right")
+    ax.set_ylabel("Normalized Distance")
+    ax.set_title("Tree Distance Comparison")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+
+def _handle_output(
+    svg_string: str,
+    fig: Any,
+    output_path: Optional[str],
+    save_format: str,
+    show_plot: bool,
+) -> None:
+    """Handle saving and/or displaying the combined visualization."""
+    _require_optional_deps("output handling")
+
+    if output_path:
+        if save_format.lower() == "png":
+            # Create a combined image with both trees (SVG) and distance plot (matplotlib)
+
+            # First, convert SVG to image
+            with tempfile.NamedTemporaryFile(suffix=".svg", delete=False) as tmp_svg:
+                tmp_svg.write(svg_string.encode())
+                tmp_svg.flush()
+
+                # Convert SVG to PNG in memory
+                svg_png_data = cairosvg.svg2png(
+                    url=tmp_svg.name, background_color="white"
+                )
+                os.unlink(tmp_svg.name)
+
+            # Save matplotlib figure to memory
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_mpl:
+                fig.savefig(
+                    tmp_mpl.name,
+                    dpi=150,
+                    bbox_inches="tight",
+                    facecolor="white",
+                    edgecolor="none",
+                )
+                mpl_png_path = tmp_mpl.name
+
+            # Combine the images vertically using PIL
+            from PIL import Image as PILImage
+            import io
+
+            # Load images
+            svg_image = PILImage.open(io.BytesIO(svg_png_data))
+            mpl_image = PILImage.open(mpl_png_path)
+
+            # Calculate combined dimensions
+            total_width = max(svg_image.width, mpl_image.width)
+            total_height = svg_image.height + mpl_image.height + 20  # 20px padding
+
+            # Create combined image
+            combined = PILImage.new("RGB", (total_width, total_height), "white")
+
+            # Paste SVG at top (centered if needed)
+            svg_x = (total_width - svg_image.width) // 2
+            combined.paste(svg_image, (svg_x, 0))
+
+            # Paste matplotlib plot at bottom (centered if needed)
+            mpl_x = (total_width - mpl_image.width) // 2
+            combined.paste(mpl_image, (mpl_x, svg_image.height + 20))
+
+            # Save combined image
+            combined.save(output_path, "PNG", quality=95)
+
+            # Clean up
+            os.unlink(mpl_png_path)
+
+        else:
+            # For non-PNG formats, just save the SVG
+            with open(output_path, "w") as f:
+                f.write(svg_string)
+
+    # Only display the plot in the notebook if show_plot=True
+    if show_plot:
+        # Display the figure if explicitly requested
+        display(fig)
+        plt.show()
+    
+    # Always close the figure to prevent memory leaks, regardless of show_plot
     plt.close(fig)
+
+
+# Simplified API function for basic use cases
+def plot_tree_sequence(trees: List[Any], **kwargs) -> Any:
+    """Simplified interface for plotting a sequence of trees with default settings."""
+    return plot_tree_row_with_beziers_and_distances(trees, **kwargs)

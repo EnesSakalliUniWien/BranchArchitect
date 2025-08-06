@@ -1,0 +1,6 @@
+[backend] Starting backend at Wed Aug  6 00:17:01 CEST 2025
+[backend] Python path: /Users/berksakalli/Projects/BranchArchitect:/Users/berksakalli/Projects/BranchArchitect/backend
+[backend] Library path: /opt/homebrew/lib:
+[backend] Running command: PYTHONPATH="/Users/berksakalli/Projects/BranchArchitect:/Users/berksakalli/Projects/BranchArchitect:/Users/berksakalli/Projects/BranchArchitect/backend" DYLD_LIBRARY_PATH="/opt/homebrew/lib:/opt/homebrew/lib:" poetry run python webapp/run.py --host=127.0.0.1 --port=5002
+[backend] Backend PID: 27357
+[backend] Backend ready at Wed Aug  6 00:17:03 CEST 2025

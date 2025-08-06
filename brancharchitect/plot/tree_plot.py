@@ -80,41 +80,32 @@ def plot_circular_trees_in_a_row(
     ignore_branch_lengths: bool = False,
     bezier_colors: Optional[List[List[str]]] = None,
     bezier_stroke_widths: Optional[List[List[float]]] = None,
-    highlight_branches: Optional[list] = None,  # Can be list of lists or single list
-    highlight_width: float = 4.0,  # Can be list or single value
-    highlight_colors: Optional[list] = None,  # New: list of dicts or None
-    font_family: str = 'Monospace',
-    font_size: str = '12',
-    stroke_color: str = '#000',
-    leaf_font_size: str = None,  # NEW: propagate leaf_font_size
+    highlight_branches: Optional[list] = None,
+    highlight_width: float = 4.0,
+    highlight_colors: Optional[list] = None,
+    font_family: str = "Monospace",
+    font_size: str = "12",
+    stroke_color: str = "#000",
+    leaf_font_size: Optional[str] = None,
+    show_zero_length_indicators: bool = False,
+    zero_length_indicator_color: str = "#ff4444",
+    zero_length_indicator_size: float = 6.0,
 ) -> ET.Element:
-    """Display multiple circular trees in a row. Returns SVG root element.
-    bezier_colors and bezier_stroke_widths should be lists of lists, one per tree-pair, each containing per-taxa values.
-    highlight_branches: list of lists (per tree) or single list (applies to all)
-    highlight_width: list (per tree) or single value (applies to all)
-    highlight_colors: list of dicts (per tree) or None
-    """
-    n = len(roots)
-    # Normalize highlight_branches to per-tree list
-    if highlight_branches is None or isinstance(highlight_branches, list) and (len(highlight_branches) == 0 or not isinstance(highlight_branches[0], (list, tuple))):
-        # Single list or None: apply to all
-        highlight_branches_list = [highlight_branches] * n
-    else:
-        highlight_branches_list = highlight_branches
-    # Normalize highlight_width to per-tree list
-    if isinstance(highlight_width, (int, float)):
-        highlight_width_list = [highlight_width] * n
-    else:
-        highlight_width_list = highlight_width
-    # Normalize highlight_colors to per-tree list
-    if highlight_colors is None:
-        highlight_colors_list = [None] * n
-    elif isinstance(highlight_colors, list) and (len(highlight_colors) == n):
-        highlight_colors_list = highlight_colors
-    else:
-        highlight_colors_list = [highlight_colors] * n
-    # Use leaf_font_size if provided, else fallback to font_size
-    font_size_to_use = leaf_font_size if leaf_font_size is not None else font_size
+    """Display multiple circular trees in a row. Returns SVG root element."""
+    # Import here to avoid circular imports
+    from brancharchitect.plot.circular_bezier_trees import TreeRenderingParams
+    
+    # Use unified parameter normalization
+    params = TreeRenderingParams.normalize(
+        len(roots),
+        highlight_branches=highlight_branches,
+        highlight_width=highlight_width,
+        highlight_colors=highlight_colors
+    )
+    
+    # Handle font size preference
+    effective_font_size = leaf_font_size if leaf_font_size is not None else font_size
+    
     svg_element, _ = generate_multiple_circular_trees_svg(
         roots=roots,
         size=size,
@@ -123,12 +114,15 @@ def plot_circular_trees_in_a_row(
         ignore_branch_lengths=ignore_branch_lengths,
         bezier_colors=bezier_colors,
         bezier_stroke_widths=bezier_stroke_widths,
-        highlight_branches=highlight_branches_list,
-        highlight_width=highlight_width_list,
-        highlight_colors=highlight_colors_list,
+        highlight_branches=params.highlight_branches,
+        highlight_width=params.highlight_width,
+        highlight_colors=params.highlight_colors,
         font_family=font_family,
-        font_size=font_size_to_use,
+        font_size=effective_font_size,
         stroke_color=stroke_color,
+        show_zero_length_indicators=show_zero_length_indicators,
+        zero_length_indicator_color=zero_length_indicator_color,
+        zero_length_indicator_size=zero_length_indicator_size,
     )
     return svg_element
 
@@ -164,6 +158,7 @@ def plot_rectangular_tree(
 ) -> str:
     """Generate rectangular layout visualization for a single tree."""
     return generate_rectangular_tree_svg(tree, width=width, height=height)
+
 
 # --- Utility functions for annotation ---
 def add_svg_gridlines(

@@ -4,6 +4,7 @@ import re
 from typing import Any, List, Callable, Optional
 
 from brancharchitect.core.base_logger import AlgorithmLogger, beautify_frozenset
+from brancharchitect.jumping_taxa.lattice.types import PMatrix
 
 
 def to_latex_matrix(
@@ -49,21 +50,35 @@ def format_partition_set(ps):
     return "{" + ", ".join(format_partition(p) for p in parts) + "}"
 
 
-def format_matrix(matrix):
+def format_matrix(matrix: PMatrix) -> str:
     """
     Given a 2x2 matrix (list of lists) of PartitionSet objects,
     return a string representation that looks like:
-    
+
       ⎡ cell00         │ cell01 ⎤
       ⎢─────────────────────────────⎥
       ⎣ cell10         │ cell11 ⎦
     """
     formatted = [[format_partition_set(cell) for cell in row] for row in matrix]
     col_widths = [max(len(row[j]) for row in formatted) for j in range(2)]
+
     def pad(cell, width):
         return cell.ljust(width)
-    top = "⎡ " + pad(formatted[0][0], col_widths[0]) + "   │ " + pad(formatted[0][1], col_widths[1]) + " ⎤"
-    bottom = "⎣ " + pad(formatted[1][0], col_widths[0]) + "   │ " + pad(formatted[1][1], col_widths[1]) + " ⎦"
+
+    top = (
+        "⎡ "
+        + pad(formatted[0][0], col_widths[0])
+        + "   │ "
+        + pad(formatted[0][1], col_widths[1])
+        + " ⎤"
+    )
+    bottom = (
+        "⎣ "
+        + pad(formatted[1][0], col_widths[0])
+        + "   │ "
+        + pad(formatted[1][1], col_widths[1])
+        + " ⎦"
+    )
     sep_width = len(top) - 2
     middle = "⎢ " + "─" * (sep_width - 4) + " ⎥"
     return "\n".join([top, middle, bottom])
@@ -72,7 +87,14 @@ def format_matrix(matrix):
 class MatrixLogger(AlgorithmLogger):
     """Extension of AlgorithmLogger with matrix display support."""
 
-    def matrix(self, matrix: List[List[Any]], format_func=None, title: str = ""):
+    from typing import Callable, Optional
+
+    def matrix(
+        self,
+        matrix: PMatrix,
+        format_func: Optional[Callable[[object], str]] = None,
+        title: str = "",
+    ) -> None:
         """
         Display a matrix with ASCII art in terminal and mathematical notation in HTML.
         For HTML, provides optional toggle to view ASCII, table, or LaTeX representations.
@@ -234,7 +256,7 @@ class MatrixLogger(AlgorithmLogger):
         """Create an HTML table representation of the matrix."""
         # Import here to avoid circular imports
         from brancharchitect.core.table_logger import TableLogger
-        
+
         # Create headers
         headers = [""] + [f"Column {i}" for i in range(len(matrix[0]))]
 

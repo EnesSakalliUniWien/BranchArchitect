@@ -3,6 +3,7 @@
 import re
 from typing import Any, Set
 
+
 def format_set(s: Set[Any]) -> str:
     """Format set for consistent display."""
     if not s:
@@ -35,7 +36,7 @@ def beautify_frozenset(obj: Any) -> str:
     return s
 
 
-def format_partition(part):
+def format_partition(part: Any) -> str:
     """Format a Partition (or its tuple representation) as '(a, b, ...)'."""
     try:
         values = tuple(part)  # works if part is iterable (like Partition)

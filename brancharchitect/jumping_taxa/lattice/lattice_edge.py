@@ -1,4 +1,4 @@
-from brancharchitect.partition_set import PartitionSet, Partition
+from brancharchitect.elements.partition_set import PartitionSet, Partition
 from typing import List
 from dataclasses import dataclass, field
 from brancharchitect.tree import Node
@@ -12,27 +12,27 @@ class LatticeEdge:
 
     right_node: Node
 
-    t1_common_covers: List[PartitionSet]
+    t1_common_covers: List[PartitionSet[Partition]]
 
-    t2_common_covers: List[PartitionSet]
+    t2_common_covers: List[PartitionSet[Partition]]
 
-    t1_unique_atoms: List[PartitionSet]
+    t1_unique_atoms: List[PartitionSet[Partition]]
 
-    t2_unique_atoms: List[PartitionSet]
+    t2_unique_atoms: List[PartitionSet[Partition]]
 
-    t1_unique_covers: List[PartitionSet]
+    t1_unique_covers: List[PartitionSet[Partition]]
 
-    t2_unique_covers: List[PartitionSet]
-    
-    t1_unique_partition_sets: List[PartitionSet]
-    
-    t2_unique_partition_sets: List[PartitionSet]
+    t2_unique_covers: List[PartitionSet[Partition]]
 
-    child_meet: PartitionSet
+    t1_unique_partition_sets: List[PartitionSet[Partition]]
+
+    t2_unique_partition_sets: List[PartitionSet[Partition]]
+
+    child_meet: PartitionSet[Partition]
 
     visits: int = field(default=0, init=False)  # added visits counter
 
-    encoding: dict
+    encoding: dict[str, int]
 
     def is_divergent(self, tree: int = 1) -> bool:
         """
@@ -106,7 +106,7 @@ class LatticeEdge:
         )
         return (left_type, right_type)
 
-    def remove_solutions_from_covers(self, solutions: List[PartitionSet]):
+    def remove_solutions_from_covers(self, solutions: List[PartitionSet[Partition]]):
         for partitionset in solutions:
             for partition in partitionset:
                 for i in range(len(self.t1_common_covers)):
@@ -140,7 +140,7 @@ class LatticeEdge:
 
 
 def determine_covering_relation(
-    child_splits: PartitionSet, common: PartitionSet, node: Node
+    child_splits: PartitionSet[Partition], common: PartitionSet[Partition], node: Node
 ) -> str:
     """
     Determine the covering relation between the descendant splits (D) of a node and the common splits (C).
@@ -157,7 +157,7 @@ def determine_covering_relation(
     Returns:
         A string indicating the covering relation type: "divergent", "collapsed", or "intermediate".
     """
-    A = child_splits & common
+    A: PartitionSet[Partition] = child_splits & common
     if not A:
         return "divergent"
     if child_splits.issubset(common):
@@ -165,7 +165,7 @@ def determine_covering_relation(
     return "intermediate"
 
 
-def get_child_splits(node: "Node") -> PartitionSet:
+def get_child_splits(node: "Node") -> PartitionSet[Partition]:
     """
     Compute the set of child splits for a node n.
 
@@ -174,5 +174,5 @@ def get_child_splits(node: "Node") -> PartitionSet:
           D(n) = { s(c) : s(c) = c.split_indices for each c ∈ children(n) }.
     """
     return PartitionSet(
-        {child.split_indices for child in node.children}, encoding=node._encoding
+        {child.split_indices for child in node.children}, encoding=node.taxa_encoding
     )

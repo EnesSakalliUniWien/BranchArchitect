@@ -1,9 +1,10 @@
+from __future__ import annotations
 import json
 from enum import Enum
 from statistics import mean
-from dataclasses import dataclass, field
-from typing import Optional, Any, Tuple, Dict, List, Self, cast
-from brancharchitect.partition_set import PartitionSet, Partition
+from typing import Optional, Any, Tuple, Dict, List
+from typing_extensions import Self
+from brancharchitect.elements.partition_set import PartitionSet, Partition
 
 
 class ReorderStrategy(Enum):
@@ -13,47 +14,45 @@ class ReorderStrategy(Enum):
     MEDIAN = "median"
 
 
-@dataclass()
 class Node:
-    children: List[Self] = field(default_factory=list, compare=False)
-    length: Optional[float] = field(default=None, compare=True)
-    values: Dict[str, Any] = field(default_factory=dict, compare=True)
-    split_indices: Partition = field(
-        default_factory=lambda: Partition(()), compare=True
-    )
-    parent: Optional[Self] = None
-    _encoding: Dict[str, int] = field(default_factory=dict, compare=False)
-    _split_index = None
-    # Only keep caches that are actually used in the code below
-    _cached_subtree_order: Optional[Tuple[str, ...]] = field(
-        default=None, init=False, compare=False
-    )
-    _cached_subtree_cost: Optional[float] = field(
-        default=None, init=False, compare=False
-    )
-    _cache_valid: bool = field(default=False, init=False, compare=False)
-    _traverse_cache: Optional[List[Self]] = field(
-        default=None, init=False, compare=False
-    )
-    _splits_cache: Optional[PartitionSet] = field(
-        default=None, init=False, compare=False
-    )
+    # Class attributes for caching and tree structure
+    children: List[Self]
+    length: Optional[float]
+    values: Dict[str, Any]
+    split_indices: Partition
+    parent: Optional[Self]
+    taxa_encoding: Dict[str, int]
+    _split_index: Optional[Dict[Partition, Self]]
+    _cached_subtree_order: Optional[Tuple[str, ...]]
+    _cached_subtree_cost: Optional[float]
+    _cache_valid: bool
+    _traverse_cache: Optional[List[Self]]
+    _splits_cache: Optional[PartitionSet[Partition]]
+    list_index: Optional[int]
+    s_edge_block: Partition
 
     def __init__(
         self,
-        children=None,
-        name=None,
-        length=None,
-        values=None,
-        split_indices=(),
-        _order=None,
-        _encoding=None,
+        children: List[Self] = [],
+        name: str = "",
+        length: float = 0.00001,
+        values: Dict[str, Any] = {},
+        split_indices: Optional[Partition] = None,
+        _order: List[str] = [],
+        taxa_encoding: Optional[Dict[str, int]] = None,
+        depth: Optional[int] = None,
     ):
         self.children = children or []
+        # Set parent pointers for all children
+        for child in self.children:
+            child.parent = self
+        self.parent = None  # Initialize parent attribute
         self.name = name
         self.length = length
         self.values = values or {}
-        self.split_indices = split_indices
+        self.split_indices = (
+            split_indices if split_indices is not None else Partition((), {})
+        )
         self._order = _order or []
         self._split_index = None
         self._cached_subtree_order = None
@@ -61,14 +60,26 @@ class Node:
         self._cache_valid = False
         self._traverse_cache = None
         self._splits_cache = None
+        self.list_index = None
+        self.depth = depth
+        self.s_edge_block = Partition(
+            (), {}
+        )  # Initialize s_edge_block as an empty partition
+        # Explicitly initialize s_edge_depth
 
         if not self._order:
             self._order = self.get_current_order()
-        if not _encoding:
-            self._encoding = {name: i for i, name in enumerate(self._order)}
+        if not taxa_encoding:
+            self.taxa_encoding: Dict[str, int] = {
+                name: i for i, name in enumerate(self._order)
+            }
+        else:
+            self.taxa_encoding = taxa_encoding
 
-        if not self._encoding:
+        if not self.taxa_encoding:
             raise ValueError("Encoding dictionary cannot be empty")
+
+        # Always ensure split_indices is a Partition (already handled above)
 
     @property
     def leaves(self) -> List[Self]:
@@ -86,20 +97,21 @@ class Node:
         # Collect leaves from all children recursively
         result: List[Self] = []
         for child in self.children:
-            # Use cast to tell the type checker these are compatible with Self
-            result.extend(cast(List[Self], child.leaves))
+            # Directly extend with child.leaves since it already returns List[Self]
+            result.extend(child.leaves)
         return result
 
     # ------------------------------------------------------------------------
     # Equality & hashing
     # ------------------------------------------------------------------------
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Node):
             return NotImplemented
         return self.split_indices == other.split_indices
 
     def __hash__(self) -> int:
-        return hash(frozenset(self.to_splits()))
+        """Hash based on split_indices to maintain consistency with __eq__."""
+        return hash(self.split_indices)
 
     def __repr__(self) -> str:
         return f"Node('{self.name}')"
@@ -109,17 +121,33 @@ class Node:
 
     # ------------------------------------------------------------------------
     # Splits & related caching
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------------s
 
-    def to_splits(self, with_leaves=False) -> PartitionSet:
-        if self._splits_cache is not None and not with_leaves:
+    def to_splits(self, with_leaves: bool = False) -> PartitionSet[Partition]:
+        """
+        Return the set of splits (PartitionSet) for the subtree rooted at this node.
+        Uses a cache to avoid redundant computation. The cache is always used unless
+        `with_leaves=True`, in which case splits for all nodes (including leaves) are recomputed.
+
+        Args:
+            with_leaves (bool): If True, include splits for leaves and recompute (bypassing cache).
+        Returns:
+            PartitionSet: The set of splits for this subtree.
+
+        Caching strategy:
+            - If `with_leaves` is False, the result is cached in `_splits_cache` and reused on subsequent calls.
+            - If `with_leaves` is True, the cache is bypassed and splits are recomputed (not cached).
+            - The cache is invalidated by any tree-modifying operation (see methods that call `invalidate_caches`).
+        """
+        if not with_leaves and self._splits_cache is not None:
             return self._splits_cache
-        splits: PartitionSet = PartitionSet(encoding=self._encoding)
+
+        splits: PartitionSet[Partition] = PartitionSet(encoding=self.taxa_encoding)
         for nd in self.traverse():
-            if nd.children:
+            # Only add splits for internal nodes unless with_leaves is True
+            if nd.children or with_leaves:
                 splits.add(nd.split_indices)
-            if with_leaves:
-                splits.add(nd.split_indices)
+
         if not with_leaves:
             self._splits_cache = splits
         return splits
@@ -128,50 +156,66 @@ class Node:
         self._split_index = {}
         self._populate_split_index(self)
 
-    def _populate_split_index(self, node):
-        if node.split_indices is not None:
-            self._split_index[node.split_indices] = node
+    def _populate_split_index(self, node: Self) -> None:
+        if self._split_index is None:
+            self._split_index = {}
+
+        self._split_index[node.split_indices] = node
         for ch in node.children:
             self._populate_split_index(ch)
 
-    def find_node_by_split(self, target_split) -> Optional[Self]:
+    def find_node_by_split(self, target_split: Any) -> Optional[Self]:
         """
         Find a node by its split indices (accepts tuple or Partition).
         """
         try:
             if self._split_index is None:
                 self.build_split_index()
-            if self._split_index is None:
-                return None
-            # Convert tuple to Partition if needed
+
+            # Convert tuple to Partition if needed (only if it's not already a Partition)
             if not isinstance(target_split, Partition):
-                target_split = Partition(tuple(target_split), self._encoding)
-            return self._split_index.get(target_split)
+                target_split = Partition(tuple(target_split), self.taxa_encoding)
+
+            # At this point _split_index should not be None due to build_split_index
+            if self._split_index is not None:
+                return self._split_index.get(target_split)
+            return None
         except Exception as e:
             raise ValueError(f"Error finding node by split: {e}")
- 
+
     # ------------------------------------------------------------------------
     # append_child sets parent pointer (pointer-based approach)
     # ------------------------------------------------------------------------
     def append_child(self, node: Self) -> None:
         node.parent = self
         self.children.append(node)
+        # Invalidate all caches, including splits cache, after tree modification
         self.invalidate_caches(propagate_up=True)
 
     # ------------------------------------------------------------------------
     # deep_copy (unchanged, except we skip copying .parent)
     # ------------------------------------------------------------------------
-    def deep_copy(self):
-        new_node = Node(
+    def deep_copy(self) -> Self:
+        new_node = type(self)(
             name=self.name,
-            length=self.length,
+            length=self.length if self.length is not None else 0.0,
             values=self.values.copy(),
             split_indices=self.split_indices,
-            _order=tuple([name for name in self._order]),
+            _order=[name for name in self._order],
+            taxa_encoding=self.taxa_encoding.copy(),  # Copy the taxa_encoding
         )
+
+        # Copy s_edge_block attribute if it exists
+        if hasattr(self, "s_edge_block"):
+            new_node.s_edge_block = self.s_edge_block
+        else:
+            # Initialize with default empty partition if not present
+            new_node.s_edge_block = Partition((), self.taxa_encoding)
+
+        # Recursively copy children and set their parent references
         new_node.children = [child.deep_copy() for child in self.children]
         for child in new_node.children:
-            child.parent = new_node
+            child.parent = new_node  # type: ignore
         return new_node
 
     # ------------------------------------------------------------------------
@@ -180,13 +224,22 @@ class Node:
 
     def _initialize_split_indices(self, encoding: Dict[str, int]) -> None:
         """Initialize split indices with better error handling and validation."""
+        # Set the encoding on this node
+        self.taxa_encoding = encoding
+
         # Process children first
         for child in self.children:
             child._initialize_split_indices(encoding)
 
         try:
             if not self.children:
-                self.split_indices = Partition((encoding[self.name],), encoding)
+                # Leaf node - must have a name in the encoding
+                if not self.name or self.name not in encoding:
+                    # This is likely an internal node that became a leaf after deletion
+                    # but doesn't have a proper leaf name. Create an empty partition.
+                    self.split_indices = Partition((), encoding)
+                else:
+                    self.split_indices = Partition((encoding[self.name],), encoding)
             else:
                 # For internal nodes, collect child indices
                 idxs: list[int] = []
@@ -199,6 +252,22 @@ class Node:
 
         except Exception as e:
             raise ValueError(f"Failed to initialize split indices: {str(e)}")
+
+    def initialize_split_indices(self, encoding: Dict[str, int]) -> None:
+        """
+        Public method to initialize split indices for the tree.
+
+        This method recursively initializes split indices for all nodes in the tree,
+        starting from the current node. It ensures that each node has a proper
+        Partition object representing its split.
+
+        Args:
+            encoding: Dictionary mapping taxon names to their integer indices
+
+        Raises:
+            ValueError: If initialization fails due to invalid encoding or tree structure
+        """
+        self._initialize_split_indices(encoding)
 
     # ------------------------------------------------------------------------
     # traversal, fix_child_order, to_hierarchy, etc.
@@ -215,13 +284,18 @@ class Node:
 
     def _index(self, component: Tuple[str, ...]) -> Partition:
         return Partition(
-            tuple(sorted(self._order.index(name) for name in component)), self._encoding
+            tuple(sorted(self._order.index(name) for name in component)),
+            self.taxa_encoding,
         )
 
-    def _fix_child_order(self) -> None:
-        self.children.sort(key=lambda node: min(node.split_indices))
+    def fix_child_order(self) -> None:
+        self.children.sort(
+            key=lambda node: min(node.split_indices)
+            if node.split_indices
+            else float("inf")
+        )
         for child in self.children:
-            child._fix_child_order()
+            child.fix_child_order()
 
     def to_hierarchy(self) -> Dict[str, Any]:
         return {
@@ -232,9 +306,19 @@ class Node:
             "values": self.values,
         }
 
-    def swap_children(self):
+    def swap_children(self) -> None:
+        """
+        Reverses the order of all children in place.
+
+        This method works for any number of children (2 or more) and is a key
+        operation for testing alternative node orientations. It correctly
+        invalidates all necessary caches after the modification.
+        """
         if len(self.children) >= 2:
-            self.children[0], self.children[1] = self.children[1], self.children[0]
+            # Use list.reverse() to handle any number of children, not just the first two.
+            self.children.reverse()
+
+            # Invalidate all caches, as the leaf order has changed.
             self.invalidate_caches(propagate_up=True)
 
     def to_weighted_splits(self) -> Dict[Partition, float]:
@@ -258,9 +342,13 @@ class Node:
                 "Permutation must include all taxa in the tree.", permutation, tree_taxa
             )
 
-        _visual_order_indices = {name: idx for idx, name in enumerate(permutation)}
+        _visual_order_indices: Dict[str, int] = {
+            name: idx for idx, name in enumerate(permutation)
+        }
 
-        sorting_strategies = {
+        from typing import Callable
+
+        sorting_strategies: Dict[ReorderStrategy, Callable[[List[Self]], float]] = {
             ReorderStrategy.AVERAGE: lambda leaves: mean(
                 _visual_order_indices[leaf.name] for leaf in leaves
             ),
@@ -270,9 +358,11 @@ class Node:
             ReorderStrategy.MINIMUM: lambda leaves: min(
                 _visual_order_indices[leaf.name] for leaf in leaves
             ),
-            ReorderStrategy.MEDIAN: lambda leaves: sorted(
-                _visual_order_indices[leaf.name] for leaf in leaves
-            )[len(leaves) // 2],
+            ReorderStrategy.MEDIAN: lambda leaves: float(
+                sorted(_visual_order_indices[leaf.name] for leaf in leaves)[
+                    len(leaves) // 2
+                ]
+            ),
         }
 
         def _reorder(node: Self) -> None:
@@ -293,15 +383,15 @@ class Node:
         """
         if not self.children:
             return [self]
-        leaves = []
+        leaves: List[Self] = []
         for child in self.children:
-            leaves.extend(cast(List[Self], child.get_leaves()))
+            leaves.extend(child.get_leaves())
         return leaves
 
     # ------------------------------------------------------------------------
     # (NEW) Cached get_current_order
     # ------------------------------------------------------------------------
-    def get_current_order(self) -> Tuple[str, ...]:
+    def get_current_order(self) -> tuple[str, ...]:
         """
         Return the current order of taxa in the tree as a tuple.
         """
@@ -338,14 +428,14 @@ class Node:
             return {
                 "name": self.name,
                 "length": self.length,
-                "split_indices": self.split_indices.resolve_to_indices(),
+                "split_indices": list(self.split_indices.resolve_to_indices()),
                 "children": [],
             }
         else:
             return {
                 "name": "",
                 "length": self.length,
-                "split_indices": self.split_indices.indices,
+                "split_indices": list(self.split_indices.indices),
                 "children": [child.to_dict() for child in self.children],
             }
 
@@ -362,14 +452,17 @@ class Node:
         return bool(self.children)
 
     def delete_taxa(self, indices_to_delete: list[int]) -> Self:
-        """Delete taxa and update indices/caches."""
+        """
+        Delete taxa and update indices/caches.
+        This will invalidate all caches, including the splits cache, to ensure correctness.
+        """
         # First delete the taxa
         self._delete_taxa_internal(indices_to_delete)
 
-        self._delete_superfluous_nodes()
+        self._prune_single_child_nodes()
 
         # Update order and reinitialize indices
-        self._initialize_split_indices(self._encoding)
+        self._initialize_split_indices(self.taxa_encoding)
 
         # Clear all caches
         self._split_index = None  # Force rebuild of split index
@@ -379,18 +472,23 @@ class Node:
         return self
 
     def _delete_taxa_internal(self, indices_to_delete: list[int]) -> Self:
-        """Internal method for taxa deletion."""
+        """
+        Internal method for taxa deletion. Optimized for performance by using a set for lookups.
+        """
+        indices_to_delete_set = set(indices_to_delete)
         # Keep only children whose split indices contain elements not in indices_to_delete
         self.children = [
             child
             for child in self.children
-            if any(idx not in indices_to_delete for idx in child.split_indices)
+            if any(idx not in indices_to_delete_set for idx in child.split_indices)
         ]
 
         # Update split indices for this node
         self.split_indices = Partition(
-            tuple(idx for idx in self.split_indices if idx not in indices_to_delete),
-            self._encoding,
+            tuple(
+                idx for idx in self.split_indices if idx not in indices_to_delete_set
+            ),
+            self.taxa_encoding,
         )
 
         # Recursively process children
@@ -399,37 +497,27 @@ class Node:
 
         return self
 
-    def _delete_superfluous_nodes(self) -> Self:
-        """Remove nodes with single children."""
-        self.children = [
-            self._get_end_child(cast(Self, child)) for child in self.children
-        ]
+    def _prune_single_child_nodes(self) -> Self:
+        """Remove internal nodes with exactly one child by connecting their child directly to the parent."""
+        self.children = [self._get_end_child(child) for child in self.children]
         for child in self.children:
-            child._delete_superfluous_nodes()
+            child._prune_single_child_nodes()
         return self
 
     def _get_end_child(self, node: Self) -> Self:
         """Get the furthest non-single-child descendant."""
         if len(node.children) != 1:
             return node
-        return self._get_end_child(cast(Self, node.children[0]))
-
-    def get_external_indices(self) -> list:
-        """Get all leaf indices in traversal order."""
-        indices = []
-        for child in self.children:
-            if child.children:
-                indices.extend(child.get_external_indices())
-            else:
-                indices.append(child.name)
-        return indices
+        return self._get_end_child(node.children[0])
 
     # ------------------------------------------------------------------------
     # (NEW) Subtree cache management
     # ------------------------------------------------------------------------
     def invalidate_caches(self, propagate_up: bool = True) -> None:
         """
-        Invalidate cached subtree order and cost for this node and, optionally, all ancestors.
+        Invalidate all caches for this node, including splits cache, subtree order, and cost.
+        This should be called after any tree modification to ensure cache consistency.
+        If propagate_up is True, also invalidate caches for all ancestors.
         """
         self._cached_subtree_order = None
         self._cached_subtree_cost = None
@@ -443,7 +531,7 @@ class Node:
         """
         Update (recompute) cached subtree order and cost for this node.
         """
-        self._cached_subtree_order = tuple(leaf.name for leaf in self.get_leaves())
+        self._cached_subtree_order = tuple(str(leaf.name) for leaf in self.get_leaves())
         self._cached_subtree_cost = self.compute_subtree_cost()
         self._cache_valid = True
 
@@ -453,7 +541,9 @@ class Node:
         """
         if not self._cache_valid or self._cached_subtree_cost is None:
             self.update_caches()
-        return self._cached_subtree_cost
+        return (
+            self._cached_subtree_cost if self._cached_subtree_cost is not None else 0.0
+        )
 
     def compute_subtree_cost(self) -> float:
         """
@@ -468,17 +558,148 @@ class Node:
             cost += child.get_cached_subtree_cost()
         return cost
 
-    def assign_internal_node_names(self):
+    def assign_internal_node_names(self):  # -> None | Any | str | LiteralString:
         """
         Assigns a unique name to each internal node based on its descendant leaf names, sorted alphabetically and joined.
         Leaves retain their original names.
         """
         if not self.children:
             return self.name
-        child_names = []
+        child_names: List[str] = []
         for child in self.children:
-            child_name = child.assign_internal_node_names()
-            child_names.append(child_name)
+            child_name: str | None = child.assign_internal_node_names()
+            if child_name:
+                child_names.append(child_name)
         # Internal node name: join sorted unique descendant names
-        self.name = ''.join(sorted(set(child_names)))
+        self.name: str = "".join(sorted(set(child_names)))
         return self.name
+
+    def find_lowest_common_ancestor(self, other: "Node") -> Optional["Node"]:
+        """
+        Find the lowest common ancestor (LCA) of this node and another node.
+
+        Args:
+            other: The other node to find LCA with
+
+        Returns:
+            Node representing the LCA, or None if no common ancestor exists
+        """
+        if self is other:
+            return self
+
+        # Get paths to root for both nodes
+        self_ancestors = set()
+        current = self
+        while current is not None:
+            self_ancestors.add(current)
+            current = current.parent
+
+        # Find first common ancestor in other's path to root
+        current = other
+        while current is not None:
+            if current in self_ancestors:
+                return current
+            current = current.parent
+
+        return None
+
+    def path_to_ancestor(self, ancestor: "Node") -> List["Node"]:
+        """
+        Get the path from this node up to (but excluding) the specified ancestor.
+
+        Args:
+            ancestor: The target ancestor node
+
+        Returns:
+            List[Node] from self up to (excluding) ancestor, empty if ancestor not found
+        """
+        path: List["Node"] = []
+        current = self
+
+        while current is not None and current is not ancestor:
+            path.append(current)
+            current = current.parent
+
+        # Return path only if we found the ancestor
+        return path if current is ancestor else []
+
+    def path_from_ancestor(self, descendant: "Node") -> List["Node"]:
+        """
+        Get the path from this node down to the specified descendant.
+
+        Args:
+            descendant: The target descendant node
+
+        Returns:
+            List[Node] from self down to descendant (excluding self), empty if descendant not found
+        """
+        if self is descendant:
+            return []
+
+        # Use depth-first search to find path to descendant
+        def _find_path_dfs(
+            current: "Node", target: "Node", path: List["Node"]
+        ) -> List["Node"]:
+            if current is target:
+                return path
+
+            for child in current.children:
+                child_path = _find_path_dfs(child, target, path + [child])
+                if child_path:
+                    return child_path
+
+            return []
+
+        return _find_path_dfs(self, descendant, [])
+
+    def find_path_between_splits(
+        self, split1: Partition, split2: Partition
+    ) -> List["Node"]:
+        """
+        Find the path between two nodes identified by their split indices.
+
+        Args:
+            split1: Partition representing the first node
+            split2: Partition representing the second node
+
+        Returns:
+            List[Node] representing the complete path from split1 to split2,
+            empty list if either split not found or no path exists
+        """
+        # Find nodes corresponding to the splits
+        node1: Self | None = self.find_node_by_split(split1)
+        node2: Self | None = self.find_node_by_split(split2)
+
+        if node1 is None or node2 is None:
+            return []
+
+        # Handle same node case
+        if node1 is node2:
+            return [node1]
+
+        # Find LCA
+        lca = node1.find_lowest_common_ancestor(node2)
+        if lca is None:
+            return []
+
+        # Build complete path: node1 -> LCA -> node2
+        path_to_lca = node1.path_to_ancestor(lca)
+        path_from_lca = lca.path_from_ancestor(node2)
+
+        # Combine paths: upward + LCA + downward
+        complete_path = path_to_lca + [lca] + path_from_lca
+
+        return complete_path
+
+    def replace_child(self, old_child: Self, new_child: Self) -> None:
+        """Replaces an existing child node with a new one."""
+        if old_child not in self.children:
+            raise ValueError("old_child is not a child of this node.")
+
+        index = self.children.index(old_child)
+        self.children[index] = new_child
+
+        # Update parent pointers
+        old_child.parent = None
+        new_child.parent = self
+        self.invalidate_caches(propagate_up=True)

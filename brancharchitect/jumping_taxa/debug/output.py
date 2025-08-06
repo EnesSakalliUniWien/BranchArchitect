@@ -20,11 +20,11 @@ def generate_debug_html(title="Branch Architect Debug Output"):
     css_styles = """
         /* Reset and base styles */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+
         /* Core theme */
-        body { 
-            background: #1d1d1d; 
-            color: #c8c8c8; 
+        body {
+            background: #1d1d1d;
+            color: #c8c8c8;
             font-family: 'Menlo', 'DejaVu Sans Mono', monospace;
             line-height: 1.6;
             padding: 20px;
@@ -354,16 +354,18 @@ def create_debug_index():
         # Extract test name
         test_name = file.stem
         if test_name.startswith("debug_log_"):
-            test_name = test_name[len("debug_log_"):]
+            test_name = test_name[len("debug_log_") :]
         test_name = test_name.replace("_", " ").title()
 
-        debug_files.append({
-            "filename": file.name,
-            "created": datetime.fromtimestamp(creation_time),
-            "size": size_kb,
-            "test_name": test_name,
-            "path": file.name,  # Just use the filename since we're in the same directory
-        })
+        debug_files.append(
+            {
+                "filename": file.name,
+                "created": datetime.fromtimestamp(creation_time),
+                "size": size_kb,
+                "test_name": test_name,
+                "path": file.name,  # Just use the filename since we're in the same directory
+            }
+        )
 
     # Sort files by creation time (descending)
     debug_files.sort(key=lambda x: x["created"], reverse=True)
@@ -421,9 +423,9 @@ def create_debug_index():
         created_str = file_info["created"].strftime("%Y-%m-%d %H:%M:%S")
         html += f"""
             <tr>
-                <td><a href="{file_info['path']}">{file_info['test_name']}</a></td>
+                <td><a href="{file_info["path"]}">{file_info["test_name"]}</a></td>
                 <td class="timestamp">{created_str}</td>
-                <td class="file-size">{file_info['size']:.1f}</td>
+                <td class="file-size">{file_info["size"]:.1f}</td>
             </tr>
         """
 
@@ -487,7 +489,9 @@ def create_debug_index():
 
     # Confirm success
     if os.path.exists(index_path):
-        print(f"Index file created at: {index_path} ({os.path.getsize(index_path)} bytes)")
+        print(
+            f"Index file created at: {index_path} ({os.path.getsize(index_path)} bytes)"
+        )
     else:
         print("WARNING: Index file creation failed!")
 

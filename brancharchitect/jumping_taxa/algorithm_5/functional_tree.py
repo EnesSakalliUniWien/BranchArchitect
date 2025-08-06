@@ -1,5 +1,5 @@
 from brancharchitect.tree import Node
-from brancharchitect.partition_set import PartitionSet, Partition
+from brancharchitect.elements.partition_set import PartitionSet, Partition
 from typing import (
     TypeVar,
     NewType,
@@ -27,10 +27,9 @@ class FunctionalTree:
         ancestor_edges: dict[ComponentSet, Node],
         arms: dict[NodeName, list[ComponentSet]],
     ):
-
         self._all_sedges: set[Node] = all_sedges
         self._edge_types: dict[NodeName, EdgeType] = edge_types
-        self._ancestor_edges : dict[ComponentSet, Node] = ancestor_edges
+        self._ancestor_edges: dict[ComponentSet, Node] = ancestor_edges
         self._arms: dict[NodeName, list[ComponentSet]] = arms
 
     def __add__(self, other: "FunctionalTree") -> "FunctionalTree":
@@ -100,15 +99,24 @@ def get_type(node: Node) -> EdgeType:
         return "leaf"
 
     # Check for 'full' edge type: node has a positive length and all children have zero length
-    elif all((child.length or 0.0) == 0.0 for child in node.children) and (node.length or 0.0) > 0.0:
+    elif (
+        all((child.length or 0.0) == 0.0 for child in node.children)
+        and (node.length or 0.0) > 0.0
+    ):
         return "full"
 
     # Check for 'partial' edge type: at least one child has zero length and node has positive length
-    elif any((child.length or 0.0) == 0.0 for child in node.children) and (node.length or 0.0) > 0.0:
+    elif (
+        any((child.length or 0.0) == 0.0 for child in node.children)
+        and (node.length or 0.0) > 0.0
+    ):
         return "partial"
 
     # Check for 'anti' edge type: node has zero length but all children have positive length
-    elif all((child.length or 0.0) > 0.0 for child in node.children) and (node.length or 0.0) == 0.0:
+    elif (
+        all((child.length or 0.0) > 0.0 for child in node.children)
+        and (node.length or 0.0) == 0.0
+    ):
         return "anti"
 
     else:
