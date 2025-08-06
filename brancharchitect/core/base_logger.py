@@ -2,13 +2,15 @@
 
 import logging
 import re
-from typing import Any
+from typing import Any, cast, Callable, TypeVar
 from functools import wraps
 
 from brancharchitect.core.html_content import (
     CSS_LOG,
     MATH_JAX_HEADER,
 )
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 def format_set(s: Any) -> str:
@@ -50,7 +52,7 @@ class AlgorithmLogger:
         self.name = name
         self.disabled = False
         self._html_content = ['<div class="content">']
-        self._css_content = []
+        self._css_content: list[str] = []
 
         # Include MathJax for mathematical notation
         self._include_mathjax = True
@@ -76,14 +78,14 @@ class AlgorithmLogger:
         """Create a new section in the log."""
         if self.disabled:
             return
-        self.logger.info(f"\n{'='*20} {title} {'='*20}\n")
+        self.logger.info(f"\n{'=' * 20} {title} {'=' * 20}\n")
         self._html_content.append(f'<section class="section"><h3>{title}</h3>')
 
     def subsection(self, title: str):
         """Create a new subsection in the log."""
         if self.disabled:
             return
-        self.logger.info(f"\n{'-'*15} {title} {'-'*15}\n")
+        self.logger.info(f"\n{'-' * 15} {title} {'-' * 15}\n")
         self._html_content.append(f'<div class="subsection"><h4>{title}</h4>')
 
     def info(self, message: str):
@@ -106,6 +108,13 @@ class AlgorithmLogger:
             return
         self.logger.error(message)
         self._html_content.append(f'<p class="error">{message}</p>')
+
+    def debug(self, message: str):
+        """Log debug message."""
+        if self.disabled:
+            return
+        self.logger.debug(message)
+        self._html_content.append(f'<p class="debug">{message}</p>')
 
     def result(self, label: str, value: Any):
         """Log a result with a label."""
@@ -166,24 +175,24 @@ class AlgorithmLogger:
                     // Find the parent matrix container
                     const matrixContainer = this.closest('.matrix-container');
                     if (!matrixContainer) return;
-                    
+
                     // Get the view to show
                     const viewType = this.getAttribute('data-view');
-                    
+
                     // Update active button state
                     const buttons = matrixContainer.querySelectorAll('.toggle-button');
                     buttons.forEach(btn => btn.classList.remove('active'));
                     this.classList.add('active');
-                    
+
                     // Hide all views in this container
                     const views = matrixContainer.querySelectorAll('.matrix-view');
                     views.forEach(view => view.style.display = 'none');
-                    
+
                     // Show the selected view
                     const selectedView = matrixContainer.querySelector('.' + viewType + '-view');
                     if (selectedView) {
                         selectedView.style.display = 'block';
-                        
+
                         // If it's MathJax, trigger typesetting
                         if (viewType === 'mathjax' && typeof MathJax !== 'undefined') {
                             MathJax.typeset([selectedView]);
@@ -210,11 +219,11 @@ class AlgorithmLogger:
         """Get the accumulated CSS content."""
         return "\n".join(self._css_content)
 
-    def log_execution(self, func):
-        """Decorator for logging function execution."""
+    def log_execution(self, func: F) -> F:
+        """Decorator for logging function execution with type safety."""
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             self.section(f"Executing {func.__name__}")
             try:
                 result = func(*args, **kwargs)
@@ -224,4 +233,4 @@ class AlgorithmLogger:
                 self.info(f"Error in {func.__name__}: {str(e)}")
                 raise
 
-        return wrapper
+        return cast(F, wrapper)

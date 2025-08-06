@@ -1,7 +1,10 @@
 from brancharchitect.tree import Node
 from brancharchitect.jumping_taxa.algorithm_5.algorithm_5 import algorithm_five
 
-def call_jumping_taxa(tree1: Node, tree2: Node, algorithm="rule") -> list[tuple[int,...]]:
+
+def call_jumping_taxa(
+    tree1: Node, tree2: Node, algorithm: str = "rule"
+) -> list[tuple[int, ...]]:
     """
     Example: calls an algorithm from brancharchitect.jumping_taxa and
     logs debug-level info to see how solutions come about.
@@ -17,7 +20,7 @@ def call_jumping_taxa(tree1: Node, tree2: Node, algorithm="rule") -> list[tuple[
         "rule": algorithm_five,
         "set": brancharchitect.jumping_taxa.just_set_based.algo_new.algorithm,
         "bruteforce": brancharchitect.jumping_taxa.bruteforce.bruteforce_algorithm,
-        'lattice': brancharchitect.jumping_taxa.lattice.lattice_solver.iterate_lattice_algorithm
+        "lattice": brancharchitect.jumping_taxa.lattice.lattice_solver.adapter_iterate_lattice_algorithm,
     }
 
     # 4) Sanity checks

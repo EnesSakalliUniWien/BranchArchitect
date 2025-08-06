@@ -9,3 +9,9 @@ annotation_names.txt
 optimise_tree_order.py
 TreeCmp_v2.0-b76
 output/test_debug
+test/output
+test/rooting/test_outputs
+
+# Type stub files
+*.pyi
+.env

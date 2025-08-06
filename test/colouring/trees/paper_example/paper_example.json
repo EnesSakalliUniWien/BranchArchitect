@@ -1,0 +1,16 @@
+{
+    "tree1": "((((A,G)AG,B)AGB,(C,(D,E)DE)CDE)AGBCDE,(O1,O2));",
+    "tree2": "(((((A,G)AG,E)AGE,C)AGCE,(B,D)BD)AGBCDE,(O1,O2))",
+    "solutions": [
+        [
+            [
+                "A",
+                "G"
+            ],
+            [
+                "D"
+            ]
+        ]
+    ],
+    "comment": ""
+}

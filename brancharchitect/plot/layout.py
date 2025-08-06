@@ -6,10 +6,15 @@ in a phylogenetic tree to prepare it for plotting. It supports 'phylogram'
 (where branch lengths determine vertical spacing) and 'cladogram' (where vertical
 spacing is fixed per depth level) layouts.
 """
+
 import xml.etree.ElementTree as ET
 from typing import Dict, Tuple, List, Optional
 from brancharchitect.tree import Node
-from brancharchitect.plot.tree_utils import tree_depth, get_leaves, calculate_max_path_length
+from brancharchitect.plot.tree_utils import (
+    tree_depth,
+    get_leaves,
+    calculate_max_path_length,
+)
 from brancharchitect.plot.tree_utils import (
     collapse_zero_length_branches,
     calculate_node_depths,
@@ -25,6 +30,7 @@ from brancharchitect.plot.paper_plot.paper_plot_constants import (
     DEFAULT_TARGET_HEIGHT_BASE,
     DEFAULT_TARGET_HEIGHT_PER_DEPTH,
 )
+
 # --- Layout Type Definition ---
 # Stores the calculated layout:
 # - Dict mapping each Node to its coordinate dictionary ('x', 'y', 'depth', 'id', etc.)
@@ -32,6 +38,7 @@ from brancharchitect.plot.paper_plot.paper_plot_constants import (
 # - Float representing the total calculated width of the layout.
 # - Float representing the total calculated height of the layout.
 LayoutResult = Tuple[Dict[Node, Dict], float, float, float]
+
 
 def calculate_layout(
     root: Node,
@@ -66,7 +73,7 @@ def calculate_layout(
             h_spacing,
             DEFAULT_CLADOGRAM_V_SPACING,
             leaf_padding_top,
-            label_area_height
+            label_area_height,
         )
     elif layout_type == "phylogram":
         # Calculate default target height if not provided
@@ -74,14 +81,10 @@ def calculate_layout(
             depth = tree_depth(root)
             target_height = max(
                 DEFAULT_TARGET_HEIGHT_BASE,
-                depth * DEFAULT_TARGET_HEIGHT_PER_DEPTH + label_area_height
+                depth * DEFAULT_TARGET_HEIGHT_PER_DEPTH + label_area_height,
             )
         return _calculate_phylogram_layout(
-            root,
-            h_spacing,
-            target_height,
-            leaf_padding_top,
-            label_area_height
+            root, h_spacing, target_height, leaf_padding_top, label_area_height
         )
     else:
         raise ValueError(f"Unknown layout type: {layout_type}")
@@ -89,12 +92,13 @@ def calculate_layout(
 
 # --- Cladogram Layout ---
 
+
 def _calculate_cladogram_layout(
     root: Node,
     h_spacing: float,
     v_spacing: float,
     leaf_padding_top: float,
-    label_area_height: float
+    label_area_height: float,
 ) -> LayoutResult:
     """
     Calculate layout coordinates for a cladogram (fixed vertical spacing per depth).
@@ -120,7 +124,9 @@ def _calculate_cladogram_layout(
     # Initial total height includes space for labels
     total_height = tree_drawing_height + label_area_height
     # Initial label y position (relative to tree drawing area)
-    initial_label_y = tree_drawing_height + (label_area_height / 2) # Center in label area
+    initial_label_y = tree_drawing_height + (
+        label_area_height / 2
+    )  # Center in label area
 
     # --- Calculate node coordinates (relative to top-left 0,0) ---
     node_coords: Dict[Node, Dict] = {}
@@ -131,7 +137,7 @@ def _calculate_cladogram_layout(
         h_spacing=h_spacing,
         v_spacing=v_spacing,
         depth=0,
-        leaf_index_ref=leaf_index_ref
+        leaf_index_ref=leaf_index_ref,
     )
 
     # --- Apply top padding ---
@@ -140,7 +146,7 @@ def _calculate_cladogram_layout(
         for coords in node_coords.values():
             coords["y"] += leaf_padding_top
         final_label_y += leaf_padding_top
-        total_height += leaf_padding_top # Add padding to total height
+        total_height += leaf_padding_top  # Add padding to total height
 
     return node_coords, final_label_y, width, total_height
 
@@ -169,7 +175,7 @@ def _assign_cladogram_coords(
     """
     # Calculate y based on depth
     y = depth * v_spacing
-    node_id = node.name if node.name else f"internal_{id(node)}" # Ensure some ID
+    node_id = node.name if node.name else f"internal_{id(node)}"  # Ensure some ID
 
     if node.is_leaf():
         # Assign x based on the order leaves are visited
@@ -192,7 +198,7 @@ def _assign_cladogram_coords(
         x = (
             sum(pos[0] for pos in child_positions) / len(child_positions)
             if child_positions
-            else h_spacing # Fallback if no children (shouldn't happen in valid tree)
+            else h_spacing  # Fallback if no children (shouldn't happen in valid tree)
         )
 
         node_coords[node] = {
@@ -200,20 +206,21 @@ def _assign_cladogram_coords(
             "y": y,
             "depth": depth,
             "id": node_id,
-            "children_coords": child_positions, # Store for potential drawing use
-            "child_nodes": child_nodes,         # Store for potential drawing use
+            "children_coords": child_positions,  # Store for potential drawing use
+            "child_nodes": child_nodes,  # Store for potential drawing use
         }
         return (x, y)
 
 
 # --- Phylogram Layout ---
 
+
 def _calculate_phylogram_layout(
     root: Node,
     h_spacing: float,
     target_height: float,
     leaf_padding_top: float,
-    label_area_height: float
+    label_area_height: float,
 ) -> LayoutResult:
     """
     Calculate layout coordinates for a phylogram (vertical spacing based on branch lengths).
@@ -236,7 +243,7 @@ def _calculate_phylogram_layout(
     # --- Calculate dimensions ---
     width = (leaf_count + 1) * h_spacing
     node_coords: Dict[Node, Dict] = {}
-    leaf_index_ref = [0] # Mutable leaf counter
+    leaf_index_ref = [0]  # Mutable leaf counter
 
     # --- Handle zero branch length case: Fallback to cladogram logic ---
     if max_cumulative_length <= ZERO_LENGTH_TOLERANCE:
@@ -252,8 +259,10 @@ def _calculate_phylogram_layout(
         )
         # Ensure total height respects target_height if it's larger
         total_height = max(target_height, tree_drawing_height + label_area_height)
-        initial_label_y = max(target_height - label_area_height + (label_area_height / 2),
-                              tree_drawing_height + (label_area_height / 2))
+        initial_label_y = max(
+            target_height - label_area_height + (label_area_height / 2),
+            tree_drawing_height + (label_area_height / 2),
+        )
 
     # --- Standard Phylogram Calculation ---
     else:
@@ -261,7 +270,7 @@ def _calculate_phylogram_layout(
         # Ensure drawable_height is positive
         drawable_height = max(1.0, target_height - label_area_height)
         y_scale = drawable_height / max_cumulative_length
-        initial_total_height = target_height # Start with target height
+        initial_total_height = target_height  # Start with target height
 
         # Assign coordinates using branch lengths (relative to 0,0)
         _assign_phylogram_coords(
@@ -283,14 +292,13 @@ def _calculate_phylogram_layout(
         initial_label_y = max_y_coord + (label_area_height / 2)
         total_height = max(initial_total_height, max_y_coord + label_area_height)
 
-
     # --- Apply top padding ---
     final_label_y = initial_label_y
     if leaf_padding_top != 0.0:
         for coords in node_coords.values():
             coords["y"] += leaf_padding_top
         final_label_y += leaf_padding_top
-        total_height += leaf_padding_top # Add padding to total height
+        total_height += leaf_padding_top  # Add padding to total height
 
     return node_coords, final_label_y, width, total_height
 
@@ -327,7 +335,7 @@ def _assign_phylogram_coords(
     # Calculate y based on parent's y and scaled branch length
     current_distance = distance_from_root + branch_length
     y = parent_y + (branch_length * y_scale)
-    node_id = node.name if node.name else f"internal_{id(node)}" # Ensure some ID
+    node_id = node.name if node.name else f"internal_{id(node)}"  # Ensure some ID
 
     if node.is_leaf():
         # Assign x based on the order leaves are visited
@@ -351,7 +359,7 @@ def _assign_phylogram_coords(
                 node_coords,
                 h_spacing,
                 y_scale,
-                parent_y=y, # Current node's y is parent_y for children
+                parent_y=y,  # Current node's y is parent_y for children
                 distance_from_root=current_distance,
                 depth=depth + 1,
                 leaf_index_ref=leaf_index_ref,
@@ -363,7 +371,7 @@ def _assign_phylogram_coords(
         x = (
             sum(pos[0] for pos in child_positions) / len(child_positions)
             if child_positions
-            else h_spacing # Fallback if no children
+            else h_spacing  # Fallback if no children
         )
 
         node_coords[node] = {
@@ -372,8 +380,8 @@ def _assign_phylogram_coords(
             "depth": depth,
             "id": node_id,
             "dist_from_root": current_distance,
-            "children_coords": child_positions, # Store for potential drawing use
-            "child_nodes": child_nodes,         # Store for potential drawing use
+            "children_coords": child_positions,  # Store for potential drawing use
+            "child_nodes": child_nodes,  # Store for potential drawing use
         }
         return (x, y)
 
@@ -420,8 +428,6 @@ def calculate_svg_dimensions(
     return svg_width, svg_height
 
 
-
-
 def create_container_group(
     svg_root: ET.Element, margin_left: float, margin_top: float
 ) -> ET.Element:
@@ -439,7 +445,8 @@ def create_container_group(
     return ET.SubElement(
         svg_root, "g", {"transform": f"translate({margin_left}, {margin_top})"}
     )
-    
+
+
 def adjust_layouts_for_shared_labels(
     layouts: List[Dict],
     all_label_y: List[float],
@@ -469,9 +476,11 @@ def adjust_layouts_for_shared_labels(
 
     return max_height
 
+
 # -----------------------------------------------------------------------------
 # E. Layout Functions
 # -----------------------------------------------------------------------------
+
 
 def calculate_single_tree_layout(
     tree_index: int,
@@ -527,6 +536,7 @@ def calculate_single_tree_layout(
         traceback.print_exc()
         raise ValueError(f"Error during layout of tree {tree_index}: {e}")
 
+
 def calculate_target_height(
     roots: List[Node], layout_type: str, target_height: Optional[int], v_spacing: float
 ) -> Optional[int]:
@@ -547,6 +557,7 @@ def calculate_target_height(
 
     max_depth = max(tree_depth(root) for root in roots)
     return max(150, int(max_depth * v_spacing + DEFAULT_LABEL_AREA_HEIGHT))
+
 
 def calculate_tree_layouts(
     roots: List[Node],
@@ -605,8 +616,6 @@ def calculate_tree_layouts(
     return layouts, max_height, total_width, all_label_y
 
 
-
-
 # -----------------------------------------------------------------------------
 # D. Node Depth Functions
 # -----------------------------------------------------------------------------
@@ -633,6 +642,7 @@ def calculate_all_node_depths(
 
     return all_node_depths, max_tree_depths
 
+
 def inject_depth_information(
     roots: List[Node], layouts: List[Dict], all_node_depths: List[Dict[Node, float]]
 ) -> None:
@@ -647,6 +657,7 @@ def inject_depth_information(
     for i, (root, depth_dict) in enumerate(zip(roots, all_node_depths)):
         for node, coords in layouts[i]["coords"].items():
             coords["depth"] = depth_dict.get(node, 0)
+
 
 def update_layout_for_node_labels(
     layout: Dict, node_labels_options: Dict[str, Dict]
@@ -664,6 +675,7 @@ def update_layout_for_node_labels(
     # Add label offset to the effective width
     if max_label_offset > 0:
         layout["effective_width"] += max_label_offset
+
 
 def calculate_max_label_offset(node_labels_options: Dict[str, Dict]) -> float:
     """

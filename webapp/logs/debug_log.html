@@ -1,0 +1,1447 @@
+<pre>2025‑07‑11 10:29:18 [ERROR] webapp: [global] Unhandled exception</pre>
+Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 46, in favicon
+    return send_from_directory(
+        Path(__file__).resolve().parent / "static",
+        "favicon.ico",
+        mimetype="image/vnd.microsoft.icon",
+    )
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/helpers.py", line 565, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        directory, path, **_prepare_send_file_kwargs(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/werkzeug/utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+<pre>2025‑07‑11 10:31:43 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:31:43 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:31:43 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:31:43 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:31:43 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:31:43 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:31:43 [ERROR] webapp: [treedata] Exception: TreeInterpolationPipeline.__init__() got an unexpected keyword argument 'enable_rooting'</pre>
+<pre>2025‑07‑11 10:31:43 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 61, in handle_uploaded_file
+    processor = TreeInterpolationPipeline(trees, enable_rooting=enable_rooting)
+TypeError: TreeInterpolationPipeline.__init__() got an unexpected keyword argument 'enable_rooting'
+</pre>
+<pre>2025‑07‑11 10:34:05 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:34:05 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:34:05 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:34:05 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:34:05 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:34:05 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:34:05 [ERROR] webapp: [treedata] Exception: TreeInterpolationPipeline._create_global_tree_metadata() takes 3 positional arguments but 5 were given</pre>
+<pre>2025‑07‑11 10:34:05 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 64, in handle_uploaded_file
+    processed_data: InterpolationSequence = processor.process_trees(trees=trees)
+                                            ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 170, in process_trees
+    self._process_tree_pairs(processed_trees)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 305, in _process_tree_pairs
+    tree_metadata: List[TreeMetadata] = self._create_global_tree_metadata(
+                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        trees,
+        ^^^^^^
+    ...<2 lines>...
+        s_edge_lengths,
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+TypeError: TreeInterpolationPipeline._create_global_tree_metadata() takes 3 positional arguments but 5 were given
+</pre>
+<pre>2025‑07‑11 10:37:07 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:37:07 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:37:07 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:37:07 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:37:07 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:37:07 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:37:07 [ERROR] webapp: [treedata] Exception: No module named 'webapp.services.tree_operations'</pre>
+<pre>2025‑07‑11 10:37:07 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 61, in handle_uploaded_file
+    from .tree_operations import TreeProcessor
+ModuleNotFoundError: No module named 'webapp.services.tree_operations'
+</pre>
+<pre>2025‑07‑11 10:37:21 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:37:21 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:37:21 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:37:21 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:37:21 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:37:21 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:37:21 [ERROR] webapp: [treedata] Exception: No module named 'webapp.services.tree_operations'</pre>
+<pre>2025‑07‑11 10:37:21 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 61, in handle_uploaded_file
+    from .tree_operations import TreeProcessor
+ModuleNotFoundError: No module named 'webapp.services.tree_operations'
+</pre>
+<pre>2025‑07‑11 10:37:39 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:37:39 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:37:39 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:37:39 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:37:39 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:37:39 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:37:39 [ERROR] webapp: [treedata] Exception: No module named 'webapp.services.tree_operations'</pre>
+<pre>2025‑07‑11 10:37:39 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 61, in handle_uploaded_file
+    from .tree_operations import TreeProcessor
+ModuleNotFoundError: No module named 'webapp.services.tree_operations'
+</pre>
+<pre>2025‑07‑11 10:37:41 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:37:41 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:37:41 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:37:41 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:37:41 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:37:41 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:37:41 [ERROR] webapp: [treedata] Exception: No module named 'webapp.services.tree_operations'</pre>
+<pre>2025‑07‑11 10:37:41 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 61, in handle_uploaded_file
+    from .tree_operations import TreeProcessor
+ModuleNotFoundError: No module named 'webapp.services.tree_operations'
+</pre>
+<pre>2025‑07‑11 10:37:57 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:37:57 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:37:57 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:37:57 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:37:57 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:37:57 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:37:57 [ERROR] webapp: [treedata] Exception: No module named 'webapp.services.tree_operations'</pre>
+<pre>2025‑07‑11 10:37:57 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 61, in handle_uploaded_file
+    from .tree_operations import TreeProcessor
+ModuleNotFoundError: No module named 'webapp.services.tree_operations'
+</pre>
+<pre>2025‑07‑11 10:38:01 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:38:01 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:38:01 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:38:01 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:38:01 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:38:01 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:38:01 [ERROR] webapp: [treedata] Exception: No module named 'webapp.services.tree_operations'</pre>
+<pre>2025‑07‑11 10:38:01 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 61, in handle_uploaded_file
+    from .tree_operations import TreeProcessor
+ModuleNotFoundError: No module named 'webapp.services.tree_operations'
+</pre>
+<pre>2025‑07‑11 10:38:13 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:38:13 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:38:13 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:38:13 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:38:13 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:38:13 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:38:13 [ERROR] webapp: [treedata] Exception: No module named 'webapp.services.tree_operations'</pre>
+<pre>2025‑07‑11 10:38:13 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 61, in handle_uploaded_file
+    from .tree_operations import TreeProcessor
+ModuleNotFoundError: No module named 'webapp.services.tree_operations'
+</pre>
+<pre>2025‑07‑11 10:39:01 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:39:01 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:39:01 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:39:01 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:39:01 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:39:01 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:39:01 [ERROR] webapp: [treedata] Exception: No module named 'webapp.services.tree_operations'</pre>
+<pre>2025‑07‑11 10:39:01 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 61, in handle_uploaded_file
+    from .tree_operations import TreeProcessor
+ModuleNotFoundError: No module named 'webapp.services.tree_operations'
+</pre>
+<pre>2025‑07‑11 10:39:29 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:39:29 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:39:29 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:39:29 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:39:29 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:39:29 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:39:29 [ERROR] webapp: [treedata] Exception: No module named 'webapp.services.tree_operations'</pre>
+<pre>2025‑07‑11 10:39:29 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 61, in handle_uploaded_file
+    from .tree_operations import TreeProcessor
+ModuleNotFoundError: No module named 'webapp.services.tree_operations'
+</pre>
+<pre>2025‑07‑11 10:41:00 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:41:00 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:41:00 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:41:00 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:41:00 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:41:00 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:41:00 [ERROR] webapp: [treedata] Exception: TreeInterpolationPipeline._create_global_tree_metadata() takes 3 positional arguments but 5 were given</pre>
+<pre>2025‑07‑11 10:41:00 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/services/core.py", line 70, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 170, in process_trees
+    self._process_tree_pairs(processed_trees)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 305, in _process_tree_pairs
+    tree_metadata: List[TreeMetadata] = self._create_global_tree_metadata(
+                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        trees,
+        ^^^^^^
+    ...<2 lines>...
+        s_edge_lengths,
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+TypeError: TreeInterpolationPipeline._create_global_tree_metadata() takes 3 positional arguments but 5 were given
+</pre>
+<pre>2025‑07‑11 10:42:26 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:42:26 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 10:42:26 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:42:26 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:42:26 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 10:42:26 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:42:26 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 10:50:36 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 10:50:36 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 10:50:36 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 10:50:36 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 10:50:36 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 10:50:36 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 10:50:36 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:10:52 [ERROR] webapp: [global] Unhandled exception</pre>
+Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 46, in favicon
+    return send_from_directory(
+        Path(__file__).resolve().parent / "static",
+        "favicon.ico",
+        mimetype="image/vnd.microsoft.icon",
+    )
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/helpers.py", line 565, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        directory, path, **_prepare_send_file_kwargs(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/werkzeug/utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+<pre>2025‑07‑11 11:10:54 [ERROR] webapp: [global] Unhandled exception</pre>
+Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 46, in favicon
+    return send_from_directory(
+        Path(__file__).resolve().parent / "static",
+        "favicon.ico",
+        mimetype="image/vnd.microsoft.icon",
+    )
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/helpers.py", line 565, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        directory, path, **_prepare_send_file_kwargs(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/werkzeug/utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+<pre>2025‑07‑11 11:15:10 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:15:10 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:15:10 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:15:10 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:15:10 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑11 11:15:10 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑11 11:15:10 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:15:52 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:15:52 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:15:52 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:15:52 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:15:52 [INFO] webapp: Processing uploaded file: alltrees-index-0.tree</pre>
+<pre>2025‑07‑11 11:15:52 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:15:52 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:22:29 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:22:29 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 11:22:29 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:22:29 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:22:29 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 11:22:29 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:22:29 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:22:30 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:22:30 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:22:30 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:22:30 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:22:30 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 11:22:30 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:22:30 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:22:32 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:22:32 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 11:22:32 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:22:32 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:22:32 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 11:22:32 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:22:32 [ERROR] webapp: [treedata] Exception: cannot access local variable 'processed_trees' where it is not associated with a value</pre>
+<pre>2025‑07‑11 11:22:32 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/services/core.py", line 70, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 122, in process_trees
+    if not processed_trees:
+           ^^^^^^^^^^^^^^^
+UnboundLocalError: cannot access local variable 'processed_trees' where it is not associated with a value
+</pre>
+<pre>2025‑07‑11 11:22:33 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:22:33 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:22:33 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:22:33 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:22:33 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 11:22:33 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:22:33 [ERROR] webapp: [treedata] Exception: cannot access local variable 'processed_trees' where it is not associated with a value</pre>
+<pre>2025‑07‑11 11:22:33 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/services/core.py", line 70, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 122, in process_trees
+    if not processed_trees:
+           ^^^^^^^^^^^^^^^
+UnboundLocalError: cannot access local variable 'processed_trees' where it is not associated with a value
+</pre>
+<pre>2025‑07‑11 11:22:47 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:22:47 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 11:22:47 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:22:47 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:22:47 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 11:22:47 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:22:47 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:22:48 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:22:48 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:22:48 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:22:48 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:22:48 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 11:22:48 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:22:48 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:28:34 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:28:34 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 11:28:34 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:28:34 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:28:34 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 11:28:34 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:28:34 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:28:35 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:28:35 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:28:35 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:28:35 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:28:35 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 11:28:35 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:28:35 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:32:29 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:32:29 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 11:32:29 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:32:29 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:32:29 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 11:32:29 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:32:29 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:32:30 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:32:30 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:32:30 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:32:30 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:32:30 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 11:32:30 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:32:30 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:32:55 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:32:55 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:32:55 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:32:55 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:32:55 [INFO] webapp: Processing uploaded file: heiko_6_test_tree.tree</pre>
+<pre>2025‑07‑11 11:32:55 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:32:55 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:33:22 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:33:22 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:33:22 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:33:22 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:33:22 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑11 11:33:22 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑11 11:33:22 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:37:45 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:37:45 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 11:37:45 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:37:45 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:37:45 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 11:37:45 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:37:45 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:37:47 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:37:47 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:37:47 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:37:47 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:37:47 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 11:37:47 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:37:47 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:37:55 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:37:55 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 11:37:55 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:37:55 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:37:55 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 11:37:55 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:37:55 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:37:56 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:37:56 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:37:56 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:37:56 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:37:56 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 11:37:56 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:37:56 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:38:06 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:38:06 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 11:38:06 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:38:06 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:38:06 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 11:38:06 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:38:06 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:38:08 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:38:08 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:38:08 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:38:08 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:38:08 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 11:38:08 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:38:08 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:38:12 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:38:12 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 11:38:12 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:38:12 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:38:12 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 11:38:12 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:38:12 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:38:13 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:38:13 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:38:13 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:38:13 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:38:13 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 11:38:13 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:38:13 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:40:42 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:40:42 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 11:40:42 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:40:42 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:40:42 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 11:40:42 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:40:42 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:40:43 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:40:43 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:40:43 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:40:43 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:40:43 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 11:40:43 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:40:43 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:52:46 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:52:46 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:52:46 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:52:46 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:52:46 [INFO] webapp: Processing uploaded file: alltrees-index-0.tree</pre>
+<pre>2025‑07‑11 11:52:46 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:52:46 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:53:41 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:53:41 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:53:41 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:53:41 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:53:41 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑07‑11 11:53:41 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑07‑11 11:53:44 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:55:46 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:55:46 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 11:55:46 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:55:46 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:55:46 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 11:55:46 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:55:46 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 11:55:48 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 11:55:48 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 11:55:48 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 11:55:48 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 11:55:48 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 11:55:48 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 11:55:48 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 12:11:06 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 12:11:06 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 12:11:06 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 12:11:06 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 12:11:06 [INFO] webapp: Processing uploaded file: two_tree.newick</pre>
+<pre>2025‑07‑11 12:11:06 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 12:11:06 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 12:11:13 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 12:11:13 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 12:11:13 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 12:11:13 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 12:11:13 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑07‑11 12:11:13 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑07‑11 12:11:16 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 12:18:41 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 12:18:41 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 12:18:41 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 12:18:41 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 12:18:41 [INFO] webapp: Processing uploaded file: multi_treenewick</pre>
+<pre>2025‑07‑11 12:18:41 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 12:18:41 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 14:38:06 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 14:38:06 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 14:38:06 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 14:38:06 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 14:38:06 [INFO] webapp: Processing uploaded file: alltrees.trees_cutted.newick</pre>
+<pre>2025‑07‑11 14:38:06 [INFO] webapp: Successfully parsed 235 trees</pre>
+<pre>2025‑07‑11 14:38:07 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 14:38:50 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 14:38:50 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 14:38:50 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 14:38:50 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 14:38:50 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑11 14:38:50 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑11 14:38:50 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 15:12:28 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 15:12:28 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 15:12:28 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 15:12:28 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 15:12:28 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑11 15:12:28 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑11 15:12:28 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 16:27:26 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 16:27:26 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 16:27:26 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 16:27:26 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 16:27:26 [INFO] webapp: Processing uploaded file: alltrees.trees_cutted.newick</pre>
+<pre>2025‑07‑11 16:27:26 [INFO] webapp: Successfully parsed 235 trees</pre>
+<pre>2025‑07‑11 16:27:27 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 16:50:08 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 16:50:08 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 16:50:08 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 16:50:08 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 16:50:08 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑07‑11 16:50:08 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑07‑11 16:50:11 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 16:52:49 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 16:52:49 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 16:52:49 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 16:52:49 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 16:52:49 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 16:52:49 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 16:52:49 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 16:52:51 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 16:52:51 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 16:52:51 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 16:52:51 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 16:52:51 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 16:52:51 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 16:52:51 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 16:54:24 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 16:54:24 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 16:54:24 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 16:54:24 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 16:54:24 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 16:54:24 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 16:54:24 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 16:54:26 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 16:54:26 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 16:54:26 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 16:54:26 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 16:54:26 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 16:54:26 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 16:54:26 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 16:54:39 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 16:54:39 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 16:54:39 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 16:54:39 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 16:54:39 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 16:54:39 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 16:54:39 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 16:54:40 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 16:54:40 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑11 16:54:40 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 16:54:40 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 16:54:40 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑11 16:54:40 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 16:54:40 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑11 16:54:49 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑11 16:54:49 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑11 16:54:49 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑11 16:54:49 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑11 16:54:49 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑11 16:54:49 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑11 16:54:49 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 10:09:14 [ERROR] webapp: [global] Unhandled exception</pre>
+Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 46, in favicon
+    return send_from_directory(
+        Path(__file__).resolve().parent / "static",
+        "favicon.ico",
+        mimetype="image/vnd.microsoft.icon",
+    )
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/helpers.py", line 565, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        directory, path, **_prepare_send_file_kwargs(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/werkzeug/utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+<pre>2025‑07‑12 10:09:22 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 10:09:22 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 10:09:22 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 10:09:22 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 10:09:22 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑07‑12 10:09:22 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑07‑12 10:09:24 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 10:20:24 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 10:20:24 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑12 10:20:24 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 10:20:24 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 10:20:24 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑12 10:20:24 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑12 10:20:24 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 10:20:26 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 10:20:26 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 10:20:26 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 10:20:26 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 10:20:26 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑12 10:20:26 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑12 10:20:26 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 13:07:30 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 13:07:30 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 13:07:30 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 13:07:30 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 13:07:30 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑07‑12 13:07:30 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑07‑12 13:07:32 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 13:16:55 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 13:16:55 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 13:16:55 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 13:16:55 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 13:16:55 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑12 13:16:55 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑12 13:16:55 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 14:35:38 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 14:35:38 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 14:35:38 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 14:35:38 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 14:35:38 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑12 14:35:38 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑12 14:35:39 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 16:42:39 [ERROR] webapp: [global] Unhandled exception</pre>
+Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/.venv/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/.venv/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 46, in favicon
+    return send_from_directory(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/.venv/lib/python3.11/site-packages/flask/helpers.py", line 565, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/.venv/lib/python3.11/site-packages/werkzeug/utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+<pre>2025‑07‑12 16:51:39 [ERROR] webapp: [global] Unhandled exception</pre>
+Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/.venv/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/.venv/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 46, in favicon
+    return send_from_directory(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/.venv/lib/python3.11/site-packages/flask/helpers.py", line 565, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/.venv/lib/python3.11/site-packages/werkzeug/utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+<pre>2025‑07‑12 16:52:29 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 16:52:29 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 16:52:29 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 16:52:29 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 16:52:29 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑07‑12 16:52:29 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑07‑12 16:52:32 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 16:56:20 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 16:56:20 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 16:56:20 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 16:56:20 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 16:56:20 [INFO] webapp: Processing uploaded file: two_trees_beginning_end.trees</pre>
+<pre>2025‑07‑12 16:56:20 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑12 16:56:20 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 17:11:02 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 17:11:02 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 17:11:02 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 17:11:02 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 17:11:02 [INFO] webapp: Processing uploaded file: two_trees_beginning_end.trees</pre>
+<pre>2025‑07‑12 17:11:02 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑12 17:11:02 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 17:42:29 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 17:42:29 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 17:42:29 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 17:42:29 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 17:42:29 [INFO] webapp: Processing uploaded file: two_tree.newick</pre>
+<pre>2025‑07‑12 17:42:29 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑12 17:42:30 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 17:56:45 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 17:56:45 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 17:56:45 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 17:56:45 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 17:56:45 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑12 17:56:45 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑12 17:56:45 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 18:30:52 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 18:30:52 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 18:30:52 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 18:30:52 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 18:30:52 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑12 18:30:52 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑12 18:30:52 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 18:40:34 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 18:40:34 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 18:40:34 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 18:40:34 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 18:40:34 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑12 18:40:34 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑12 18:40:34 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 18:42:13 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 18:42:13 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 18:42:13 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 18:42:13 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 18:42:13 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑12 18:42:13 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑12 18:42:13 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 18:45:39 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 18:45:39 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 18:45:39 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 18:45:39 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 18:45:39 [INFO] webapp: Processing uploaded file: two_tree.newick</pre>
+<pre>2025‑07‑12 18:45:39 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑12 18:45:40 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 18:48:11 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 18:48:11 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 18:48:11 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 18:48:11 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 18:48:11 [INFO] webapp: Processing uploaded file: two_tree.newick</pre>
+<pre>2025‑07‑12 18:48:11 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑12 18:48:12 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 18:49:03 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 18:49:03 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 18:49:03 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 18:49:03 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 18:49:03 [INFO] webapp: Processing uploaded file: two_tree.newick</pre>
+<pre>2025‑07‑12 18:49:03 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑12 18:49:03 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 18:57:51 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 18:57:51 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 18:57:51 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 18:57:51 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 18:57:51 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑12 18:57:51 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑12 18:57:51 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 19:00:47 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 19:00:47 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 19:00:47 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 19:00:47 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 19:00:47 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑12 19:00:47 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑12 19:00:48 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑12 19:49:07 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑12 19:49:07 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑12 19:49:07 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑12 19:49:07 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑12 19:49:07 [INFO] webapp: Processing uploaded file: two_tree.newick</pre>
+<pre>2025‑07‑12 19:49:08 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑12 19:49:08 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑13 17:33:12 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑13 17:33:12 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑13 17:33:12 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑13 17:33:12 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑13 17:33:12 [INFO] webapp: Processing uploaded file: package.json</pre>
+<pre>2025‑07‑13 17:33:12 [ERROR] webapp: [treedata] Exception: Failed to parse '"phylo-movies-frontend"' as a float: could not convert string to float: '"phylo-movies-frontend"'</pre>
+<pre>2025‑07‑13 17:33:12 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/parser/newick_parser.py", line 183, in flush_length_buffer
+    parsed_number = float(buffer_value)
+                    ^^^^^^^^^^^^^^^^^^^
+ValueError: could not convert string to float: '"phylo-movies-frontend"'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/services/core.py", line 49, in handle_uploaded_file
+    trees: Node | List[Node] = parse_newick(content)
+                               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/parser/newick_parser.py", line 407, in parse_newick
+    trees: List[Node] = _parse_newick(tokens, default_length=default_length)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/parser/newick_parser.py", line 325, in _parse_newick
+    flush_buffer(buffer, node_stack, mode)
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/parser/newick_parser.py", line 210, in flush_buffer
+    flush_length_buffer(buffer, stack)
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/parser/newick_parser.py", line 191, in flush_length_buffer
+    raise ValueError(f"Failed to parse '{buffer_value}' as a float: {str(e)}")
+ValueError: Failed to parse '"phylo-movies-frontend"' as a float: could not convert string to float: '"phylo-movies-frontend"'
+</pre>
+<pre>2025‑07‑14 10:21:28 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 10:21:28 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 10:21:28 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 10:21:28 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 10:21:28 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 10:21:28 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 10:21:28 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 11:38:23 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 11:38:23 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 11:38:23 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 11:38:23 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 11:38:23 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 11:38:23 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 11:38:23 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 11:38:53 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 11:38:53 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 11:38:53 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 11:38:53 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 11:38:53 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 11:38:53 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 11:38:53 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 12:04:25 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 12:04:25 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 12:04:25 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 12:04:25 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 12:04:25 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 12:04:25 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 12:04:25 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 12:35:24 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 12:35:24 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 12:35:24 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 12:35:24 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 12:35:24 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 12:35:24 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 12:35:24 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 13:10:46 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 13:10:46 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 13:10:46 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 13:10:46 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 13:10:46 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 13:10:46 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 13:10:46 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 13:14:17 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 13:14:17 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 13:14:17 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 13:14:17 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 13:14:17 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 13:14:17 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 13:14:17 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 13:19:50 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 13:19:50 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 13:19:50 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 13:19:50 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 13:19:50 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 13:19:50 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 13:19:50 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 13:41:14 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 13:41:14 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 13:41:14 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 13:41:14 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 13:41:14 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 13:41:14 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 13:41:14 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 16:01:48 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 16:01:48 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 16:01:48 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 16:01:48 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 16:01:48 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 16:01:48 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 16:01:48 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 16:39:40 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 16:39:40 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 16:39:40 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 16:39:40 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 16:39:40 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 16:39:40 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 16:39:40 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 16:40:19 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 16:40:19 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 16:40:19 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 16:40:19 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 16:40:19 [INFO] webapp: Processing uploaded file: multi_treenewick</pre>
+<pre>2025‑07‑14 16:40:19 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑14 16:40:19 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 16:40:47 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 16:40:47 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 16:40:47 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 16:40:47 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 16:40:47 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 16:40:47 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 16:40:47 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 16:53:39 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 16:53:39 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 16:53:39 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 16:53:39 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 16:53:39 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 16:53:39 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 16:53:39 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 21:01:03 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 21:01:03 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 21:01:03 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 21:01:03 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 21:01:03 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 21:01:03 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 21:01:03 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 21:01:20 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 21:01:20 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 21:01:20 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 21:01:20 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 21:01:20 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 21:01:20 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 21:01:20 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 21:15:30 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 21:15:30 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 21:15:30 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 21:15:30 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 21:15:30 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 21:15:30 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 21:15:30 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 21:15:49 [ERROR] webapp: [global] Unhandled exception</pre>
+Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 46, in favicon
+    return send_from_directory(
+        Path(__file__).resolve().parent / "static",
+        "favicon.ico",
+        mimetype="image/vnd.microsoft.icon",
+    )
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/helpers.py", line 565, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        directory, path, **_prepare_send_file_kwargs(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/werkzeug/utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+<pre>2025‑07‑14 21:16:40 [ERROR] webapp: [global] Unhandled exception</pre>
+Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 46, in favicon
+    return send_from_directory(
+        Path(__file__).resolve().parent / "static",
+        "favicon.ico",
+        mimetype="image/vnd.microsoft.icon",
+    )
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/helpers.py", line 565, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        directory, path, **_prepare_send_file_kwargs(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/werkzeug/utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+<pre>2025‑07‑14 21:17:36 [ERROR] webapp: [global] Unhandled exception</pre>
+Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 46, in favicon
+    return send_from_directory(
+        Path(__file__).resolve().parent / "static",
+        "favicon.ico",
+        mimetype="image/vnd.microsoft.icon",
+    )
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/flask/helpers.py", line 565, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        directory, path, **_prepare_send_file_kwargs(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/.venv/lib/python3.13/site-packages/werkzeug/utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+<pre>2025‑07‑14 21:17:40 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 21:17:40 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 21:17:40 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 21:17:40 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 21:17:40 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 21:17:40 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 21:17:40 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 21:17:59 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 21:17:59 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 21:17:59 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 21:17:59 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 21:17:59 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 21:17:59 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 21:17:59 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 21:18:10 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 21:18:10 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 21:18:10 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 21:18:10 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 21:18:10 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 21:18:10 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 21:18:10 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 21:18:24 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 21:18:24 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 21:18:24 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 21:18:24 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 21:18:24 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 21:18:24 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 21:18:24 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 21:20:55 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 21:20:55 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 21:20:55 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 21:20:55 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 21:20:55 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 21:20:55 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 21:20:55 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 21:21:26 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 21:21:26 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 21:21:26 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 21:21:26 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 21:21:26 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 21:21:26 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 21:21:26 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 21:21:45 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 21:21:45 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 21:21:45 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 21:21:45 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 21:21:45 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 21:21:45 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 21:21:45 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 21:26:02 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 21:26:02 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 21:26:02 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 21:26:02 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 21:26:02 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 21:26:02 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 21:26:02 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 22:40:18 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 22:40:18 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 22:40:18 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 22:40:18 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 22:40:18 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑14 22:40:18 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑14 22:40:18 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 23:03:42 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 23:03:42 [INFO] webapp: [treedata] Midpoint rooting: True</pre>
+<pre>2025‑07‑14 23:03:42 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 23:03:42 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 23:03:42 [INFO] webapp: Processing uploaded file: complex_trees.newick</pre>
+<pre>2025‑07‑14 23:03:42 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑14 23:03:42 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑14 23:03:44 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑14 23:03:44 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑14 23:03:44 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑14 23:03:44 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑14 23:03:44 [INFO] webapp: Processing uploaded file: test_trees.newick</pre>
+<pre>2025‑07‑14 23:03:44 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑14 23:03:44 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑15 10:05:42 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑15 10:05:43 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑15 10:05:43 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑15 10:05:43 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑15 10:05:43 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑15 10:05:43 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑15 10:05:43 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑15 12:15:54 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑15 12:15:54 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑15 12:15:54 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑15 12:15:54 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑15 12:15:54 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑07‑15 12:15:54 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑07‑15 12:15:56 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑15 12:44:39 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑15 12:44:39 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑15 12:44:39 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑15 12:44:39 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑15 12:44:39 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑15 12:44:39 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑15 12:44:39 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑15 13:00:37 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑15 13:00:37 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑15 13:00:37 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑15 13:00:37 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑15 13:00:37 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑15 13:00:37 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑15 13:00:37 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑15 13:14:09 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑15 13:14:09 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑15 13:14:09 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑15 13:14:09 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑15 13:14:09 [INFO] webapp: Processing uploaded file: alltrees.trees_cutted.newick</pre>
+<pre>2025‑07‑15 13:14:09 [INFO] webapp: Successfully parsed 235 trees</pre>
+<pre>2025‑07‑15 13:14:10 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑15 15:34:01 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑15 15:34:01 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑15 15:34:01 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑15 15:34:01 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑15 15:34:01 [INFO] webapp: Processing uploaded file: multi_treenewick</pre>
+<pre>2025‑07‑15 15:34:01 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑15 15:34:01 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑15 15:35:19 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑15 15:35:19 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑15 15:35:19 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑15 15:35:19 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑15 15:35:19 [INFO] webapp: Processing uploaded file: alltrees.trees_cutted.newick</pre>
+<pre>2025‑07‑15 15:35:19 [INFO] webapp: Successfully parsed 235 trees</pre>
+<pre>2025‑07‑15 15:35:20 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑15 23:07:39 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑15 23:07:39 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑15 23:07:39 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑15 23:07:39 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑15 23:07:39 [INFO] webapp: Processing uploaded file: alltrees.trees_cutted.newick</pre>
+<pre>2025‑07‑15 23:07:39 [INFO] webapp: Successfully parsed 235 trees</pre>
+<pre>2025‑07‑15 23:07:40 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑15 23:42:59 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑15 23:42:59 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑15 23:42:59 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑15 23:42:59 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑15 23:42:59 [INFO] webapp: Processing uploaded file: alltrees.trees_cutted.newick</pre>
+<pre>2025‑07‑15 23:42:59 [INFO] webapp: Successfully parsed 235 trees</pre>
+<pre>2025‑07‑15 23:43:00 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑16 01:59:12 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 01:59:12 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 01:59:12 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 01:59:12 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 01:59:12 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑16 01:59:12 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑16 01:59:12 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑16 10:04:53 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 10:04:53 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 10:04:53 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 10:04:53 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 10:04:53 [INFO] webapp: Processing uploaded file: alltrees.trees_cutted.newick</pre>
+<pre>2025‑07‑16 10:04:53 [INFO] webapp: Successfully parsed 235 trees</pre>
+<pre>2025‑07‑16 10:04:54 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑16 11:14:18 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 11:14:18 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 11:14:18 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 11:14:18 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 11:14:18 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑07‑16 11:14:18 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑07‑16 11:14:21 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑16 11:37:27 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 11:37:27 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 11:37:27 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 11:37:27 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 11:37:27 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑16 11:37:27 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑16 11:37:27 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑16 11:40:38 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 11:40:38 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 11:40:38 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 11:40:38 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 11:40:38 [INFO] webapp: Processing uploaded file: alltrees.trees_cutted.newick</pre>
+<pre>2025‑07‑16 11:40:38 [INFO] webapp: Successfully parsed 235 trees</pre>
+<pre>2025‑07‑16 11:40:39 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑16 13:22:59 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 13:22:59 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 13:22:59 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 13:22:59 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 13:22:59 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑16 13:22:59 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑16 13:22:59 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑16 13:26:55 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 13:26:55 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 13:26:55 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 13:26:55 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 13:26:55 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑07‑16 13:26:55 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑07‑16 13:26:55 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑16 13:50:23 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 13:50:23 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 13:50:23 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 13:50:23 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 13:50:23 [INFO] webapp: Processing uploaded file: alltrees-index-0.tree</pre>
+<pre>2025‑07‑16 13:50:23 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑16 13:50:23 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑16 13:52:40 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 13:52:40 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 13:52:40 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 13:52:40 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 13:52:40 [INFO] webapp: Processing uploaded file: alltrees.trees_cutted.newick</pre>
+<pre>2025‑07‑16 13:52:40 [INFO] webapp: Successfully parsed 243 trees</pre>
+<pre>2025‑07‑16 13:52:41 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑16 13:54:22 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 13:54:22 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 13:54:22 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 13:54:22 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 13:54:22 [INFO] webapp: Processing uploaded file: two_trees_beginning_end.trees</pre>
+<pre>2025‑07‑16 13:54:22 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑16 13:54:22 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑16 13:54:31 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 13:54:31 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 13:54:31 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 13:54:31 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 13:54:31 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑07‑16 13:54:31 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑07‑16 13:54:31 [ERROR] webapp: [treedata] Exception: [Errno 32] Broken pipe</pre>
+<pre>2025‑07‑16 13:54:31 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/services/core.py", line 70, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 138, in process_trees
+    processed_trees = self._optimize_tree_order(processed_trees)
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 335, in _optimize_tree_order
+    optimizer.optimize(
+    ~~~~~~~~~~~~~~~~~~^
+        n_iterations=self.config.optimization_iterations,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        bidirectional=self.config.bidirectional_optimization,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/leaforder/tree_order_optimiser.py", line 229, in optimize
+    forward_impr = self._optimize_forward(bidirectional_mode=bidirectional)
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/leaforder/tree_order_optimiser.py", line 212, in _optimize_forward
+    return self._run_optimization_pass("forward", bidirectional_mode)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/leaforder/tree_order_optimiser.py", line 159, in _run_optimization_pass
+    improved, splits_rotated = self._optimize_tree_pair_splits(
+                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self.trees[i], self.trees[i + 1]
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/leaforder/tree_order_optimiser.py", line 100, in _optimize_tree_pair_splits
+    s_edge_splits: PartitionSet[Partition] = get_s_edge_splits(
+                                             ~~~~~~~~~~~~~~~~~^
+        reference_tree, target_tree
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/leaforder/rotation_functions.py", line 69, in get_s_edge_splits
+    s_edge_solutions = iterate_lattice_algorithm(tree1_copy, tree2_copy)
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/jumping_taxa/lattice/lattice_solver.py", line 427, in iterate_lattice_algorithm
+    print(
+    ~~~~~^
+        f"Iter {iteration_count}: Found {len(solution_sets_this_iter)} solution sets."
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+BrokenPipeError: [Errno 32] Broken pipe
+</pre>
+<pre>2025‑07‑16 13:54:38 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 13:54:38 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 13:54:38 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 13:54:38 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 13:54:38 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑07‑16 13:54:38 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑07‑16 13:54:40 [ERROR] webapp: [treedata] Exception: [Errno 32] Broken pipe</pre>
+<pre>2025‑07‑16 13:54:40 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ~~~~~~~~~~~~~~~~~~~~^
+        tree_file,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        window_step=window_step,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/services/core.py", line 82, in handle_uploaded_file
+    return _create_structured_response(
+        processed_data, filename, msa_data, enable_rooting, logger
+    )
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/services/core.py", line 137, in _create_structured_response
+    return movie_data.to_frontend_dict()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/services/movie_data.py", line 263, in to_frontend_dict
+    print(f"[DEBUG]   - s_edge_metadata: {result.get('s_edge_metadata', {})}")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+</pre>
+<pre>2025‑07‑16 13:54:46 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 13:54:46 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 13:54:46 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 13:54:46 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 13:54:46 [INFO] webapp: Processing uploaded file: two_trees_beginning_end.trees</pre>
+<pre>2025‑07‑16 13:54:46 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑07‑16 13:54:47 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑07‑16 13:57:05 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑07‑16 13:57:05 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑07‑16 13:57:05 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑07‑16 13:57:05 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑07‑16 13:57:05 [INFO] webapp: Processing uploaded file: alltrees.trees_cutted.newick</pre>
+<pre>2025‑07‑16 13:57:05 [INFO] webapp: Successfully parsed 235 trees</pre>
+<pre>2025‑07‑16 13:57:05 [INFO] webapp: [treedata] Processed 0 trees</pre>

@@ -4,9 +4,10 @@ import sys
 from typing import Dict, Any, Optional
 from functools import wraps
 from datetime import datetime
+from typing import Callable, TypeVar, cast
 
 
-def log_stacktrace(exception):
+def log_stacktrace(exception: BaseException) -> None:
     """Log a detailed stack trace for an exception."""
     try:
         # Get the full stack trace
@@ -75,7 +76,10 @@ def log_detailed_error(error: Exception, context: Optional[Dict[str, Any]] = Non
         print(f"Original error: {str(error)}", file=sys.stderr)
 
 
-def debug_algorithm_execution(func):
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def debug_algorithm_execution(func: F) -> F:
     """Decorator to wrap algorithm execution with debugging."""
 
     @wraps(func)
@@ -102,4 +106,4 @@ def debug_algorithm_execution(func):
             )
             raise
 
-    return wrapper
+    return cast(F, wrapper)

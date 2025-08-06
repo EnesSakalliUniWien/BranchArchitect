@@ -3,13 +3,15 @@ from typing import List, Dict, Tuple, Any, Optional
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from brancharchitect.partition_set import PartitionSet
+from brancharchitect.elements.partition_set import PartitionSet
 
 # --- BranchArchitect Imports ---
 # (Ensure these are correctly resolved in your environment)
-from brancharchitect.partition import Partition
+from brancharchitect.elements.partition import Partition
 from brancharchitect.jumping_taxa.lattice.lattice_edge import LatticeEdge
-from brancharchitect.plot.paper_plot.rectanlge_plot_configuration import (DEFAULT_STYLE_CONFIG)
+from brancharchitect.plot.paper_plot.rectanlge_plot_configuration import (
+    DEFAULT_STYLE_CONFIG,
+)
 from brancharchitect.plot.paper_plot.lego_rectangle_plot import (
     _apply_plot_style,
     _draw_group_background,
@@ -54,7 +56,6 @@ def _prepare_flat_drawing_data(
                 }
             )
     return drawing_elements
-
 
 
 def _draw_flat_group_summary(
@@ -111,9 +112,6 @@ def _draw_flat_group_summary(
         zorder=13,
     )
     return summary_y + summary_height
-
-
-
 
 
 def draw_flat_partition_panel(

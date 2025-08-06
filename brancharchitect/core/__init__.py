@@ -6,20 +6,20 @@ from brancharchitect.core.matrix_logger import MatrixLogger
 from brancharchitect.core.tree_logger import TreeLogger
 from brancharchitect.core.combined_logger import Logger
 from brancharchitect.core.formatting import (
-    format_set, 
-    beautify_frozenset, 
-    format_partition, 
-    format_partition_set
+    format_set,
+    beautify_frozenset,
+    format_partition,
+    format_partition_set,
 )
 
 __all__ = [
-    'AlgorithmLogger',
-    'TableLogger',
-    'MatrixLogger',
-    'TreeLogger',
-    'Logger',
-    'format_set',
-    'beautify_frozenset',
-    'format_partition',
-    'format_partition_set'
+    "AlgorithmLogger",
+    "TableLogger",
+    "MatrixLogger",
+    "TreeLogger",
+    "Logger",
+    "format_set",
+    "beautify_frozenset",
+    "format_partition",
+    "format_partition_set",
 ]

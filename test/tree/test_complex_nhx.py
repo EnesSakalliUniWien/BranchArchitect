@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+
+from brancharchitect.parser.newick_parser import parse_newick
+
+# The extremely long NHX string from the user's original question
+long_nhx_string = "(LC769681:0.000003[&&NHX:LWR=0.181353:LLH=-731.848948:alpha=0.000000],((((((((LC769682:0.007912[&&NHX:LWR=0.009006:LLH=-734.851523:alpha=1.000000],(LC769692:0.000001[&&NHX:LWR=0.009006:LLH=-734.851479:alpha=1.000000],((LC769694:0.000001[&&NHX:LWR=0.009007:LLH=-734.851366:alpha=1.000000],LC769708:0.007574[&&NHX:LWR=0.009007:LLH=-734.851367:alpha=1.000000]):0.000001[&&NHX:LWR=0.009007:LLH=-734.851366:alpha=0.000000],LC769706:0.000001[&&NHX:LWR=0.009007:LLH=-734.851403:alpha=1.000000]):0.000002[&&NHX:LWR=0.009007:LLH=-734.851403:alpha=0.000000]):0.000001[&&NHX:LWR=0.009006:LLH=-734.851479:alpha=0.000000]):0.000003[&&NHX:LWR=0.009006:LLH=-734.851523:alpha=0.000000],(LC769712:0.000001[&&NHX:LWR=0.006818:LLH=-735.129817:alpha=1.000000],LC769713:0.000001[&&NHX:LWR=0.006818:LLH=-735.129817:alpha=1.000000]):0.007801[&&NHX:LWR=0.009005:LLH=-734.851623:alpha=1.000000]):0.004402[&&NHX:LWR=0.009005:LLH=-734.851622:alpha=0.000000],((LC769702:0.000001[&&NHX:LWR=0.014589:LLH=-734.369117:alpha=1.000000],LC769715:0.008332[&&NHX:LWR=0.020281:LLH=-734.039709:alpha=0.000000]):0.000001[&&NHX:LWR=0.014589:LLH=-734.369114:alpha=1.000000],LC769704:0.000001[&&NHX:LWR=0.014589:LLH=-734.369114:alpha=1.000000]):0.007600[&&NHX:LWR=0.014589:LLH=-734.369114:alpha=0.000000]):0.003163[&&NHX:LWR=0.007711:LLH=-735.006719:alpha=0.000000],((((((LC769683:0.000001[&&NHX:LWR=0.007030:LLH=-735.099193:alpha=1.000000],((((LC769684:0.000001[&&NHX:LWR=0.004257:LLH=-735.600713:alpha=1.000000],LC769714:0.000001[&&NHX:LWR=0.004257:LLH=-735.600713:alpha=1.000000]):0.008186[&&NHX:LWR=0.007033:LLH=-735.098712:alpha=1.000000],LC769688:0.008143[&&NHX:LWR=0.007033:LLH=-735.098712:alpha=1.000000]):0.000003[&&NHX:LWR=0.007035:LLH=-735.098543:alpha=1.000000],((LC769697:0.007557[&&NHX:LWR=0.018158:LLH=-734.150286:alpha=0.000000],LC769707:0.008186[&&NHX:LWR=0.007043:LLH=-735.097370:alpha=1.000000]):0.000006[&&NHX:LWR=0.007043:LLH=-735.097369:alpha=0.000000],LC769699:0.000001[&&NHX:LWR=0.007037:LLH=-735.098195:alpha=0.000000]):0.000003[&&NHX:LWR=0.007037:LLH=-735.098195:alpha=0.000000]):0.000002[&&NHX:LWR=0.007035:LLH=-735.098543:alpha=0.000000],LC769696:0.000001[&&NHX:LWR=0.007032:LLH=-735.098860:alpha=1.000000]):0.000003[&&NHX:LWR=0.007032:LLH=-735.098860:alpha=0.000000]):0.000002[&&NHX:LWR=0.007030:LLH=-735.099193:alpha=0.000000],LC769693:0.000001[&&NHX:LWR=0.007028:LLH=-735.099484:alpha=1.000000]):0.000001[&&NHX:LWR=0.007028:LLH=-735.099484:alpha=0.000000],((LC769689:0.000000[&&NHX:LWR=0.007027:LLH=-735.099617:alpha=0.000000],LC769703:0.000000[&&NHX:LWR=0.007027:LLH=-735.099617:alpha=0.000000]):0.000000[&&NHX:LWR=0.007027:LLH=-735.099617:alpha=0.000000],LC769709:0.000000[&&NHX:LWR=0.007027:LLH=-735.099617:alpha=0.000000]):0.000001[&&NHX:LWR=0.007027:LLH=-735.099616:alpha=1.000000]):0.000002[&&NHX:LWR=0.007027:LLH=-735.099616:alpha=0.000000],LC769705:0.008021[&&NHX:LWR=0.007025:LLH=-735.099907:alpha=1.000000]):0.000001[&&NHX:LWR=0.007025:LLH=-735.099907:alpha=0.000000],LC769695:0.000001[&&NHX:LWR=0.007024:LLH=-735.100039:alpha=1.000000]):0.000002[&&NHX:LWR=0.007024:LLH=-735.100039:alpha=0.000000],LC769691:0.000001[&&NHX:LWR=0.007022:LLH=-735.100332:alpha=1.000000]):0.000002[&&NHX:LWR=0.007022:LLH=-735.100332:alpha=0.000000]):0.000002[&&NHX:LWR=0.007020:LLH=-735.100607:alpha=0.000000],LC769685:0.000001[&&NHX:LWR=0.007020:LLH=-735.100695:alpha=1.000000]):0.007624[&&NHX:LWR=0.007020:LLH=-735.100696:alpha=0.000000],LC769698:0.000003[&&NHX:LWR=0.004368:LLH=-735.575156:alpha=1.000000]):0.072176[&&NHX:LWR=0.004368:LLH=-735.575156:alpha=0.000000],(((LC769686:0.011750[&&NHX:LWR=0.001002:LLH=-737.047482:alpha=0.000000],LC769710:0.000001[&&NHX:LWR=0.000725:LLH=-737.370464:alpha=1.000000]):0.000001[&&NHX:LWR=0.000725:LLH=-737.370464:alpha=1.000000],LC769711:0.000001[&&NHX:LWR=0.000725:LLH=-737.370464:alpha=0.000000]):0.000002[&&NHX:LWR=0.000725:LLH=-737.370464:alpha=0.000000],(LC769687:0.000001[&&NHX:LWR=0.000774:LLH=-737.305387:alpha=0.000000],LC769690:0.005523[&&NHX:LWR=0.000774:LLH=-737.305387:alpha=1.000000]):0.005403[&&NHX:LWR=0.000774:LLH=-737.305387:alpha=0.000000]):0.620784[&&NHX:LWR=0.003544:LLH=-735.784243:alpha=0.654103]):0.083374[&&NHX:LWR=0.003966:LLH=-735.671665:alpha=1.000000],LC769700:0.327835[&&NHX:LWR=0.003966:LLH=-735.671665:alpha=1.000000]):0.130554[&&NHX:LWR=0.181321:LLH=-731.849122:alpha=1.000000],LC769701:0.008084[&&NHX:LWR=0.181321:LLH=-731.849122:alpha=1.000000]);"
+
+print("Testing extremely long and complex NHX string...")
+print(f"String length: {len(long_nhx_string)} characters")
+
+try:
+    tree = parse_newick(long_nhx_string)
+    print("✅ SUCCESS: Complex NHX string parsed successfully!")
+
+    # Count nodes and metadata
+    total_nodes = 0
+    nodes_with_metadata = 0
+
+    def count_nodes(node):
+        global total_nodes, nodes_with_metadata
+        total_nodes += 1
+        if hasattr(node, "values") and node.values:
+            nodes_with_metadata += 1
+        for child in node.children:
+            count_nodes(child)
+
+    count_nodes(tree)
+    print(f"Total nodes: {total_nodes}")
+    print(f"Nodes with NHX metadata: {nodes_with_metadata}")
+
+    # Show a few examples of parsed metadata
+    print("\nSample NHX metadata from nodes:")
+    count = 0
+
+    def show_sample_metadata(node, indent=""):
+        global count
+        if count < 5 and hasattr(node, "values") and node.values:
+            print(f"  Node '{node.name}': {node.values}")
+            count += 1
+        for child in node.children:
+            if count < 5:
+                show_sample_metadata(child, indent + "  ")
+
+    show_sample_metadata(tree)
+
+except Exception as e:
+    print(f"❌ FAILED: {e}")
+    import traceback
+
+    traceback.print_exc()

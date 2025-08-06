@@ -1,17 +1,110 @@
 {
-  "cSpell.words": [
-    "brancharchitect",
-    "clades",
-    "dataframes",
-    "foulds",
-    "treecmp"
-  ],
-  "cSpell.enabledFileTypes": {
-    "python": false,
+  // Python
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": ["--line-length", "88"],
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": true,
+  "python.linting.flake8Args": ["--max-line-length=88", "--ignore=E203,W503"],
+  "python.linting.mypyEnabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.envFile": "${workspaceFolder}/.env",
+  "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.useLibraryCodeForTypes": true,
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.inlayHints.variableTypes": true,
+  "python.analysis.inlayHints.functionReturnTypes": true,
 
-    "html": false
+  // JavaScript/TypeScript
+  "editor.formatOnSave": true,
+  "eslint.enable": true,
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+  "prettier.requireConfig": true,
+  "prettier.singleQuote": true,
+  "prettier.semi": true,
+  "prettier.trailingComma": "all",
+  "prettier.printWidth": 88,
+  "prettier.tabWidth": 2,
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "javascript.suggest.autoImports": true,
+  "typescript.suggest.autoImports": true,
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+
+  // LLM/AI/Copilot
+  "github.copilot.enable": {
+    "*": true,
+    "plaintext": true,
+    "markdown": true,
+    "python": true,
+    "javascript": true,
+    "typescript": true
   },
-  "liveServer.settings.port": 5503,
-  "editor.bracketPairColorization.enabled": true,
-  "editor.guides.bracketPairs": "active"
+  "github.copilot.suggestionDelayMs": 50,
+  "github.copilot.advanced": {
+    "enableAutoCompletions": true,
+    "enableCompletions": true,
+    "enableCodeActions": true
+  },
+  "github.copilot.editor.enableCodeActions": true,
+  "github.copilot.editor.enableInlineSuggest": true,
+  "github.copilot-labs.experimentalPanel": true,
+  "github.copilot-chat.enable": true,
+  "github.copilot-chat.showWelcomeOnStartup": false,
+
+  // General
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.venv": true,
+    "**/.mypy_cache": true,
+    "**/.coverage": true,
+    "**/.DS_Store": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.venv": true,
+    "**/.mypy_cache": true
+  },
+  "editor.tabSize": 2,
+  "editor.rulers": [88],
+  "editor.wordWrap": "on",
+  "editor.inlineSuggest.enabled": true,
+  "editor.suggestSelection": "first",
+  "editor.suggest.snippetsPreventQuickSuggestions": false,
+  "editor.snippetSuggestions": "top",
+
+  // Terminal
+  "terminal.integrated.env.osx": {
+    "POETRY_VIRTUALENVS_IN_PROJECT": "true"
+  },
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  "jupyter.notebookFileRoot": "${workspaceFolder}",
+
+  // Git
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.enableSmartCommit": true,
+
+  // Misc
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.autoSave": "onFocusChange",
+  "workbench.editor.enablePreview": false,
+  "workbench.startupEditor": "newUntitledFile",
+  "jupyter.interactiveWindow.creationMode": "perFile",
+  "nextflow.telemetry.enabled": true,
+  "cSpell.words": [
+    "brancharchitect"
+  ]
 }

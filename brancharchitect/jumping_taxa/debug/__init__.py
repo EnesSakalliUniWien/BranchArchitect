@@ -2,13 +2,14 @@
 
 from brancharchitect.core.combined_logger import Logger
 
+from typing import Any, Set  # Utility functions
+
 # Create logger instance first - before ANY other imports
 jt_logger = Logger("JumpingTaxa")
-jt_logger.disabled = False
+jt_logger.disabled = True
 
 
-# Utility functions
-def format_set(s: set) -> str:
+def format_set(s: Set[Any]) -> str:
     """Format set for display."""
     if not s:
         return "∅"
