@@ -179,7 +179,6 @@ def check_split_compatibility(
         return True
     if not (A_complement & B_complement):
         return True
-
     return False
 
 
@@ -230,9 +229,7 @@ def apply_split_in_tree(split: Partition, node: Node):
         # Only create a new node if we have children to reassign
         if reassigned_children and len(reassigned_children) > 1:
             new_node = Node(
-                name="",
-                split_indices=split,
-                children=reassigned_children,
+                name="", split_indices=split, children=reassigned_children, length=0
             )
             # Update original node's children and append new node
             node.children = remaining_children
@@ -323,7 +320,7 @@ def collect_splits(trees: List[Node]) -> dict[Partition, float]:
     Returns:
         dict[Partition, float]: A dictionary mapping each split (Partition) to its frequency. Frequency is given as a float value in the range [0, 1].
     """
-    taxa: int = len(trees[0]._order)
+    taxa: list[int] = len(trees[0]._order)
     total_trees: int = len(trees)
     counter: Counter[Partition] = Counter()  # Counter mapping each Partition to an int
     for tree in trees:

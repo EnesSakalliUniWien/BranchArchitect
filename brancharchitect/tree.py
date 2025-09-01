@@ -410,12 +410,18 @@ class Node:
                 "(" + ",".join(ch._to_newick(lengths) for ch in self.children) + ")"
             )
             if lengths:
-                return f"{child_str}{self.name or ''}{meta}:{self.length}"
+                length_str = (
+                    f"{float(self.length):.6f}" if self.length is not None else "0.000000"
+                )
+                return f"{child_str}{self.name or ''}{meta}:{length_str}"
             else:
                 return f"{child_str}{self.name or ''}{meta}"
         else:
             if lengths:
-                return f"{self.name or ''}{meta}:{self.length}"
+                length_str = (
+                    f"{float(self.length):.6f}" if self.length is not None else "0.000000"
+                )
+                return f"{self.name or ''}{meta}:{length_str}"
             else:
                 return f"{self.name or ''}{meta}"
 

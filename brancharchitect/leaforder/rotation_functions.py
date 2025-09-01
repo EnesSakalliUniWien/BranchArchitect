@@ -8,7 +8,7 @@ from brancharchitect.leaforder.circular_distances import (
     circular_distance_for_node_subset,
     circular_distance_based_on_reference,
 )
-from brancharchitect.jumping_taxa.lattice.lattice_solver import (
+from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
     iterate_lattice_algorithm,
 )
 
@@ -69,7 +69,9 @@ def get_s_edge_splits(tree1: Node, tree2: Node) -> PartitionSet[Partition]:
     s_edge_solutions = iterate_lattice_algorithm(tree1_copy, tree2_copy)
     s_edges_list = list(s_edge_solutions.keys())
     # Convert to PartitionSet for consistency with function signature
-    s_edges_set = PartitionSet(set(s_edges_list), encoding=tree1.taxa_encoding)
+    s_edges_set: PartitionSet[Partition] = PartitionSet(
+        set(s_edges_list), encoding=tree1.taxa_encoding
+    )
     _split_pair_cache[key] = s_edges_set
     return s_edges_set
 

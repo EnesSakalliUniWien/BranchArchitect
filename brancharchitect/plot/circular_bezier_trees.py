@@ -7,31 +7,16 @@ import os
 from brancharchitect.distances.distances import robinson_foulds_distance
 
 # Optional imports with proper error handling
-try:
-    import xml.etree.ElementTree as ET
-    import matplotlib.pyplot as plt
-    import matplotlib.colors as mcolors
-    import numpy as np
-    import PIL.Image
-    import cairosvg  # type: ignore
-    from IPython.display import Image, display
-    from brancharchitect.plot.tree_plot import (
-        plot_circular_trees_in_a_row,
-        add_svg_gridlines,
-    )
-
-    OPTIONAL_DEPS_AVAILABLE = True
-except ImportError as e:
-    OPTIONAL_DEPS_AVAILABLE = False
-    _missing_deps = str(e)
-
-
-def _require_optional_deps(operation: str = "this operation"):
-    """Check if optional dependencies are available."""
-    if not OPTIONAL_DEPS_AVAILABLE:
-        raise ImportError(
-            f"Optional dependencies required for {operation}. Missing: {_missing_deps}"
-        )
+import xml.etree.ElementTree as ET
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import numpy as np
+import cairosvg  # type: ignore
+from IPython.display import Image, display
+from brancharchitect.plot.tree_plot import (
+    plot_circular_trees_in_a_row,
+    add_svg_gridlines,
+)
 
 
 # Configuration dataclasses to reduce parameter redundancy
@@ -198,8 +183,6 @@ def compute_bezier_colors_and_widths(
     max_width: float,
 ) -> Tuple[List[List[str]], List[List[float]]]:
     """Compute Bezier curve colors and stroke widths from distance data."""
-    _require_optional_deps("Bezier color computation")
-
     bezier_colors_per_pair = [
         [subtle_color(norm(d)) for d in pair] for pair in per_pair_taxa_dists
     ]
@@ -405,8 +388,6 @@ def plot_tree_row_with_beziers_and_distances(
 
 def _plot_distances(ax: Any, rf_dists: List[float], circ_dists: List[float]) -> None:
     """Create distance comparison plot."""
-    _require_optional_deps("distance plotting")
-
     x_positions = np.arange(len(rf_dists))
     x_labels = [f"Tree {i}→Tree {i + 1}" for i in range(len(rf_dists))]
 
@@ -506,7 +487,7 @@ def _handle_output(
         # Display the figure if explicitly requested
         display(fig)
         plt.show()
-    
+
     # Always close the figure to prevent memory leaks, regardless of show_plot
     plt.close(fig)
 

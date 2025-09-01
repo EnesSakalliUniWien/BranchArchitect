@@ -295,7 +295,7 @@ def get_lattice_solution_sizes(
     Run the iterative lattice algorithm and return the sizes of all minimal reconciliation solutions.
     Returns an empty list if no solutions are found.
     """
-    from brancharchitect.jumping_taxa.lattice.lattice_solver import iterate_lattice_algorithm
+    from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import iterate_lattice_algorithm
 
     s_edge_solutions = iterate_lattice_algorithm(tree1, tree2, leaf_order)
     if not s_edge_solutions:

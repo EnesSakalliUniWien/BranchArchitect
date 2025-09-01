@@ -1,151 +1,71 @@
-from typing import List, Tuple, Dict, Optional, Set, FrozenSet
 import logging
+from typing import List, Tuple, Dict, Optional, Set
 
-# Assuming these imports point to valid modules in your project structure
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
 from brancharchitect.jumping_taxa.lattice.lattice_edge import LatticeEdge
+from brancharchitect.jumping_taxa.lattice.depth_computation import (
+    compute_lattice_edge_depths,
+)
 
 # It's good practice to use the logging module
 jt_logger: logging.Logger = logging.getLogger(__name__)
 
-# --- Caching Helpers for Performance ---
-# These would typically be defined in a utility module.
-# Using a simple dictionary for demonstration.
-_indices_cache: Dict[int, Tuple[int, ...]] = {}
-_set_cache: Dict[Tuple[int, ...], FrozenSet[int]] = {}
 
-
-def _cached_resolve_to_indices(partition: Partition) -> Tuple[int, ...]:
-    """Resolves partition to indices, with caching."""
-    # Use partition's hash or another unique identifier if available
-    cache_key = hash(partition)
-    if cache_key not in _indices_cache:
-        _indices_cache[cache_key] = partition.resolve_to_indices()
-    return _indices_cache[cache_key]
-
-
-def _cached_set_from_indices(indices: Tuple[int, ...]) -> FrozenSet[int]:
-    """Converts a tuple of indices to a frozenset, with caching."""
-    if indices not in _set_cache:
-        _set_cache[indices] = frozenset(indices)
-    return _set_cache[indices]
-
-
-# --- Main Mapping Logic ---
-
-
-def _get_mapping_context(
-    s_edge: Partition,
-    t1: Node,
-    t2: Node,
-    t1_splits: PartitionSet[Partition],
-    t2_splits: PartitionSet[Partition],
-) -> Optional[Node]:
-    """
-    Determines which tree (t1 or t2) the s_edge belongs to in the current iteration.
-    """
-    if s_edge in t1_splits:
-        return t1
-    elif s_edge in t2_splits:
-        return t2
-    return None
-
-
-def map_s_edges_to_original_by_index(
+def map_s_edges_by_jaccard_similarity(
     s_edges_from_iteration: List[Partition],
     original_t1: Node,
     original_t2: Node,
-    current_t1: Node,
-    current_t2: Node,
-    iteration_count: int,
 ) -> List[Optional[Partition]]:
     """
-    [CORRECTED] Maps s-edge partitions found in a specific iteration back to their
-    corresponding partitions from the set of splits *common* to the original trees.
+    Maps s-edges from a pruned tree back to the original common splits
+    using Jaccard similarity, without caching.
 
-    This ensures that an s-edge is only mapped back to a valid, common ancestral partition.
+    For each s-edge, it finds the original common split with the highest
+    Jaccard index. Ties are broken by choosing the smaller partition.
 
     Args:
-        s_edges_from_iteration: The list of s-edge Partitions from the lattice algorithm.
+        s_edges_from_iteration: List of s-edge Partitions from an iteration.
         original_t1: The initial, unmodified first tree.
         original_t2: The initial, unmodified second tree.
-        current_t1: The first tree in the current iteration (potentially pruned).
-        current_t2: The second tree in the current iteration (potentially pruned).
-        iteration_count: The current iteration number, for logging.
 
     Returns:
-        A list of original Partitions that correspond to the s-edges found
-        in the current iteration.
+        A list of the best-matching original Partitions.
     """
-
-    # Compute the set of splits common to both original trees
-    original_common_splits = original_t1.to_splits() & original_t2.to_splits()
-
-    # Only map s-edges that are also present in the original common splits
+    original_common_splits = list(original_t1.to_splits() & original_t2.to_splits())
     mapped_partitions: List[Optional[Partition]] = []
-    t1_splits: PartitionSet[Partition] = current_t1.to_splits(with_leaves=True)
-    t2_splits: PartitionSet[Partition] = current_t2.to_splits(with_leaves=True)
-    t1_leaf_indices: FrozenSet[int] = _cached_set_from_indices(
-        _cached_resolve_to_indices(current_t1.split_indices)
-    )
-    t2_leaf_indices: FrozenSet[int] = _cached_set_from_indices(
-        _cached_resolve_to_indices(current_t2.split_indices)
-    )
 
-    # Filter s_edges to only those present in original_common_splits
-    filtered_s_edges = [
-        s for s in s_edges_from_iteration if s in original_common_splits
-    ]
+    if not original_common_splits:
+        return [None] * len(s_edges_from_iteration)
 
-    for s_edge in filtered_s_edges:
-        context_tree = _get_mapping_context(
-            s_edge, current_t1, current_t2, t1_splits, t2_splits
-        )
+    for s_edge in s_edges_from_iteration:
+        s_edge_indices = set(s_edge.resolve_to_indices())
 
-        if not context_tree:
-            jt_logger.warning(
-                f"Iter {iteration_count}: s_edge {s_edge} not in current t1 or t2 splits. Cannot map."
-            )
-            mapped_partitions.append(None)
-            continue
+        best_match: Optional[Partition] = None
+        highest_score: float = -1.0
+        smallest_size: int = int(1e9)
 
-        context_leaf_indices = (
-            t1_leaf_indices if context_tree is current_t1 else t2_leaf_indices
-        )
-        s_edge_indices_set = _cached_set_from_indices(
-            _cached_resolve_to_indices(s_edge)
-        )
-
-        # Diagnostic logging for mapping failures
-        jt_logger.debug(
-            f"Iter {iteration_count}: s_edge indices: {sorted(s_edge_indices_set)}"
-        )
-        jt_logger.debug(
-            f"Iter {iteration_count}: context leaf indices: {sorted(context_leaf_indices)}"
-        )
-        candidate_found = False
         for original_p in original_common_splits:
-            original_indices_set = _cached_set_from_indices(
-                _cached_resolve_to_indices(original_p)
-            )
-            intersection = original_indices_set & context_leaf_indices
-            jt_logger.debug(
-                f"Iter {iteration_count}: Trying original_p {original_p}, indices: {sorted(original_indices_set)}, intersection: {sorted(intersection)}"
-            )
-            if s_edge_indices_set == intersection:
-                candidate_found = True
-                if original_p not in mapped_partitions:
-                    mapped_partitions.append(original_p)
-                else:
-                    mapped_partitions.append(None)
-                break
-        if not candidate_found:
-            jt_logger.warning(
-                f"Iter {iteration_count}: No match found for s_edge {s_edge}. s_edge_indices: {sorted(s_edge_indices_set)}, context_leaf_indices: {sorted(context_leaf_indices)}"
-            )
-            mapped_partitions.append(None)
+            original_indices = set(original_p.resolve_to_indices())
+
+            intersection_len = len(s_edge_indices.intersection(original_indices))
+            if intersection_len == 0:
+                continue
+
+            union_len = len(s_edge_indices) + len(original_indices) - intersection_len
+            jaccard_index = intersection_len / union_len
+
+            if jaccard_index > highest_score:
+                highest_score = jaccard_index
+                best_match = original_p
+                smallest_size = len(original_indices)
+            elif jaccard_index == highest_score:
+                if len(original_indices) < smallest_size:
+                    best_match = original_p
+                    smallest_size = len(original_indices)
+
+        mapped_partitions.append(best_match)
 
     return mapped_partitions
 
@@ -167,7 +87,7 @@ def pair_candidates_with_solutions_numpy_bitmask(
     sol_list: List[Partition] = list(solution_atoms)
 
     # For each solution, find the best overlapping unique atom
-    result_mapping = {}
+    result_mapping: Dict[Partition, Partition] = {}
 
     for solution in sol_list:
         best_candidate = None
@@ -316,9 +236,6 @@ def sort_lattice_edges_by_subset_hierarchy(
     if not lattice_edges:
         return lattice_edges
 
-    # Import here to avoid circular import
-    from brancharchitect.tree_interpolation.ordering import compute_lattice_edge_depths
-
     # Extract partitions from lattice edges
     partitions = [edge.split for edge in lattice_edges]
 
@@ -327,7 +244,7 @@ def sort_lattice_edges_by_subset_hierarchy(
     depths2: Dict[Partition, float] = compute_lattice_edge_depths(partitions, tree2)
 
     # Calculate average depths for sorting
-    avg_depths = {}
+    avg_depths: dict[Partition, float] = {}
     for partition in partitions:
         avg_depths[partition] = (depths1[partition] + depths2[partition]) / 2
 
@@ -340,8 +257,9 @@ def sort_lattice_edges_by_subset_hierarchy(
     jt_logger.debug(
         f"Sorted {len(lattice_edges)} lattice edges by subset hierarchy and depth"
     )
+    depth: float = 0.0
     for i, edge in enumerate(sorted_edges):
-        depth: float = avg_depths[edge.split]
+        depth = avg_depths[edge.split]
         jt_logger.debug(f"  {i + 1}. {edge.split} (avg_depth={depth})")
 
     return sorted_edges

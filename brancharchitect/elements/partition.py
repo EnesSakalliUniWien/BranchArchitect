@@ -183,3 +183,70 @@ class Partition:
         Return the tuple of indices for this partition.
         """
         return tuple(self.indices)
+
+    def is_compatible_with(self, other: "Partition") -> bool:
+        """
+        Check if this partition is compatible with another partition.
+
+        Two partitions are compatible if at least one of the four intersections is empty:
+        - A ∩ B
+        - A ∩ B_complement
+        - A_complement ∩ B
+        - A_complement ∩ B_complement
+
+        Where A and B are the two partitions, and complements are with respect
+        to the universal set of all taxa in the encoding.
+
+        Args:
+            other: Another Partition to check compatibility with
+
+        Returns:
+            bool: True if partitions are compatible, False otherwise
+
+        Raises:
+            ValueError: If partitions have different encodings
+        """
+
+        # Ensure both partitions use the same encoding
+        if self.encoding != other.encoding:
+            raise ValueError(
+                "Cannot check compatibility between partitions with different encodings"
+            )
+
+        # Get universal set from encoding
+        if not self.encoding:
+            # If no encoding, assume partitions contain all relevant indices
+            all_indices = set(self.indices) | set(other.indices)
+        else:
+            all_indices = set(self.encoding.values())
+
+        # Convert partitions to sets
+        A = set(self.indices)
+        B = set(other.indices)
+        A_complement = all_indices - A
+        B_complement = all_indices - B
+
+        # Check if any of the four intersections is empty
+        if not (A & B):
+            return True
+        if not (A & B_complement):
+            return True
+        if not (A_complement & B):
+            return True
+        if not (A_complement & B_complement):
+            return True
+
+        return False
+
+    def check_compatibility_with_list(self, partitions: List["Partition"]) -> bool:
+        """
+        Check if this partition is compatible with all partitions in a list.
+
+        Args:
+            partitions: List of Partition objects to check compatibility with
+
+        Returns:
+            bool: True if this partition is compatible with ALL partitions in the list,
+                  False if incompatible with any partition
+        """
+        return all(self.is_compatible_with(p) for p in partitions)

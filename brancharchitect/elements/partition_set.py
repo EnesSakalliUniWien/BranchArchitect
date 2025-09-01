@@ -8,7 +8,6 @@ from typing import (
     TypeVar,
     Generic,
     Iterable,
-    Self,
     cast,
     Iterator,
     List,
@@ -16,6 +15,10 @@ from typing import (
     Union,
     Set as TypingSet,
 )
+try:  # Python 3.11+
+    from typing import Self  # type: ignore
+except Exception:  # Python <3.11
+    from typing_extensions import Self  # type: ignore
 from itertools import product
 from collections.abc import MutableSet
 from brancharchitect.elements.partition import Partition
@@ -163,10 +166,9 @@ class PartitionSet(Generic[T], MutableSet[T]):
 
     def discard(self, value: T) -> None:
         bitmask, _ = self._element_to_bitmask_and_partition(value)
-        if bitmask not in self._bitmask_set:
-            raise ValueError(f"Element {value} not found in set")
-        self._bitmask_set.discard(bitmask)
-        self._bitmask_to_partition.pop(bitmask, None)
+        if bitmask in self._bitmask_set:
+            self._bitmask_set.discard(bitmask)
+            self._bitmask_to_partition.pop(bitmask, None)
 
     def __hash__(self) -> int:
         """Return a hash of this partition set."""
@@ -211,7 +213,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
             # Optimization: Sort by size descending, then scan left to right, keeping only those not subsets of previous
             partitions = sorted(self, key=lambda s: -len(s.taxa))
             maximal: list[Partition] = []
-            for i, s in enumerate(partitions):
+            for s in partitions:
                 is_maximal = True
                 for prev in maximal:
                     # If prev.taxa is a superset of s.taxa, s is not maximal

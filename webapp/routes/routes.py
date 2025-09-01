@@ -12,7 +12,7 @@ from flask import Response
 from flask import Blueprint, current_app, jsonify, request, send_from_directory
 from brancharchitect.io import UUIDEncoder
 from werkzeug.datastructures.file_storage import FileStorage
-from brancharchitect.movie_pipeline.services.core import handle_uploaded_file
+from services.tree_processing_service import handle_uploaded_file
 from typing import Union, Tuple
 
 bp = Blueprint("main", __name__)
@@ -78,21 +78,27 @@ def treedata() -> Union[Response, Tuple[dict[str, Any], int]]:
         enable_rooting = request.form.get("midpointRooting", "") == "on"
         log.info(f"[treedata] Midpoint rooting: {enable_rooting}")
 
-        # Get the embedding parameter from the form
-        enable_embedding = request.form.get("deactivateEmbedding", "") != "on"
-        log.info(f"[treedata] Enable embedding: {enable_embedding}")
-
         # Simple MSA handling - just get content if provided
         msa_content = None
+        log.info(f"[treedata] Request files: {list(request.files.keys())}")
         msa_file: FileStorage | None = request.files.get("msaFile")
-        if (
-            msa_file
-            and msa_file.filename
-            and hasattr(msa_file, "content_length")
-            and msa_file.content_length > 0
-        ):
-            msa_content = msa_file.read().decode("utf-8", errors="replace")
-            log.info(f"[treedata] MSA file provided: {msa_file.filename}")
+        if msa_file and msa_file.filename:
+            # Check file size by seeking to end
+            msa_file.seek(0, os.SEEK_END)
+            file_size = msa_file.tell()
+            msa_file.seek(0)  # Reset to beginning
+
+            if file_size > 0:
+                msa_content = msa_file.read().decode("utf-8", errors="replace")
+                log.info(
+                    f"[treedata] MSA file provided: {msa_file.filename} ({file_size} bytes)"
+                )
+
+                log.debug(
+                    f"[treedata] MSA content preview: {msa_content[:100] if msa_content else 'None'}"
+                )
+            else:
+                log.info(f"[treedata] MSA file {msa_file.filename} is empty")
         else:
             log.info("[treedata] No MSA file provided")
 
@@ -114,11 +120,12 @@ def treedata() -> Union[Response, Tuple[dict[str, Any], int]]:
         )
     except Exception as e:
         import traceback
+
         current_app.logger.error("[treedata] Exception: %s", str(e))
-        current_app.logger.error("[treedata] Full traceback: %s", traceback.format_exc())
+        current_app.logger.error(
+            "[treedata] Full traceback: %s", traceback.format_exc()
+        )
         return _fail(500, str(e)), 500
-
-
 
 
 # ----------------------------------------------------------------------

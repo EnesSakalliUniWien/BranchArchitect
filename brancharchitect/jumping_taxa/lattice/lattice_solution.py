@@ -177,7 +177,7 @@ class LatticeSolutions:
     ) -> PartitionSet[Partition] | None:
         """
         Get the single smallest solution for a specific edge and visit.
-        
+
         Among all solutions with minimal indices sum, this returns the one
         with the absolute smallest indices sum. This addresses the requirement
         to select "the smallest one" rather than an arbitrary first solution.
@@ -190,18 +190,18 @@ class LatticeSolutions:
             The single smallest solution, or None if no solutions exist
         """
         minimal_solutions = self.get_minimal_by_indices_sum(s_edge, visit)
-        
+
         if not minimal_solutions:
             return None
-            
+
         if len(minimal_solutions) == 1:
             return minimal_solutions[0]
-        
+
         # Among minimal solutions, find the one with the absolute smallest sum
         def calculate_indices_sum(solution: PartitionSet[Partition]) -> int:
             """Calculate the sum of lengths of all partition indices in the solution."""
             return sum(len(partition.indices) for partition in solution)
-        
+
         return min(minimal_solutions, key=calculate_indices_sum)
 
     def get_solutions_grouped_by_visit_and_edge(

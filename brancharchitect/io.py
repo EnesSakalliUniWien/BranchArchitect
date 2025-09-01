@@ -2,9 +2,6 @@ from typing import Dict, List, IO, Tuple
 from xml.etree.ElementTree import Element
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.tree import Node
-from brancharchitect.plot.circular_tree import (
-    generate_multiple_circular_trees_svg,
-)
 from uuid import UUID
 import json
 from typing import Any, Optional
@@ -47,12 +44,20 @@ def dump_json(tree: Node, f: IO[str]):
     json.dump(tree, f, cls=UUIDEncoder)
 
 
-def read_newick(path: str, order: Optional[list[str]] = None, force_list: bool = False):
+def read_newick(
+    path: str,
+    order: Optional[list[str]] = None,
+    force_list: bool = False,
+    treat_zero_as_epsilon: bool = False,
+):
     with open(path) as f:
         newick_string: str = f.read()
 
     tree: Node | List[Node] = parse_newick(
-        newick_string, order=order, force_list=force_list
+        newick_string,
+        order=order,
+        force_list=force_list,
+        treat_zero_as_epsilon=treat_zero_as_epsilon,
     )
     return tree
 

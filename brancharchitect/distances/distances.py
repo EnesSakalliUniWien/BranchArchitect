@@ -92,7 +92,7 @@ def compute_pair(
     copy_tree_j: Node = tree_j.deep_copy()
 
     # Get s-edge solutions from lattice algorithm
-    from brancharchitect.jumping_taxa.lattice.lattice_solver import iterate_lattice_algorithm
+    from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import iterate_lattice_algorithm
     s_edge_solutions = iterate_lattice_algorithm(copy_tree_i, copy_tree_j, leaf_order)
     s_edges = list(s_edge_solutions.keys())
     # Flatten all solution sets to get components (individual partitions)

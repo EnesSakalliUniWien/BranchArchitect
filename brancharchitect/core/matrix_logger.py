@@ -37,6 +37,18 @@ def to_latex_matrix(
 
 def format_partition(part):
     """Format a Partition (or its tuple representation) as '(a, b, ...)'."""
+    # Check if it's a Partition object with reverse_encoding
+    if hasattr(part, 'reverse_encoding') and hasattr(part, 'indices'):
+        try:
+            # Use the reverse_encoding to get taxon names
+            reverse_encoding = part.reverse_encoding
+            taxa_names = sorted(reverse_encoding.get(i, str(i)) for i in part.indices)
+            return "(" + ", ".join(taxa_names) + ")"
+        except Exception:
+            # Fall back to indices if something goes wrong
+            pass
+    
+    # Default behavior for non-Partition objects or if reverse_encoding fails
     try:
         values = tuple(part)  # works if part is iterable (like Partition)
     except TypeError:
@@ -104,7 +116,7 @@ class MatrixLogger(AlgorithmLogger):
 
         # Default to the beautify_frozenset function if not provided
         if format_func is None:
-            format_func = beautify_frozenset
+            format_func = format_partition_set
 
         # For terminal output - create ASCII representation
         if title:

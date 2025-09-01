@@ -3,6 +3,8 @@
 import re
 from typing import Optional, Dict, Any, Union
 from logging import Logger
+from io import StringIO
+import skbio
 
 
 def get_alignment_length(msa_content: str) -> Optional[int]:
@@ -77,49 +79,76 @@ def infer_window_parameters(num_trees: int, alignment_length: int) -> WindowPara
     return WindowParameters(window_size, step_size)
 
 
-def _process_msa_data(
+def msa_to_dict(msa_content: str) -> Dict[str, str]:
+    """Parse MSA content (FASTA) into a dictionary."""
+    try:
+        msa = skbio.io.read(StringIO(msa_content), format="fasta")
+        return {seq.metadata["id"]: str(seq) for seq in msa}
+    except Exception:
+        return {}
+
+
+def process_msa_data(
     msa_content: Optional[str],
     num_trees: int,
     window_size: int = 1,
     step_size: int = 1,
     logger: Optional[Logger] = None,
-) -> Dict[str, Optional[Union[int, str, bool]]]:
-    """Process MSA content and infer window parameters."""
+) -> Dict[str, Optional[Union[int, str, bool, Dict[str, str]]]]:
+    """
+    Process MSA content and determine effective window parameters.
+
+    Behavior:
+    - If both window_size and step_size are 1, infer parameters from the MSA
+      alignment length and number of trees (when MSA is provided and parsable).
+    - Otherwise, echo back the provided window_size/step_size as the effective
+      values so the API response reflects user input.
+    """
+    # If no MSA provided, still surface the provided parameters
     if not msa_content:
         return {
-            "inferred_window_size": None,
-            "inferred_step_size": None,
-            "windows_are_overlapping": None,
+            "inferred_window_size": window_size,
+            "inferred_step_size": step_size,
+            "windows_are_overlapping": (step_size < window_size),
             "alignment_length": None,
+            "msa_dict": None,
         }
 
     alignment_length = get_alignment_length(msa_content)
     if not alignment_length:
         if logger:
             logger.warning("Could not determine alignment length from MSA content")
+        # Fall back to provided parameters when alignment length can't be parsed
         return {
-            "inferred_window_size": None,
-            "inferred_step_size": None,
-            "windows_are_overlapping": None,
+            "inferred_window_size": window_size,
+            "inferred_step_size": step_size,
+            "windows_are_overlapping": (step_size < window_size),
             "alignment_length": None,
+            "msa_dict": None,
         }
 
     if logger:
         logger.info(f"MSA alignment length: {alignment_length}")
 
-    window_params = None
+    # Determine effective parameters: infer only when both are 1
     if window_size == 1 and step_size == 1:
-        # Infer window parameters
         window_params = infer_window_parameters(num_trees, alignment_length)
         if logger:
             logger.info(f"Inferred window parameters: {window_params.to_dict()}")
+        effective_window_size = window_params.window_size
+        effective_step_size = window_params.step_size
+        overlapping = window_params.is_overlapping
+    else:
+        effective_window_size = window_size
+        effective_step_size = step_size
+        overlapping = step_size < window_size
+
+    msa_dict = msa_to_dict(msa_content)
 
     return {
-        "inferred_window_size": window_params.window_size if window_params else None,
-        "inferred_step_size": window_params.step_size if window_params else None,
-        "windows_are_overlapping": (
-            window_params.is_overlapping if window_params else None
-        ),
+        "inferred_window_size": effective_window_size,
+        "inferred_step_size": effective_step_size,
+        "windows_are_overlapping": overlapping,
         "alignment_length": alignment_length,
-        "msa_content": msa_content,  # Return raw MSA content for frontend storage
+        "msa_dict": msa_dict,
     }

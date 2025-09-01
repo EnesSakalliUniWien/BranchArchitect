@@ -18,6 +18,7 @@ from brancharchitect.jumping_taxa.debug.error_handling import (
     log_detailed_error,
     debug_algorithm_execution,
 )
+from brancharchitect.tree import Node
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -28,10 +29,10 @@ logger.setLevel(logging.INFO)
 
 
 # Disable jumping taxa logger for test runs
-jt_logger.disabled = True
+jt_logger.disabled = False
 
 # Set up output directory
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 OUTPUT_DIR = PROJECT_ROOT / "output" / "test_debug"
 
 # Load test data once at module level
@@ -62,7 +63,9 @@ def setup_debug_output_dir():
 
 
 @debug_algorithm_execution
-def process_and_log_test_case(t1, t2, test_name, output_dir, source_path=None):
+def process_and_log_test_case(
+    t1: Node, t2: Node, test_name: str, output_dir, source_path=None
+):
     """Process a test case and generate debugging output."""
     output_filename: str = f"debug_log_{os.path.splitext(test_name)[0]}.html"
     output_path = output_dir / output_filename
@@ -155,6 +158,7 @@ def test_tree_coloring(test_data):
 
         sorted_translated_names = sorted(translated_names)
         jt_logger.section("Test Results")
+
         jt_logger.info(
             f"Test passed: {sorted_translated_names in [sorted(sol) for sol in test_data['solutions']]}"
         )

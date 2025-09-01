@@ -1,10 +1,10 @@
 #!/bin/zsh
 
 # Backend Server Startup Script
-# Starts the Flask backend server and Browser Logs MCP independently
+# Starts the Flask backend server
 
 # Kill any existing processes on backend ports and verify
-for PORT in 5002 3001; do
+for PORT in 5002; do
   echo "[backend] Checking for processes on port $PORT..."
   PIDS=$(lsof -ti :$PORT)
   if [ -n "$PIDS" ]; then
@@ -22,17 +22,6 @@ done
 # Navigate to project root
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_ROOT"
-
-# Start the Browser Logs MCP server
-echo "[backend] Starting Browser Logs MCP server..."
-if [ -d "backend/browser-logs-mcp" ]; then
-  (cd backend/browser-logs-mcp && node dist/index.js) &
-  BROWSER_LOGS_PID=$!
-  echo "[backend] Browser Logs MCP PID: $BROWSER_LOGS_PID"
-else
-  echo "[backend] Warning: Browser Logs MCP directory not found, skipping..."
-  BROWSER_LOGS_PID=""
-fi
 
 # Navigate to the webapp directory for Flask backend
 cd "$PROJECT_ROOT/webapp"
@@ -114,29 +103,16 @@ cleanup() {
   if [ -n "$BACKEND_PID" ] && kill -0 $BACKEND_PID 2>/dev/null; then
     kill $BACKEND_PID 2>/dev/null
   fi
-  if [ -n "$BROWSER_LOGS_PID" ] && kill -0 $BROWSER_LOGS_PID 2>/dev/null; then
-    kill $BROWSER_LOGS_PID 2>/dev/null
-  fi
   wait $BACKEND_PID 2>/dev/null
-  if [ -n "$BROWSER_LOGS_PID" ]; then
-    wait $BROWSER_LOGS_PID 2>/dev/null
-  fi
 }
 
 # Trap cleanup on SIGINT (Ctrl+C), SIGTERM, and EXIT
 trap cleanup SIGINT SIGTERM EXIT
 
 echo "[backend] Backend PID: $BACKEND_PID"
-if [ -n "$BROWSER_LOGS_PID" ]; then
-  echo "[backend] Browser Logs MCP PID: $BROWSER_LOGS_PID"
-fi
-echo "[backend] Backend servers are running. Press Ctrl+C to stop."
+echo "[backend] Backend server is running. Press Ctrl+C to stop."
 echo "[backend] Flask backend: http://127.0.0.1:5002/"
 echo "[backend] Health check endpoint: http://127.0.0.1:5002/about"
-if [ -n "$BROWSER_LOGS_PID" ]; then
-  echo "[backend] Browser Logs MCP: http://127.0.0.1:3001/"
-  echo "[backend] Browser Logs Test Page: http://127.0.0.1:3001/test-page.html"
-fi
 
 # Keep the script running
 wait $BACKEND_PID || true

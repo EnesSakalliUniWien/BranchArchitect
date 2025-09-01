@@ -1445,3 +1445,87 @@ BrokenPipeError: [Errno 32] Broken pipe
 <pre>2025‑07‑16 13:57:05 [INFO] webapp: Processing uploaded file: alltrees.trees_cutted.newick</pre>
 <pre>2025‑07‑16 13:57:05 [INFO] webapp: Successfully parsed 235 trees</pre>
 <pre>2025‑07‑16 13:57:05 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑08‑24 18:26:02 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑08‑24 18:26:02 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑08‑24 18:26:02 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑08‑24 18:26:02 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑08‑24 18:26:02 [INFO] webapp: Processing uploaded file: test_trees.nwk</pre>
+<pre>2025‑08‑24 18:26:02 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑08‑24 18:26:02 [ERROR] webapp: [treedata] Exception: No module named 'services.tree_operations'</pre>
+<pre>2025‑08‑24 18:26:02 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 53, in handle_uploaded_file
+    from .tree_operations import TreeProcessor
+ModuleNotFoundError: No module named 'services.tree_operations'
+</pre>
+<pre>2025‑08‑24 18:32:06 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑08‑24 18:32:06 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑08‑24 18:32:06 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑08‑24 18:32:06 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑08‑24 18:32:06 [INFO] webapp: Processing uploaded file: test_trees.nwk</pre>
+<pre>2025‑08‑24 18:32:06 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑08‑24 18:32:06 [ERROR] webapp: [treedata] Exception: 'MovieData' object has no attribute 'to_be_highlighted'</pre>
+<pre>2025‑08‑24 18:32:06 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 80, in handle_uploaded_file
+    return _create_structured_response(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 131, in _create_structured_response
+    return movie_data.to_frontend_dict()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/movie_data.py", line 130, in to_frontend_dict
+    "tree_pair_solutions": self._extract_tree_pair_solutions_from_highlighted(),
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/movie_data.py", line 300, in _extract_tree_pair_solutions_from_highlighted
+    for solution in self.to_be_highlighted:
+                    ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'MovieData' object has no attribute 'to_be_highlighted'
+</pre>
+<pre>2025‑08‑24 18:33:20 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑08‑24 18:33:20 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑08‑24 18:33:20 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑08‑24 18:33:20 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑08‑24 18:33:20 [INFO] webapp: Processing uploaded file: test_trees.nwk</pre>
+<pre>2025‑08‑24 18:33:20 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑08‑24 18:33:20 [ERROR] webapp: [treedata] Exception: MovieData.__init__() missing 1 required positional argument: 'to_be_highlighted'</pre>
+<pre>2025‑08‑24 18:33:20 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 100, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 80, in handle_uploaded_file
+    return _create_structured_response(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/core.py", line 124, in _create_structured_response
+    movie_data = MovieData.from_processing_result(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/movie_data.py", line 96, in from_processing_result
+    return cls(
+           ^^^^
+TypeError: MovieData.__init__() missing 1 required positional argument: 'to_be_highlighted'
+</pre>
+<pre>2025‑08‑24 18:34:33 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑08‑24 18:34:33 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑08‑24 18:34:33 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑08‑24 18:34:33 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑08‑24 18:34:33 [INFO] webapp: Processing uploaded file: test_trees.nwk</pre>
+<pre>2025‑08‑24 18:34:33 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑08‑24 18:34:33 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑08‑24 18:35:44 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑08‑24 18:35:44 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑08‑24 18:35:44 [INFO] webapp: [treedata] Enable embedding: True</pre>
+<pre>2025‑08‑24 18:35:44 [INFO] webapp: [treedata] Request files: ['treeFile', 'msaFile']</pre>
+<pre>2025‑08‑24 18:35:44 [INFO] webapp: [treedata] MSA file provided: test_alignment.fasta (143 bytes)</pre>
+<pre>2025‑08‑24 18:35:44 [DEBUG] webapp: [treedata] MSA content preview: >A
+ATCGATCGATCGATCGATCGATCGATCGATCG
+>B
+ATCGATCGATCGATCGATCGATCGATCGATCG
+>C
+ATCGATCGATCGATCGATCGATCGA</pre>
+<pre>2025‑08‑24 18:35:44 [INFO] webapp: Processing uploaded file: test_trees.nwk</pre>
+<pre>2025‑08‑24 18:35:44 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑08‑24 18:35:44 [INFO] webapp: MSA alignment length: 32</pre>
+<pre>2025‑08‑24 18:35:44 [INFO] webapp: [treedata] Processed 0 trees</pre>

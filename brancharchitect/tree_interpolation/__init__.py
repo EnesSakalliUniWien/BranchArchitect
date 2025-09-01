@@ -17,10 +17,12 @@ Main functions:
 - build_sequential_lattice_interpolations: Advanced lattice-based interpolation
 """
 
-from brancharchitect.tree_interpolation.interpolation import (
+from brancharchitect.tree_interpolation.sequential_interpolation import (
+    build_sequential_lattice_interpolations,
+)
+from brancharchitect.tree_interpolation.classical_interpolation import (
     interpolate_adjacent_tree_pairs,
     interpolate_tree,
-    build_sequential_lattice_interpolations,
 )
 
 __all__: list[str] = [

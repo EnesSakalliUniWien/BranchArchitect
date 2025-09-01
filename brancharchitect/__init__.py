@@ -1,22 +1,6 @@
 # mypy: ignore-errors
 """Core BranchArchitect package."""
 
-# Export movie API for external use
-from .movie_api import (
-    TreeList,
-    TreePairSolution,
-    InterpolationSequence,
-    PipelineConfig,
-    TreeInterpolationPipeline,
-    process_trees,
-)
-
-# Export additional types for phylo-movies integration
-from .movie_pipeline.types import (
-    TreeMetadata,
-    DistanceMetrics,
-)
-
 __all__ = [
     "TreeList",
     "TreePairSolution",
@@ -27,3 +11,29 @@ __all__ = [
     "TreeMetadata",
     "DistanceMetrics",
 ]
+
+def __getattr__(name):
+    if name in {
+        "TreeList",
+        "TreePairSolution",
+        "InterpolationSequence",
+        "PipelineConfig",
+        "TreeInterpolationPipeline",
+        "process_trees",
+    }:
+        from .movie_api import (
+            TreeList,
+            TreePairSolution,
+            InterpolationSequence,
+            PipelineConfig,
+            TreeInterpolationPipeline,
+            process_trees,
+        )
+        return locals()[name]
+    if name in {"TreeMetadata", "DistanceMetrics"}:
+        from .movie_pipeline.types import (  # type: ignore
+            TreeMetadata,
+            DistanceMetrics,
+        )
+        return locals()[name]
+    raise AttributeError(name)

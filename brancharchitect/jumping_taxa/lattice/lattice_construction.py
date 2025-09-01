@@ -24,19 +24,31 @@ between two phylogenetic trees, including split/cover/partition analysis and edg
 # ============================================================================
 # Lattice Construction API (Entry Point)
 # ============================================================================
-def construct_sub_lattices(
-    left_tree: Node, right_tree: Node
-) -> Optional[List[LatticeEdge]]:
+def construct_sub_lattices(left_tree: Node, right_tree: Node) -> List[LatticeEdge]:
     """Compute detailed split information for two trees."""
     # Ensure both trees have their indices built
 
-    # Get splits with validation
-    # Use cached splits for performance (do not include leaves)
-    left_splits: PartitionSet[Partition] = left_tree.to_splits()  # uses cache
-    right_splits: PartitionSet[Partition] = right_tree.to_splits()  # uses cache
+    # Rebuild split indices to ensure consistency after taxa deletion
+    left_tree.build_split_index()
+    right_tree.build_split_index()
+
+    left_splits: PartitionSet[Partition] = left_tree.to_splits()  # fresh splits
+    right_splits: PartitionSet[Partition] = right_tree.to_splits()  # fresh splits
+
+    jt_logger.info(f"Tree splits after potential taxa deletion:")
+    jt_logger.info(f"  Left tree has {len(left_splits)} splits")
+    jt_logger.info(f"  Right tree has {len(right_splits)} splits")
 
     # Get common splits and verify they exist in both trees
     union_splits: PartitionSet[Partition] = left_splits.intersection(right_splits)
+
+    if not union_splits:
+        jt_logger.info(
+            "No common splits found between trees - terminating lattice construction"
+        )
+        return []
+
+    jt_logger.info(f"Found {len(union_splits)} common splits to process")
     lattice_edges: List[LatticeEdge] = []
 
     jt_logger.compare_tree_splits(tree1=left_tree, tree2=right_tree)
@@ -51,9 +63,6 @@ def construct_sub_lattices(
 
         # Ensure nodes are found before proceeding
         if left_node is None or right_node is None:
-            jt_logger.warning(
-                f"Could not find node for split {format_set(set(split))} in one of the trees."
-            )
             continue
 
         # For shared_splits_with_leaves, we need all splits including leaves, so bypass cache intentionally
@@ -77,6 +86,7 @@ def construct_sub_lattices(
         # Process further if there are child splits unique to either the left or right tree.
         if has_unique_child_splits:
             shared_splits_with_leaves.discard(split)
+
             jt_logger.info(
                 f"Processing common split {split.bipartition()} in both trees"
             )
@@ -87,16 +97,17 @@ def construct_sub_lattices(
             right_common_covers: list[PartitionSet[Partition]] = compute_cover_elements(
                 right_node, right_child_splits, shared_splits_with_leaves
             )
+
             left_unique_atoms: list[PartitionSet[Partition]] = compute_unique(
                 left_node, right_node, left_child_splits, lambda ps: ps.atom()
             )
             right_unique_atoms: list[PartitionSet[Partition]] = compute_unique(
                 right_node, left_node, right_child_splits, lambda ps: ps.atom()
             )
+
             left_unique_covers: list[PartitionSet[Partition]] = compute_unique(
                 left_node, right_node, left_child_splits, lambda ps: ps.cover()
             )
-
             right_unique_covers: list[PartitionSet[Partition]] = compute_unique(
                 right_node, left_node, right_child_splits, lambda ps: ps.cover()
             )
@@ -106,8 +117,11 @@ def construct_sub_lattices(
             )
             right_unique_partition_sets: list[PartitionSet[Partition]] = compute_unique(
                 right_node, left_node, right_child_splits, lambda ps: ps
-            )  # Assign s_edge_depth based on tree depth to all descendants
+            )
+
+            # Assign s_edge_depth based on tree depth to all descendants
             # Add 1 to ensure internal nodes have non-zero s_edge_depth values
+
             lattice_edges.append(
                 LatticeEdge(
                     split=split,
@@ -125,6 +139,7 @@ def construct_sub_lattices(
                     t2_unique_partition_sets=right_unique_partition_sets,
                 )
             )
+
     return lattice_edges
 
 
@@ -262,6 +277,13 @@ def build_partition_conflict_matrix(lattice_edge: LatticeEdge) -> Optional[PMatr
                 intersection = left_cover & right_cover
                 if intersection:
                     conflicting_cover_pairs.append([left_cover, right_cover])
+
+        # Display the asymmetric singleton case matrix
+        if conflicting_cover_pairs:
+            jt_logger.matrix(
+                conflicting_cover_pairs, title="Asymmetric Singleton Case Matrix"
+            )
+
         return conflicting_cover_pairs
 
     # Case 3: General case - find all conflicting pairs
@@ -274,6 +296,10 @@ def build_partition_conflict_matrix(lattice_edge: LatticeEdge) -> Optional[PMatr
             # A conflict exists when all three sets are non-empty
             if intersection and left_minus_right and right_minus_left:
                 conflicting_cover_pairs.append([left_cover, right_cover])
+
+    # Display the resulting conflict matrix if it's not empty
+    if conflicting_cover_pairs:
+        jt_logger.matrix(conflicting_cover_pairs, title="Partition Conflict Matrix")
 
     return conflicting_cover_pairs
 
@@ -404,6 +430,12 @@ def _handle_both_trees_with_singletons(
         jt_logger.info(f"  Row 2 intersection: {format_set(set(intersection_A))}")
 
     jt_logger.info("=== END OVERLAP ANALYSIS ===\n")
+
+    # Display the resulting matrix using the consistent matrix function
+    if conflicting_cover_pairs:
+        jt_logger.matrix(
+            conflicting_cover_pairs, title="Singleton Cover Conflict Matrix"
+        )
 
     return conflicting_cover_pairs
 

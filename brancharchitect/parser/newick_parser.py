@@ -4,6 +4,9 @@ import ast
 from typing import Optional, Union, List, Dict, Tuple, Any
 from brancharchitect.tree import Node
 
+# Parsing behavior flags (module-level, controlled by parse_newick)
+_TREAT_ZERO_AS_EPSILON: bool = False
+
 
 # ===================================================================
 # 1. METADATA PROCESSING FUNCTIONS
@@ -178,20 +181,28 @@ def flush_length_buffer(buffer: List[str], stack: List[Node]) -> None:
         return
 
     buffer_value = "".join(buffer).strip()
+
+    # Treat various null-like tokens as a very small positive value to keep topology
+    # Examples encountered in datasets: "null", "None", empty after colon
+    null_like = {"", "null", "NULL", "none", "None"}
+    if buffer_value in null_like:
+        stack[-1].length = 0.000005
+        buffer.clear()
+        return
+
     try:
         # Convert buffer_value to a float
         parsed_number = float(buffer_value)
-        # Handle special float values if needed
-        if math.isinf(parsed_number):
-            raise ValueError("Parsed an invalid length inf")
-        if math.isnan(parsed_number):
-            raise ValueError("Parsed an invalid length NaN")
-        # Replace zero length with a very small value to avoid numerical issues
-        if parsed_number == 0.0 or parsed_number == 0:
-            parsed_number = 1e-10
+        # Handle special float values: treat inf/nan as tiny positive to preserve structure
+        if math.isinf(parsed_number) or math.isnan(parsed_number):
+            parsed_number = 0.000005
+        # Optionally treat explicit zeros as epsilon to avoid premature collapsing from dataset zeros
+        if parsed_number == 0.0 and _TREAT_ZERO_AS_EPSILON:
+            parsed_number = 0.000005
         stack[-1].length = parsed_number
     except ValueError as e:
-        raise ValueError(f"Failed to parse '{buffer_value}' as a float: {str(e)}")
+        # If parsing fails (e.g., non-numeric token), treat as tiny positive length
+        stack[-1].length = 0.000005
     buffer.clear()
 
 
@@ -390,6 +401,7 @@ def parse_newick(
     encoding: Optional[Dict[str, int]] = None,
     default_length: float = 1.0,
     force_list: bool = False,
+    treat_zero_as_epsilon: bool = False,
 ) -> Union[Node, List[Node]]:
     """
     Parse a Newick string into a tree or list of trees.
@@ -407,7 +419,14 @@ def parse_newick(
     Returns:
         Single Node or list of Nodes representing parsed tree(s)
     """
-    trees: List[Node] = _parse_newick(tokens, default_length=default_length)
+    global _TREAT_ZERO_AS_EPSILON
+    prev_flag = _TREAT_ZERO_AS_EPSILON
+    _TREAT_ZERO_AS_EPSILON = bool(treat_zero_as_epsilon)
+    try:
+        trees: List[Node] = _parse_newick(tokens, default_length=default_length)
+    finally:
+        # Restore previous behavior to avoid leaking state across calls
+        _TREAT_ZERO_AS_EPSILON = prev_flag
 
     if order is None:
         # If user didn't supply an order, gather from first tree

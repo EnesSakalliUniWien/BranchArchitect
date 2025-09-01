@@ -10,6 +10,9 @@ The original monolithic implementation has been broken down into separate module
 
 import logging
 
+# Main API function - simplified interface
+from typing import Optional
+
 # Re-export main components for backward compatibility
 from brancharchitect.movie_pipeline.types import (
     TreeList,
@@ -20,10 +23,6 @@ from brancharchitect.movie_pipeline.types import (
 from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
     TreeInterpolationPipeline,
 )
-
-
-# Main API function - simplified interface
-from typing import Optional
 
 
 def process_trees(

@@ -75,7 +75,7 @@ def generate_permutations(
     permute_elements: List[Any] = [elements[pos] for pos in permute_positions]
 
     # Calculate the total number of unique permutations of permute_elements
-    element_counts: Counter = Counter(permute_elements)
+    element_counts: Counter[Any] = Counter(permute_elements)
     total_unique_permutations: int = factorial(len(permute_elements))
     for count in element_counts.values():
         total_unique_permutations //= factorial(count)
