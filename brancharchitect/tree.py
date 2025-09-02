@@ -411,7 +411,9 @@ class Node:
             )
             if lengths:
                 length_str = (
-                    f"{float(self.length):.6f}" if self.length is not None else "0.000000"
+                    f"{float(self.length):.6f}"
+                    if self.length is not None
+                    else "0.000000"
                 )
                 return f"{child_str}{self.name or ''}{meta}:{length_str}"
             else:
@@ -419,7 +421,9 @@ class Node:
         else:
             if lengths:
                 length_str = (
-                    f"{float(self.length):.6f}" if self.length is not None else "0.000000"
+                    f"{float(self.length):.6f}"
+                    if self.length is not None
+                    else "0.000000"
                 )
                 return f"{self.name or ''}{meta}:{length_str}"
             else:

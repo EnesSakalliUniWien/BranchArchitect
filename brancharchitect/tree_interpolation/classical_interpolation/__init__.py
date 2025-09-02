@@ -8,6 +8,6 @@ from .classical_interpolation import (
 )
 
 __all__ = [
-    "interpolate_tree", 
+    "interpolate_tree",
     "interpolate_adjacent_tree_pairs",
 ]

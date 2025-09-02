@@ -23,7 +23,12 @@ def orchestrate_active_split_sequence(
     target_active_changing_edges: List[Partition],
     active_changing_edge_solutions: Dict[Partition, List[List[Partition]]],
     tree_index: int = 0,
-) -> tuple[List[Node], List[Partition], List[str], List[Optional[Partition]], List[Optional[Partition]]]:
+) -> tuple[
+    List[Node],
+    List[Partition],
+    List[Optional[Partition]],
+    List[Optional[Partition]],
+]:
     """
     Create an interpolation sequence from target to reference tree for active-changing splits.
 
@@ -38,7 +43,6 @@ def orchestrate_active_split_sequence(
     """
     interpolation_sequence: List[Node] = []
     failed_active_changing_edges: List[Partition] = []
-    tree_names: List[str] = []
     processed_active_changing_edge_tracking: List[Optional[Partition]] = []
     subtree_tracking: List[Optional[Partition]] = []
 
@@ -60,7 +64,7 @@ def orchestrate_active_split_sequence(
         tgt_paths_for_s_edge = target_subtree_paths.get(active_changing_edge, {})
         ref_paths_for_s_edge = reference_subtree_paths.get(active_changing_edge, {})
 
-        step_trees, step_names, step_edges, new_state, step_subtree_tracking = (
+        step_trees, step_edges, new_state, step_subtree_tracking = (
             apply_stepwise_plan_for_edge(
                 current_base_tree=current_base_tree,
                 reference_tree=reference_tree,
@@ -75,7 +79,6 @@ def orchestrate_active_split_sequence(
 
         if step_trees:
             interpolation_sequence.extend(step_trees)
-            tree_names.extend(step_names)
             processed_active_changing_edge_tracking.extend(step_edges)
             subtree_tracking.extend(step_subtree_tracking)
             interpolation_state = new_state
@@ -83,7 +86,6 @@ def orchestrate_active_split_sequence(
     return (
         interpolation_sequence,
         failed_active_changing_edges,
-        tree_names,
         processed_active_changing_edge_tracking,
         subtree_tracking,
     )

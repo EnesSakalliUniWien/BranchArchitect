@@ -110,12 +110,16 @@ def build_edge_plan(
         # Get compatible splits: find existing expand splits that are compatible with the last collapsed split
         # Use all expand candidates to ensure orthogonal elements are considered
         compatible_expand_splits: PartitionSet[Partition] = (
-            state.find_compatible_expand_splits_for_subtree(
+            state.consume_compatible_expand_splits_for_subtree(
                 subtree=subtree,
                 collapsed_splits=to_be_collapsed_shared_path_splits
                 | to_be_collapsed_unique_path_splits,
             )
         )
+
+        # ========================================================================
+        # 4. Build the final path segments for this subtree
+        # ========================================================================
 
         expand_path: PartitionSet[Partition] = build_expand_path(
             expand_shared_splits_last_user,

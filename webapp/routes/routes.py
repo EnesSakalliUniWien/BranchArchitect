@@ -112,7 +112,7 @@ def treedata() -> Union[Response, Tuple[dict[str, Any], int]]:
         )
 
         log.info(
-            f"[treedata] Processed {len(response_data.get('trees', {}).get('tree_names', []))} trees"
+            f"[treedata] Processed {len(response_data.get('interpolated_trees', []))} trees"
         )
 
         return Response(

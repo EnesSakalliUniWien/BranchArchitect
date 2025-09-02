@@ -8,7 +8,7 @@ extracting data, and managing the interpolation workflow.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast, Callable
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
@@ -21,8 +21,20 @@ from brancharchitect.tree_interpolation.consensus_tree.intermediate_tree import 
 )
 from .reordering import (
     apply_partial_reordering,
-    create_reordering_strategy,
+    create_reordering_strategy,  # type: ignore
+    PartialOrderingStrategy,
 )
+
+# Type alias for the reordering strategy function
+ReorderingStrategyFunc = Callable[..., PartialOrderingStrategy]
+
+
+def _create_reordering_strategy_safe(
+    strategy: str = "adaptive", distance_threshold: float = 0.2
+) -> PartialOrderingStrategy:
+    """Wrapper for create_reordering_strategy with proper typing."""
+    return create_reordering_strategy(strategy, distance_threshold=distance_threshold)
+
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -44,16 +56,19 @@ def extract_filtered_paths(
     """
     exclusions = {active_changing_edge, subtree_partition}
 
-    expand_path: List[Partition] = [
-        p
-        for p in (selection.get("expand", {}).get("path_segment", []) or [])
-        if p not in exclusions
-    ]
+    # Extract path segments with proper type handling
+    expand_segments = (
+        cast(List[Partition], selection.get("expand", {}).get("path_segment", [])) or []
+    )
+    collapse_segments = (
+        cast(List[Partition], selection.get("collapse", {}).get("path_segment", []))
+        or []
+    )
+
+    expand_path: List[Partition] = [p for p in expand_segments if p not in exclusions]
 
     collapse_path: List[Partition] = [
-        p
-        for p in (selection.get("collapse", {}).get("path_segment", []) or [])
-        if p not in exclusions
+        p for p in collapse_segments if p not in exclusions
     ]
 
     return expand_path, collapse_path
@@ -83,9 +98,7 @@ def build_microsteps_for_selection(
     tree_index: int,
     active_changing_edge_ordinal: int,
     step_idx: int,
-) -> Tuple[
-    List[Node], List[str], List[Optional[Partition]], Node, List[Optional[Partition]]
-]:
+) -> Tuple[List[Node], List[Optional[Partition]], Node, List[Optional[Partition]]]:
     """
     Build the 5 microsteps for a single selection under an active-changing edge.
 
@@ -97,15 +110,11 @@ def build_microsteps_for_selection(
     - IT_ref: apply final reference weights on the grafted path
     """
     trees: List[Node] = []
-    step_labels: List[str] = []
     edges: List[Optional[Partition]] = []
     subtree_tracking: List[Optional[Partition]] = []
 
-    def add_step(
-        tree: Node, label: str, edge: Optional[Partition], subtree: Partition
-    ) -> None:
+    def add_step(tree: Node, edge: Optional[Partition], subtree: Partition) -> None:
         trees.append(tree)
-        step_labels.append(label)
         edges.append(edge)
         subtree_tracking.append(subtree)
 
@@ -122,7 +131,6 @@ def build_microsteps_for_selection(
 
     add_step(
         it_down,
-        f"IT{tree_index}_down_{active_changing_edge_ordinal}_{step_idx}",
         active_changing_edge,
         subtree_partition,
     )
@@ -130,13 +138,14 @@ def build_microsteps_for_selection(
     collapsed: Node = create_collapsed_consensus_tree(it_down, active_changing_edge)
     add_step(
         collapsed,
-        f"C{tree_index}_{active_changing_edge_ordinal}_{step_idx}",
         active_changing_edge,
         subtree_partition,
     )
 
     # Apply partial reordering based on the interpolation context
-    reordering_strategy = create_reordering_strategy("adaptive", distance_threshold=0.2)
+    reordering_strategy = _create_reordering_strategy_safe(
+        "adaptive", distance_threshold=0.2
+    )
     reordered: Node = apply_partial_reordering(
         tree=collapsed,
         reference_tree=reference_tree,
@@ -148,7 +157,6 @@ def build_microsteps_for_selection(
 
     add_step(
         reordered,
-        f"C{tree_index}_{active_changing_edge_ordinal}_{step_idx}_reorder",
         active_changing_edge,
         subtree_partition,
     )
@@ -171,16 +179,14 @@ def build_microsteps_for_selection(
 
     add_step(
         pre_snap_reordered,
-        f"IT{tree_index}_up_{active_changing_edge_ordinal}_{step_idx}",
         active_changing_edge,
         subtree_partition,
     )
 
     add_step(
         snapped_tree,
-        f"IT{tree_index}_ref_{active_changing_edge_ordinal}_{step_idx}",
         active_changing_edge,
         subtree_partition,
     )
 
-    return trees, step_labels, edges, snapped_tree, subtree_tracking
+    return trees, edges, snapped_tree, subtree_tracking

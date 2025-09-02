@@ -106,47 +106,6 @@ def _calculate_intermediate_ordered(
                     node.length = split_dict[split]
 
 
-def create_down_phase_tree(
-    base_tree: Node,
-    s_edge: Partition,
-    s_edge_subset_ref_weights: Dict[Partition, float],
-) -> Node:
-    """
-    Down-phase: inside s_edge, set actionable zeros exactly; leave others unchanged.
-    """
-    intermediate_tree_down: Node = base_tree.deep_copy()
-
-    intermediate_edge_node: Node | None = intermediate_tree_down.find_node_by_split(
-        s_edge
-    )
-
-    # Debug print removed for cleaner logs
-
-    calculate_intermediate(
-        intermediate_edge_node,
-        s_edge_subset_ref_weights,
-    )
-
-    return intermediate_tree_down
-
-
-def create_pre_snap_tree_implicit(
-    grafted_tree: Node,
-    to_set_zero_edges: set[Partition],
-) -> Node:
-    """
-    Pre-snap: only zero designated ref-path splits for continuity; keep all others unchanged.
-    """
-    pre_snap_tree: Node = grafted_tree.deep_copy()
-
-    calculate_intermediate_implicit(
-        pre_snap_tree,
-        to_set_zero_edges,
-    )
-
-    return pre_snap_tree
-
-
 def create_subtree_grafted_tree(
     base_tree: Node,
     ref_path_to_build: list[Partition],

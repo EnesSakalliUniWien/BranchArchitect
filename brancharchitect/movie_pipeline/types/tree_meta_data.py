@@ -1,6 +1,6 @@
 """Core type definitions for phylogenetic analysis."""
 
-from typing import List, TypedDict, Optional
+from typing import TypedDict, Optional
 
 
 class TreeMetadata(TypedDict):
@@ -30,29 +30,6 @@ class TreeMetadata(TypedDict):
     Increments continuously across all tree pairs: 0, 1, 2, ..., N-1
     """
 
-    tree_name: str
-    """Human-readable name for this tree.
-
-    Format examples:
-    - "T0", "T1", "T2" for original trees
-    - "IT0_down_1" for down phase of s-edge 1 in pair 0->1
-    - "C0_1" for collapse phase of s-edge 1 in pair 0->1
-    - "C0_1_reorder" for reorder phase of s-edge 1 in pair 0->1
-    - "IT0_up_1" for up phase of s-edge 1 in pair 0->1
-    - "IT0_ref_1" for reference snap of s-edge 1 in pair 0->1
-    - "IT0_classical_1_3" for classical fallback step 3 of s-edge 1 in pair 0->1
-    """
-
-    # Source and relationship tracking
-    source_tree_index: Optional[int]
-    """Index of the original source tree (0-based), or None for interpolated trees.
-
-    - For original trees: matches their position in input list (0, 1, 2, ...)
-    - For interpolated trees: None (they don't correspond to a single source)
-
-    Example: All interpolation steps between T1 and T2 have source_tree_index=None
-    """
-
     tree_pair_key: Optional[str]
     """Key to lookup the TreePairSolution that generated this tree, or None for original trees.
 
@@ -65,17 +42,6 @@ class TreeMetadata(TypedDict):
     """
 
     # Interpolation step context
-    s_edge_tracker: Optional[List[int]]
-    """Indices of the s-edge being processed, or None for original trees.
-
-    Contains the list of taxa indices that define the s-edge partition being
-    processed during this interpolation step. None for original trees that
-    are not part of the interpolation.
-
-    Format: List of integer indices (e.g., [1, 3, 5]) or None for original trees
-    Use: Track which phylogenetic split is being modified
-    """
-
     step_in_pair: Optional[int]
     """Step number within the s-edge interpolation (1-5), or None for original trees.
 
@@ -91,13 +57,4 @@ class TreeMetadata(TypedDict):
     Note: step_in_pair refers to position within ONE s-edge, not the entire pair.
     """
 
-    subtree_tracker: Optional[List[int]]
-    """List of indices for the subtree being processed, or None.
-
-    Direct representation of the Partition indices that define the subtree region
-    being modified to generate this tree. None for original trees or when subtree
-    tracking is not available.
-
-    Format: List of integer indices, e.g., [2,4,6]
-    Use: Track which subtree region is being modified at each step
-    """
+    # Reduced metadata for lean payloads: other trackers removed from TreeMetadata

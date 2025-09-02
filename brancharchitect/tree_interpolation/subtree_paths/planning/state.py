@@ -79,7 +79,7 @@ class InterpolationState:
 
     def _get_shared_splits(
         self, paths_by_subtree: Dict[Partition, PartitionSet[Partition]]
-    ) -> Counter:
+    ) -> Counter[Partition]:
         """Dynamically counts occurrences of each split across all subtrees."""
         return Counter(split for path in paths_by_subtree.values() for split in path)
 
@@ -146,6 +146,11 @@ class InterpolationState:
         for subtree_paths in self.collapse_splits_by_subtree.values():
             subtree_paths.discard(split)
 
+    def _delete_expand_split(self, split: Partition) -> None:
+        """Delete an expand split from all subtrees."""
+        for subtree_paths in self.expand_splits_by_subtree.values():
+            subtree_paths.discard(split)
+
     def delete_global_collapse_splits(self, splits: PartitionSet[Partition]) -> None:
         """Public helper: delete these collapse splits globally."""
         logger = logging.getLogger(__name__)
@@ -155,10 +160,25 @@ class InterpolationState:
             )
             self._delete_collapse_split(split)
 
-    def _delete_expand_split(self, split: Partition) -> None:
-        """Delete an expand split from all subtrees."""
-        for subtree_paths in self.expand_splits_by_subtree.values():
-            subtree_paths.discard(split)
+    def _cleanup_empty_subtree_entries(self) -> None:
+        """Remove subtrees that have no remaining splits from the dictionaries."""
+        # Remove empty entries from collapse_splits_by_subtree
+        empty_collapse_keys = [
+            subtree
+            for subtree, splits in self.collapse_splits_by_subtree.items()
+            if not splits
+        ]
+        for subtree in empty_collapse_keys:
+            del self.collapse_splits_by_subtree[subtree]
+
+        # Remove empty entries from expand_splits_by_subtree
+        empty_expand_keys = [
+            subtree
+            for subtree, splits in self.expand_splits_by_subtree.items()
+            if not splits
+        ]
+        for subtree in empty_expand_keys:
+            del self.expand_splits_by_subtree[subtree]
 
     def mark_splits_as_processed(
         self,
@@ -172,6 +192,9 @@ class InterpolationState:
 
         for split in processed_expand_splits:
             self._delete_expand_split(split)
+
+        # FIX: Clean up empty subtree entries to prevent endless loops
+        self._cleanup_empty_subtree_entries()
 
     # ============================================================================
     # 4. Subtree Selection and Prioritization
@@ -194,27 +217,30 @@ class InterpolationState:
         if not unprocessed_subtrees:
             return None
 
-        candidates = []
+        candidates: list[tuple[int, int, str, Partition]] = []
         for subtree in unprocessed_subtrees:
+            # FIX: Add deterministic tie-breaker using string representation of partition indices
+            tie_breaker = str(sorted(list(subtree.indices)))
+
             shared_collapse = self.get_available_shared_collapse_splits(subtree)
             if len(shared_collapse) > 0:
-                priority_score = (0, len(shared_collapse), subtree)
+                priority_score = (0, len(shared_collapse), tie_breaker, subtree)
                 candidates.append(priority_score)
                 continue
 
             shared_expand = self.get_available_shared_expand_splits(subtree)
             if len(shared_expand) > 0:
-                priority_score = (2, len(shared_expand), subtree)
+                priority_score = (2, len(shared_expand), tie_breaker, subtree)
                 candidates.append(priority_score)
                 continue
 
-            priority_score = (1, 0, subtree)
+            priority_score = (1, 0, tie_breaker, subtree)
             candidates.append(priority_score)
 
         if not candidates:
             return None
 
-        _, _, best_subtree = min(candidates)
+        _, _, _, best_subtree = min(candidates)
         return best_subtree
 
     # ============================================================================
@@ -234,13 +260,14 @@ class InterpolationState:
             candidate_splits=all_available_collapse_splits,
         )
 
-    def find_compatible_expand_splits_for_subtree(
+    def consume_compatible_expand_splits_for_subtree(
         self,
         subtree: Partition,
         collapsed_splits: PartitionSet[Partition],
     ) -> PartitionSet[Partition]:
         """
-        Find compatible expand splits for this subtree.
+        Finds compatible expand splits for this subtree AND marks them as used.
+        This is an atomic operation to prevent reuse.
         """
         compatible_splits: PartitionSet[Partition] = PartitionSet(
             encoding=self.encoding
@@ -260,28 +287,33 @@ class InterpolationState:
             unique_collapsed_splits, key=lambda split: len(split.indices)
         )
 
+        # Find splits that are subsets of the collapsed area and not already used
         for expand_split in self.available_compatible_splits:
             is_subset = set(expand_split.indices).issubset(
                 set(biggest_unique_collapsed.indices)
             )
             if is_subset and expand_split not in self.used_compatible_splits:
                 compatible_splits.add(expand_split)
+
+        # FIX: Immediately mark the found splits as used to prevent reuse.
+        self.used_compatible_splits |= compatible_splits
+
         return compatible_splits
 
     # ============================================================================
     # 6. Remaining Work Queries
     # ============================================================================
 
-    def get_remaining_subtrees(self) -> set:
+    def get_remaining_subtrees(self) -> set[Partition]:
         """Get the set of subtrees that still have work to do."""
-        all_subtrees = set(self.collapse_splits_by_subtree.keys()) | set(
-            self.expand_splits_by_subtree.keys()
-        )
+        all_subtrees: set[Partition] = set(
+            self.collapse_splits_by_subtree.keys()
+        ) | set(self.expand_splits_by_subtree.keys())
         return all_subtrees - self.processed_subtrees
 
     def is_last_subtree(self, subtree: Partition) -> bool:
         """Check if the given subtree is the last one with work to do."""
-        remaining = self.get_remaining_subtrees()
+        remaining: set[Partition] = self.get_remaining_subtrees()
         return len(remaining) == 1 and subtree in remaining
 
     def has_remaining_work(self) -> bool:
@@ -296,7 +328,7 @@ class InterpolationState:
         """
         Gathers all expand splits that have not yet been processed.
         """
-        remaining_splits = PartitionSet(encoding=self.encoding)
+        remaining_splits: PartitionSet[Partition] = PartitionSet(encoding=self.encoding)
 
         for subtree_splits in self.expand_splits_by_subtree.values():
             remaining_splits |= subtree_splits

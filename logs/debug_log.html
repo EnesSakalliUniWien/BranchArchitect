@@ -4238,3 +4238,729 @@ ImportError: cannot import name 'AdaptivePolicy' from 'brancharchitect.tree_inte
 <pre>2025‑09‑01 19:00:35 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
 <pre>2025‑09‑01 19:00:35 [INFO] webapp: Successfully parsed 3 trees</pre>
 <pre>2025‑09‑01 19:00:37 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑09‑01 19:52:00 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 19:52:00 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 19:52:00 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 19:52:00 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 19:52:00 [INFO] webapp: Processing uploaded file: two_tree.newick</pre>
+<pre>2025‑09‑01 19:52:00 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑09‑01 19:52:03 [ERROR] webapp: [treedata] Exception: 'InterpolationState' object has no attribute 'find_compatible_expand_splits_for_subtree'</pre>
+<pre>2025‑09‑01 19:52:03 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 240, in _process_tree_pairs
+    result: TreeInterpolationSequence = build_sequential_lattice_interpolations(
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/sequential_interpolation.py", line 154, in build_sequential_lattice_interpolations
+    return SequentialInterpolationBuilder().build(tree_list)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/sequential_interpolation.py", line 86, in build
+    pair_result: Any = self.pair_processor(
+                       ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/active_changing_split_interpolation.py", line 197, in build_active_changing_split_interpolation_sequence
+    create_interpolation_sequence(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/active_changing_split_interpolation.py", line 110, in create_interpolation_sequence
+    orchestrate_active_split_sequence(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/orchestrator.py", line 70, in orchestrate_active_split_sequence
+    apply_stepwise_plan_for_edge(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/execution/step_executor.py", line 44, in apply_stepwise_plan_for_edge
+    selections: Dict[Partition, Dict[str, Any]] = build_edge_plan(
+                                                  ^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/planning/builder.py", line 113, in build_edge_plan
+    state.find_compatible_expand_splits_for_subtree(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'InterpolationState' object has no attribute 'find_compatible_expand_splits_for_subtree'
+</pre>
+<pre>2025‑09‑01 19:52:05 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 19:52:05 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 19:52:05 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 19:52:05 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 19:52:05 [INFO] webapp: Processing uploaded file: two_tree.newick</pre>
+<pre>2025‑09‑01 19:52:05 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑09‑01 19:52:05 [ERROR] webapp: [treedata] Exception: 'InterpolationState' object has no attribute 'find_compatible_expand_splits_for_subtree'</pre>
+<pre>2025‑09‑01 19:52:05 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 240, in _process_tree_pairs
+    result: TreeInterpolationSequence = build_sequential_lattice_interpolations(
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/sequential_interpolation.py", line 154, in build_sequential_lattice_interpolations
+    return SequentialInterpolationBuilder().build(tree_list)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/sequential_interpolation.py", line 86, in build
+    pair_result: Any = self.pair_processor(
+                       ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/active_changing_split_interpolation.py", line 197, in build_active_changing_split_interpolation_sequence
+    create_interpolation_sequence(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/active_changing_split_interpolation.py", line 110, in create_interpolation_sequence
+    orchestrate_active_split_sequence(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/orchestrator.py", line 70, in orchestrate_active_split_sequence
+    apply_stepwise_plan_for_edge(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/execution/step_executor.py", line 44, in apply_stepwise_plan_for_edge
+    selections: Dict[Partition, Dict[str, Any]] = build_edge_plan(
+                                                  ^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/planning/builder.py", line 113, in build_edge_plan
+    state.find_compatible_expand_splits_for_subtree(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'InterpolationState' object has no attribute 'find_compatible_expand_splits_for_subtree'
+</pre>
+<pre>2025‑09‑01 19:52:06 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 19:52:06 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 19:52:06 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 19:52:06 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 19:52:06 [INFO] webapp: Processing uploaded file: two_tree.newick</pre>
+<pre>2025‑09‑01 19:52:06 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑09‑01 19:52:06 [ERROR] webapp: [treedata] Exception: 'InterpolationState' object has no attribute 'find_compatible_expand_splits_for_subtree'</pre>
+<pre>2025‑09‑01 19:52:06 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 240, in _process_tree_pairs
+    result: TreeInterpolationSequence = build_sequential_lattice_interpolations(
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/sequential_interpolation.py", line 154, in build_sequential_lattice_interpolations
+    return SequentialInterpolationBuilder().build(tree_list)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/sequential_interpolation.py", line 86, in build
+    pair_result: Any = self.pair_processor(
+                       ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/active_changing_split_interpolation.py", line 197, in build_active_changing_split_interpolation_sequence
+    create_interpolation_sequence(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/active_changing_split_interpolation.py", line 110, in create_interpolation_sequence
+    orchestrate_active_split_sequence(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/orchestrator.py", line 70, in orchestrate_active_split_sequence
+    apply_stepwise_plan_for_edge(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/execution/step_executor.py", line 44, in apply_stepwise_plan_for_edge
+    selections: Dict[Partition, Dict[str, Any]] = build_edge_plan(
+                                                  ^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/planning/builder.py", line 113, in build_edge_plan
+    state.find_compatible_expand_splits_for_subtree(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'InterpolationState' object has no attribute 'find_compatible_expand_splits_for_subtree'
+</pre>
+<pre>2025‑09‑01 19:52:43 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 19:52:43 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 19:52:43 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 19:52:43 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 19:52:43 [INFO] webapp: Processing uploaded file: two_tree.newick</pre>
+<pre>2025‑09‑01 19:52:43 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑09‑01 19:52:45 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑09‑01 19:52:58 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 19:52:58 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 19:52:58 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 19:52:58 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 19:52:58 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑09‑01 19:52:58 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑09‑01 19:53:00 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑09‑01 19:56:00 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 19:56:00 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 19:56:00 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 19:56:00 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 19:56:00 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑09‑01 19:56:00 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑09‑01 19:56:39 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 19:56:39 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 19:56:39 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 19:56:39 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 19:56:39 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑09‑01 19:56:39 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑09‑01 19:56:43 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑09‑01 19:59:31 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 19:59:31 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 19:59:31 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 19:59:31 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 19:59:31 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑01 19:59:31 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑01 19:59:33 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑09‑01 20:02:54 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 20:02:54 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 20:02:54 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 20:02:54 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 20:02:54 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑09‑01 20:02:54 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑09‑01 20:02:58 [ERROR] webapp: [treedata] Exception: 'InterpolationState' object has no attribute 'processed_subtrees'</pre>
+<pre>2025‑09‑01 20:02:58 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 240, in _process_tree_pairs
+    result: TreeInterpolationSequence = build_sequential_lattice_interpolations(
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/sequential_interpolation.py", line 154, in build_sequential_lattice_interpolations
+    return SequentialInterpolationBuilder().build(tree_list)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/sequential_interpolation.py", line 86, in build
+    pair_result: Any = self.pair_processor(
+                       ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/active_changing_split_interpolation.py", line 197, in build_active_changing_split_interpolation_sequence
+    create_interpolation_sequence(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/active_changing_split_interpolation.py", line 110, in create_interpolation_sequence
+    orchestrate_active_split_sequence(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/orchestrator.py", line 70, in orchestrate_active_split_sequence
+    apply_stepwise_plan_for_edge(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/execution/step_executor.py", line 44, in apply_stepwise_plan_for_edge
+    selections: Dict[Partition, Dict[str, Any]] = build_edge_plan(
+                                                  ^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/planning/builder.py", line 176, in build_edge_plan
+AttributeError: 'InterpolationState' object has no attribute 'processed_subtrees'
+</pre>
+<pre>2025‑09‑01 20:03:05 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 20:03:05 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 20:03:05 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 20:03:05 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 20:03:05 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑09‑01 20:03:05 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑09‑01 20:03:45 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 20:03:45 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 20:03:45 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 20:03:45 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 20:03:45 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑09‑01 20:03:45 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑09‑01 20:03:49 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑09‑01 20:04:53 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 20:04:53 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 20:04:53 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 20:04:53 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 20:04:53 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑01 20:04:53 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑01 20:04:55 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑09‑01 20:05:10 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑01 20:05:10 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑01 20:05:10 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑01 20:05:10 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑01 20:05:10 [INFO] webapp: Processing uploaded file: mid2-200_20.newick_annotated</pre>
+<pre>2025‑09‑01 20:05:10 [INFO] webapp: Successfully parsed 26 trees</pre>
+<pre>2025‑09‑01 20:05:12 [INFO] webapp: [treedata] Processed 0 trees</pre>
+<pre>2025‑09‑02 13:20:36 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:20:36 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:20:36 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 13:20:36 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 13:20:36 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑02 13:20:36 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 13:20:38 [INFO] webapp: [treedata] Processed 28 trees</pre>
+<pre>2025‑09‑02 13:23:16 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:23:16 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:23:16 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 13:23:16 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 13:23:16 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑02 13:23:16 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 13:23:18 [ERROR] webapp: [treedata] Exception: TreeInterpolationPipeline._create_global_tree_metadata() takes 4 positional arguments but 5 were given</pre>
+<pre>2025‑09‑02 13:23:18 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 275, in _process_tree_pairs
+    tree_metadata: List[TreeMetadata] = self._create_global_tree_metadata(
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TreeInterpolationPipeline._create_global_tree_metadata() takes 4 positional arguments but 5 were given
+</pre>
+<pre>2025‑09‑02 13:23:20 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:23:20 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:23:20 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 13:23:20 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 13:23:20 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑02 13:23:20 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 13:23:20 [ERROR] webapp: [treedata] Exception: TreeInterpolationPipeline._create_global_tree_metadata() takes 4 positional arguments but 5 were given</pre>
+<pre>2025‑09‑02 13:23:20 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 275, in _process_tree_pairs
+    tree_metadata: List[TreeMetadata] = self._create_global_tree_metadata(
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TreeInterpolationPipeline._create_global_tree_metadata() takes 4 positional arguments but 5 were given
+</pre>
+<pre>2025‑09‑02 13:23:21 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:23:21 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:23:21 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 13:23:21 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 13:23:21 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑02 13:23:21 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 13:23:22 [ERROR] webapp: [treedata] Exception: TreeInterpolationPipeline._create_global_tree_metadata() takes 4 positional arguments but 5 were given</pre>
+<pre>2025‑09‑02 13:23:22 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 275, in _process_tree_pairs
+    tree_metadata: List[TreeMetadata] = self._create_global_tree_metadata(
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: TreeInterpolationPipeline._create_global_tree_metadata() takes 4 positional arguments but 5 were given
+</pre>
+<pre>2025‑09‑02 13:23:26 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:23:26 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:23:26 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 13:23:26 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 13:23:26 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑02 13:23:26 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 13:23:27 [INFO] webapp: [treedata] Processed 28 trees</pre>
+<pre>2025‑09‑02 13:23:49 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:23:49 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:23:49 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 13:23:49 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 13:23:49 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑02 13:23:49 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 13:23:51 [INFO] webapp: [treedata] Processed 28 trees</pre>
+<pre>2025‑09‑02 13:25:43 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:25:43 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:25:43 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 13:25:43 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 13:25:43 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 13:25:43 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 13:25:43 [INFO] webapp: [treedata] Processed 23 trees</pre>
+<pre>2025‑09‑02 13:26:24 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:26:24 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:26:24 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 13:26:24 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 13:26:24 [INFO] webapp: Processing uploaded file: focus.tree</pre>
+<pre>2025‑09‑02 13:26:24 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑09‑02 13:26:24 [INFO] webapp: [treedata] Processed 12 trees</pre>
+<pre>2025‑09‑02 13:27:45 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:27:45 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:27:45 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 13:27:45 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 13:27:45 [INFO] webapp: Processing uploaded file: small_example_copy_2.tree</pre>
+<pre>2025‑09‑02 13:27:45 [INFO] webapp: Successfully parsed 5 trees</pre>
+<pre>2025‑09‑02 13:27:45 [INFO] webapp: [treedata] Processed 35 trees</pre>
+<pre>2025‑09‑02 13:28:33 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:28:33 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:28:33 [INFO] webapp: [treedata] Request files: ['treeFile', 'msaFile']</pre>
+<pre>2025‑09‑02 13:28:33 [INFO] webapp: [treedata] MSA file provided: complex_concatenated_msa.fasta (334835 bytes)</pre>
+<pre>2025‑09‑02 13:28:33 [DEBUG] webapp: [treedata] MSA content preview: >A1
+GACAAAGATATCTCCAATTATGCCCACTATAGGTTTTTCGATTTGAAATCTTAATTACATAAGGTAAATGTA
+ACCATCAGATTAGAAGTTAATAA</pre>
+<pre>2025‑09‑02 13:28:33 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑02 13:28:33 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 13:28:33 [INFO] webapp: MSA alignment length: 6000</pre>
+<pre>2025‑09‑02 13:28:33 [INFO] webapp: Inferred window parameters: {'window_size': 2000, 'step_size': 2000, 'is_overlapping': False}</pre>
+<pre>2025‑09‑02 13:28:33 [INFO] webapp: [treedata] Processed 28 trees</pre>
+<pre>2025‑09‑02 13:29:05 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:29:05 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:29:05 [INFO] webapp: [treedata] Request files: ['treeFile', 'msaFile']</pre>
+<pre>2025‑09‑02 13:29:05 [INFO] webapp: [treedata] MSA file provided: complex_concatenated_msa.fasta (334835 bytes)</pre>
+<pre>2025‑09‑02 13:29:05 [DEBUG] webapp: [treedata] MSA content preview: >A1
+GACAAAGATATCTCCAATTATGCCCACTATAGGTTTTTCGATTTGAAATCTTAATTACATAAGGTAAATGTA
+ACCATCAGATTAGAAGTTAATAA</pre>
+<pre>2025‑09‑02 13:29:05 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑02 13:29:05 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 13:29:05 [INFO] webapp: MSA alignment length: 6000</pre>
+<pre>2025‑09‑02 13:29:05 [INFO] webapp: Inferred window parameters: {'window_size': 2000, 'step_size': 2000, 'is_overlapping': False}</pre>
+<pre>2025‑09‑02 13:29:05 [INFO] webapp: [treedata] Processed 28 trees</pre>
+<pre>2025‑09‑02 13:41:00 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:41:00 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:41:00 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 13:41:00 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 13:41:00 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 13:41:00 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 13:41:00 [INFO] webapp: [treedata] Processed 23 trees</pre>
+<pre>2025‑09‑02 13:41:21 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 13:41:21 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 13:41:21 [INFO] webapp: [treedata] Request files: ['treeFile', 'msaFile']</pre>
+<pre>2025‑09‑02 13:41:21 [INFO] webapp: [treedata] MSA file provided: complex_concatenated_msa.fasta (334835 bytes)</pre>
+<pre>2025‑09‑02 13:41:21 [DEBUG] webapp: [treedata] MSA content preview: >A1
+GACAAAGATATCTCCAATTATGCCCACTATAGGTTTTTCGATTTGAAATCTTAATTACATAAGGTAAATGTA
+ACCATCAGATTAGAAGTTAATAA</pre>
+<pre>2025‑09‑02 13:41:21 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑02 13:41:21 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 13:41:21 [INFO] webapp: MSA alignment length: 6000</pre>
+<pre>2025‑09‑02 13:41:21 [INFO] webapp: Inferred window parameters: {'window_size': 2000, 'step_size': 2000, 'is_overlapping': False}</pre>
+<pre>2025‑09‑02 13:41:21 [INFO] webapp: [treedata] Processed 28 trees</pre>
+<pre>2025‑09‑02 14:00:40 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:00:40 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:00:40 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:00:40 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:00:40 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑02 14:00:40 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:00:40 [INFO] webapp: [treedata] Processed 28 trees</pre>
+<pre>2025‑09‑02 14:00:47 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:00:47 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:00:47 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:00:47 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:00:47 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:00:47 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:00:47 [INFO] webapp: [treedata] Processed 23 trees</pre>
+<pre>2025‑09‑02 14:01:06 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:01:06 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:01:06 [INFO] webapp: [treedata] Request files: ['treeFile', 'msaFile']</pre>
+<pre>2025‑09‑02 14:01:06 [INFO] webapp: [treedata] MSA file provided: complex_concatenated_msa.fasta (334835 bytes)</pre>
+<pre>2025‑09‑02 14:01:06 [DEBUG] webapp: [treedata] MSA content preview: >A1
+GACAAAGATATCTCCAATTATGCCCACTATAGGTTTTTCGATTTGAAATCTTAATTACATAAGGTAAATGTA
+ACCATCAGATTAGAAGTTAATAA</pre>
+<pre>2025‑09‑02 14:01:06 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:01:06 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:01:06 [INFO] webapp: MSA alignment length: 6000</pre>
+<pre>2025‑09‑02 14:01:06 [INFO] webapp: Inferred window parameters: {'window_size': 2000, 'step_size': 2000, 'is_overlapping': False}</pre>
+<pre>2025‑09‑02 14:01:06 [INFO] webapp: [treedata] Processed 23 trees</pre>
+<pre>2025‑09‑02 14:10:33 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:10:33 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:10:33 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:10:33 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:10:33 [INFO] webapp: Processing uploaded file: small_example_copy_2.tree</pre>
+<pre>2025‑09‑02 14:10:33 [INFO] webapp: Successfully parsed 5 trees</pre>
+<pre>2025‑09‑02 14:10:35 [ERROR] webapp: [treedata] Exception: name 'num_steps' is not defined</pre>
+<pre>2025‑09‑02 14:10:35 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 261, in _process_tree_pairs
+    self._create_keyed_solutions(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 459, in _create_keyed_solutions
+    if num_steps > 0:
+       ^^^^^^^^^
+NameError: name 'num_steps' is not defined
+</pre>
+<pre>2025‑09‑02 14:10:40 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:10:40 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:10:40 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:10:40 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:10:40 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:10:40 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:10:40 [ERROR] webapp: [treedata] Exception: name 'num_steps' is not defined</pre>
+<pre>2025‑09‑02 14:10:40 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 261, in _process_tree_pairs
+    self._create_keyed_solutions(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 459, in _create_keyed_solutions
+    if num_steps > 0:
+       ^^^^^^^^^
+NameError: name 'num_steps' is not defined
+</pre>
+<pre>2025‑09‑02 14:10:52 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:10:52 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:10:52 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:10:52 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:10:52 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:10:52 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:10:53 [ERROR] webapp: [treedata] Exception: name 'num_steps' is not defined</pre>
+<pre>2025‑09‑02 14:10:53 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 261, in _process_tree_pairs
+    self._create_keyed_solutions(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 459, in _create_keyed_solutions
+    if num_steps > 0:
+       ^^^^^^^^^
+NameError: name 'num_steps' is not defined
+</pre>
+<pre>2025‑09‑02 14:10:56 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:10:56 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:10:56 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:10:56 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:10:56 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:10:56 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:10:56 [ERROR] webapp: [treedata] Exception: name 'num_steps' is not defined</pre>
+<pre>2025‑09‑02 14:10:56 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 261, in _process_tree_pairs
+    self._create_keyed_solutions(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 459, in _create_keyed_solutions
+    if num_steps > 0:
+       ^^^^^^^^^
+NameError: name 'num_steps' is not defined
+</pre>
+<pre>2025‑09‑02 14:10:56 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:10:56 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:10:56 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:10:56 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:10:56 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:10:56 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:10:56 [ERROR] webapp: [treedata] Exception: name 'num_steps' is not defined</pre>
+<pre>2025‑09‑02 14:10:56 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 261, in _process_tree_pairs
+    self._create_keyed_solutions(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 459, in _create_keyed_solutions
+    if num_steps > 0:
+       ^^^^^^^^^
+NameError: name 'num_steps' is not defined
+</pre>
+<pre>2025‑09‑02 14:10:57 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:10:57 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:10:57 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:10:57 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:10:57 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:10:57 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:10:57 [ERROR] webapp: [treedata] Exception: name 'num_steps' is not defined</pre>
+<pre>2025‑09‑02 14:10:57 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 261, in _process_tree_pairs
+    self._create_keyed_solutions(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 459, in _create_keyed_solutions
+    if num_steps > 0:
+       ^^^^^^^^^
+NameError: name 'num_steps' is not defined
+</pre>
+<pre>2025‑09‑02 14:11:00 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:11:00 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:11:00 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:11:00 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:11:00 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:11:00 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:11:00 [ERROR] webapp: [treedata] Exception: name 'num_steps' is not defined</pre>
+<pre>2025‑09‑02 14:11:00 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 261, in _process_tree_pairs
+    self._create_keyed_solutions(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 459, in _create_keyed_solutions
+    if num_steps > 0:
+       ^^^^^^^^^
+NameError: name 'num_steps' is not defined
+</pre>
+<pre>2025‑09‑02 14:11:00 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:11:00 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:11:00 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:11:00 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:11:00 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:11:00 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:11:00 [ERROR] webapp: [treedata] Exception: name 'num_steps' is not defined</pre>
+<pre>2025‑09‑02 14:11:00 [ERROR] webapp: [treedata] Full traceback: Traceback (most recent call last):
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/routes/routes.py", line 106, in treedata
+    response_data: Dict[str, Any] = handle_uploaded_file(
+                                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/webapp/services/tree_processing_service.py", line 72, in handle_uploaded_file
+    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 129, in process_trees
+    ) = self._process_tree_pairs(processed_trees)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 261, in _process_tree_pairs
+    self._create_keyed_solutions(
+  File "/Users/berksakalli/Projects/BranchArchitect/brancharchitect/movie_pipeline/tree_interpolation_pipeline.py", line 459, in _create_keyed_solutions
+    if num_steps > 0:
+       ^^^^^^^^^
+NameError: name 'num_steps' is not defined
+</pre>
+<pre>2025‑09‑02 14:11:42 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:11:42 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:11:42 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:11:42 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:11:42 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:11:42 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:11:44 [INFO] webapp: [treedata] Processed 23 trees</pre>
+<pre>2025‑09‑02 14:11:59 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:11:59 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:11:59 [INFO] webapp: [treedata] Request files: ['treeFile', 'msaFile']</pre>
+<pre>2025‑09‑02 14:11:59 [INFO] webapp: [treedata] MSA file provided: complex_concatenated_msa.fasta (334835 bytes)</pre>
+<pre>2025‑09‑02 14:11:59 [DEBUG] webapp: [treedata] MSA content preview: >A1
+GACAAAGATATCTCCAATTATGCCCACTATAGGTTTTTCGATTTGAAATCTTAATTACATAAGGTAAATGTA
+ACCATCAGATTAGAAGTTAATAA</pre>
+<pre>2025‑09‑02 14:11:59 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:11:59 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:11:59 [INFO] webapp: MSA alignment length: 6000</pre>
+<pre>2025‑09‑02 14:11:59 [INFO] webapp: Inferred window parameters: {'window_size': 2000, 'step_size': 2000, 'is_overlapping': False}</pre>
+<pre>2025‑09‑02 14:11:59 [INFO] webapp: [treedata] Processed 23 trees</pre>
+<pre>2025‑09‑02 14:12:20 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:12:20 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:12:20 [INFO] webapp: [treedata] Request files: ['treeFile', 'msaFile']</pre>
+<pre>2025‑09‑02 14:12:20 [INFO] webapp: [treedata] MSA file provided: complex_concatenated_msa.fasta (334835 bytes)</pre>
+<pre>2025‑09‑02 14:12:20 [DEBUG] webapp: [treedata] MSA content preview: >A1
+GACAAAGATATCTCCAATTATGCCCACTATAGGTTTTTCGATTTGAAATCTTAATTACATAAGGTAAATGTA
+ACCATCAGATTAGAAGTTAATAA</pre>
+<pre>2025‑09‑02 14:12:20 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:12:20 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:12:20 [INFO] webapp: MSA alignment length: 6000</pre>
+<pre>2025‑09‑02 14:12:20 [INFO] webapp: Inferred window parameters: {'window_size': 2000, 'step_size': 2000, 'is_overlapping': False}</pre>
+<pre>2025‑09‑02 14:12:20 [INFO] webapp: [treedata] Processed 23 trees</pre>
+<pre>2025‑09‑02 14:12:42 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:12:42 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:12:42 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:12:42 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:12:42 [INFO] webapp: Processing uploaded file: focus.tree</pre>
+<pre>2025‑09‑02 14:12:42 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑09‑02 14:12:44 [INFO] webapp: [treedata] Processed 12 trees</pre>
+<pre>2025‑09‑02 14:13:19 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:13:19 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:13:19 [INFO] webapp: [treedata] Request files: ['treeFile', 'msaFile']</pre>
+<pre>2025‑09‑02 14:13:19 [INFO] webapp: [treedata] MSA file provided: complex_concatenated_msa.fasta (334835 bytes)</pre>
+<pre>2025‑09‑02 14:13:19 [DEBUG] webapp: [treedata] MSA content preview: >A1
+GACAAAGATATCTCCAATTATGCCCACTATAGGTTTTTCGATTTGAAATCTTAATTACATAAGGTAAATGTA
+ACCATCAGATTAGAAGTTAATAA</pre>
+<pre>2025‑09‑02 14:13:19 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 14:13:19 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:13:19 [INFO] webapp: MSA alignment length: 6000</pre>
+<pre>2025‑09‑02 14:13:19 [INFO] webapp: Inferred window parameters: {'window_size': 2000, 'step_size': 2000, 'is_overlapping': False}</pre>
+<pre>2025‑09‑02 14:13:19 [INFO] webapp: [treedata] Processed 23 trees</pre>
+<pre>2025‑09‑02 14:17:23 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:17:23 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:17:23 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:17:23 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:17:23 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑02 14:17:23 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:17:25 [INFO] webapp: [treedata] Processed 28 trees</pre>
+<pre>2025‑09‑02 14:38:35 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:38:35 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:38:35 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:38:35 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:38:35 [INFO] webapp: Processing uploaded file: small_example_copy_3.tree</pre>
+<pre>2025‑09‑02 14:38:35 [INFO] webapp: Successfully parsed 10 trees</pre>
+<pre>2025‑09‑02 14:38:37 [INFO] webapp: [treedata] Processed 110 trees</pre>
+<pre>2025‑09‑02 14:47:26 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:47:26 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:47:26 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:47:26 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:47:26 [INFO] webapp: Processing uploaded file: small_example.tree</pre>
+<pre>2025‑09‑02 14:47:26 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 14:47:28 [INFO] webapp: [treedata] Processed 28 trees</pre>
+<pre>2025‑09‑02 14:55:26 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 14:55:26 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 14:55:26 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 14:55:26 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 14:55:26 [INFO] webapp: Processing uploaded file: 125</pre>
+<pre>2025‑09‑02 14:55:28 [INFO] webapp: Successfully parsed 1000 trees</pre>
+<pre>2025‑09‑02 15:03:49 [INFO] webapp: [treedata] Processed 27505 trees</pre>
+<pre>2025‑09‑02 15:04:30 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 15:04:31 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 15:04:31 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 15:04:31 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 15:04:31 [INFO] webapp: Processing uploaded file: 52</pre>
+<pre>2025‑09‑02 15:04:31 [INFO] webapp: Successfully parsed 1000 trees</pre>
+<pre>2025‑09‑02 15:43:20 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 15:43:20 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 15:43:20 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 15:43:20 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 15:43:20 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 15:43:20 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 15:43:22 [INFO] webapp: [treedata] Processed 23 trees</pre>
+<pre>2025‑09‑02 15:46:03 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 15:46:03 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 15:46:03 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 15:46:03 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 15:46:03 [INFO] webapp: Processing uploaded file: two_trees_beginning_end.trees</pre>
+<pre>2025‑09‑02 15:46:03 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑09‑02 15:46:03 [INFO] webapp: [treedata] Processed 147 trees</pre>
+<pre>2025‑09‑02 15:59:12 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 15:59:12 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 15:59:12 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 15:59:12 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 15:59:12 [INFO] webapp: Processing uploaded file: two_tree.newick</pre>
+<pre>2025‑09‑02 15:59:12 [INFO] webapp: Successfully parsed 2 trees</pre>
+<pre>2025‑09‑02 15:59:15 [INFO] webapp: [treedata] Processed 132 trees</pre>
+<pre>2025‑09‑02 16:00:37 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 16:00:37 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 16:00:37 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 16:00:37 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 16:00:37 [INFO] webapp: Processing uploaded file: small_example_copy_3.tree</pre>
+<pre>2025‑09‑02 16:00:37 [INFO] webapp: Successfully parsed 10 trees</pre>
+<pre>2025‑09‑02 16:00:37 [INFO] webapp: [treedata] Processed 110 trees</pre>
+<pre>2025‑09‑02 16:08:52 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 16:08:52 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 16:08:52 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 16:08:52 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 16:08:52 [INFO] webapp: Processing uploaded file: small_example_copy_2.tree</pre>
+<pre>2025‑09‑02 16:08:52 [INFO] webapp: Successfully parsed 5 trees</pre>
+<pre>2025‑09‑02 16:08:54 [INFO] webapp: [treedata] Processed 35 trees</pre>
+<pre>2025‑09‑02 16:13:51 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 16:13:51 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 16:13:51 [INFO] webapp: [treedata] Request files: ['treeFile', 'msaFile']</pre>
+<pre>2025‑09‑02 16:13:51 [INFO] webapp: [treedata] MSA file provided: complex_concatenated_msa.fasta (334835 bytes)</pre>
+<pre>2025‑09‑02 16:13:51 [DEBUG] webapp: [treedata] MSA content preview: >A1
+GACAAAGATATCTCCAATTATGCCCACTATAGGTTTTTCGATTTGAAATCTTAATTACATAAGGTAAATGTA
+ACCATCAGATTAGAAGTTAATAA</pre>
+<pre>2025‑09‑02 16:13:51 [INFO] webapp: Processing uploaded file: small_example_copy.tree</pre>
+<pre>2025‑09‑02 16:13:51 [INFO] webapp: Successfully parsed 3 trees</pre>
+<pre>2025‑09‑02 16:13:51 [INFO] webapp: MSA alignment length: 6000</pre>
+<pre>2025‑09‑02 16:13:51 [INFO] webapp: Inferred window parameters: {'window_size': 2000, 'step_size': 2000, 'is_overlapping': False}</pre>
+<pre>2025‑09‑02 16:13:51 [INFO] webapp: [treedata] Processed 23 trees</pre>
+<pre>2025‑09‑02 16:23:59 [INFO] webapp: [treedata] POST /treedata from 127.0.0.1</pre>
+<pre>2025‑09‑02 16:23:59 [INFO] webapp: [treedata] Midpoint rooting: False</pre>
+<pre>2025‑09‑02 16:23:59 [INFO] webapp: [treedata] Request files: ['treeFile']</pre>
+<pre>2025‑09‑02 16:23:59 [INFO] webapp: [treedata] No MSA file provided</pre>
+<pre>2025‑09‑02 16:23:59 [INFO] webapp: Processing uploaded file: small_example_copy_3.tree</pre>
+<pre>2025‑09‑02 16:23:59 [INFO] webapp: Successfully parsed 10 trees</pre>
+<pre>2025‑09‑02 16:24:01 [INFO] webapp: [treedata] Processed 110 trees</pre>

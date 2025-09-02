@@ -9,7 +9,7 @@ between phylogenetic trees.
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Callable, Any
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
@@ -40,9 +40,13 @@ class SequentialInterpolationBuilder:
     - Uses the module's pair processor by default, but can be customized.
     """
 
-    def __init__(self, pair_processor=None, logger: Optional[logging.Logger] = None):
+    def __init__(
+        self,
+        pair_processor: Optional[Callable[[Node, Node, int], Any]] = None,
+        logger: Optional[logging.Logger] = None,
+    ):
         # Default to the active-changing split interpolation function
-        self.pair_processor = (
+        self.pair_processor: Callable[[Node, Node, int], Any] = (
             pair_processor or build_active_changing_split_interpolation_sequence
         )
         self.logger = logger or logging.getLogger(__name__)
@@ -50,15 +54,34 @@ class SequentialInterpolationBuilder:
 
     def _reset(self) -> None:
         self.results: List[Node] = []
-        self.names: List[str] = []
         self.mappings_one: List[Dict[Partition, Partition]] = []
         self.mappings_two: List[Dict[Partition, Partition]] = []
-        self.s_edge_tracking: List[Optional[Partition]] = []
-        self.s_edge_lengths: List[int] = []
+        self.active_changing_split_tracking: List[Optional[Partition]] = []
+        self.pair_interpolated_tree_counts: List[int] = []
         self.lattice_solutions_list: List[Dict[Partition, List[List[Partition]]]] = []
-        self.s_edge_distances_list: List[Dict[Partition, Dict[str, float]]] = []
         self.subtree_tracking: List[Optional[Partition]] = []
         self.last_result: Optional[TreeInterpolationSequence] = None
+
+    @staticmethod
+    def _normalize_len(
+        seq: Optional[List[Optional[Partition]]],
+        target_len: int,
+        fill: Optional[Partition] = None,
+        label: str = "seq",
+        logger: Optional[logging.Logger] = None,
+    ) -> List[Optional[Partition]]:
+        if seq is None:
+            return [fill] * target_len
+        data = list(seq)
+        if len(data) == target_len:
+            return data
+        if logger is not None:
+            logger.warning(
+                f"{label} length {len(data)} != expected {target_len}; normalizing"
+            )
+        if len(data) < target_len:
+            return data + [fill] * (target_len - len(data))
+        return data[:target_len]
 
     def build(self, tree_list: List[Node]) -> TreeInterpolationSequence:
         if len(tree_list) < 2:
@@ -74,12 +97,11 @@ class SequentialInterpolationBuilder:
         for i in range(len(tree_list) - 1):
             # Add original tree to sequence
             self.results.append(tree_list[i])
-            self.names.append(f"T{i}")
-            self.s_edge_tracking.append(None)
+            self.active_changing_split_tracking.append(None)
             self.subtree_tracking.append(None)
 
             # Process tree pair (work on copies to avoid side effects)
-            pair_result = self.pair_processor(
+            pair_result: Any = self.pair_processor(
                 tree_list[i].deep_copy(), tree_list[i + 1].deep_copy(), i
             )
 
@@ -89,43 +111,54 @@ class SequentialInterpolationBuilder:
 
             # Collect results into stateful attributes
             self.results.extend(pair_result.trees)
-            self.names.extend(pair_result.names)
+            num_pair_trees = len(pair_result.trees)
             self.mappings_one.append(pair_result.mapping_one)
             self.mappings_two.append(pair_result.mapping_two)
 
-            if pair_result.s_edge_tracking is not None:
-                self.s_edge_tracking.extend(pair_result.s_edge_tracking)
-                self.s_edge_lengths.append(len(pair_result.s_edge_tracking))
-            else:
-                self.s_edge_lengths.append(0)
+            # Normalize s-edge tracking to align 1:1 with trees
+            track_list = self._normalize_len(
+                getattr(pair_result, "active_changing_split_tracking", None),
+                num_pair_trees,
+                fill=None,
+                label="s_edge_tracking",
+                logger=self.logger,
+            )
+            self.active_changing_split_tracking.extend(track_list)
+            # Count total generated trees per pair for reporting
+            self.pair_interpolated_tree_counts.append(num_pair_trees)
 
-            if pair_result.subtree_tracking is not None:
-                self.subtree_tracking.extend(pair_result.subtree_tracking)
+            # Normalize subtree tracking to align 1:1 with trees
+            subtrack = self._normalize_len(
+                getattr(pair_result, "subtree_tracking", None),
+                num_pair_trees,
+                fill=None,
+                label="subtree_tracking",
+                logger=self.logger,
+            )
+            self.subtree_tracking.extend(subtrack)
 
-            if pair_result.lattice_edge_solutions is not None:
+            if (
+                hasattr(pair_result, "lattice_edge_solutions")
+                and pair_result.lattice_edge_solutions is not None
+            ):
                 self.lattice_solutions_list.append(pair_result.lattice_edge_solutions)
-            if pair_result.s_edge_distances is not None:
-                self.s_edge_distances_list.append(pair_result.s_edge_distances)
+            # distances removed
 
         # Add the final original tree to complete the sequence
-        final_tree_index: int = len(tree_list) - 1
         self.results.append(tree_list[-1])
-        self.names.append(f"T{final_tree_index}")
-        self.s_edge_tracking.append(None)
+        self.active_changing_split_tracking.append(None)
         self.subtree_tracking.append(None)
         self.logger.info(
-            f"Completed interpolation sequence: {len(self.results)} total trees from {len(tree_list)} originals + {sum(self.s_edge_lengths)} interpolated"
+            f"Completed interpolation sequence: {len(self.results)} total trees from {len(tree_list)} originals + {sum(self.pair_interpolated_tree_counts)} interpolated"
         )
 
         self.last_result = TreeInterpolationSequence(
             interpolated_trees=self.results,
-            interpolation_sequence_labels=self.names,
             mapping_one=self.mappings_one,
             mapping_two=self.mappings_two,
-            s_edge_tracking=self.s_edge_tracking,
-            s_edge_lengths=self.s_edge_lengths,
+            active_changing_split_tracking=self.active_changing_split_tracking,
+            pair_interpolated_tree_counts=self.pair_interpolated_tree_counts,
             lattice_solutions_list=self.lattice_solutions_list,
-            s_edge_distances_list=self.s_edge_distances_list,
             subtree_tracking=self.subtree_tracking,
         )
         return self.last_result

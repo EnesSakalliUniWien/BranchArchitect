@@ -118,10 +118,15 @@ class AdaptiveReorderingStrategy(PartialOrderingStrategy):
         self.distance_threshold = distance_threshold
 
     def should_reorder(self, current_order: List[str], target_order: List[str]) -> bool:
-        return self.compute_ordering_distance(current_order, target_order) > self.distance_threshold
+        return (
+            self.compute_ordering_distance(current_order, target_order)
+            > self.distance_threshold
+        )
 
 
-def create_reordering_strategy(strategy: str = "adaptive", **kwargs) -> PartialOrderingStrategy:
+def create_reordering_strategy(
+    strategy: str = "adaptive", **kwargs
+) -> PartialOrderingStrategy:
     if strategy == "adaptive":
         return AdaptiveReorderingStrategy(**kwargs)
     return PartialOrderingStrategy()
@@ -156,7 +161,9 @@ def apply_partial_reordering(
     current_global = list(tree.get_current_order())
     po_set = set(partial_order)
     # Merge: place taxa in partial_order first, then the remaining taxa in their current order
-    full_permutation = list(partial_order) + [t for t in current_global if t not in po_set]
+    full_permutation = list(partial_order) + [
+        t for t in current_global if t not in po_set
+    ]
 
     new_tree = tree.deep_copy()
     new_tree.reorder_taxa(full_permutation, strategy=ReorderStrategy.MINIMUM)

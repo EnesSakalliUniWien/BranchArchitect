@@ -204,18 +204,13 @@ class TreeInterpolationPipeline:
 
             - **tree_metadata**: Parallel metadata list providing for each tree:
               * global_tree_index: Position in the complete sequence
-              * tree_name: Human-readable identifier (e.g., "T0", "IT1_down_2")
-              * source_tree_index: Original tree index (None for interpolated)
               * tree_pair_key: Pair identifier (None for originals)
-              * s_edge_tracker: S-edge being processed (None for originals/classical)
               * step_in_pair: Step number within pair interpolation sequence
 
             - **tree_pair_solutions**: Dictionary with "pair_i_j" keys containing:
               * lattice_edge_solutions: Raw jumping taxa algorithm results
-              * tree_indices: Source tree indices for this pair
               * mapping_one/mapping_two: Solution-to-atom mappings
-              * s_edge_sequence: S-edges processed during interpolation
-              * s_edge_distances: Distance metrics for this pair
+              * ancestor_of_changing_splits: Ancestor splits associated with each interpolation step
 
         Performance Notes:
             - Memory usage scales with total interpolated tree count
@@ -230,10 +225,9 @@ class TreeInterpolationPipeline:
             tree_15 = interp_trees[15]
             meta_15 = metadata[15]
 
-            # Pair solution lookup
+            # Pair solution lookup (example)
             if meta_15.tree_pair_key:
                 pair_data = solutions[meta_15.tree_pair_key]
-                print(f"This tree uses s-edge: {meta_15.s_edge_tracker}")
         """
         # Execute the core lattice-based interpolation algorithm
         # This generates the complete sequence with integrated naming and tracking
@@ -244,14 +238,15 @@ class TreeInterpolationPipeline:
         # Extract all interpolation data from the structured result
         # This unpacks the comprehensive TreeInterpolationSequence into components
         interpolated_trees = result.interpolated_trees  # Complete tree sequence
-        tree_names = result.interpolation_sequence_labels  # Human-readable names
         mapping_one = result.mapping_one  # Target tree mappings per pair
         mapping_two = result.mapping_two  # Reference tree mappings per pair
-        s_edge_tracking = result.s_edge_tracking  # S-edge applied per tree
+        active_changing_split_tracking = (
+            result.active_changing_split_tracking
+        )  # Active changing split applied per tree
         subtree_tracking = result.subtree_tracking  # Subtree information per tree
-        s_edge_lengths = result.s_edge_lengths  # Steps per pair
+        # pair_interpolated_tree_counts is available if needed for summaries
+        pair_interpolated_tree_counts = result.pair_interpolated_tree_counts
         lattice_solutions_list = result.lattice_solutions_list  # Raw algorithm results
-        s_edge_distances_list = result.s_edge_distances_list  # Distance metrics
 
         # Transform interpolation data into keyed TreePairSolution objects
         # This organizes pair-specific data for efficient lookup and analysis
@@ -261,9 +256,7 @@ class TreeInterpolationPipeline:
                 mapping_one,
                 mapping_two,
                 lattice_solutions_list,
-                s_edge_lengths,
-                s_edge_tracking,
-                s_edge_distances_list,
+                active_changing_split_tracking,
                 subtree_tracking,
             )
         )
@@ -272,8 +265,7 @@ class TreeInterpolationPipeline:
         # This creates parallel metadata enabling reverse lookup and relationship tracking
         tree_metadata: List[TreeMetadata] = self._create_global_tree_metadata(
             trees,
-            tree_names,
-            s_edge_tracking,
+            active_changing_split_tracking,
             subtree_tracking,
         )
 
@@ -387,9 +379,7 @@ class TreeInterpolationPipeline:
         mapping_one: List[Dict[Partition, Partition]],
         mapping_two: List[Dict[Partition, Partition]],
         lattice_solutions_list: List[Dict[Partition, List[List[Partition]]]],
-        s_edge_lengths: List[int],
         s_edge_tracking: List[Optional[Partition]],
-        s_edge_distances_list: List[Dict[Partition, Dict[str, float]]],
         subtree_tracking: List[Optional[Partition]],
     ) -> Dict[str, TreePairSolution]:
         """
@@ -404,16 +394,17 @@ class TreeInterpolationPipeline:
             mapping_one: Target tree solution-to-atom mappings for each pair
             mapping_two: Reference tree solution-to-atom mappings for each pair
             lattice_solutions_list: Raw lattice algorithm results for each pair
-            s_edge_lengths: Number of interpolation steps per pair
             s_edge_tracking: S-edge applied for each interpolation step
-            s_edge_distances_list: Distance metrics for each s-edge in each pair
 
         Returns:
             Dictionary with keys like "pair_0_1", "pair_1_2" containing
             TreePairSolution objects with complete interpolation data
         """
         tree_pair_solutions: Dict[str, TreePairSolution] = {}
-        s_edge_idx = 0
+        # Identify original-tree boundaries in the tracking list (marked by None)
+        boundary_indices = [
+            idx for idx, val in enumerate(s_edge_tracking) if val is None
+        ]
 
         for i in range(len(trees) - 1):
             # Create pair key
@@ -432,17 +423,18 @@ class TreeInterpolationPipeline:
                 lattice_solutions_list[i] if i < len(lattice_solutions_list) else {}
             )
 
-            # Get s-edge distances for this pair
-            pair_s_edge_distances = (
-                s_edge_distances_list[i] if i < len(s_edge_distances_list) else {}
-            )
+            # Slice per-pair sequences using None boundaries (exclude the boundary None)
+            if i < len(boundary_indices) - 1:
+                start = boundary_indices[i] + 1
+                end = boundary_indices[i + 1]
+            else:
+                # Fallback if boundaries are unexpected; produce empty sequences
+                start = 0
+                end = 0
 
-            # Use s_edge_lengths for correct slicing
-            num_steps = s_edge_lengths[i] if i < len(s_edge_lengths) else 0
-            pair_s_edge_sequence = s_edge_tracking[s_edge_idx : s_edge_idx + num_steps]
-            pair_subtree_sequence = subtree_tracking[
-                s_edge_idx : s_edge_idx + num_steps
-            ]
+            pair_s_edge_sequence = s_edge_tracking[start:end]
+            pair_subtree_sequence = subtree_tracking[start:end]
+            num_steps = min(len(pair_s_edge_sequence), len(pair_subtree_sequence))
 
             # Build split_change_events (0-based step indices within this pair)
             split_change_events = []
@@ -488,15 +480,13 @@ class TreeInterpolationPipeline:
                 # Emit final event (end at last index)
                 emit_event(num_steps - 1)
 
-            s_edge_idx += num_steps
+            # No running index needed; boundaries determine slices per pair
 
             solution = TreePairSolution(
                 lattice_edge_solutions=pair_lattice_solutions,
-                tree_indices=(i, i + 1),
                 mapping_one=pair_mapping_one,
                 mapping_two=pair_mapping_two,
-                s_edge_sequence=pair_s_edge_sequence,
-                s_edge_distances=pair_s_edge_distances,
+                ancestor_of_changing_splits=pair_s_edge_sequence,
                 subtree_sequence=pair_subtree_sequence,
             )
 
@@ -510,65 +500,40 @@ class TreeInterpolationPipeline:
     def _create_global_tree_metadata(
         self,
         trees: List[Node],  # Original trees
-        tree_names: List[str],  # This is result.interpolation_sequence_labels
-        s_edge_tracking: List[Optional[Partition]],  # This is result.s_edge_tracking
+        active_changing_split_tracking: List[
+            Optional[Partition]
+        ],  # This is result.active_changing_split_tracking
         subtree_tracking: List[Optional[Partition]],  # This is result.subtree_tracking
     ) -> List[TreeMetadata]:
         metadata: List[TreeMetadata] = []
 
-        # We need to keep track of the original tree index for source_tree_index
-        original_tree_idx_counter = 0
-
-        # We also need to keep track of the step within a pair for interpolated trees
-        # and the current pair's original tree indices.
+        # Track step within current pair
         current_pair_original_start_idx = 0
-
         interpolated_step_in_current_pair = 0
 
-        for global_idx, tree_name in enumerate(tree_names):
-            s_edge_info = s_edge_tracking[global_idx]
-            subtree_info = (
-                subtree_tracking[global_idx]
-                if global_idx < len(subtree_tracking)
-                else None
-            )
+        for global_idx in range(len(active_changing_split_tracking)):
+            s_edge_info = active_changing_split_tracking[global_idx]
 
             if s_edge_info is None:  # This is an original tree
                 metadata.append(
                     TreeMetadata(
                         global_tree_index=global_idx,
-                        tree_name=tree_name,
-                        source_tree_index=original_tree_idx_counter,
                         tree_pair_key=None,
-                        s_edge_tracker=None,
                         step_in_pair=None,
-                        subtree_tracker=None,
                     )
                 )
-                original_tree_idx_counter += 1
                 # When we encounter an original tree, it marks the start of a new potential pair
-                current_pair_original_start_idx = original_tree_idx_counter - 1
+                current_pair_original_start_idx += 0  # explicit no-op for clarity
                 interpolated_step_in_current_pair = 0  # Reset step counter for new pair
             else:  # This is an interpolated tree
                 interpolated_step_in_current_pair += 1
                 pair_key: str = f"pair_{current_pair_original_start_idx}_{current_pair_original_start_idx + 1}"
 
-                # Extract s-edge indices for tracking
-                s_edge_indices = list(s_edge_info.indices) if s_edge_info else None
-
-                subtree_indices = (
-                    list(subtree_info.indices) if subtree_info is not None else None
-                )
-
                 metadata.append(
                     TreeMetadata(
                         global_tree_index=global_idx,
-                        tree_name=tree_name,
-                        source_tree_index=None,
                         tree_pair_key=pair_key,
-                        s_edge_tracker=s_edge_indices,
                         step_in_pair=interpolated_step_in_current_pair,
-                        subtree_tracker=subtree_indices,
                     )
                 )
         return metadata

@@ -48,7 +48,9 @@ def calculate_subtree_paths(
         for subtree_set in split_subtrees:
             for subtree in subtree_set:
                 reference_subtree_node_paths: List[Node] = (
-                    reference_tree.find_path_between_splits(subtree, active_changing_split)
+                    reference_tree.find_path_between_splits(
+                        subtree, active_changing_split
+                    )
                 )
 
                 target_subtree_node_paths: List[Node] = (
@@ -65,9 +67,13 @@ def calculate_subtree_paths(
 
                 # Remove endpoint partitions that shouldn't be in collapse/expand paths
                 reference_partitions.discard(subtree)  # Remove subtree endpoint
-                reference_partitions.discard(active_changing_split)  # Remove split endpoint
+                reference_partitions.discard(
+                    active_changing_split
+                )  # Remove split endpoint
                 target_partitions.discard(subtree)  # Remove subtree endpoint
-                target_partitions.discard(active_changing_split)  # Remove split endpoint
+                target_partitions.discard(
+                    active_changing_split
+                )  # Remove split endpoint
 
                 reference_path_as_partitions: PartitionSet[Partition] = PartitionSet(
                     reference_partitions
@@ -76,13 +82,12 @@ def calculate_subtree_paths(
                     target_partitions
                 )
 
-                reference_subtree_paths[active_changing_split][
-                    subtree
-                ] = reference_path_as_partitions
+                reference_subtree_paths[active_changing_split][subtree] = (
+                    reference_path_as_partitions
+                )
 
-                target_subtree_paths[active_changing_split][
-                    subtree
-                ] = target_path_as_partitions
+                target_subtree_paths[active_changing_split][subtree] = (
+                    target_path_as_partitions
+                )
 
     return reference_subtree_paths, target_subtree_paths
-

@@ -1,7 +1,7 @@
 """Simplified MSA utilities - only what's needed for tree processing."""
 
 import re
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any
 from logging import Logger
 from io import StringIO
 import skbio
@@ -83,7 +83,7 @@ def msa_to_dict(msa_content: str) -> Dict[str, str]:
     """Parse MSA content (FASTA) into a dictionary."""
     try:
         msa = skbio.io.read(StringIO(msa_content), format="fasta")
-        return {seq.metadata["id"]: str(seq) for seq in msa}
+        return {seq.metadata["id"]: str(seq) for seq in msa}  # type: ignore
     except Exception:
         return {}
 
@@ -94,7 +94,7 @@ def process_msa_data(
     window_size: int = 1,
     step_size: int = 1,
     logger: Optional[Logger] = None,
-) -> Dict[str, Optional[Union[int, str, bool, Dict[str, str]]]]:
+) -> Dict[str, Any]:
     """
     Process MSA content and determine effective window parameters.
 

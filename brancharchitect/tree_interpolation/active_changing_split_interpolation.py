@@ -99,14 +99,13 @@ def create_interpolation_sequence(
 ) -> Tuple[
     List[Node],
     List[Partition],
-    List[str],
     List[Optional[Partition]],
     List[Optional[Partition]],
 ]:
     """
     Generate the actual interpolation sequence for the given active-changing splits.
     """
-    sequence_trees, failed_s_edges, tree_names, s_edge_tracking, subtree_tracking = (
+    sequence_trees, failed_s_edges, s_edge_tracking, subtree_tracking = (
         orchestrate_active_split_sequence(
             target_tree=target,
             reference_tree=reference,
@@ -117,31 +116,7 @@ def create_interpolation_sequence(
         )
     )
 
-    return sequence_trees, failed_s_edges, tree_names, s_edge_tracking, subtree_tracking
-
-
-def assemble_interpolation_result(
-    trees: List[Node],
-    names: List[str],
-    mappings: Tuple[Dict[Partition, Partition], Dict[Partition, Partition]],
-    s_edge_tracking: List[Optional[Partition]],
-    subtree_tracking: List[Optional[Partition]],
-    solutions: Dict[Partition, List[List[Partition]]],
-) -> TreePairInterpolation:
-    """
-    Assemble all components into the final TreePairInterpolation result.
-    """
-    mapping_one, mapping_two = mappings
-
-    return TreePairInterpolation(
-        trees=trees,
-        names=names,
-        mapping_one=mapping_one,
-        mapping_two=mapping_two,
-        s_edge_tracking=s_edge_tracking,
-        subtree_tracking=subtree_tracking,
-        lattice_edge_solutions=solutions,
-    )
+    return sequence_trees, failed_s_edges, s_edge_tracking, subtree_tracking
 
 
 def build_active_changing_split_interpolation_sequence(
@@ -171,7 +146,7 @@ def build_active_changing_split_interpolation_sequence(
         tree_index: Index for naming trees (e.g., 0 for T0→T1)
 
     Returns:
-        TreePairInterpolation aggregating trees, names, mappings, tracking, and metrics
+        TreePairInterpolation aggregating trees, mappings, tracking, and metrics
     """
     # Step 1: Discover active-changing splits between trees
     active_split_data: LatticeEdgeData = discover_active_changing_splits(
@@ -193,7 +168,7 @@ def build_active_changing_split_interpolation_sequence(
     # Step 4: Create the interpolation sequence
     reference_weights = reference.to_weighted_splits()
 
-    trees, failed_edges, names, s_edge_tracking, subtree_tracking = (
+    trees, failed_edges, s_edge_tracking, subtree_tracking = (
         create_interpolation_sequence(
             target,
             reference,
@@ -211,11 +186,12 @@ def build_active_changing_split_interpolation_sequence(
         )
 
     # Step 6: Assemble and return the final result
-    return assemble_interpolation_result(
-        trees,
-        names,
-        mappings,
-        s_edge_tracking,
-        subtree_tracking,
-        active_split_data.solutions,
+    mapping_one, mapping_two = mappings
+    return TreePairInterpolation(
+        trees=trees,
+        mapping_one=mapping_one,
+        mapping_two=mapping_two,
+        active_changing_split_tracking=s_edge_tracking,
+        subtree_tracking=subtree_tracking,
+        lattice_edge_solutions=active_split_data.solutions,
     )

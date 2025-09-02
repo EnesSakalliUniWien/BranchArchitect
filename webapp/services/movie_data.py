@@ -27,7 +27,7 @@ class MovieData:
 
     # Visualization data
     sorted_leaves: List[str]
-    to_be_highlighted: List[Dict[str, Any]]
+    tree_pair_solutions: Dict[str, TreePairSolution]
     split_change_tracking: List[Optional[List[int]]]
     subtree_tracking: List[Optional[List[int]]]
 
@@ -95,9 +95,7 @@ class MovieData:
             rfd_list=rfd_list,
             weighted_robinson_foulds_distance_list=wrfd_list,
             sorted_leaves=sorted_leaves,
-            to_be_highlighted=cls._serialize_tree_pair_solutions(
-                result["tree_pair_solutions"]
-            ),
+            tree_pair_solutions=result["tree_pair_solutions"],
             split_change_tracking=lattice_edge_tracking_data,
             subtree_tracking=subtree_tracking_data,
             file_name=filename,
@@ -115,17 +113,17 @@ class MovieData:
         """
         Convert to flat dictionary format matching InterpolationSequence structure.
 
-        Returns:s
+        Returns:
             Dictionary with flattened structure matching InterpolationSequence from brancharchitect 0.59.0
         """
-        result = {
+        result: Dict[str, Any] = {
             # Core flattened sequences - globally indexed (matches InterpolationSequence)
             "interpolated_trees": self.interpolated_trees,
             "tree_metadata": self.tree_metadata,
             # Tree pair solutions - keyed for easy lookup (matches InterpolationSequence)
-            "tree_pair_solutions": self._extract_tree_pair_solutions_from_highlighted(),
+            "tree_pair_solutions": self._serialize_tree_pair_solutions(self.tree_pair_solutions),
             # Independent split change events per pair (0-based step ranges)
-            "split_change_events": self._extract_split_change_events_from_highlighted(),
+            "split_change_events": self._extract_split_change_events_from_solutions(),
             # Global timeline mixing originals, split events, and explicit gaps
             "split_change_timeline": self._build_split_change_timeline(),
             "original_tree_count": self.original_tree_count,
@@ -157,24 +155,35 @@ class MovieData:
                 "robinson_foulds": self.rfd_list,
                 "weighted_robinson_foulds": self.weighted_robinson_foulds_distance_list,
             },
-            "to_be_highlighted": self.to_be_highlighted,
+            # 'to_be_highlighted' removed; use 'tree_pair_solutions' instead
             "window_size": self.window_size,
             "window_step_size": self.window_step_size,
         }
 
         return result
 
-    def _extract_split_change_events_from_highlighted(self) -> Dict[str, Any]:
+    def _extract_split_change_events_from_solutions(
+        self,
+    ) -> Dict[str, List[Dict[str, Any]]]:
         """Extract split_change_events per pair as an independent element.
 
         Returns a dict keyed by pair_key with value being the list of
         split_change_events already serialized to indices.
         """
-        events: Dict[str, Any] = {}
-        for solution in self.to_be_highlighted:
-            if isinstance(solution, dict) and "pair_key" in solution:
-                pair_key = solution["pair_key"]
-                events[pair_key] = solution.get("split_change_events", [])
+        events: Dict[str, List[Dict[str, Any]]] = {}
+        for pair_key, solution in self.tree_pair_solutions.items():
+            pair_events = solution.get("split_change_events", [])  # type: ignore[arg-type]
+            # Serialize Partition objects to index lists
+            serialized_events: List[Dict[str, Any]] = []
+            for ev in pair_events:
+                serialized_events.append(
+                    {
+                        "split": list(ev["split"].indices),
+                        "step_range": list(ev["step_range"]),
+                        "subtrees": [list(s.indices) for s in ev["subtrees"]],
+                    }
+                )
+            events[pair_key] = serialized_events
         return events
 
     def _build_split_change_timeline(self) -> List[Dict[str, Any]]:
@@ -193,85 +202,99 @@ class MovieData:
         """
         timeline: List[Dict[str, Any]] = []
 
-        # Map pair_key -> first global index where this pair's interpolation starts
+        first_global_for_pair, originals = self._index_timeline_anchors()
+        per_pair_events = self._extract_split_change_events_from_solutions()
+
+        # Construct timeline in natural pair order
+        for i in range(self.original_tree_count):
+            self._append_original_entry(timeline, i, originals)
+            if i < self.original_tree_count - 1:
+                pair_key = f"pair_{i}_{i + 1}"
+                events = per_pair_events.get(pair_key, [])
+                start_global = first_global_for_pair.get(pair_key)
+                self._append_pair_events(timeline, pair_key, events, start_global)
+
+        return timeline
+
+    def _index_timeline_anchors(
+        self,
+    ) -> tuple[Dict[str, int], Dict[int, Dict[str, Any]]]:
+        """Index first-step globals per pair and originals with their global indices.
+
+        Returns:
+            Tuple of (first_global_for_pair, originals_by_index)
+        """
         first_global_for_pair: Dict[str, int] = {}
-        # Map original tree index -> (global_index, name)
         originals: Dict[int, Dict[str, Any]] = {}
 
+        # Determine originals by order of appearance with no pair_key
+        orig_counter = 0
         for meta in self.tree_metadata:
             pair_key = meta.get("tree_pair_key")
             step = meta.get("step_in_pair")
             if pair_key and step == 1:
-                # First step for this pair
                 first_global_for_pair[pair_key] = meta["global_tree_index"]
-            if pair_key is None and meta.get("source_tree_index") is not None:
-                originals[meta["source_tree_index"]] = {
+            if pair_key is None:
+                originals[orig_counter] = {
                     "global_index": meta["global_tree_index"],
-                    "name": meta["tree_name"],
+                    "name": "",
                 }
+                orig_counter += 1
 
-        # Extract per-pair events already serialized to indices
-        per_pair_events = self._extract_split_change_events_from_highlighted()
+        return first_global_for_pair, originals
 
-        # Construct timeline in natural pair order
-        num_originals = self.original_tree_count
-        for i in range(num_originals):
-            # Add original tree T{i}
-            if i in originals:
-                orig = originals[i]
-                timeline.append(
-                    {
-                        "type": "original",
-                        "tree_index": i,
-                        "global_index": orig["global_index"],
-                        "name": orig["name"],
-                    }
-                )
+    def _append_original_entry(
+        self,
+        timeline: List[Dict[str, Any]],
+        tree_index: int,
+        originals: Dict[int, Dict[str, Any]],
+    ) -> None:
+        """Append the original tree entry to the timeline if available."""
+        if tree_index not in originals:
+            return
+        orig = originals[tree_index]
+        timeline.append(
+            {
+                "type": "original",
+                "tree_index": tree_index,
+                "global_index": orig["global_index"],
+                "name": orig.get("name", ""),
+            }
+        )
 
-            # Add events for pair i->i+1
-            if i < num_originals - 1:
-                pair_key = f"pair_{i}_{i + 1}"
-                events = per_pair_events.get(pair_key, [])
-                start_global = first_global_for_pair.get(pair_key)
-                for ev in events:
-                    step_start, step_end = ev.get("step_range", [0, -1])
-                    g_start = (
-                        None if start_global is None else start_global + step_start
-                    )
-                    g_end = None if start_global is None else start_global + step_end
-                    timeline.append(
-                        {
-                            "type": "split_event",
-                            "pair_key": pair_key,
-                            "split": ev.get("split"),
-                            "step_range_local": [step_start, step_end],
-                            "step_range_global": [g_start, g_end],
-                            "subtrees": ev.get("subtrees", []),
-                        }
-                    )
-
-        return timeline
+    def _append_pair_events(
+        self,
+        timeline: List[Dict[str, Any]],
+        pair_key: str,
+        events: List[Dict[str, Any]],
+        start_global: Optional[int],
+    ) -> None:
+        """Append split events for one pair, computing global ranges from the start index."""
+        if not events:
+            return
+        for ev in events:
+            step_start, step_end = ev.get("step_range", [0, -1])
+            g_start = None if start_global is None else start_global + step_start
+            g_end = None if start_global is None else start_global + step_end
+            timeline.append(
+                {
+                    "type": "split_event",
+                    "pair_key": pair_key,
+                    "split": ev.get("split"),
+                    "step_range_local": [step_start, step_end],
+                    "step_range_global": [g_start, g_end],
+                    "subtrees": ev.get("subtrees", []),
+                }
+            )
 
     @classmethod
     def _serialize_tree_pair_solutions(
         cls, tree_pair_solutions: Dict[str, TreePairSolution]
-    ) -> List[Dict[str, Any]]:
-        """Convert TreePairSolution objects to JSON-serializable format.
-
-        Args:
-            tree_pair_solutions: Dictionary mapping pair keys to TreePairSolution objects
-
-        Returns:
-            List of serialized solution dictionaries with Partition objects converted to lists
-        """
-        serialized_solutions: List[Dict[str, Any]] = []
-
-        # tree_pair_solutions is now a dict with keys like "pair_0_1", "pair_1_2"
+    ) -> Dict[str, Dict[str, Any]]:
+        """Convert TreePairSolution objects to a JSON-serializable dict keyed by pair_key."""
+        serialized: Dict[str, Dict[str, Any]] = {}
         for pair_key, solution in tree_pair_solutions.items():
-            # Convert Partition objects to split indices (List[int]) for JSON serialization
-            serialized_solution: Dict[str, Any] = {
-                "pair_key": pair_key,
-                "tree_indices": solution["tree_indices"],
+            item: Dict[str, Any] = {
                 "lattice_edge_solutions": {
                     str(list(key.indices)): value
                     for key, value in solution["lattice_edge_solutions"].items()
@@ -284,62 +307,48 @@ class MovieData:
                     str(list(key.indices)): list(value.indices)
                     for key, value in solution["mapping_two"].items()
                 },
-                "s_edge_sequence": [
+                "ancestor_of_changing_splits": [
                     list(edge.indices) if edge is not None else None
-                    for edge in solution["s_edge_sequence"]
+                    for edge in solution["ancestor_of_changing_splits"]
                 ],
                 "subtree_sequence": [
                     list(edge.indices) if edge is not None else None
                     for edge in solution.get("subtree_sequence", [])
                 ],
-                "s_edge_distances": {
-                    str(list(key.indices)): value
-                    for key, value in solution.get("s_edge_distances", {}).items()
-                },
             }
-            # Serialize split_change_events if present
             if "split_change_events" in solution:
-                events = []
+                events_ser: list[dict[str, Any]] = []
                 for ev in solution["split_change_events"]:
-                    events.append(
+                    events_ser.append(
                         {
                             "split": list(ev["split"].indices),
-                            "step_range": list(ev["step_range"]),  # already 0-based
+                            "step_range": list(ev["step_range"]),
                             "subtrees": [list(s.indices) for s in ev["subtrees"]],
                         }
                     )
-                serialized_solution["split_change_events"] = events
-            serialized_solutions.append(serialized_solution)
-
-        return serialized_solutions
+                item["split_change_events"] = events_ser
+            serialized[pair_key] = item
+        return serialized
 
     @classmethod
     def _extract_s_edges_from_metadata(
         cls, tree_metadata: List[TreeMetadataType]
     ) -> List[Optional[List[int]]]:
-        """Extract s_edge_tracker indices from tree metadata for lattice edge tracking.
+        """Compatibility stub: s_edge_tracker removed from metadata.
 
-        Args:
-            tree_metadata: List of tree metadata from InterpolationSequence
-
-        Returns:
-            List of s_edge index lists (e.g., [1,2,3]) or None for each tree
+        Returns a list of None values aligned with tree_metadata length.
         """
-        return [meta.get("s_edge_tracker") for meta in tree_metadata]
+        return [None for _ in tree_metadata]
 
     @classmethod
     def _extract_subtrees_from_metadata(
         cls, tree_metadata: List[TreeMetadataType]
     ) -> List[Optional[List[int]]]:
-        """Extract subtree_tracker indices from tree metadata for subtree tracking.
+        """Compatibility stub: subtree_tracker removed from metadata.
 
-        Args:
-            tree_metadata: List of tree metadata from InterpolationSequence
-
-        Returns:
-            List of subtree index lists (e.g., [2,4,6]) or None for each tree
+        Returns a list of None values aligned with tree_metadata length.
         """
-        return [meta.get("subtree_tracker") for meta in tree_metadata]
+        return [None for _ in tree_metadata]
 
     @classmethod
     def _process_tree_metadata(
@@ -356,36 +365,17 @@ class MovieData:
         processed_metadata: List[TreeMetadataType] = []
 
         for meta in tree_metadata:
-            # Create processed metadata preserving the TypedDict structure
-
-            processed_meta: TreeMetadataType = TreeMetadataType(
-                global_tree_index=meta["global_tree_index"],
-                tree_name=meta["tree_name"],
-                source_tree_index=meta["source_tree_index"],
-                tree_pair_key=meta["tree_pair_key"],
-                s_edge_tracker=meta.get("s_edge_tracker"),
-                step_in_pair=meta.get("step_in_pair"),
-                subtree_tracker=meta.get("subtree_tracker"),
+            processed_metadata.append(
+                TreeMetadataType(
+                    global_tree_index=meta["global_tree_index"],
+                    tree_pair_key=meta.get("tree_pair_key"),
+                    step_in_pair=meta.get("step_in_pair"),
+                )
             )
-
-            processed_metadata.append(processed_meta)
 
         return processed_metadata
 
-    def _extract_tree_pair_solutions_from_highlighted(self):
-        """
-        Extract tree_pair_solutions structure from highlighted elements.
-        Returns a dict keyed by pair_key (e.g., "pair_0_1") with solution data.
-        """
-        # The to_be_highlighted field contains serialized tree_pair_solutions
-        # Convert list format back to dict format for easier lookup
-        tree_pair_solutions = {}
-        for solution in self.to_be_highlighted:
-            if isinstance(solution, dict) and "pair_key" in solution:
-                pair_key = solution["pair_key"]
-                tree_pair_solutions[pair_key] = solution
-
-        return tree_pair_solutions
+    # Removed: _extract_tree_pair_solutions_from_highlighted (use self.tree_pair_solutions)
 
     @classmethod
     def create_empty(cls, filename: str) -> "MovieData":
@@ -396,7 +386,7 @@ class MovieData:
             rfd_list=[],
             weighted_robinson_foulds_distance_list=[],
             sorted_leaves=[],
-            to_be_highlighted=[],
+            tree_pair_solutions={},
             split_change_tracking=[],
             subtree_tracking=[],
             file_name=filename,

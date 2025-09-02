@@ -17,5 +17,4 @@ class PairData(TypedDict):
     mapping_two: Dict[Partition, Partition]
     s_edge_length: int
     lattice_solutions: Dict[Partition, List[List[Partition]]]
-    s_edge_distances: Dict[Partition, Dict[str, float]]
     subtree_tracking: List[Optional[Partition]]

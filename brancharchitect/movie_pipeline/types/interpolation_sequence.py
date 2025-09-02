@@ -48,14 +48,16 @@ class InterpolationSequence(TypedDict):
 
     # Check what this tree represents
     if metadata.tree_pair_key:
-        print(f"Tree from {metadata.tree_pair_key}, step {metadata.step_in_pair}")
         pair_data = result.tree_pair_solutions[metadata.tree_pair_key]
+        # Access pair_data, step number, etc.
     else:
-        print(f"Original tree T{metadata.source_tree_index}")
+        # Original tree: entries have tree_pair_key == None
+        pass
 
     # Stream through all trees
     for i, (tree, meta) in enumerate(zip(result.interpolated_trees, result.tree_metadata)):
-        print(f"Global index {i}: {meta.tree_name}")
+        # Consume or log as needed
+        pass
 
     # Analyze specific tree pair
     pair_solution = result.tree_pair_solutions["pair_1_2"]
@@ -134,16 +136,13 @@ class InterpolationSequence(TypedDict):
 
     Each TreeMetadata contains:
         - global_tree_index: Index in interpolated_trees (redundant but useful)
-        - tree_name: Human-readable identifier ("T0", "IT0_down_1", etc.)
-        - source_tree_index: Original tree index (for original trees only)
-        - tree_pair_key: Key to tree_pair_solutions (for interpolated trees only)
-        - s_edge_tracker: String representation of processed s-edge
-        - step_in_pair: Interpolation step number (1-5)
+        - tree_pair_key: Key to tree_pair_solutions (for interpolated trees only, None for originals)
+        - step_in_pair: Interpolation step number (1-5), None for originals
 
     Navigation Examples:
         - Find tree pair: metadata.tree_pair_key → tree_pair_solutions[key]
         - Check step: metadata.step_in_pair (1=down, 2=collapse, 3=reorder, 4=pre-snap, 5=snap)
-        - Identify source: metadata.source_tree_index for original trees
+        - Identify source/originals via entries where tree_pair_key is None
     """
 
     # Tree pair solutions - keyed for easy lookup
@@ -160,9 +159,8 @@ class InterpolationSequence(TypedDict):
 
     TreePairSolution Contents:
         - lattice_edge_solutions: Raw lattice algorithm results
-        - tree_indices: (source_idx, target_idx) tuple
         - mapping_one/mapping_two: Solution-to-atom mappings for both trees
-        - s_edge_sequence: Sequence of s-edges applied during interpolation
+        - ancestor_of_changing_splits: Sequence of ancestor splits associated with each step
 
     Usage Examples:
         # Access specific pair data
@@ -171,8 +169,8 @@ class InterpolationSequence(TypedDict):
 
         # Iterate over all pairs
         for pair_key, solution in tree_pair_solutions.items():
-            source_idx, target_idx = solution.tree_indices
-            print(f"Pair {source_idx}->{target_idx}: {len(solution.s_edge_sequence)} steps")
+            steps = len(solution.ancestor_of_changing_splits)
+            # Use 'steps' as needed
     """
 
     # Distance metrics - trajectory analysis
@@ -247,17 +245,7 @@ def create_single_tree_interpolation_sequence(
     """Create an InterpolationSequence for a single tree case."""
 
     # Create metadata for the single tree
-    tree_metadata = [
-        TreeMetadata(
-            global_tree_index=0,
-            tree_name="T0",
-            source_tree_index=0,
-            tree_pair_key=None,
-            s_edge_tracker=None,
-            step_in_pair=None,
-            subtree_tracker=None,
-        )
-    ]
+    tree_metadata = [TreeMetadata(global_tree_index=0, tree_pair_key=None, step_in_pair=None)]
 
     return InterpolationSequence(
         interpolated_trees=trees,

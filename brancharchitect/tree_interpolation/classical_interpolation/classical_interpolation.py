@@ -7,7 +7,7 @@ intermediate states that allow continuous morphing from one tree topology to ano
 """
 
 from __future__ import annotations
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree_interpolation.consensus_tree.consensus_tree import (
     calculate_consensus_tree,
@@ -15,11 +15,9 @@ from brancharchitect.tree_interpolation.consensus_tree.consensus_tree import (
 from brancharchitect.tree_interpolation.consensus_tree.intermediate_tree import (
     calculate_intermediate_tree,
 )
-from brancharchitect.tree_interpolation.classical_interpolation import (
-    classical_interpolation,
-)
 from brancharchitect.tree import Node
 import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -75,48 +73,26 @@ def interpolate_adjacent_tree_pairs(tree_list: List[Node]) -> List[Node]:
     return results
 
 
-def create_classical_interpolation_fallback(
-    current_state: Node,
-    reference_tree: Node,
-    reference_weights: Dict[Partition, float],
-    s_edge: Partition,
-    num_steps: int = 5,
+"""
+Core tree calculation functions for interpolation.
+
+This module contains the fundamental algorithms for calculating
+intermediate and consensus trees during the interpolation process.
+"""
+
+
+def classical_interpolation(
+    target: Node,
+    reference: Node,
+    split_data: Tuple[Dict[Partition, float], Dict[Partition, float]],
 ) -> List[Node]:
-    """
-    Create a classical interpolation fallback when s-edge processing fails.
+    """Create consensus tree sequence and mappings."""
+    split_dict1, split_dict2 = split_data
 
-    Uses classical_interpolation to bridge from current state to reference tree.
+    # Create intermediate and consensus trees
+    it1: Node = calculate_intermediate_tree(target, split_dict2)
+    it2: Node = calculate_intermediate_tree(reference, split_dict1)
+    c1: Node = calculate_consensus_tree(it1, split_dict2)
+    c2: Node = calculate_consensus_tree(it2, split_dict1)
 
-    Args:
-        current_state: The last successful interpolation state
-        reference_tree: The target reference tree
-        reference_weights: The reference tree weights
-        s_edge: The s-edge that caused the failure (for logging)
-        num_steps: Number of interpolation steps to generate
-
-    Returns:
-        A list of trees using classical interpolation
-    """
-    logger.info(f"Creating classical interpolation fallback for s-edge {s_edge}")
-
-    try:
-        # Calculate split data for classical interpolation
-        current_splits: Dict[Partition, float] = current_state.to_weighted_splits()
-        split_data: tuple[Dict[Partition, float], Dict[Partition, float]] = (
-            current_splits,
-            reference_weights,
-        )
-
-        # Use classical interpolation between current state and reference
-        fallback_trees: List[Node] = classical_interpolation(
-            current_state, reference_tree, split_data
-        )
-
-        # Ensure 5 trees are returned for consistency
-        while len(fallback_trees) < num_steps:
-            fallback_trees.append(fallback_trees[-1].deep_copy())
-        return fallback_trees
-    except Exception as e:
-        logger.warning(f"Classical interpolation fallback failed: {e}")
-        # Last resort: just return copies of current state
-        return [current_state.deep_copy() for _ in range(num_steps)]
+    return [it1, c1, c2, it2]
