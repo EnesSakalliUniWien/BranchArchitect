@@ -98,20 +98,6 @@ def construct_sub_lattices(left_tree: Node, right_tree: Node) -> List[LatticeEdg
                 right_node, right_child_splits, shared_splits_with_leaves
             )
 
-            left_unique_atoms: list[PartitionSet[Partition]] = compute_unique(
-                left_node, right_node, left_child_splits, lambda ps: ps.atom()
-            )
-            right_unique_atoms: list[PartitionSet[Partition]] = compute_unique(
-                right_node, left_node, right_child_splits, lambda ps: ps.atom()
-            )
-
-            left_unique_covers: list[PartitionSet[Partition]] = compute_unique(
-                left_node, right_node, left_child_splits, lambda ps: ps.cover()
-            )
-            right_unique_covers: list[PartitionSet[Partition]] = compute_unique(
-                right_node, left_node, right_child_splits, lambda ps: ps.cover()
-            )
-
             left_unique_partition_sets: list[PartitionSet[Partition]] = compute_unique(
                 left_node, right_node, left_child_splits, lambda ps: ps
             )
@@ -131,10 +117,6 @@ def construct_sub_lattices(left_tree: Node, right_tree: Node) -> List[LatticeEdg
                     left_node=left_node,
                     right_node=right_node,
                     encoding=left_tree.taxa_encoding,
-                    t1_unique_atoms=left_unique_atoms,
-                    t2_unique_atoms=right_unique_atoms,
-                    t1_unique_covers=left_unique_covers,
-                    t2_unique_covers=right_unique_covers,
                     t1_unique_partition_sets=left_unique_partition_sets,
                     t2_unique_partition_sets=right_unique_partition_sets,
                 )

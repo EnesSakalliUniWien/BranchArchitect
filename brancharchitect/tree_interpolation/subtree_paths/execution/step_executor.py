@@ -15,7 +15,7 @@ def apply_stepwise_plan_for_edge(
     collapse_paths_for_s_edge: Dict[Partition, PartitionSet[Partition]],
     tree_index: int,
     active_changing_edge_ordinal: int,
-) -> Tuple[List[Node], List[Optional[Partition]], Node, List[Optional[Partition]]]:
+) -> Tuple[List[Node], List[Optional[Partition]], Node]:
     """
     Executes the stepwise plan for one s-edge across all selections.
     Returns the generated trees/edges and the updated interpolation state.
@@ -31,11 +31,10 @@ def apply_stepwise_plan_for_edge(
         active_changing_edge_ordinal: Ordinal of the active changing edge
 
     Returns:
-        Tuple of (trees, edges, interpolation_state, subtree_tracking)
+        Tuple of (trees, edges, interpolation_state)
     """
     trees: List[Node] = []
     edges: List[Optional[Partition]] = []
-    subtree_tracking: List[Optional[Partition]] = []
     interpolation_state: Node = current_base_tree.deep_copy()
 
     selections: Dict[Partition, Dict[str, Any]] = build_edge_plan(
@@ -49,20 +48,17 @@ def apply_stepwise_plan_for_edge(
     for step_idx, (subtree, selection) in enumerate(selections.items(), start=1):
         # Add the subtree back to the selection for compatibility
         selection_with_subtree: Dict[str, Any] = {**selection, "subtree": subtree}
-        step_trees, step_edges, interpolation_state, step_subtree_tracking = (
-            build_microsteps_for_selection(
-                interpolation_state=interpolation_state,
-                reference_tree=reference_tree,
-                reference_weights=reference_weights,
-                active_changing_edge=active_changing_edge,
-                selection=selection_with_subtree,
-                tree_index=tree_index,
-                active_changing_edge_ordinal=active_changing_edge_ordinal,
-                step_idx=step_idx,
-            )
+        step_trees, step_edges, interpolation_state = build_microsteps_for_selection(
+            interpolation_state=interpolation_state,
+            reference_tree=reference_tree,
+            reference_weights=reference_weights,
+            active_changing_edge=active_changing_edge,
+            selection=selection_with_subtree,
+            tree_index=tree_index,
+            active_changing_edge_ordinal=active_changing_edge_ordinal,
+            step_idx=step_idx,
         )
         trees.extend(step_trees)
         edges.extend(step_edges)
-        subtree_tracking.extend(step_subtree_tracking)
 
-    return trees, edges, interpolation_state, subtree_tracking
+    return trees, edges, interpolation_state

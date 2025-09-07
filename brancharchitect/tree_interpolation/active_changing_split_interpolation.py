@@ -22,7 +22,9 @@ from brancharchitect.tree_interpolation.subtree_paths import (
 from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
     iterate_lattice_algorithm,
 )
-from brancharchitect.jumping_taxa.lattice.mapping import map_solutions_to_atoms
+from brancharchitect.jumping_taxa.lattice.mapping import (
+    map_solution_elements_to_atoms,
+)
 from brancharchitect.tree_interpolation.types import (
     TreePairInterpolation,
     LatticeEdgeData,
@@ -36,7 +38,11 @@ __all__: List[str] = [
 ]
 
 
-def discover_active_changing_splits(target: Node, reference: Node) -> LatticeEdgeData:
+def discover_active_changing_splits(
+    target: Node,
+    reference: Node,
+    precomputed_solutions: Optional[Dict[Partition, List[List[Partition]]]] = None,
+) -> LatticeEdgeData:
     """
     Discover active-changing splits between two trees using the lattice algorithm.
 
@@ -47,17 +53,23 @@ def discover_active_changing_splits(target: Node, reference: Node) -> LatticeEdg
     Returns:
         LatticeEdgeData containing discovered edges and their solutions
     """
-    # The lattice algorithm modifies trees during processing, so we work with copies
-    target_for_lattice: Node = target.deep_copy()
-    reference_for_lattice: Node = reference.deep_copy()
-
-    lattice_edge_solutions: Dict[Partition, List[List[Partition]]] = (
-        iterate_lattice_algorithm(target_for_lattice, reference_for_lattice)
-    )
+    # The caller (SequentialInterpolationBuilder) already passes deep-copied trees
+    # for each pair, so we can call the lattice algorithm directly without
+    # performing additional copies here.
+    if precomputed_solutions is not None:
+        lattice_edge_solutions = precomputed_solutions
+        logger.debug(f"Using precomputed lattice solutions with {len(precomputed_solutions)} edges")
+    else:
+        logger.debug("Computing lattice solutions from scratch")
+        lattice_edge_solutions: Dict[Partition, List[List[Partition]]] = (
+            iterate_lattice_algorithm(target, reference)
+        )
 
     lattice_edges: List[Partition] = list(lattice_edge_solutions.keys())
     active_split_data = LatticeEdgeData(lattice_edges, lattice_edge_solutions)
     active_split_data.compute_depths(target, reference)
+    
+    logger.info(f"Discovered {len(lattice_edges)} active-changing splits")
 
     return active_split_data
 
@@ -76,17 +88,21 @@ def generate_solution_mappings(
 ) -> Tuple[Dict[Partition, Partition], Dict[Partition, Partition]]:
     """
     Generate solution-to-atom mappings for phylogenetic analysis.
+
+    Donor/Recipient semantics:
+    - donor_atom_map: mapping on the TARGET side (tree being modified) —
+      atoms that will donate (collapse/move) structure.
+    - recipient_atom_map: mapping on the REFERENCE side — atoms that will
+      receive (expand/graft) structure.
     """
     target_unique_splits: PartitionSet[Partition] = target.to_splits()
     reference_unique_splits: PartitionSet[Partition] = reference.to_splits()
 
-    mapping_one, mapping_two = map_solutions_to_atoms(
-        solutions,
-        target_unique_splits,
-        reference_unique_splits,
+    donor_atom_map, recipient_atom_map = map_solution_elements_to_atoms(
+        solutions, target_unique_splits, reference_unique_splits
     )
 
-    return mapping_one, mapping_two
+    return donor_atom_map, recipient_atom_map
 
 
 def create_interpolation_sequence(
@@ -100,12 +116,11 @@ def create_interpolation_sequence(
     List[Node],
     List[Partition],
     List[Optional[Partition]],
-    List[Optional[Partition]],
 ]:
     """
     Generate the actual interpolation sequence for the given active-changing splits.
     """
-    sequence_trees, failed_s_edges, s_edge_tracking, subtree_tracking = (
+    sequence_trees, failed_s_edges, s_edge_tracking = (
         orchestrate_active_split_sequence(
             target_tree=target,
             reference_tree=reference,
@@ -115,12 +130,15 @@ def create_interpolation_sequence(
             active_changing_edge_solutions=solutions,
         )
     )
-
-    return sequence_trees, failed_s_edges, s_edge_tracking, subtree_tracking
+    
+    return sequence_trees, failed_s_edges, s_edge_tracking
 
 
 def build_active_changing_split_interpolation_sequence(
-    target: Node, reference: Node, tree_index: int
+    target: Node,
+    reference: Node,
+    tree_index: int,
+    precomputed_solutions: Optional[Dict[Partition, List[List[Partition]]]] = None,
 ) -> TreePairInterpolation:
     """
     Build interpolation sequence using active-changing splits.
@@ -148,9 +166,11 @@ def build_active_changing_split_interpolation_sequence(
     Returns:
         TreePairInterpolation aggregating trees, mappings, tracking, and metrics
     """
+    logger.info(f"Starting active-changing split interpolation for tree pair {tree_index}")
+    
     # Step 1: Discover active-changing splits between trees
     active_split_data: LatticeEdgeData = discover_active_changing_splits(
-        target, reference
+        target, reference, precomputed_solutions
     )
 
     # Step 2: Order splits by depth for optimal interpolation progression
@@ -159,6 +179,16 @@ def build_active_changing_split_interpolation_sequence(
         use_reference=False,  # Use target tree depths
         ascending=True,  # Process from leaves toward root
     )
+    
+    # Log s-edge information at INFO level for visibility
+    # Show both taxon names and indices for clarity
+    edge_names = [str(e) for e in ordered_edges]  # Uses Partition.__str__ to get taxon names
+    edge_indices = [tuple(int(i) for i in e) for e in ordered_edges]  # Raw indices for debugging
+    
+    logger.info(f"Interpolation s-edge order for pair {tree_index}:")
+    for i, (edge_name, edge_idx) in enumerate(zip(edge_names, edge_indices), 1):
+        logger.info(f"  {i}. {edge_name} (indices: {edge_idx})")
+    logger.info(f"Processing {len(ordered_edges)} active-changing splits for pair {tree_index}")
 
     # Step 3: Generate solution-to-atom mappings
     mappings = generate_solution_mappings(
@@ -168,7 +198,7 @@ def build_active_changing_split_interpolation_sequence(
     # Step 4: Create the interpolation sequence
     reference_weights = reference.to_weighted_splits()
 
-    trees, failed_edges, s_edge_tracking, subtree_tracking = (
+    trees, failed_edges, s_edge_tracking = (
         create_interpolation_sequence(
             target,
             reference,
@@ -179,11 +209,13 @@ def build_active_changing_split_interpolation_sequence(
         )
     )
 
-    # Log any failed edges for debugging
+    # Log interpolation results
+    logger.info(f"Generated {len(trees)} interpolation trees for pair {tree_index}")
     if failed_edges:
         logger.warning(
             f"Classical interpolation used for {len(failed_edges)} failed active-changing splits"
         )
+        logger.debug(f"Failed edges: {[tuple(int(i) for i in e) for e in failed_edges]}")
 
     # Step 6: Assemble and return the final result
     mapping_one, mapping_two = mappings
@@ -192,6 +224,5 @@ def build_active_changing_split_interpolation_sequence(
         mapping_one=mapping_one,
         mapping_two=mapping_two,
         active_changing_split_tracking=s_edge_tracking,
-        subtree_tracking=subtree_tracking,
         lattice_edge_solutions=active_split_data.solutions,
     )

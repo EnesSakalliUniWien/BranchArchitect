@@ -33,27 +33,28 @@ class Node:
 
     def __init__(
         self,
-        children: List[Self] = [],
+        children: Optional[List[Self]] = None,
         name: str = "",
         length: float = 0.00001,
-        values: Dict[str, Any] = {},
+        values: Optional[Dict[str, Any]] = None,
         split_indices: Optional[Partition] = None,
-        _order: List[str] = [],
+        _order: Optional[List[str]] = None,
         taxa_encoding: Optional[Dict[str, int]] = None,
         depth: Optional[int] = None,
     ):
-        self.children = children or []
+        # Avoid mutable default arguments; create fresh containers
+        self.children = list(children) if children is not None else []
         # Set parent pointers for all children
         for child in self.children:
             child.parent = self
         self.parent = None  # Initialize parent attribute
         self.name = name
         self.length = length
-        self.values = values or {}
+        self.values = dict(values) if values is not None else {}
         self.split_indices = (
             split_indices if split_indices is not None else Partition((), {})
         )
-        self._order = _order or []
+        self._order = list(_order) if _order is not None else []
         self._split_index = None
         self._cached_subtree_order = None
         self._cached_subtree_cost = None
@@ -202,7 +203,7 @@ class Node:
             values=self.values.copy(),
             split_indices=self.split_indices,
             _order=[name for name in self._order],
-            taxa_encoding=self.taxa_encoding.copy(),  # Copy the taxa_encoding
+            taxa_encoding=self.taxa_encoding,  # Reuse immutable encoding reference
         )
 
         # Copy s_edge_block attribute if it exists

@@ -17,9 +17,6 @@ class TreePairSolution(TypedDict):
     # Ancestors of the changing splits for each interpolation step
     ancestor_of_changing_splits: List[Optional[Partition]]
 
-    # Matching subtree sequence for each interpolation step (aligned with ancestor_of_changing_splits)
-    subtree_sequence: List[Optional[Partition]]
-
     # Aggregated occurrences per changing split within this pair
     split_change_events: List["SplitChangeEvent"]
 
@@ -30,9 +27,8 @@ class SplitChangeEvent(TypedDict):
 
     - split: The changing split (Partition) for this event
     - step_range: Inclusive [start, end] indices, 0-based within the pair's sequence
-    - subtrees: Ordered, deduplicated list of subtree Partitions observed during this event
+    This version does not track subtrees at the frontend anymore.
     """
 
     split: Partition
     step_range: tuple[int, int]
-    subtrees: List[Partition]

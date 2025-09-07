@@ -31,11 +31,15 @@ class PartialOrderingStrategy:
         create_path: List[Partition],
         collapse_path: List[Partition],
     ) -> Tuple[Partition, str]:
-        """Determine the optimal scope for reordering."""
+        """Determine the optimal scope for reordering.
+
+        Uses the shallowest (largest) split from the paths, which is
+        the first element since paths are sorted by size descending.
+        """
         if create_path:
-            return create_path[-1], "last_expansion"
+            return create_path[0], "shallowest_expansion"
         if collapse_path:
-            return collapse_path[0], "first_collapse"
+            return collapse_path[0], "shallowest_collapse"
         return active_changing_edge, "active_edge"
 
     def extract_local_taxa_order(

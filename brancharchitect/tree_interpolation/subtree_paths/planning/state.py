@@ -276,21 +276,15 @@ class InterpolationState:
         if not collapsed_splits:
             return compatible_splits
 
-        unique_collapsed_splits: PartitionSet[Partition] = (
-            self.get_unique_collapse_splits(subtree)
-        )
-
-        if not unique_collapsed_splits:
-            return compatible_splits
-
-        biggest_unique_collapsed: Partition = max(
-            unique_collapsed_splits, key=lambda split: len(split.indices)
+        # Use ALL collapsed splits (shared + unique) to find the biggest one
+        biggest_collapsed: Partition = max(
+            collapsed_splits, key=lambda split: len(split.indices)
         )
 
         # Find splits that are subsets of the collapsed area and not already used
         for expand_split in self.available_compatible_splits:
             is_subset = set(expand_split.indices).issubset(
-                set(biggest_unique_collapsed.indices)
+                set(biggest_collapsed.indices)
             )
             if is_subset and expand_split not in self.used_compatible_splits:
                 compatible_splits.add(expand_split)

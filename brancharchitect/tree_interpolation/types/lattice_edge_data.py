@@ -39,28 +39,26 @@ class LatticeEdgeData:
         secondary_sort_key: Optional[Callable[[Partition], Any]] = None,
     ) -> List[Partition]:
         """
-        Get s-edges sorted by depth, with optional secondary sorting.
+        Get s-edges sorted by subset-aware depth with deterministic ties.
+
         Args:
             use_reference: If True, sort by reference tree depths; otherwise, use target tree depths.
-            ascending: If True, sort from smallest to largest depth (leaves to root).
-            secondary_sort_key: An optional function to use as a secondary sort key.
+            ascending: If True, sort from smallest to largest depth (subsets first).
+            secondary_sort_key: Optional secondary key function.
 
-        Returns:
-            A list of sorted Partition objects.
+        Tie-breaking (deterministic):
+            - Depth (primary)
+            - secondary_sort_key(p) if provided else 0
+            - len(p)
+            - tuple(sorted indices of p)
         """
         depth_map = self.reference_depths if use_reference else self.target_depths
 
-        # Create a stable sorting key. The primary key is depth.
-        # The secondary key, if provided, resolves ties.
-        # A tertiary key (the partition itself) ensures fully deterministic sorting.
         def sort_key(p: Partition):
             primary = depth_map.get(p, 0)
             secondary = secondary_sort_key(p) if secondary_sort_key else 0
-            # Sorting by the partition representation makes the sort fully deterministic
-            return (primary, secondary, p)
+            size = len(tuple(p))
+            idxs = tuple(int(i) for i in p)
+            return (primary, secondary, size, idxs)
 
-        return sorted(
-            self.edges,
-            key=sort_key,
-            reverse=not ascending,
-        )
+        return sorted(self.edges, key=sort_key, reverse=not ascending)

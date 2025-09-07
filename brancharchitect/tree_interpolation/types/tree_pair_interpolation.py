@@ -21,14 +21,11 @@ class TreePairInterpolation:
     mapping_two: Dict[Partition, Partition]
     names: Optional[List[str]] = None
     active_changing_split_tracking: Optional[List[Optional[Partition]]] = None
-    subtree_tracking: Optional[List[Optional[Partition]]] = None
     lattice_edge_solutions: Optional[Dict[Partition, List[List[Partition]]]] = None
 
     def __post_init__(self):
         """Initialize mutable fields to avoid sharing defaults between instances."""
         if self.active_changing_split_tracking is None:
             self.active_changing_split_tracking = []
-        if self.subtree_tracking is None:
-            self.subtree_tracking = []
         if self.lattice_edge_solutions is None:
             self.lattice_edge_solutions = {}

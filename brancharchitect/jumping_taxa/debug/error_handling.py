@@ -1,6 +1,7 @@
 from . import jt_logger, log_tree_splits
 import traceback
 import sys
+import logging
 from typing import Dict, Any, Optional
 from functools import wraps
 from datetime import datetime
@@ -27,13 +28,15 @@ def log_stacktrace(exception: BaseException) -> None:
             </div>
             """
         )
-        # Also log to console if enabled
-        print(f"Error: {str(exception)}", file=sys.stderr)
-        print(formatted_trace, file=sys.stderr)
+        # Also log using standard logger
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error: {str(exception)}")
+        logger.error(formatted_trace)
 
     except Exception as e:
         # Fallback error handling
-        print(f"Error in error handling: {str(e)}", file=sys.stderr)
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in error handling: {str(e)}", exc_info=True)
 
 
 def log_detailed_error(error: Exception, context: Optional[Dict[str, Any]] = None):
@@ -72,8 +75,9 @@ def log_detailed_error(error: Exception, context: Optional[Dict[str, Any]] = Non
 
     except Exception as e:
         # Fallback error handling
-        print(f"Error in error logging: {str(e)}", file=sys.stderr)
-        print(f"Original error: {str(error)}", file=sys.stderr)
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in error logging: {str(e)}")
+        logger.error(f"Original error: {str(error)}", exc_info=True)
 
 
 F = TypeVar("F", bound=Callable[..., Any])

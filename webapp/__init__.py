@@ -22,23 +22,24 @@ def create_app() -> Flask:
     ``create_app()``) and prevents module-level side effects.
     """
     import sys
+    import logging
     
     try:
-        print("[INIT] Creating Flask instance...", file=sys.stderr)
+        # Create app first to have access to logger
         app = Flask(__name__, static_folder="static")
-        
-        print("[INIT] Loading config...", file=sys.stderr)
         app.config.from_object(Config)
         
-        print("[INIT] Enabling CORS...", file=sys.stderr)
+        # Configure logging early to capture all messages
+        configure_logging(app)
+        
+        app.logger.info("[INIT] Creating Flask instance...")
+        app.logger.info("[INIT] Loading config...")
+        
+        app.logger.info("[INIT] Enabling CORS...")
         # Enable CORS
         CORS(app)
 
-        print("[INIT] Configuring logging...", file=sys.stderr)
-        # Logging first so early import failures are visible
-        configure_logging(app)
-
-        print("[INIT] Registering blueprints...", file=sys.stderr)
+        app.logger.info("[INIT] Registering blueprints...")
         # Register blueprints (keeps route definitions in *one* place)
         app.register_blueprint(main_bp)
 
@@ -52,10 +53,14 @@ def create_app() -> Flask:
         except FileNotFoundError:
             app.config["APP_COMMIT"] = "unknown"
         
-        print("[INIT] Flask app creation complete", file=sys.stderr)
+        app.logger.info("[INIT] Flask app creation complete")
         return app
     except Exception as e:
-        print(f"[INIT ERROR] Failed to create app: {e}", file=sys.stderr)
-        import traceback
-        traceback.print_exc(file=sys.stderr)
+        # If logging is not configured yet, fallback to stderr
+        if 'app' in locals() and hasattr(app, 'logger'):
+            app.logger.error(f"[INIT ERROR] Failed to create app: {e}", exc_info=True)
+        else:
+            print(f"[INIT ERROR] Failed to create app: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc(file=sys.stderr)
         raise

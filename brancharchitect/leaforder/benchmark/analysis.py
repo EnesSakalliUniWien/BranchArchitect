@@ -19,12 +19,12 @@ def collect_splits_for_tree_pair_trajectories(
 ) -> Tuple[Dict, Dict[str, List[float]]]:
     """
     Collect per-pair trajectory distances for unique and common splits.
-    
+
     Parameters
     ----------
     trees : List[Node]
         List of trees to analyze
-        
+
     Returns
     -------
     Tuple[Dict, Dict[str, List[float]]]
@@ -46,7 +46,7 @@ def collect_splits_for_tree_pair_trajectories(
         treeB = trees[i + 1]
         splitsA: Set[Partition] = all_splits_per_tree[i]
         splitsB: Set[Partition] = all_splits_per_tree[i + 1]
-        
+
         # Calculate set differences and intersections
         common_splits: Set[Partition] = splitsA & splitsB
         unique_splits1: Set[Partition] = splitsA - splitsB
@@ -83,21 +83,19 @@ def collect_splits_for_tree_pair_trajectories(
         "unique_splits2_distances": ratio_unique_splits2,
         "common_splits_distances": ratio_common_splits,
     }
-    
+
     # Empty splits container for compatibility
     splits_container: Dict = {}
-    
+
     return (splits_container, distance_split_container)
 
 
 def process_benchmark_method(
-    trees: List[Node], 
-    label: str,
-    collect_distances_func
+    trees: List[Node], label: str, collect_distances_func
 ) -> Tuple[float, List[float], Dict[str, List[float]]]:
     """
     Process a single benchmark method and return results.
-    
+
     Parameters
     ----------
     trees : List[Node]
@@ -106,7 +104,7 @@ def process_benchmark_method(
         Label for the method
     collect_distances_func : callable
         Function to collect distances from tree trajectory
-        
+
     Returns
     -------
     Tuple[float, List[float], Dict[str, List[float]]]
@@ -116,26 +114,24 @@ def process_benchmark_method(
     dist_list, _ = collect_distances_func(trees)
     if isinstance(dist_list, float):
         dist_list = [dist_list]
-    
+
     sum_dist = sum(dist_list)
-    
+
     # Collect split analysis
     _, distance_split_container = collect_splits_for_tree_pair_trajectories(trees)
-    
+
     return sum_dist, dist_list, distance_split_container
 
 
-def calculate_robinson_foulds_distances(
-    trees: List[Node]
-) -> List[float]:
+def calculate_robinson_foulds_distances(trees: List[Node]) -> List[float]:
     """
     Calculate relative Robinson-Foulds distances along tree trajectory.
-    
+
     Parameters
     ----------
     trees : List[Node]
         List of trees to analyze
-        
+
     Returns
     -------
     List[float]
@@ -143,21 +139,19 @@ def calculate_robinson_foulds_distances(
     """
     if len(trees) < 2:
         return []
-    
+
     return calculate_along_trajectory(trees, relative_robinson_foulds_distance)
 
 
-def calculate_split_statistics(
-    trees: List[Node]
-) -> Dict[str, any]:
+def calculate_split_statistics(trees: List[Node]) -> Dict[str, any]:
     """
     Calculate various statistics about splits in the tree collection.
-    
+
     Parameters
     ----------
     trees : List[Node]
         List of trees to analyze
-        
+
     Returns
     -------
     Dict[str, any]
@@ -167,29 +161,31 @@ def calculate_split_statistics(
     for tree in trees:
         splits = set(tree.to_splits())
         all_splits_per_tree.append(splits)
-    
+
     if not all_splits_per_tree:
         return {}
-    
+
     # Calculate statistics
     total_splits = sum(len(splits) for splits in all_splits_per_tree)
     avg_splits_per_tree = total_splits / len(all_splits_per_tree)
-    
+
     # Find unique splits across all trees
     all_unique_splits = set()
     for splits in all_splits_per_tree:
         all_unique_splits.update(splits)
-    
+
     # Calculate common splits (present in all trees)
     common_splits = all_splits_per_tree[0].copy()
     for splits in all_splits_per_tree[1:]:
         common_splits &= splits
-    
+
     return {
         "total_trees": len(trees),
         "total_splits": total_splits,
         "avg_splits_per_tree": avg_splits_per_tree,
         "unique_splits_count": len(all_unique_splits),
         "common_splits_count": len(common_splits),
-        "common_splits_ratio": len(common_splits) / len(all_unique_splits) if all_unique_splits else 0
+        "common_splits_ratio": len(common_splits) / len(all_unique_splits)
+        if all_unique_splits
+        else 0,
     }

@@ -47,10 +47,28 @@ from .benchmark_utilities import (
     benchmark_comparison,
 )
 
+from .data_loader import (
+    load_and_preprocess_trees,
+    extract_taxa,
+)
+
+from .benchmark_runner import (
+    run_benchmark_combinations,
+    run_global_permutation_benchmark,
+    run_global_plus_optimizer_benchmark,
+)
+
+from .results_processor import (
+    print_baseline_analysis,
+    print_method_comparison,
+    aggregate_results,
+)
+
+from .visualization import (
+    create_visualizations,
+)
+
 from .benchmark_visualisation import (
-    plot_tree_trajectories_scatter,
-    plot_tree_subset_ratios,
-    plot_method_and_permutation_boxplots,
     plot_robinson_foulds_trajectory,
 )
 
@@ -58,7 +76,7 @@ __all__ = [
     # Config
     "BENCHMARK_COMBINATIONS",
     "DEFAULT_N_ITERATIONS",
-    "DEFAULT_NUM_PERMUTATIONS", 
+    "DEFAULT_NUM_PERMUTATIONS",
     "DEFAULT_MIN_TIME_PERCENT",
     "DEFAULT_WINDOW_SIZE",
     "DEFAULT_EPSILON",
@@ -68,27 +86,32 @@ __all__ = [
     "VIBRANT_COLORS",
     "DEFAULT_PLOT_CONFIG",
     "VIBRANT_PLOT_CONFIG",
-    
     # Profiling
     "configure_logging",
     "create_profile_dataframe",
     "create_profiling_visualizations",
     "print_profile_summary",
     "run_profiler",
-    
     # Analysis
     "collect_splits_for_tree_pair_trajectories",
     "process_benchmark_method",
     "calculate_split_statistics",
     "calculate_robinson_foulds_distances",
-    
     # Main utilities
     "profile_and_visualize",
     "benchmark_comparison",
-    
+    # Data loading
+    "load_and_preprocess_trees",
+    "extract_taxa",
+    # Benchmark running
+    "run_benchmark_combinations",
+    "run_global_permutation_benchmark",
+    "run_global_plus_optimizer_benchmark",
+    # Results processing
+    "print_baseline_analysis",
+    "print_method_comparison",
+    "aggregate_results",
     # Visualization
-    "plot_tree_trajectories_scatter",
-    "plot_tree_subset_ratios", 
-    "plot_method_and_permutation_boxplots",
+    "create_visualizations",
     "plot_robinson_foulds_trajectory",
 ]

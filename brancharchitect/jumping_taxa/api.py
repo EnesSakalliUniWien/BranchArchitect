@@ -12,11 +12,14 @@ def call_jumping_taxa(
     # 2) Import the modules that contain your algorithms.
     #    (You only need to do this once at the top of the file, but here’s an example inline)
     import brancharchitect.jumping_taxa.bruteforce.bruteforce_algorithm
+    from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
+        adapter_iterate_lattice_algorithm,
+    )
 
     # 3) Prepare a lookup of available algorithms
     ALGORITHMS = {
         "bruteforce": brancharchitect.jumping_taxa.bruteforce.bruteforce_algorithm,
-        "lattice": brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm.adapter_iterate_lattice_algorithm,
+        "lattice": adapter_iterate_lattice_algorithm,
     }
     # 6) Choose the desired algorithm
     f = ALGORITHMS[algorithm]

@@ -13,7 +13,7 @@ from brancharchitect.jumping_taxa.lattice.depth_computation import (
 jt_logger: logging.Logger = logging.getLogger(__name__)
 
 
-def map_s_edges_by_jaccard_similarity(
+def map_transient_sedges_to_original(
     s_edges_from_iteration: List[Partition],
     original_t1: Node,
     original_t2: Node,
@@ -68,6 +68,17 @@ def map_s_edges_by_jaccard_similarity(
         mapped_partitions.append(best_match)
 
     return mapped_partitions
+
+# Backwards-compatibility alias
+def map_s_edges_by_jaccard_similarity(
+    s_edges_from_iteration: List[Partition],
+    original_t1: Node,
+    original_t2: Node,
+) -> List[Optional[Partition]]:
+    """Deprecated alias for map_transient_sedges_to_original."""
+    return map_transient_sedges_to_original(
+        s_edges_from_iteration, original_t1, original_t2
+    )
 
 
 # --- Function 2: NumPy Bitmask (The function to test) ---
@@ -141,7 +152,7 @@ def _should_use_edge_mapping(solution_size: int, max_atom_size: int) -> bool:
     return solution_size > max_atom_size
 
 
-def map_solutions_to_atoms(
+def map_solution_elements_to_atoms(
     s_edge_solutions: Dict[Partition, List[List[Partition]]],
     unique_splits_t1: PartitionSet[Partition],
     unique_splits_t2: PartitionSet[Partition],
@@ -212,6 +223,18 @@ def map_solutions_to_atoms(
                         solution_to_atom_mapping_t2[solution] = atom
 
     return solution_to_atom_mapping_t1, solution_to_atom_mapping_t2
+
+
+# Backwards-compatibility alias
+def map_solutions_to_atoms(
+    s_edge_solutions: Dict[Partition, List[List[Partition]]],
+    unique_splits_t1: PartitionSet[Partition],
+    unique_splits_t2: PartitionSet[Partition],
+) -> Tuple[Dict[Partition, Partition], Dict[Partition, Partition]]:
+    """Deprecated alias for map_solution_elements_to_atoms."""
+    return map_solution_elements_to_atoms(
+        s_edge_solutions, unique_splits_t1, unique_splits_t2
+    )
 
 
 def sort_lattice_edges_by_subset_hierarchy(

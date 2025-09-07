@@ -151,10 +151,15 @@ def build_edge_plan(
             # Collect any remaining shared, unique, and compatible expand splits.
             expand_path |= state.get_all_remaining_expand_splits()
 
+        # Convert to sorted lists for deterministic ordering
+        # Sort by partition size (larger partitions = shallower in tree come first)
+        collapse_path_list = sorted(collapse_path, key=lambda p: len(p.indices), reverse=True)
+        expand_path_list = sorted(expand_path, key=lambda p: len(p.indices), reverse=True)
+
         # Store the full paths in the plan (for visualization/execution)
         plans[subtree] = {
-            "collapse": {"path_segment": collapse_path},
-            "expand": {"path_segment": expand_path},
+            "collapse": {"path_segment": collapse_path_list},
+            "expand": {"path_segment": expand_path_list},
         }
 
         # For marking as processed, only pass splits that belong to this subtree

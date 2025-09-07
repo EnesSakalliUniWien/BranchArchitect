@@ -18,6 +18,7 @@ def main():
     """Main entry point for the development server."""
     import sys
     import traceback
+    import logging
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="0.0.0.0")
@@ -25,23 +26,26 @@ def main():
     args = parser.parse_args()
 
     try:
-        print(f"[STARTUP] Creating Flask app...", file=sys.stderr)
+        # Create app first so we can use its logger
         app = create_app()
-        print(f"[STARTUP] Flask app created successfully", file=sys.stderr)
+        app.logger.info("[STARTUP] Flask app created successfully")
 
         config: Mapping[str, Any] = cast(Mapping[str, Any], app.config)
         debug_mode = bool(config.get("DEBUG", False))
 
-        print(
-            f"[STARTUP] Starting server on {args.host}:{args.port} (debug={debug_mode})",
-            file=sys.stderr,
+        app.logger.info(
+            f"[STARTUP] Starting server on {args.host}:{args.port} (debug={debug_mode})"
         )
         # *Never* enable `debug=True` for production – use a real WSGI/ASGI server
         app.run(host=args.host, port=args.port, debug=debug_mode)
     except Exception as e:
-        print(f"[ERROR] Failed to start server: {e}", file=sys.stderr)
-        print(f"[ERROR] Traceback:", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
+        # If app creation failed, fallback to stderr
+        if 'app' in locals() and hasattr(app, 'logger'):
+            app.logger.error(f"[ERROR] Failed to start server: {e}", exc_info=True)
+        else:
+            print(f"[ERROR] Failed to start server: {e}", file=sys.stderr)
+            print(f"[ERROR] Traceback:", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
 

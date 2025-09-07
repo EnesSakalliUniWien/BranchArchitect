@@ -1,4 +1,5 @@
 from typing import Literal, Tuple, Dict
+import logging
 
 # Assuming these imports point to valid modules in your project structure
 from brancharchitect.tree import Node
@@ -11,6 +12,14 @@ from brancharchitect.leaforder.circular_distances import (
 from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
     iterate_lattice_algorithm,
 )
+from brancharchitect.jumping_taxa.lattice.depth_computation import (
+    compute_lattice_edge_depths,
+)
+
+logger = logging.getLogger(__name__)
+
+# Private feature flag: enable impact-aware tie-breaker in s-edge ordering (experiments only)
+_USE_IMPACT_TIEBREAKER: bool = True
 
 ##################################################
 #          Local Rotation Tools
@@ -64,7 +73,6 @@ def get_s_edge_splits(tree1: Node, tree2: Node) -> PartitionSet[Partition]:
         return _split_pair_cache[key]
     tree1_copy = tree1.deep_copy()
     tree2_copy = tree2.deep_copy()
-    # This calculation is now only performed if the result is not in the cache.
     # Use deep copies to prevent the lattice algorithm from modifying the original trees
     s_edge_solutions = iterate_lattice_algorithm(tree1_copy, tree2_copy)
     s_edges_list = list(s_edge_solutions.keys())
@@ -170,15 +178,52 @@ def optimize_s_edge_splits(
     reference_order: Tuple[str, ...],
     rotated_splits: PartitionSet[Partition],
 ) -> bool:
-    """ """
-    s_edges_sorted = get_s_edge_splits(tree1, tree2)
-    if not s_edges_sorted:
+    """Try local flips at s-edges in a deterministic, subset-aware order.
+
+    Order aligns with interpolation: subsets first, then smaller partitions,
+    then tree depth as a fine-grained tiebreaker.
+    """
+    s_edges_set = get_s_edge_splits(tree1, tree2)
+    if not s_edges_set:
         return False
+
+    # Build deterministic order consistent with interpolation, with optional impact tie-breaker
+    s_edges: list[Partition] = list(s_edges_set)
+    depth_map = compute_lattice_edge_depths(s_edges, tree2)
+
+    impact_map: Dict[Partition, float] = {}
+    if _USE_IMPACT_TIEBREAKER:
+        for sp in s_edges:
+            node = tree2.find_node_by_split(sp)
+            if node is not None:
+                impact_map[sp] = circular_distance_for_node_subset(tree2, reference_order, node)
+            else:
+                impact_map[sp] = 0.0
+
+    def _sort_key(sp: Partition):
+        depth = depth_map.get(sp, 0)
+        size = len(tuple(sp))
+        idxs = tuple(int(i) for i in sp)
+        if _USE_IMPACT_TIEBREAKER:
+            return (depth, -impact_map.get(sp, 0.0), size, idxs)
+        return (depth, size, idxs)
+
+    s_edges.sort(key=_sort_key)
+
+    order_indices = [tuple(int(i) for i in sp) for sp in s_edges]
+    if _USE_IMPACT_TIEBREAKER:
+        impacts_dbg = [impact_map.get(sp, 0.0) for sp in s_edges]
+        logger.info(
+            f"Optimizer s-edge order (impact-aware): {order_indices} with impacts {impacts_dbg}"
+        )
+    else:
+        logger.info(f"Optimizer s-edge order: {order_indices}")
+    logger.info(f"Processing {len(s_edges)} s-edges for optimization")
 
     current_dist = circular_distance_based_on_reference(tree2, reference_order)
     any_improvement = False
 
-    for sp in s_edges_sorted:
+    for sp in s_edges:
         node = tree2.find_node_by_split(sp)
         if node and node.children:
             # Test both 'global' and 'local' flips to see which is better.
@@ -191,6 +236,8 @@ def optimize_s_edge_splits(
             if best_flip_dist < current_dist:
                 best_type = "global" if dist_g < dist_l else "local"
                 _apply_best_flip(node, best_type)
+                improvement = current_dist - best_flip_dist
+                logger.debug(f"Applied {best_type} flip for s-edge {sp}, improvement: {improvement:.4f}")
                 current_dist = best_flip_dist
                 any_improvement = True
                 rotated_splits.add(sp)

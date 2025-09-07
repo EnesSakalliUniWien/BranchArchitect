@@ -1,4 +1,5 @@
-from typing import List, Tuple, Dict, FrozenSet, Any
+from typing import List, Tuple, Dict, FrozenSet, Any, Optional
+import logging
 
 # Assuming these imports point to valid modules in your project structure
 from brancharchitect.tree import Node
@@ -7,58 +8,21 @@ from brancharchitect.elements.partition import Partition
 from brancharchitect.leaforder.rotation_functions import (
     get_unique_splits,
     get_s_edge_splits,
-    get_common_splits,
     optimize_splits,
     clear_split_pair_cache,
-)
-from brancharchitect.leaforder.fieldler_order import (
-    fiedler_ordering_for_tree_pair,
 )
 from brancharchitect.leaforder.tree_order_utils import (
     build_orientation_map,
     reorder_tree_if_full_common,
 )
+from brancharchitect.leaforder.final_alignment import final_pairwise_alignment_pass
 
 
 # Correctly defined type alias
 SplitChildOrderMap = Dict[Partition, List[FrozenSet[str]]]
 
 
-def final_pairwise_alignment_pass(trees: List[Node]) -> None:
-    """
-    Performs a final alignment pass on a list of trees to ensure that for
-    any adjacent pair, subtrees that are topologically identical are also
-    oriented identically.
-
-    This function iterates through the tree sequence and, for each pair, uses
-    the first tree as a template to orient the common splits in the second tree.
-
-    Args:
-        trees: The list of optimized phylogenetic trees to be aligned. This list is modified in-place.
-    """
-    if len(trees) < 2:
-        return  # No pairs to align
-
-    for i in range(len(trees) - 1):
-        tree1 = trees[i]
-        tree2 = trees[i + 1]
-
-        # Find splits that are common to this specific adjacent pair
-        common_splits_pair = get_common_splits(tree1, tree2)
-
-        if not common_splits_pair:
-            # If there are no common splits, there's nothing to align for this pair
-            continue
-
-        # Use tree1 as the template to get the desired orientation
-        orientation_map = build_orientation_map(tree1, common_splits_pair)
-
-        # Apply this orientation to tree2, but only for subtrees that are
-        # topologically identical ("full-common")
-        reorder_tree_if_full_common(tree1, tree2, orientation_map)
-
-    # Clear any cached split information after modifications are complete
-    clear_split_pair_cache()
+# final_pairwise_alignment_pass moved to brancharchitect.leaforder.final_alignment
 
 
 class TreeOrderOptimizer:
@@ -70,7 +34,11 @@ class TreeOrderOptimizer:
         trees (List[Node]): The list of trees to optimize.
     """
 
-    def __init__(self, trees: List[Node]):
+    def __init__(
+        self,
+        trees: List[Node],
+        precomputed_s_edges: Optional[List[Optional[PartitionSet[Partition]]]] = None,
+    ):
         """
         Initialize the optimizer with a list of trees.
 
@@ -78,18 +46,15 @@ class TreeOrderOptimizer:
             trees (List[Node]): The trees to optimize.
         """
         self.trees: List[Node] = trees
+        self.precomputed_s_edges = precomputed_s_edges or []
         self.split_rotation_history: Dict[Tuple[int, int], Dict[str, Any]] = {}
         self._history_counter = 0
+        self.logger = logging.getLogger(__name__)
 
-    def apply_fiedler_ordering(self):
-        """
-        Apply consensus Fiedler (spectral) ordering to all trees in self.trees.
-        """
-        fiedler_ordering_for_tree_pair(self.trees)
-        clear_split_pair_cache()
+    # Removed: apply_fiedler_ordering (Fiedler spectral ordering deprecated)
 
     def _optimize_tree_pair_splits(
-        self, reference_tree: Node, target_tree: Node
+        self, pair_index: int, reference_tree: Node, target_tree: Node
     ) -> Tuple[bool, PartitionSet[Partition]]:
         """
         Optimize the target tree by performing local split operations based on the reference tree.
@@ -97,9 +62,17 @@ class TreeOrderOptimizer:
         rotated_splits_in_target: PartitionSet[Partition] = PartitionSet()
         ref_order = reference_tree.get_current_order()
 
-        s_edge_splits: PartitionSet[Partition] = get_s_edge_splits(
-            reference_tree, target_tree
-        )
+        if (
+            pair_index < len(self.precomputed_s_edges)
+            and self.precomputed_s_edges[pair_index] is not None
+        ):
+            s_edge_splits: PartitionSet[Partition] = self.precomputed_s_edges[
+                pair_index
+            ]  # type: ignore[assignment]
+            self.logger.debug(f"Using precomputed s-edges for pair {pair_index}: {len(s_edge_splits)} edges")
+        else:
+            s_edge_splits = get_s_edge_splits(reference_tree, target_tree)
+            self.logger.debug(f"Computed s-edges for pair {pair_index}: {len(s_edge_splits)} edges")
         improved_sedge: bool = optimize_splits(
             target_tree, s_edge_splits, ref_order, rotated_splits_in_target
         )
@@ -113,34 +86,42 @@ class TreeOrderOptimizer:
 
         return (improved_unique or improved_sedge), rotated_splits_in_target
 
-    def _propagate_child_order_forward(
-        self, reference_index: int, splits_to_propagate: PartitionSet[Partition]
+    def _propagate_from_index_forward(
+        self, ref_index: int, splits_to_propagate: PartitionSet[Partition]
     ) -> None:
-        """Propagate child orderings forward from tree at `reference_index + 1`."""
-        if not splits_to_propagate or reference_index >= len(self.trees) - 1:
+        """Propagate child orderings forward starting from `ref_index`.
+
+        Uses `self.trees[ref_index]` as the reference orientation and applies
+        to trees at indices ref_index+1 .. end where subtrees are full-common.
+        """
+        if not splits_to_propagate or ref_index >= len(self.trees) - 1:
             return
 
-        ref_tree: Node = self.trees[reference_index + 1]
+        ref_tree: Node = self.trees[ref_index]
         split_child_order_map = build_orientation_map(ref_tree, splits_to_propagate)
 
-        for j in range(reference_index + 2, len(self.trees)):
+        for j in range(ref_index + 1, len(self.trees)):
             split_child_order_map = reorder_tree_if_full_common(
                 ref_tree, self.trees[j], split_child_order_map
             )
             if not split_child_order_map:
                 break
 
-    def _propagate_child_order_backward(
-        self, reference_index: int, splits_to_propagate: PartitionSet[Partition]
+    def _propagate_from_index_backward(
+        self, ref_index: int, splits_to_propagate: PartitionSet[Partition]
     ) -> None:
-        """Propagate child orderings backward from tree at `reference_index`."""
-        if not splits_to_propagate or reference_index <= 0:
+        """Propagate child orderings backward starting from `ref_index`.
+
+        Uses `self.trees[ref_index]` as the reference orientation and applies
+        to trees at indices ref_index-1 down to 0 where subtrees are full-common.
+        """
+        if not splits_to_propagate or ref_index <= 0:
             return
 
-        ref_tree: Node = self.trees[reference_index]
+        ref_tree: Node = self.trees[ref_index]
         split_child_order_map = build_orientation_map(ref_tree, splits_to_propagate)
 
-        for j in range(reference_index - 1, -1, -1):
+        for j in range(ref_index - 1, -1, -1):
             split_child_order_map = reorder_tree_if_full_common(
                 ref_tree, self.trees[j], split_child_order_map
             )
@@ -157,7 +138,7 @@ class TreeOrderOptimizer:
         if direction == "forward":
             for i in range(n - 1):
                 improved, splits_rotated = self._optimize_tree_pair_splits(
-                    self.trees[i], self.trees[i + 1]
+                    i, self.trees[i], self.trees[i + 1]
                 )
                 if improved:
                     improved_any = True
@@ -170,19 +151,17 @@ class TreeOrderOptimizer:
                     }
                     self._history_counter += 1
                     if bidirectional_mode:
-                        # Modified tree is at i+1. Propagate from it.
-                        # Forward propagation helper needs index i to use tree i+1 as ref.
-                        self._propagate_child_order_forward(i, splits_rotated)
-                        # Backward propagation helper needs index i+1 to use tree i+1 as ref.
-                        self._propagate_child_order_backward(i + 1, splits_rotated)
+                        # Modified tree is at index i+1. Propagate from that index.
+                        self._propagate_from_index_forward(i + 1, splits_rotated)
+                        self._propagate_from_index_backward(i + 1, splits_rotated)
                     else:
-                        # Standard mode: only propagate forward from the modified tree.
-                        self._propagate_child_order_forward(i, splits_rotated)
+                        # Standard mode: only propagate forward from the modified tree (i+1).
+                        self._propagate_from_index_forward(i + 1, splits_rotated)
                     clear_split_pair_cache()
         elif direction == "backward":
             for i in range(n - 1, 0, -1):
                 improved, splits_rotated = self._optimize_tree_pair_splits(
-                    self.trees[i], self.trees[i - 1]
+                    i - 1, self.trees[i], self.trees[i - 1]
                 )
                 if improved:
                     improved_any = True
@@ -196,12 +175,9 @@ class TreeOrderOptimizer:
                     self._history_counter += 1
                     # A backward pass only runs in bidirectional mode, which demands
                     # full global propagation from the modified tree.
-                    # The modified tree is at i-1.
-
-                    # Propagate backward from i-1. Helper needs index i-1.
-                    self._propagate_child_order_backward(i - 1, splits_rotated)
-                    # Propagate forward from i-1. Helper needs index i-2.
-                    self._propagate_child_order_forward(i - 2, splits_rotated)
+                    # The modified tree is at index i-1. Propagate from that index.
+                    self._propagate_from_index_backward(i - 1, splits_rotated)
+                    self._propagate_from_index_forward(i - 1, splits_rotated)
                     clear_split_pair_cache()
         else:
             raise ValueError(f"Unknown direction: {direction}")
@@ -225,14 +201,26 @@ class TreeOrderOptimizer:
                 strategy with global change propagation. If False, uses a
                 simpler, faster forward-only approach.
         """
-        for _ in range(n_iterations):
+        self.logger.info(f"Starting tree order optimization with {n_iterations} iterations, bidirectional={bidirectional}")
+        self.logger.info(f"Optimizing {len(self.trees)} trees")
+        
+        for iteration in range(n_iterations):
+            self.logger.info(f"Starting optimization iteration {iteration + 1}/{n_iterations}")
             forward_impr = self._optimize_forward(bidirectional_mode=bidirectional)
 
             back_impr = False
             if bidirectional:
                 back_impr = self._optimize_backward()
+                self.logger.debug(f"Backward pass improved: {back_impr}")
 
             if not (forward_impr or back_impr):
+                self.logger.info(f"No improvements found in iteration {iteration + 1}, stopping early")
                 break
 
+            # Align adjacent pairs at the end of each improving iteration
             final_pairwise_alignment_pass(self.trees)
+            self.logger.info(f"Completed iteration {iteration + 1} with improvements")
+        
+        # Unconditional final alignment to ensure global coherence
+        final_pairwise_alignment_pass(self.trees)
+        self.logger.info("Tree order optimization completed (final alignment applied)")

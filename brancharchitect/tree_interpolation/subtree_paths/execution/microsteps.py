@@ -8,7 +8,7 @@ extracting data, and managing the interpolation workflow.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, cast, Callable
+from typing import Any, Dict, List, Optional, Tuple, Callable
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
@@ -56,14 +56,9 @@ def extract_filtered_paths(
     """
     exclusions = {active_changing_edge, subtree_partition}
 
-    # Extract path segments with proper type handling
-    expand_segments = (
-        cast(List[Partition], selection.get("expand", {}).get("path_segment", [])) or []
-    )
-    collapse_segments = (
-        cast(List[Partition], selection.get("collapse", {}).get("path_segment", []))
-        or []
-    )
+    # Extract path segments - now guaranteed to be lists from builder
+    expand_segments = selection.get("expand", {}).get("path_segment", []) or []
+    collapse_segments = selection.get("collapse", {}).get("path_segment", []) or []
 
     expand_path: List[Partition] = [p for p in expand_segments if p not in exclusions]
 
@@ -98,7 +93,7 @@ def build_microsteps_for_selection(
     tree_index: int,
     active_changing_edge_ordinal: int,
     step_idx: int,
-) -> Tuple[List[Node], List[Optional[Partition]], Node, List[Optional[Partition]]]:
+) -> Tuple[List[Node], List[Optional[Partition]], Node]:
     """
     Build the 5 microsteps for a single selection under an active-changing edge.
 
@@ -111,12 +106,11 @@ def build_microsteps_for_selection(
     """
     trees: List[Node] = []
     edges: List[Optional[Partition]] = []
-    subtree_tracking: List[Optional[Partition]] = []
 
     def add_step(tree: Node, edge: Optional[Partition], subtree: Partition) -> None:
+        # subtree still used internally for computations above; not tracked anymore
         trees.append(tree)
         edges.append(edge)
-        subtree_tracking.append(subtree)
 
     # Extract and filter path segments using the modularized function
     subtree_partition = selection["subtree"]
@@ -146,6 +140,7 @@ def build_microsteps_for_selection(
     reordering_strategy = _create_reordering_strategy_safe(
         "adaptive", distance_threshold=0.2
     )
+
     reordered: Node = apply_partial_reordering(
         tree=collapsed,
         reference_tree=reference_tree,
@@ -189,4 +184,4 @@ def build_microsteps_for_selection(
         subtree_partition,
     )
 
-    return trees, edges, snapped_tree, subtree_tracking
+    return trees, edges, snapped_tree

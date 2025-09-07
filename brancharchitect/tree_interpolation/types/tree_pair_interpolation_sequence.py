@@ -59,7 +59,6 @@ class TreeInterpolationSequence:
     mapping_one: List[Dict[Partition, Partition]]
     mapping_two: List[Dict[Partition, Partition]]
     active_changing_split_tracking: List[Optional[Partition]]
-    subtree_tracking: List[Optional[Partition]]
     pair_interpolated_tree_counts: List[int]
     lattice_solutions_list: List[Dict[Partition, List[List[Partition]]]]
 
@@ -109,7 +108,6 @@ class TreeInterpolationSequence:
             "mapping_two": self.mapping_two[pair_index],
             "s_edge_length": self.s_edge_lengths[pair_index],
             "lattice_solutions": self.lattice_solutions_list[pair_index],
-            "subtree_tracking": [self.subtree_tracking[pair_index]],
         }
 
     @property
@@ -184,7 +182,11 @@ class TreeInterpolationSequence:
         Returns:
             List of pair indices where pair_interpolated_tree_counts[i] == 0
         """
-        return [i for i, length in enumerate(self.pair_interpolated_tree_counts) if length == 0]
+        return [
+            i
+            for i, length in enumerate(self.pair_interpolated_tree_counts)
+            if length == 0
+        ]
 
     @property
     def s_edge_lengths(self) -> List[int]:
@@ -193,4 +195,3 @@ class TreeInterpolationSequence:
         Returns the same values as pair_interpolated_tree_counts.
         """
         return self.pair_interpolated_tree_counts
-    

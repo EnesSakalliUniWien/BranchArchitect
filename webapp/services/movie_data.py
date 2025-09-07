@@ -29,7 +29,6 @@ class MovieData:
     sorted_leaves: List[str]
     tree_pair_solutions: Dict[str, TreePairSolution]
     split_change_tracking: List[Optional[List[int]]]
-    subtree_tracking: List[Optional[List[int]]]
 
     # File and processing metadata
     file_name: str
@@ -79,14 +78,10 @@ class MovieData:
         # Store complete tree metadata for frontend
         tree_metadata = cls._process_tree_metadata(result["tree_metadata"])
 
-        # Extract lattice edge tracking from tree metadata
-        lattice_edge_tracking_data = cls._extract_s_edges_from_metadata(
-            result["tree_metadata"]
-        )
-
-        # Extract subtree tracking from tree metadata
-        subtree_tracking_data = cls._extract_subtrees_from_metadata(
-            result["tree_metadata"]
+        # Derive split_change_tracking from split_change_events and metadata alignment
+        events_by_pair = cls._events_from_solutions(result["tree_pair_solutions"])
+        lattice_edge_tracking_data = cls._derive_split_change_tracking_from_events(
+            tree_metadata, events_by_pair
         )
 
         return cls(
@@ -97,7 +92,6 @@ class MovieData:
             sorted_leaves=sorted_leaves,
             tree_pair_solutions=result["tree_pair_solutions"],
             split_change_tracking=lattice_edge_tracking_data,
-            subtree_tracking=subtree_tracking_data,
             file_name=filename,
             window_size=msa_data.get("inferred_window_size", 1),
             window_step_size=msa_data.get("inferred_step_size", 1),
@@ -121,7 +115,9 @@ class MovieData:
             "interpolated_trees": self.interpolated_trees,
             "tree_metadata": self.tree_metadata,
             # Tree pair solutions - keyed for easy lookup (matches InterpolationSequence)
-            "tree_pair_solutions": self._serialize_tree_pair_solutions(self.tree_pair_solutions),
+            "tree_pair_solutions": self._serialize_tree_pair_solutions(
+                self.tree_pair_solutions
+            ),
             # Independent split change events per pair (0-based step ranges)
             "split_change_events": self._extract_split_change_events_from_solutions(),
             # Global timeline mixing originals, split events, and explicit gaps
@@ -132,7 +128,6 @@ class MovieData:
             "sorted_leaves": self.sorted_leaves,
             # New name; keep legacy alias below for compatibility
             "split_change_tracking": self.split_change_tracking,
-            "subtree_tracking": self.subtree_tracking,
             "covers": [],
             # MSA - simplified structure
             "msa": {
@@ -162,6 +157,72 @@ class MovieData:
 
         return result
 
+    @classmethod
+    def _events_from_solutions(
+        cls, tree_pair_solutions: Dict[str, TreePairSolution]
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """Build serialized split_change_events per pair from raw solutions.
+
+        Returns a dict keyed by pair_key with list of events, where each event
+        item contains "split": List[int] and "step_range": List[int].
+        """
+        events: Dict[str, List[Dict[str, Any]]] = {}
+        for pair_key, solution in tree_pair_solutions.items():
+            pair_events = solution.get("split_change_events", [])  # type: ignore[arg-type]
+            serialized_events: List[Dict[str, Any]] = []
+            for ev in pair_events:
+                serialized_events.append(
+                    {
+                        "split": list(ev["split"].indices),
+                        "step_range": list(ev["step_range"]),
+                    }
+                )
+            events[pair_key] = serialized_events
+        return events
+
+    @classmethod
+    def _derive_split_change_tracking_from_events(
+        cls,
+        processed_tree_metadata: List[TreeMetadataType],
+        events_by_pair: Dict[str, List[Dict[str, Any]]],
+    ) -> List[Optional[List[int]]]:
+        """Derive per-tree split tracking aligned to metadata indices.
+
+        For each interpolation pair, compute the first global index where the
+        pair starts (step_in_pair == 1). Then, for each split_change_event in
+        that pair, mark all steps in its local step_range by assigning the
+        event's split at the corresponding global indices.
+
+        Originals (trees with tree_pair_key is None) remain as None values.
+        """
+        tracking: List[Optional[List[int]]] = [None for _ in processed_tree_metadata]
+
+        # Index first global index per pair (where local step 0 aligns)
+        first_global_for_pair: Dict[str, int] = {}
+        for meta in processed_tree_metadata:
+            pair_key = meta.get("tree_pair_key")
+            step = meta.get("step_in_pair")
+            if pair_key and step == 1:
+                first_global_for_pair[pair_key] = meta["global_tree_index"]
+
+        # Fill tracking using events and computed anchors
+        for pair_key, events in events_by_pair.items():
+            start_global = first_global_for_pair.get(pair_key)
+            if start_global is None:
+                continue
+            for ev in events:
+                step_start, step_end = ev.get("step_range", [0, -1])
+                split = ev.get("split")
+                if split is None:
+                    continue
+                # Assign inclusive range [step_start, step_end]
+                for local_step in range(step_start, step_end + 1):
+                    idx = start_global + local_step
+                    if 0 <= idx < len(tracking):
+                        tracking[idx] = split
+
+        return tracking
+
     def _extract_split_change_events_from_solutions(
         self,
     ) -> Dict[str, List[Dict[str, Any]]]:
@@ -180,7 +241,6 @@ class MovieData:
                     {
                         "split": list(ev["split"].indices),
                         "step_range": list(ev["step_range"]),
-                        "subtrees": [list(s.indices) for s in ev["subtrees"]],
                     }
                 )
             events[pair_key] = serialized_events
@@ -283,7 +343,6 @@ class MovieData:
                     "split": ev.get("split"),
                     "step_range_local": [step_start, step_end],
                     "step_range_global": [g_start, g_end],
-                    "subtrees": ev.get("subtrees", []),
                 }
             )
 
@@ -311,10 +370,7 @@ class MovieData:
                     list(edge.indices) if edge is not None else None
                     for edge in solution["ancestor_of_changing_splits"]
                 ],
-                "subtree_sequence": [
-                    list(edge.indices) if edge is not None else None
-                    for edge in solution.get("subtree_sequence", [])
-                ],
+                # subtree_sequence removed
             }
             if "split_change_events" in solution:
                 events_ser: list[dict[str, Any]] = []
@@ -323,7 +379,7 @@ class MovieData:
                         {
                             "split": list(ev["split"].indices),
                             "step_range": list(ev["step_range"]),
-                            "subtrees": [list(s.indices) for s in ev["subtrees"]],
+                            # subtrees removed
                         }
                     )
                 item["split_change_events"] = events_ser
@@ -341,14 +397,6 @@ class MovieData:
         return [None for _ in tree_metadata]
 
     @classmethod
-    def _extract_subtrees_from_metadata(
-        cls, tree_metadata: List[TreeMetadataType]
-    ) -> List[Optional[List[int]]]:
-        """Compatibility stub: subtree_tracker removed from metadata.
-
-        Returns a list of None values aligned with tree_metadata length.
-        """
-        return [None for _ in tree_metadata]
 
     @classmethod
     def _process_tree_metadata(
@@ -388,7 +436,6 @@ class MovieData:
             sorted_leaves=[],
             tree_pair_solutions={},
             split_change_tracking=[],
-            subtree_tracking=[],
             file_name=filename,
             window_size=1,
             window_step_size=1,

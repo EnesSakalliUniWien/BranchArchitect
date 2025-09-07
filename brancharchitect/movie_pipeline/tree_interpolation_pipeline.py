@@ -3,7 +3,9 @@
 from typing import List, Optional, Dict
 import logging
 import time
+import io
 from brancharchitect.elements.partition import Partition
+from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.movie_pipeline.types import (
     PipelineConfig,
     InterpolationSequence,
@@ -21,6 +23,9 @@ from brancharchitect.distances.distances import (
 )
 from brancharchitect.tree_interpolation.sequential_interpolation import (
     build_sequential_lattice_interpolations,
+)
+from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
+    iterate_lattice_algorithm,
 )
 from brancharchitect.tree_interpolation.types import TreeInterpolationSequence
 from brancharchitect.tree import Node
@@ -116,9 +121,22 @@ class TreeInterpolationPipeline:
 
         if self.config.enable_rooting:
             self.logger.info("Applying midpoint rooting...")
+            t_root_start = time.perf_counter()
             processed_trees = self._root_trees(processed_trees)
+            self.logger.info(
+                f"Rooting completed in {time.perf_counter() - t_root_start:.3f}s"
+            )
+        # Precompute lattice solutions once per adjacent pair (topology-only; safe w.r.t. ordering)
+        precomputed_pair_solutions = self._precompute_pair_solutions(processed_trees)
 
-        processed_trees = self._optimize_tree_order(processed_trees)
+        t_opt_start = time.perf_counter()
+        processed_trees = self._optimize_tree_order(
+            processed_trees,
+            precomputed_pair_s_edges=self._extract_s_edge_sets(precomputed_pair_solutions, processed_trees),
+        )
+        self.logger.info(
+            f"Leaf order optimization took {time.perf_counter() - t_opt_start:.3f}s"
+        )
 
         (
             interpolated_trees,
@@ -126,11 +144,17 @@ class TreeInterpolationPipeline:
             tree_pair_solutions,
             mapping_one,
             mapping_two,
-        ) = self._process_tree_pairs(processed_trees)
+        ) = self._process_tree_pairs(
+            processed_trees, precomputed_pair_solutions=precomputed_pair_solutions
+        )
 
         self.logger.info("Calculating distance metrics...")
+        t_dist_start = time.perf_counter()
 
         distances = self._calculate_distances(processed_trees)
+        self.logger.info(
+            f"Distance metrics calculated in {time.perf_counter() - t_dist_start:.3f}s"
+        )
 
         # Build final result
         processing_time = time.time() - start_time
@@ -155,7 +179,11 @@ class TreeInterpolationPipeline:
     # --- Private helpers ---
 
     def _process_tree_pairs(
-        self, trees: List[Node]
+        self,
+        trees: List[Node],
+        precomputed_pair_solutions: Optional[
+            List[Optional[Dict[Partition, List[List[Partition]]]]]
+        ] = None,
     ) -> tuple[
         List[Node],
         List[TreeMetadata],
@@ -232,20 +260,19 @@ class TreeInterpolationPipeline:
         # Execute the core lattice-based interpolation algorithm
         # This generates the complete sequence with integrated naming and tracking
         result: TreeInterpolationSequence = build_sequential_lattice_interpolations(
-            trees
+            trees,
+            precomputed_pair_solutions=precomputed_pair_solutions,
         )
 
         # Extract all interpolation data from the structured result
         # This unpacks the comprehensive TreeInterpolationSequence into components
         interpolated_trees = result.interpolated_trees  # Complete tree sequence
-        mapping_one = result.mapping_one  # Target tree mappings per pair
-        mapping_two = result.mapping_two  # Reference tree mappings per pair
+        mapping_one = result.mapping_one  # Donor atoms per pair (TARGET side)
+        mapping_two = result.mapping_two  # Recipient atoms per pair (REFERENCE side)
         active_changing_split_tracking = (
             result.active_changing_split_tracking
         )  # Active changing split applied per tree
-        subtree_tracking = result.subtree_tracking  # Subtree information per tree
-        # pair_interpolated_tree_counts is available if needed for summaries
-        pair_interpolated_tree_counts = result.pair_interpolated_tree_counts
+
         lattice_solutions_list = result.lattice_solutions_list  # Raw algorithm results
 
         # Transform interpolation data into keyed TreePairSolution objects
@@ -257,7 +284,6 @@ class TreeInterpolationPipeline:
                 mapping_two,
                 lattice_solutions_list,
                 active_changing_split_tracking,
-                subtree_tracking,
             )
         )
 
@@ -266,7 +292,6 @@ class TreeInterpolationPipeline:
         tree_metadata: List[TreeMetadata] = self._create_global_tree_metadata(
             trees,
             active_changing_split_tracking,
-            subtree_tracking,
         )
 
         return (
@@ -302,7 +327,8 @@ class TreeInterpolationPipeline:
             newick_string = tree.to_newick()
 
             # 2. Create a skbio.TreeNode from the Newick string
-            skbio_tree = SkbioTreeNode.read([newick_string])
+            # Use a file-like wrapper for efficiency and clarity
+            skbio_tree = SkbioTreeNode.read(io.StringIO(newick_string))
 
             # 3. Root the skbio.TreeNode at the midpoint
             rooted_skbio_tree = skbio_tree.root_at_midpoint()
@@ -319,7 +345,11 @@ class TreeInterpolationPipeline:
 
         return rooted_trees
 
-    def _optimize_tree_order(self, trees: List[Node]) -> List[Node]:
+    def _optimize_tree_order(
+        self,
+        trees: List[Node],
+        precomputed_pair_s_edges: Optional[List[Optional[PartitionSet[Partition]]]] = None,
+    ) -> List[Node]:
         """
         Optimize the order of leaf nodes for improved visualization quality.
 
@@ -336,12 +366,49 @@ class TreeInterpolationPipeline:
         if len(trees) <= 1:
             return trees
 
-        optimizer = TreeOrderOptimizer(trees)
+        optimizer = TreeOrderOptimizer(trees, precomputed_s_edges=precomputed_pair_s_edges)
         optimizer.optimize(
             n_iterations=self.config.optimization_iterations,
             bidirectional=self.config.bidirectional_optimization,
         )
         return trees
+
+    # --- One-time lattice solutions for all adjacent pairs ---
+    def _precompute_pair_solutions(
+        self, trees: List[Node]
+    ) -> List[Optional[Dict[Partition, List[List[Partition]]]]]:
+        if len(trees) < 2:
+            return []
+        sols: List[Optional[Dict[Partition, List[List[Partition]]]]] = []
+        for i in range(len(trees) - 1):
+            # Use deep copies to avoid any side effects (lattice may mutate working copies)
+            t1 = trees[i].deep_copy()
+            t2 = trees[i + 1].deep_copy()
+            try:
+                sols.append(iterate_lattice_algorithm(t1, t2))
+            except Exception:
+                sols.append(None)
+        return sols
+
+    def _extract_s_edge_sets(
+        self,
+        precomputed_pair_solutions: List[Optional[Dict[Partition, List[List[Partition]]]]],
+        trees: List[Node],
+    ) -> List[Optional[PartitionSet[Partition]]]:
+        # Convert solution dicts to PartitionSet keys for optimizer usage
+        from brancharchitect.elements.partition_set import PartitionSet
+
+        s_edge_sets: List[Optional[PartitionSet[Partition]]] = []
+        for i, sol in enumerate(precomputed_pair_solutions):
+            if sol is None:
+                s_edge_sets.append(None)
+                continue
+            enc = trees[i].taxa_encoding
+            ps = PartitionSet(encoding=enc)
+            for sedge in sol.keys():
+                ps.add(sedge)
+            s_edge_sets.append(ps)
+        return s_edge_sets
 
     def _calculate_distances(self, trees: List[Node]) -> DistanceMetrics:
         """
@@ -380,7 +447,6 @@ class TreeInterpolationPipeline:
         mapping_two: List[Dict[Partition, Partition]],
         lattice_solutions_list: List[Dict[Partition, List[List[Partition]]]],
         s_edge_tracking: List[Optional[Partition]],
-        subtree_tracking: List[Optional[Partition]],
     ) -> Dict[str, TreePairSolution]:
         """
         Create a dictionary of TreePairSolution objects keyed by pair identifiers.
@@ -433,15 +499,16 @@ class TreeInterpolationPipeline:
                 end = 0
 
             pair_s_edge_sequence = s_edge_tracking[start:end]
-            pair_subtree_sequence = subtree_tracking[start:end]
-            num_steps = min(len(pair_s_edge_sequence), len(pair_subtree_sequence))
+            # Compute steps based on split sequence only; subtrees removed
+            num_steps = len(pair_s_edge_sequence)
 
             # Build split_change_events (0-based step indices within this pair)
             split_change_events = []
             if num_steps > 0:
                 current_split = None
                 start_idx = 0
-                seen_subtrees: list[Partition] = []
+                # Maintain order-preserving list + O(1) membership set
+                # Subtree tracking removed
 
                 def emit_event(end_idx: int):
                     if current_split is None:
@@ -450,17 +517,12 @@ class TreeInterpolationPipeline:
                         {
                             "split": current_split,
                             "step_range": (start_idx, end_idx),
-                            "subtrees": seen_subtrees.copy(),
                         }
                     )
 
                 for local_idx in range(num_steps):
                     split = pair_s_edge_sequence[local_idx]
-                    subtree = pair_subtree_sequence[local_idx]
-
-                    # Normalize subtree list and dedupe while preserving order
-                    if subtree is not None and subtree not in seen_subtrees:
-                        seen_subtrees.append(subtree)
+                    # Subtree tracking removed
 
                     if local_idx == 0:
                         current_split = split
@@ -473,9 +535,7 @@ class TreeInterpolationPipeline:
                         # Start new event
                         current_split = split
                         start_idx = local_idx
-                        seen_subtrees = []
-                        if subtree is not None:
-                            seen_subtrees.append(subtree)
+                        # Subtree tracking removed
 
                 # Emit final event (end at last index)
                 emit_event(num_steps - 1)
@@ -487,7 +547,6 @@ class TreeInterpolationPipeline:
                 mapping_one=pair_mapping_one,
                 mapping_two=pair_mapping_two,
                 ancestor_of_changing_splits=pair_s_edge_sequence,
-                subtree_sequence=pair_subtree_sequence,
             )
 
             # Attach split_change_events (not part of TypedDict fields initially; add via update)
@@ -503,12 +562,12 @@ class TreeInterpolationPipeline:
         active_changing_split_tracking: List[
             Optional[Partition]
         ],  # This is result.active_changing_split_tracking
-        subtree_tracking: List[Optional[Partition]],  # This is result.subtree_tracking
     ) -> List[TreeMetadata]:
         metadata: List[TreeMetadata] = []
 
         # Track step within current pair
         current_pair_original_start_idx = 0
+        original_tree_idx_counter = 0
         interpolated_step_in_current_pair = 0
 
         for global_idx in range(len(active_changing_split_tracking)):
@@ -522,8 +581,9 @@ class TreeInterpolationPipeline:
                         step_in_pair=None,
                     )
                 )
-                # When we encounter an original tree, it marks the start of a new potential pair
-                current_pair_original_start_idx += 0  # explicit no-op for clarity
+                # When encountering an original, advance the pair anchor to this original
+                current_pair_original_start_idx = original_tree_idx_counter
+                original_tree_idx_counter += 1
                 interpolated_step_in_current_pair = 0  # Reset step counter for new pair
             else:  # This is an interpolated tree
                 interpolated_step_in_current_pair += 1

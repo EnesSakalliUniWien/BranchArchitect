@@ -50,7 +50,7 @@ def handle_uploaded_file(
         trees: List[Node] = parsed_trees
 
     if not trees:
-        print("[DEBUG] No trees parsed - returning empty response")
+        logger.debug("No trees parsed - returning empty response")
         return _create_empty_response(filename)
 
     logger.info(f"Successfully parsed {len(trees)} trees")

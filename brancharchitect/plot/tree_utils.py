@@ -276,6 +276,8 @@ def _collapse_zero_branches_recursive(node: Node) -> None:
     # Update children list if modified
     if modified:
         node.children = new_children
+        # Invalidate caches since the topology under this node changed
+        node.invalidate_caches(propagate_up=True)
 
 
 def calculate_max_path_length(root: Node) -> float:

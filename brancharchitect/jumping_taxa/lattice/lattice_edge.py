@@ -16,14 +16,6 @@ class LatticeEdge:
 
     t2_common_covers: List[PartitionSet[Partition]]
 
-    t1_unique_atoms: List[PartitionSet[Partition]]
-
-    t2_unique_atoms: List[PartitionSet[Partition]]
-
-    t1_unique_covers: List[PartitionSet[Partition]]
-
-    t2_unique_covers: List[PartitionSet[Partition]]
-
     t1_unique_partition_sets: List[PartitionSet[Partition]]
 
     t2_unique_partition_sets: List[PartitionSet[Partition]]
