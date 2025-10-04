@@ -1,3 +1,4 @@
+from __future__ import annotations
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import PartitionSet, count_full_overlaps
 from brancharchitect.jumping_taxa.lattice.lattice_edge import LatticeEdge

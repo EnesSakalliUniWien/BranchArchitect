@@ -12,7 +12,7 @@ from brancharchitect.tree import Node
 
 
 def calculate_subtree_paths(
-    active_changing_split_subtrees: Dict[Partition, List[List[Partition]]],
+    jumping_subtree_solutions: Dict[Partition, List[List[Partition]]],
     reference_tree: Node,
     target_tree: Node,
 ) -> tuple[
@@ -24,7 +24,7 @@ def calculate_subtree_paths(
     active-changing split.
 
     Args:
-        active_changing_split_subtrees: A dictionary mapping active-changing splits
+        jumping_subtree_solutions: A dictionary mapping active-changing splits
             to their subtree sets.
         reference_tree: The reference tree.
         target_tree: The target tree.
@@ -41,7 +41,7 @@ def calculate_subtree_paths(
     ] = {}
     target_subtree_paths: Dict[Partition, Dict[Partition, PartitionSet[Partition]]] = {}
 
-    for active_changing_split, split_subtrees in active_changing_split_subtrees.items():
+    for active_changing_split, split_subtrees in jumping_subtree_solutions.items():
         reference_subtree_paths[active_changing_split] = {}
         target_subtree_paths[active_changing_split] = {}
 

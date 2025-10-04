@@ -5,9 +5,16 @@ from typing import List, Optional, Dict, Any
 from brancharchitect.tree import Node
 from werkzeug.utils import secure_filename
 from flask import current_app
-from brancharchitect.movie_pipeline.types import InterpolationSequence
+from brancharchitect.movie_pipeline.types import InterpolationResult, PipelineConfig
+from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
+    TreeInterpolationPipeline,
+)
 from werkzeug.datastructures import FileStorage
-from .movie_data import MovieData
+from .frontend_data_builder import (
+    build_movie_data_from_result,
+    movie_data_to_frontend_dict,
+    create_empty_movie_data,
+)
 from brancharchitect.io import parse_newick
 
 
@@ -56,11 +63,6 @@ def handle_uploaded_file(
     logger.info(f"Successfully parsed {len(trees)} trees")
 
     # Process trees through the pipeline
-    from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
-        TreeInterpolationPipeline,
-    )
-    from brancharchitect.movie_pipeline.types import PipelineConfig
-
     config = PipelineConfig(
         enable_rooting=enable_rooting,
         optimization_iterations=20,
@@ -69,7 +71,7 @@ def handle_uploaded_file(
     )
 
     pipeline = TreeInterpolationPipeline(config=config)
-    processed_data: InterpolationSequence = pipeline.process_trees(trees=trees)
+    processed_data: InterpolationResult = pipeline.process_trees(trees=trees)
 
     # Process MSA data if available
     from .msa_utils import process_msa_data
@@ -89,7 +91,7 @@ def handle_uploaded_file(
 
 
 def _create_structured_response(
-    result: InterpolationSequence,
+    result: InterpolationResult,
     filename: str,
     msa_data: Dict[str, Any],
     enable_rooting: bool,
@@ -99,7 +101,7 @@ def _create_structured_response(
     Create hierarchical API response using MovieData class.
 
     Args:
-        result: InterpolationSequence from TreeInterpolationPipeline
+        result: InterpolationResult from TreeInterpolationPipeline
         filename: Original filename
         msa_data: Processed MSA data
         enable_rooting: Whether rooting was enabled
@@ -127,17 +129,17 @@ def _create_structured_response(
             sorted_leaves = []
 
     # Create MovieData instance and convert to hierarchical dict
-    movie_data = MovieData.from_processing_result(
+    movie_data = build_movie_data_from_result(
         result=result,
         filename=filename,
         msa_data=msa_data,
         enable_rooting=enable_rooting,
         sorted_leaves=sorted_leaves,
     )
-    return movie_data.to_frontend_dict()
+    return movie_data_to_frontend_dict(movie_data)
 
 
 def _create_empty_response(filename: str) -> Dict[str, Any]:
     """Create an empty hierarchical response for failed processing."""
-    empty_movie_data = MovieData.create_empty(filename)
-    return empty_movie_data.to_frontend_dict()
+    empty_movie_data = create_empty_movie_data(filename)
+    return movie_data_to_frontend_dict(empty_movie_data)

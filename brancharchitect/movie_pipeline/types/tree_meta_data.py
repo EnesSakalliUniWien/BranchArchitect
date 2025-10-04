@@ -43,18 +43,13 @@ class TreeMetadata(TypedDict):
 
     # Interpolation step context
     step_in_pair: Optional[int]
-    """Step number within the s-edge interpolation (1-5), or None for original trees.
 
-    Each s-edge generates exactly 5 interpolation steps:
-    - 1: Down phase (apply reference weights to s-edge subset)
-    - 2: Collapse (remove zero-length branches from consensus)
-    - 3: Reorder (match reference tree's node ordering)
-    - 4: Up phase (pre-snap with reference topology but target weights)
-    - 5: Snap (final reference state with graft operation)
+    reference_pair_tree_index: Optional[int]
 
-    None: This is an original tree, not an interpolation step
+    target_pair_tree_index: Optional[int]
 
-    Note: step_in_pair refers to position within ONE s-edge, not the entire pair.
-    """
+    source_tree_global_index: Optional[int]
+    """Global index of the source tree this interpolated tree comes FROM (None for original trees)."""
 
-    # Reduced metadata for lean payloads: other trackers removed from TreeMetadata
+    target_tree_global_index: Optional[int] 
+    """Global index of the target tree this interpolated tree goes TO (None for original trees)."""

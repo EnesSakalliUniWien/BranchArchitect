@@ -2,7 +2,6 @@
 #  logging_config.py
 # --------------------------------------------------------------
 import logging
-from pathlib import Path
 from logging.handlers import RotatingFileHandler
 from flask import Flask
 from ..config import Config
@@ -48,25 +47,25 @@ def configure_logging(app: Flask) -> None:
     # Configure the root logger so ALL modules use the same configuration
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
-    
+
     # Clear existing handlers to avoid duplicates on reload
     if not any(isinstance(h, RotatingFileHandler) for h in root_logger.handlers):
         root_logger.handlers = []
         root_logger.addHandler(backend_handler)
         root_logger.addHandler(console_handler)
-    
+
     # Also configure Flask's app.logger
     if not any(isinstance(h, RotatingFileHandler) for h in app.logger.handlers):
         app.logger.handlers = []
         app.logger.addHandler(backend_handler)
         app.logger.addHandler(console_handler)
-    
+
     app.logger.setLevel(logging.DEBUG)
     app.logger.propagate = False
-    
+
     # Configure specific module loggers to ensure they use DEBUG level
-    for module in ['brancharchitect', 'webapp']:
+    for module in ["brancharchitect", "webapp"]:
         module_logger = logging.getLogger(module)
         module_logger.setLevel(logging.DEBUG)
-    
+
     app.logger.info(f"Logging configured. Log file: {backend_file}")

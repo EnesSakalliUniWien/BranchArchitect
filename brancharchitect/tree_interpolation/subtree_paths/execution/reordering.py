@@ -1,174 +1,73 @@
 """
 Partial ordering strategy for subtree interpolation.
 
-This module provides a modular approach to reordering trees during interpolation,
-focusing on local subtree contexts rather than global tree ordering.
+This module provides functions to reorder trees during interpolation by focusing
+on local subtree contexts to minimize visual disruption.
 """
 
 from __future__ import annotations
 import logging
-from typing import List, Optional, Tuple
-from brancharchitect.tree import Node, ReorderStrategy
+from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
 
 logger = logging.getLogger(__name__)
 
 
-class PartialOrderingStrategy:
-    """
-    Manages partial ordering of subtrees during interpolation.
-
-    This strategy ensures that only the relevant local context is reordered
-    during subtree interpolation, preserving the global tree structure.
-    """
-
-    def __init__(self):
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-
-    def determine_reorder_scope(
-        self,
-        active_changing_edge: Partition,
-        create_path: List[Partition],
-        collapse_path: List[Partition],
-    ) -> Tuple[Partition, str]:
-        """Determine the optimal scope for reordering.
-
-        Uses the shallowest (largest) split from the paths, which is
-        the first element since paths are sorted by size descending.
-        """
-        if create_path:
-            return create_path[0], "shallowest_expansion"
-        if collapse_path:
-            return collapse_path[0], "shallowest_collapse"
-        return active_changing_edge, "active_edge"
-
-    def extract_local_taxa_order(
-        self,
-        node: Node,
-        target_split: Partition,
-        reference_tree: Optional[Node] = None,
-    ) -> List[str]:
-        """Extract the taxa order for a specific local context."""
-        target_node = node.find_node_by_split(target_split)
-        if not target_node:
-            self.logger.warning(f"Target split {target_split} not found in tree")
-            return list(node.get_current_order())
-
-        local_order = list(target_node.get_current_order())
-        if reference_tree:
-            ref_node = reference_tree.find_node_by_split(target_split)
-            if ref_node:
-                ref_order = list(ref_node.get_current_order())
-                common_taxa = set(local_order) & set(ref_order)
-                local_order = [t for t in ref_order if t in common_taxa]
-        return local_order
-
-    def compute_ordering_distance(
-        self,
-        order1: List[str],
-        order2: List[str],
-    ) -> float:
-        """Compute a distance measure between two orders (Kendall tau style)."""
-        common = set(order1) & set(order2)
-        if len(common) < 2:
-            return 0.0
-        pos1 = {taxon: i for i, taxon in enumerate(order1) if taxon in common}
-        pos2 = {taxon: i for i, taxon in enumerate(order2) if taxon in common}
-        inversions = 0
-        taxa_list = sorted(common)
-        for i in range(len(taxa_list)):
-            for j in range(i + 1, len(taxa_list)):
-                t1, t2 = taxa_list[i], taxa_list[j]
-                if (pos1[t1] < pos1[t2]) != (pos2[t1] < pos2[t2]):
-                    inversions += 1
-        max_inversions = len(taxa_list) * (len(taxa_list) - 1) / 2
-        return inversions / max_inversions if max_inversions > 0 else 0.0
-
-    def generate_partial_order(
-        self,
-        tree: Node,
-        reference_tree: Node,
-        target_split: Partition,
-        scope: str = "local",
-    ) -> List[str]:
-        """Generate a partial ordering for a specific split."""
-        if scope == "global":
-            return list(reference_tree.get_current_order())
-        tree_node = tree.find_node_by_split(target_split)
-        ref_node = reference_tree.find_node_by_split(target_split)
-        if not tree_node:
-            self.logger.warning(f"Target split {target_split} not found in tree")
-            return list(tree.get_current_order())
-        if not ref_node:
-            self.logger.warning(f"Target split {target_split} not found in reference")
-            return list(tree_node.get_current_order())
-        tree_taxa = set(tree_node.get_current_order())
-        ref_taxa = set(ref_node.get_current_order())
-        common_taxa = tree_taxa & ref_taxa
-        ref_order = list(ref_node.get_current_order())
-        partial_order = [t for t in ref_order if t in common_taxa]
-        remaining = tree_taxa - ref_taxa
-        if remaining:
-            t_order = list(tree_node.get_current_order())
-            partial_order.extend([t for t in t_order if t in remaining])
-        return partial_order
-
-
-class AdaptiveReorderingStrategy(PartialOrderingStrategy):
-    """Adaptive reordering strategy that uses a distance threshold."""
-
-    def __init__(self, distance_threshold: float = 0.3):
-        super().__init__()
-        self.distance_threshold = distance_threshold
-
-    def should_reorder(self, current_order: List[str], target_order: List[str]) -> bool:
-        return (
-            self.compute_ordering_distance(current_order, target_order)
-            > self.distance_threshold
-        )
-
-
-def create_reordering_strategy(
-    strategy: str = "adaptive", **kwargs
-) -> PartialOrderingStrategy:
-    if strategy == "adaptive":
-        return AdaptiveReorderingStrategy(**kwargs)
-    return PartialOrderingStrategy()
-
-
-def apply_partial_reordering(
-    tree: Node,
-    reference_tree: Node,
+def reorder_tree_toward_destination(
+    source_tree: Node,
+    destination_tree: Node,
     active_changing_edge: Partition,
-    create_path: List[Partition],
-    collapse_path: List[Partition],
-    strategy: Optional[PartialOrderingStrategy] = None,
+    moving_subtree_partition: Partition,
 ) -> Node:
     """
-    Apply partial reordering based on the interpolation context.
-
-    Focuses on relevant local regions around the active-changing split to minimize
-    disruption to the overall tree structure.
+    Reorders a subtree by moving a specific 'moving_subtree' block to its
+    correct position relative to stable 'anchor' taxa.
     """
-    strategy = strategy or PartialOrderingStrategy()
-    target_split, _ = strategy.determine_reorder_scope(
-        active_changing_edge, create_path, collapse_path
-    )
-    # Compute a local target order and merge into a full permutation
-    partial_order = strategy.generate_partial_order(
-        tree,
-        reference_tree,
-        target_split,
-        scope="local",
-    )
+    source_subtree = source_tree.find_node_by_split(active_changing_edge)
+    dest_subtree = destination_tree.find_node_by_split(active_changing_edge)
 
-    current_global = list(tree.get_current_order())
-    po_set = set(partial_order)
-    # Merge: place taxa in partial_order first, then the remaining taxa in their current order
-    full_permutation = list(partial_order) + [
-        t for t in current_global if t not in po_set
-    ]
+    if source_subtree is None or dest_subtree is None:
+        logger.warning(
+            "Active split not found in one of the trees; skipping reordering."
+        )
+        return source_tree.deep_copy()
 
-    new_tree = tree.deep_copy()
-    new_tree.reorder_taxa(full_permutation, strategy=ReorderStrategy.MINIMUM)
+    source_order = list(source_subtree.get_current_order())
+    destination_order = list(dest_subtree.get_current_order())
+    mover_leaves = set(moving_subtree_partition.taxa)
+
+    # If mover leaves aren't in the source order, something is wrong.
+    if not mover_leaves.issubset(set(source_order)):
+        logger.warning("Mover leaves not in source order; skipping reordering.")
+        return source_tree.deep_copy()
+
+    # 1. Isolate anchors in their original relative order.
+    source_anchors = [taxon for taxon in source_order if taxon not in mover_leaves]
+
+    # 2. Find the target insertion index for the mover block within the anchors.
+    num_anchors_before = 0
+    for taxon in destination_order:
+        if taxon in mover_leaves:
+            # Found the start of the mover block in the destination.
+            # The insertion point is the number of anchors we have seen so far.
+            break
+        if taxon in source_anchors:
+            num_anchors_before += 1
+
+    # 3. Construct the new order.
+    new_order = source_anchors
+    # The mover block should maintain its internal order from the source tree.
+    mover_block_ordered = [taxon for taxon in source_order if taxon in mover_leaves]
+    new_order[num_anchors_before:num_anchors_before] = mover_block_ordered
+
+    # 4. Apply the new order to a copy of the tree.
+    new_tree = source_tree.deep_copy()
+    subtree_node_to_reorder = new_tree.find_node_by_split(active_changing_edge)
+
+    if subtree_node_to_reorder:
+        try:
+            subtree_node_to_reorder.reorder_taxa(new_order)
+        except ValueError as e:
+            logger.error(f"Failed to reorder with 'Move the Block' strategy: {e}")
+            return source_tree.deep_copy()  # Return original on failure
     return new_tree

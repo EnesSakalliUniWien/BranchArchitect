@@ -1,4 +1,5 @@
 # split.py
+from __future__ import annotations
 from typing import Tuple, FrozenSet, Dict, Iterator, List, Any, Optional
 from functools import total_ordering
 
@@ -177,6 +178,27 @@ class Partition:
             common_indices: set[int] = set(self.indices) & set(other.indices)
             return Partition(tuple(sorted(common_indices)), self.encoding)
         return NotImplemented
+
+    def __sub__(self, other: Any) -> "Partition":
+        """
+        Set-difference between partitions or partition-like inputs.
+
+        Returns a new Partition consisting of elements in self not in other.
+        Accepts another Partition or a tuple of names/indices.
+        """
+        # Determine the indices to subtract
+        if isinstance(other, Partition):
+            if self.encoding and other.encoding and self.encoding != other.encoding:
+                raise ValueError("Cannot subtract partitions with different encodings")
+            other_indices = set(other.indices)
+        else:
+            other_indices_tuple = self._tuple_to_indices(other)
+            if other_indices_tuple is None:
+                return NotImplemented
+            other_indices = set(other_indices_tuple)
+
+        result_indices = tuple(sorted(set(self.indices) - other_indices))
+        return Partition(result_indices, self.encoding)
 
     def resolve_to_indices(self) -> Tuple[int, ...]:
         """

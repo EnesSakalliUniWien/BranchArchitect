@@ -17,7 +17,7 @@ from typing import Optional
 from brancharchitect.movie_pipeline.types import (
     TreeList,
     TreePairSolution,
-    InterpolationSequence,
+    InterpolationResult,
     PipelineConfig,
 )
 from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
@@ -31,7 +31,7 @@ def process_trees(
     logger: Optional[logging.Logger] = None,
     optimization_iterations: int = 10,
     bidirectional_optimization: bool = False,
-) -> InterpolationSequence:
+) -> InterpolationResult:
     """
     Process trees through the complete pipeline.
 
@@ -43,7 +43,7 @@ def process_trees(
         bidirectional_optimization: Whether to use bidirectional optimization
 
     Returns:
-        InterpolationSequence containing all pipeline outputs
+        InterpolationResult containing all pipeline outputs
     """
     config = PipelineConfig(
         enable_rooting=enable_rooting,
@@ -57,7 +57,7 @@ def process_trees(
 __all__ = [
     "TreeList",
     "TreePairSolution",
-    "InterpolationSequence",
+    "InterpolationResult",
     "PipelineConfig",
     "TreeInterpolationPipeline",
     "process_trees",

@@ -81,82 +81,144 @@ def save_pdf_dual_location(
 
 
 def create_copyable_svg_display(
-    svg_string: str, pdf_path: Optional[str] = None
-) -> None:
+    svg,
+    pdf_path: Optional[str] = None,
+    *,
+    show_png: bool = False,
+    show_pdf_preview: bool = False,
+    lazy: bool = True,
+    return_widget: bool = False,
+):
     """
-    Display SVG content in a Jupyter notebook cell with copy, PNG, and PDF-as-PNG display.
-    Ensures only a single output cell is produced in the notebook.
+    Display SVG content in a Jupyter notebook with lightweight panels.
+
+    Goals:
+    - Avoid duplicating large SVG strings in widget state or outputs
+    - Make PNG/PDF previews optional and lazily generated
+    - Allow callers to obtain the widget and manage display themselves
+
+    Args:
+        svg: SVG as a string or xml.etree.ElementTree.Element
+        pdf_path: Optional path to a generated PDF for preview
+        show_png: Whether to include a PNG preview panel (default False)
+        show_pdf_preview: Whether to include a PDF-as-PNG preview panel (default False)
+        lazy: Generate heavy previews only on button click (default True)
+        return_widget: If True, return the Accordion instead of displaying it
     """
     import ipywidgets as widgets
     from IPython.display import display, HTML, Image
     import os
+    import xml.etree.ElementTree as ET
+
+    # Normalize input to string
+    if isinstance(svg, ET.Element):
+        svg_string = _svg_to_string(svg)
+    else:
+        svg_string = str(svg)
 
     items = []
-    # SVG Preview and Copy
-    output = widgets.Output()
-    copy_button = widgets.Button(description="Copy SVG", button_style="info")
-    text_area = widgets.Textarea(
-        value=svg_string, layout=widgets.Layout(width="100%", height="120px")
-    )
-    text_area.layout.display = "none"
 
-    def on_copy_clicked(b):
+    # SVG Preview with copy/download controls
+    svg_output = widgets.Output()
+    with svg_output:
+        display(HTML(svg_string))
+
+    copy_button = widgets.Button(description="Copy SVG", button_style="info")
+    copy_status = widgets.Label("")
+    download_button = widgets.Button(description="Download SVG", button_style="success")
+
+    def on_copy_clicked(_):
         try:
-            import pyperclip
+            import pyperclip  # type: ignore
             pyperclip.copy(svg_string)
             copy_button.description = "Copied!"
+            copy_status.value = ""
         except Exception:
-            text_area.layout.display = "block"
-            copy_button.description = "Manual Copy Below"
+            # Avoid embedding a huge textarea by default; guide the user instead
+            copy_status.value = "Install pyperclip to enable clipboard copy."
 
     copy_button.on_click(on_copy_clicked)
-    with output:
-        display(HTML(svg_string))
-    svg_box = widgets.VBox([output, widgets.HBox([copy_button]), text_area])
-    items.append(("SVG Preview", svg_box))
 
-    # PNG Preview and Copy
-    png_b64 = _svg_to_png_base64(svg_string)
-    if png_b64:
-        png_output = widgets.Output()
-        with png_output:
-            img_html = f'<img src="{png_b64}" style="max-width:100%;"/>'
-            display(HTML(img_html))
-        copy_png_button = widgets.Button(
-            description="Copy PNG (base64)", button_style="info"
+    def on_download_clicked(_):
+        # Provide a one-time HTML anchor using a data URL. Only generated if the user asks.
+        b64 = base64.b64encode(svg_string.encode("utf-8")).decode("ascii")
+        href = f"data:image/svg+xml;base64,{b64}"
+        link = HTML(
+            f'<a download="figure.svg" href="{href}" target="_blank">Click to download SVG</a>'
         )
-        png_status = widgets.Label("")
-        def on_copy_png(b):
-            try:
-                import pyperclip
-                pyperclip.copy(png_b64)
-                copy_png_button.description = "Copied!"
-            except Exception:
-                png_status.value = "Manual copy below"
-        copy_png_button.on_click(on_copy_png)
-        png_box = widgets.VBox([png_output, widgets.HBox([copy_png_button, png_status])])
-        items.append(("PNG Preview", png_box))
+        display(link)
 
-    # PDF Preview (as PNG)
-    if pdf_path and os.path.isfile(pdf_path):
-        pdf_output = widgets.Output()
-        with pdf_output:
+    download_button.on_click(on_download_clicked)
+
+    svg_controls = widgets.HBox([copy_button, download_button, copy_status])
+    items.append(("SVG Preview", widgets.VBox([svg_output, svg_controls])))
+
+    # PNG Preview (optional)
+    if show_png:
+        png_panel_output = widgets.Output()
+        if lazy:
+            gen_png_btn = widgets.Button(description="Generate PNG preview", button_style="info")
+
+            def on_gen_png(_):
+                png_b64 = _svg_to_png_base64(svg_string)
+                if png_b64:
+                    with png_panel_output:
+                        display(HTML(f'<img src="{png_b64}" style="max-width:100%;"/>'))
+
+            gen_png_btn.on_click(on_gen_png)
+            items.append(("PNG Preview", widgets.VBox([gen_png_btn, png_panel_output])))
+        else:
+            png_b64 = _svg_to_png_base64(svg_string)
+            if png_b64:
+                with png_panel_output:
+                    display(HTML(f'<img src="{png_b64}" style="max-width:100%;"/>'))
+                items.append(("PNG Preview", png_panel_output))
+
+    # PDF Preview (as PNG, optional)
+    if show_pdf_preview and pdf_path and os.path.isfile(pdf_path):
+        pdf_panel_output = widgets.Output()
+        if lazy:
+            gen_pdf_btn = widgets.Button(description="Generate PDF preview", button_style="info")
+
+            def on_gen_pdf(_):
+                try:
+                    from pdf2image import convert_from_path  # type: ignore
+                    pages = convert_from_path(pdf_path, dpi=300)
+                    if pages:
+                        tmp_png = "/tmp/_copyable_pdf_page_1.png"
+                        pages[0].save(tmp_png, "PNG")
+                        with pdf_panel_output:
+                            display(Image(filename=tmp_png))
+                except Exception as e:
+                    with pdf_panel_output:
+                        display(HTML(f'<div style="color:red">PDF preview failed: {e}</div>'))
+
+            gen_pdf_btn.on_click(on_gen_pdf)
+            items.append(("PDF Preview", widgets.VBox([gen_pdf_btn, pdf_panel_output])))
+        else:
             try:
-                from pdf2image import convert_from_path
+                from pdf2image import convert_from_path  # type: ignore
                 pages = convert_from_path(pdf_path, dpi=300)
                 if pages:
                     tmp_png = "/tmp/_copyable_pdf_page_1.png"
                     pages[0].save(tmp_png, "PNG")
-                    display(Image(filename=tmp_png))
+                    with pdf_panel_output:
+                        display(Image(filename=tmp_png))
+                items.append(("PDF Preview", pdf_panel_output))
             except Exception as e:
-                display(HTML(f'<div style="color:red">PDF to PNG preview failed: {e}</div>'))
-        items.append(("PDF Preview", pdf_output))
+                items.append(("PDF Preview", HTML(f'<div style="color:red">PDF preview failed: {e}</div>')))
 
-    # Accordion for all outputs
-    accordion = widgets.Accordion(children=[item[1] for item in items])
-    for idx, item in enumerate(items):
-        accordion.set_title(idx, item[0])
-    display(accordion)
+    # Build accordion
+    accordion_children = [panel for _, panel in items]
+    accordion = widgets.Accordion(children=accordion_children)
+    for idx, (title, _) in enumerate(items):
+        accordion.set_title(idx, title)
+
+    if return_widget:
+        return accordion
+    else:
+        display(accordion)
+        return None
 
 
 def create_pdf_display(

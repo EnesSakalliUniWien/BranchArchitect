@@ -145,9 +145,14 @@ class Node:
 
         splits: PartitionSet[Partition] = PartitionSet(encoding=self.taxa_encoding)
         for nd in self.traverse():
-            # Only add splits for internal nodes unless with_leaves is True
-            if nd.children or with_leaves:
-                splits.add(nd.split_indices)
+            # An internal node always defines a split. A leaf node only does if with_leaves is True.
+            if nd.children:
+                # Ensure the split is not empty before adding
+                if nd.split_indices:
+                    splits.add(nd.split_indices)
+            elif with_leaves:
+                if nd.split_indices:
+                    splits.add(nd.split_indices)
 
         if not with_leaves:
             self._splits_cache = splits
@@ -235,12 +240,24 @@ class Node:
         try:
             if not self.children:
                 # Leaf node - must have a name in the encoding
-                if not self.name or self.name not in encoding:
+                found_idx = None
+                # First, try direct match
+                if self.name in encoding:
+                    found_idx = encoding[self.name]
+                else:
+                    # If direct match fails, try matching stripped names
+                    stripped_name = self.name.strip()
+                    for key, idx in encoding.items():
+                        if key.strip() == stripped_name:
+                            found_idx = idx
+                            break
+
+                if found_idx is not None:
+                    self.split_indices = Partition((found_idx,), encoding)
+                else:
                     # This is likely an internal node that became a leaf after deletion
                     # but doesn't have a proper leaf name. Create an empty partition.
                     self.split_indices = Partition((), encoding)
-                else:
-                    self.split_indices = Partition((encoding[self.name],), encoding)
             else:
                 # For internal nodes, collect child indices
                 idxs: list[int] = []
@@ -370,9 +387,21 @@ class Node:
             if node.children:
                 for child in node.children:
                     _reorder(child)
-                # Sort children using selected strategy
+                # Sort children using the selected strategy.
+                # A secondary tie-breaking key from the taxa encoding is used for stability.
                 strategy_fn = sorting_strategies[strategy]
-                node.children.sort(key=lambda child: strategy_fn(child.get_leaves()))
+                node.children.sort(
+                    key=lambda child: (
+                        strategy_fn(child.get_leaves()),
+                        min(
+                            (
+                                self.taxa_encoding.get(leaf.name, float("inf"))
+                                for leaf in child.get_leaves()
+                            ),
+                            default=float("inf"),
+                        ),
+                    )
+                )
 
         _reorder(self)
         self.invalidate_caches(propagate_up=True)

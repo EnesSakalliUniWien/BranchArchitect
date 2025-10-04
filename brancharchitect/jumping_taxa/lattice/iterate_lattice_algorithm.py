@@ -57,19 +57,19 @@ def _initialize_iteration_variables(
 
     Returns:
         Tuple containing:
-        - s_edge_solutions_dict: Empty dictionary for storing s-edge -> solutions mapping
+        - jumping_subtree_solutions_dict: Empty dictionary for storing jumping subtree solutions
         - current_t1: Deep copy of first tree
         - current_t2: Deep copy of second tree
         - iteration_count: Starting iteration count (0)
     """
-    s_edge_solutions_dict: Dict[Partition, List[List[Partition]]] = {}
+    jumping_subtree_solutions_dict: Dict[Partition, List[List[Partition]]] = {}
 
     current_t1: Node = input_tree1.deep_copy()
     current_t2: Node = input_tree2.deep_copy()
     iteration_count = 0
 
     return (
-        s_edge_solutions_dict,
+        jumping_subtree_solutions_dict,
         current_t1,
         current_t2,
         iteration_count,
@@ -80,21 +80,24 @@ def iterate_lattice_algorithm(
     input_tree1: Node, input_tree2: Node, leaf_order: List[str] = []
 ) -> Dict[Partition, List[List[Partition]]]:
     """
-    Iteratively apply the lattice algorithm.
+    Iteratively apply the lattice algorithm to find jumping taxa solutions.
     Returns:
-        Dictionary mapping s-edge Partitions to their corresponding solution sets.
-        Format: {s_edge: [solution_set_1, solution_set_2, ...]}
+        Dictionary mapping active-changing splits to their corresponding jumping subtree solution sets.
+        Format: {split: [solution_set_1, solution_set_2, ...]}
 
-    Note: Only returns s-edges that exist in the original input trees to ensure
+    Each solution set contains partitions representing taxa that need to "jump" between
+    phylogenetic positions, enabling subtree rearrangements during interpolation.
+
+    Note: Only returns splits that exist in the original input trees to ensure
     they can be used for interpolation.
     """
     jt_logger.section("Iterative Lattice Algorithm")
 
-    # Original trees are passed to the mapping function for proper s-edge mapping
+    # Original trees are passed to the mapping function for proper split mapping
 
     # Initialize iteration variables using helper function
     (
-        s_edge_solutions_dict,
+        jumping_subtree_solutions_dict,
         current_t1,
         current_t2,
         iteration_count,
@@ -110,25 +113,25 @@ def iterate_lattice_algorithm(
             break
 
         # Run lattice algorithm for current iteration
-        solution_sets_this_iter, s_edges_this_iter_unmapped = lattice_algorithm(
+        solution_sets_this_iter, splits_this_iter_unmapped = lattice_algorithm(
             current_t1, current_t2, leaf_order
         )
 
-        s_edges_mapped_to_original = map_s_edges_by_jaccard_similarity(
-            s_edges_this_iter_unmapped,
+        splits_mapped_to_original = map_s_edges_by_jaccard_similarity(
+            splits_this_iter_unmapped,
             input_tree1,  # original_t1
             input_tree2,  # original_t2
         )
 
-        # Preserve all solutions by mapping each solution to its corresponding s-edge
-        for i, s_edge in enumerate(s_edges_mapped_to_original):
+        # Preserve all jumping subtree solutions by mapping each solution to its corresponding split
+        for i, split in enumerate(splits_mapped_to_original):
             if (
-                i < len(solution_sets_this_iter) and s_edge is not None
+                i < len(solution_sets_this_iter) and split is not None
             ):  # Safety check and None check
                 solutions = solution_sets_this_iter[i]
-                if s_edge not in s_edge_solutions_dict:
-                    s_edge_solutions_dict[s_edge] = []
-                s_edge_solutions_dict[s_edge].append(solutions)
+                if split not in jumping_subtree_solutions_dict:
+                    jumping_subtree_solutions_dict[split] = []
+                jumping_subtree_solutions_dict[split].append(solutions)
 
         # Identify and delete jumping taxa using helper function
         should_break_loop, _ = identify_and_delete_jumping_taxa(
@@ -140,10 +143,12 @@ def iterate_lattice_algorithm(
 
         # Summary for this iteration
         total_solutions = sum(len(sol_set) for sol_set in solution_sets_this_iter)
-        jt_logger.info(f"  Total: {total_solutions} solution(s) in this iteration")
+        jt_logger.info(
+            f"  Total: {total_solutions} jumping subtree solution(s) in this iteration"
+        )
 
-    # S-edges have already been mapped to original common splits during accumulation
-    return s_edge_solutions_dict
+    # Splits have already been mapped to original common splits during accumulation
+    return jumping_subtree_solutions_dict
 
 
 def adapter_iterate_lattice_algorithm(
@@ -163,15 +168,15 @@ def adapter_iterate_lattice_algorithm(
     Returns:
         List of tuples representing jumping taxa indices in the old format
     """
-    # Get results in new dictionary format
-    s_edge_solutions: Dict[Partition, List[List[Partition]]] = (
+    # Get results in new jumping subtree solutions format
+    jumping_subtree_solutions: Dict[Partition, List[List[Partition]]] = (
         iterate_lattice_algorithm(input_tree1, input_tree2, leaf_order)
     )
 
     # Convert to old tuple format for backward compatibility
     jumping_taxa: List[Tuple[int, ...]] = []
 
-    for _, solution_sets in s_edge_solutions.items():
+    for _, solution_sets in jumping_subtree_solutions.items():
         for solution_set in solution_sets:
             for partition in solution_set:
                 # Convert partition indices to tuple format

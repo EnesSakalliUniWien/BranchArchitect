@@ -4,9 +4,9 @@ from .types import (
     DistanceMetrics,
     TreePairSolution,
     TreeMetadata,
-    InterpolationSequence,
-    create_empty_interpolation_sequence,
-    create_single_tree_interpolation_sequence,
+    InterpolationResult,
+    create_empty_result,
+    create_single_tree_result,
 )
 
 __all__ = [
@@ -15,7 +15,7 @@ __all__ = [
     "DistanceMetrics",
     "TreePairSolution",
     "TreeMetadata",
-    "InterpolationSequence",
-    "create_empty_interpolation_sequence",
-    "create_single_tree_interpolation_sequence",
+    "InterpolationResult",
+    "create_empty_result",
+    "create_single_tree_result",
 ]

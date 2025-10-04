@@ -8,7 +8,7 @@ from .tree_pair_solution import TreePairSolution
 from .tree_meta_data import TreeMetadata
 
 
-class InterpolationSequence(TypedDict):
+class InterpolationResult(TypedDict):
     """
     Complete result of the tree interpolation pipeline with flattened, globally-indexed structure.
 
@@ -61,7 +61,7 @@ class InterpolationSequence(TypedDict):
 
     # Analyze specific tree pair
     pair_solution = result.tree_pair_solutions["pair_1_2"]
-    lattice_data = pair_solution.lattice_edge_solutions
+    lattice_data = pair_solution.jumping_subtree_solutions
     mappings = (pair_solution.mapping_one, pair_solution.mapping_two)
     ```
 
@@ -158,14 +158,14 @@ class InterpolationSequence(TypedDict):
         "pair_{source_idx}_{target_idx}" (e.g., "pair_0_1", "pair_1_2")
 
     TreePairSolution Contents:
-        - lattice_edge_solutions: Raw lattice algorithm results
+        - jumping_subtree_solutions: Raw lattice algorithm results
         - mapping_one/mapping_two: Solution-to-atom mappings for both trees
         - ancestor_of_changing_splits: Sequence of ancestor splits associated with each step
 
     Usage Examples:
         # Access specific pair data
         pair_data = tree_pair_solutions["pair_1_2"]
-        lattice_solutions = pair_data.lattice_edge_solutions
+        lattice_solutions = pair_data.jumping_subtree_solutions
 
         # Iterate over all pairs
         for pair_key, solution in tree_pair_solutions.items():
@@ -238,16 +238,38 @@ class InterpolationSequence(TypedDict):
     Use: Performance monitoring, pipeline optimization, progress reporting
     """
 
+    pair_interpolation_ranges: List[List[int]]
+    """
+    Global index ranges [start, end] for each pair's interpolated trees.
+    
+    For each tree pair i->i+1, gives the [start, end] indices where the interpolated 
+    trees for that pair appear in the global interpolated_trees sequence.
+    
+    Example: [[1, 3], [5, 7]] means:
+    - Pair 0->1: interpolated trees at global indices 1, 2, 3
+    - Pair 1->2: interpolated trees at global indices 5, 6, 7
+    """
 
-def create_single_tree_interpolation_sequence(
+
+def create_single_tree_result(
     trees: List[Node],
-) -> InterpolationSequence:
-    """Create an InterpolationSequence for a single tree case."""
+) -> InterpolationResult:
+    """Create an InterpolationResult for a single tree case."""
 
     # Create metadata for the single tree
-    tree_metadata = [TreeMetadata(global_tree_index=0, tree_pair_key=None, step_in_pair=None)]
+    tree_metadata = [
+        TreeMetadata(
+            global_tree_index=0,
+            tree_pair_key=None,
+            step_in_pair=None,
+            reference_pair_tree_index=None,
+            target_pair_tree_index=None,
+            source_tree_global_index=None,
+            target_tree_global_index=None,
+        )
+    ]
 
-    return InterpolationSequence(
+    return InterpolationResult(
         interpolated_trees=trees,
         tree_metadata=tree_metadata,
         tree_pair_solutions={},
@@ -258,12 +280,13 @@ def create_single_tree_interpolation_sequence(
         original_tree_count=1,
         interpolated_tree_count=1,
         processing_time=0.0,
+        pair_interpolation_ranges=[],
     )
 
 
-def create_empty_interpolation_sequence() -> InterpolationSequence:
-    """Create an empty InterpolationSequence for edge cases like empty tree lists."""
-    return InterpolationSequence(
+def create_empty_result() -> InterpolationResult:
+    """Create an empty InterpolationResult for edge cases like empty tree lists."""
+    return InterpolationResult(
         interpolated_trees=[],
         tree_metadata=[],
         tree_pair_solutions={},
@@ -274,4 +297,5 @@ def create_empty_interpolation_sequence() -> InterpolationSequence:
         original_tree_count=0,
         interpolated_tree_count=0,
         processing_time=0.0,
+        pair_interpolation_ranges=[],
     )

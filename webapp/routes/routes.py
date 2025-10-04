@@ -12,7 +12,7 @@ from flask import Response
 from flask import Blueprint, current_app, jsonify, request, send_from_directory
 from brancharchitect.io import UUIDEncoder
 from werkzeug.datastructures.file_storage import FileStorage
-from services.tree_processing_service import handle_uploaded_file
+from webapp.services.tree_processing_service import handle_uploaded_file
 from typing import Union, Tuple
 
 bp = Blueprint("main", __name__)

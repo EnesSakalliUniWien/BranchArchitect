@@ -18,11 +18,18 @@ class LatticeEdgeData:
     """Structured data for lattice edge processing."""
 
     def __init__(
-        self, edges: List[Partition], solutions: Dict[Partition, List[List[Partition]]]
+        self,
+        edges: List[Partition],
+        jumping_subtree_solutions: Dict[Partition, List[List[Partition]]],
     ):
         self.edges: List[Partition] = edges
-        self.solutions: Dict[Partition, List[List[Partition]]] = solutions
+
+        self.jumping_subtree_solutions: Dict[Partition, List[List[Partition]]] = (
+            jumping_subtree_solutions
+        )
+
         self.target_depths: Dict[Partition, float] = {}
+
         self.reference_depths: Dict[Partition, float] = {}
 
     def compute_depths(self, target: Node, reference: Node) -> None:

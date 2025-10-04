@@ -8,7 +8,7 @@ extracting data, and managing the interpolation workflow.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Callable
+from typing import Any, Dict, List, Optional, Tuple
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
@@ -19,22 +19,7 @@ from brancharchitect.tree_interpolation.consensus_tree.intermediate_tree import 
     create_subtree_grafted_tree,
     calculate_intermediate_implicit,
 )
-from .reordering import (
-    apply_partial_reordering,
-    create_reordering_strategy,  # type: ignore
-    PartialOrderingStrategy,
-)
-
-# Type alias for the reordering strategy function
-ReorderingStrategyFunc = Callable[..., PartialOrderingStrategy]
-
-
-def _create_reordering_strategy_safe(
-    strategy: str = "adaptive", distance_threshold: float = 0.2
-) -> PartialOrderingStrategy:
-    """Wrapper for create_reordering_strategy with proper typing."""
-    return create_reordering_strategy(strategy, distance_threshold=distance_threshold)
-
+from .reordering import reorder_tree_toward_destination
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -57,8 +42,12 @@ def extract_filtered_paths(
     exclusions = {active_changing_edge, subtree_partition}
 
     # Extract path segments - now guaranteed to be lists from builder
-    expand_segments = selection.get("expand", {}).get("path_segment", []) or []
-    collapse_segments = selection.get("collapse", {}).get("path_segment", []) or []
+    expand_segments: List[Partition] = selection.get("expand", {}).get(
+        "path_segment", []
+    )
+    collapse_segments: List[Partition] = selection.get("collapse", {}).get(
+        "path_segment", []
+    )
 
     expand_path: List[Partition] = [p for p in expand_segments if p not in exclusions]
 
@@ -84,15 +73,32 @@ def apply_reference_weights_to_path(
             node.length = reference_weights.get(ref_split, 1)
 
 
+def add_step(
+    trees: List[Node],
+    edges: List[Optional[Partition]],
+    tree: Node,
+    edge: Optional[Partition],
+    subtree: Partition,
+) -> None:
+    """Add a tree and edge to the collection of microsteps.
+
+    Args:
+        trees: List to append the tree to
+        edges: List to append the edge to
+        tree: The tree to add
+        edge: The edge to add
+        subtree: The subtree partition (used internally for computations)
+    """
+    # subtree still used internally for computations above; not tracked anymore
+    trees.append(tree)
+    edges.append(edge)
+
+
 def build_microsteps_for_selection(
     interpolation_state: Node,
-    reference_tree: Node,
-    reference_weights: Dict[Partition, float],
+    destination_tree: Node,
     active_changing_edge: Partition,
     selection: Dict[str, Any],
-    tree_index: int,
-    active_changing_edge_ordinal: int,
-    step_idx: int,
 ) -> Tuple[List[Node], List[Optional[Partition]], Node]:
     """
     Build the 5 microsteps for a single selection under an active-changing edge.
@@ -100,17 +106,12 @@ def build_microsteps_for_selection(
     Steps:
     - IT_down: collapse zeros inside the subtree selection
     - C: collapse zero-length branches to consensus
-    - C_reorder: partially reorder to match the reference
+    - C_reorder: partially reorder to match the destination
     - IT_up: graft the reference path while preserving order
     - IT_ref: apply final reference weights on the grafted path
     """
     trees: List[Node] = []
     edges: List[Optional[Partition]] = []
-
-    def add_step(tree: Node, edge: Optional[Partition], subtree: Partition) -> None:
-        # subtree still used internally for computations above; not tracked anymore
-        trees.append(tree)
-        edges.append(edge)
 
     # Extract and filter path segments using the modularized function
     subtree_partition = selection["subtree"]
@@ -124,6 +125,8 @@ def build_microsteps_for_selection(
     )
 
     add_step(
+        trees,
+        edges,
         it_down,
         active_changing_edge,
         subtree_partition,
@@ -131,26 +134,24 @@ def build_microsteps_for_selection(
 
     collapsed: Node = create_collapsed_consensus_tree(it_down, active_changing_edge)
     add_step(
+        trees,
+        edges,
         collapsed,
         active_changing_edge,
         subtree_partition,
     )
 
     # Apply partial reordering based on the interpolation context
-    reordering_strategy = _create_reordering_strategy_safe(
-        "adaptive", distance_threshold=0.2
-    )
-
-    reordered: Node = apply_partial_reordering(
-        tree=collapsed,
-        reference_tree=reference_tree,
+    reordered: Node = reorder_tree_toward_destination(
+        source_tree=collapsed,
+        destination_tree=destination_tree,
         active_changing_edge=active_changing_edge,
-        create_path=expand_path,
-        collapse_path=collapse_path,
-        strategy=reordering_strategy,
+        moving_subtree_partition=subtree_partition,
     )
 
     add_step(
+        trees,
+        edges,
         reordered,
         active_changing_edge,
         subtree_partition,
@@ -160,25 +161,34 @@ def build_microsteps_for_selection(
     pre_snap_reordered: Node = create_subtree_grafted_tree(
         base_tree=reordered,
         ref_path_to_build=expand_path,
-        reference_tree=reference_tree,
-        target_ordering_edge=active_changing_edge,
     )
 
+    pre_snap_reordered.reorder_taxa(reordered.get_current_order())
+
     snapped_tree: Node = pre_snap_reordered.deep_copy()
+
+    pre_snap_reordered.reorder_taxa(reordered.get_current_order())
+
+    # Extract destination weights from the destination tree
+    destination_weights: Dict[Partition, float] = destination_tree.to_weighted_splits()
 
     apply_reference_weights_to_path(
         snapped_tree,
         expand_path,
-        reference_weights,
+        destination_weights,
     )
 
     add_step(
+        trees,
+        edges,
         pre_snap_reordered,
         active_changing_edge,
         subtree_partition,
     )
 
     add_step(
+        trees,
+        edges,
         snapped_tree,
         active_changing_edge,
         subtree_partition,

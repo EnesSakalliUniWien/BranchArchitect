@@ -6,7 +6,7 @@ process, including result containers and intermediate data representations.
 """
 
 from __future__ import annotations
-from typing import List, Dict, TypedDict, Optional
+from typing import List, Dict, TypedDict
 from brancharchitect.elements.partition import Partition
 
 
@@ -16,4 +16,4 @@ class PairData(TypedDict):
     mapping_one: Dict[Partition, Partition]
     mapping_two: Dict[Partition, Partition]
     s_edge_length: int
-    lattice_solutions: Dict[Partition, List[List[Partition]]]
+    jumping_subtree_solutions: Dict[Partition, List[List[Partition]]]

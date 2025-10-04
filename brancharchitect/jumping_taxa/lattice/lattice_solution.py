@@ -1,10 +1,10 @@
-"""
-Simplified LatticeSolutions class with proper Pydantic configuration.
-"""
-
-from pydantic import ConfigDict
+from __future__ import annotations
 from typing import Dict, List, Tuple, Union, Sequence
 from brancharchitect.elements.partition_set import Partition, PartitionSet
+
+"""
+Simplified LatticeSolutions class with no external dependencies.
+"""
 
 
 class LatticeSolutions:
@@ -17,15 +17,6 @@ class LatticeSolutions:
 
     Simplified from the original implementation to focus on core functionality.
     """
-
-    # Add Pydantic config to allow arbitrary types
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    # Custom JSON schema generation to bypass schema errors
-    @classmethod
-    def __get_pydantic_json_schema__(cls, **kwargs: object) -> dict[str, object]:
-        # kwargs is required by Pydantic but not used here
-        return {"title": "LatticeSolutions", "type": "object"}
 
     def __init__(self):
         """
@@ -178,9 +169,10 @@ class LatticeSolutions:
         """
         Get the single smallest solution for a specific edge and visit.
 
-        Among all solutions with minimal indices sum, this returns the one
-        with the absolute smallest indices sum. This addresses the requirement
-        to select "the smallest one" rather than an arbitrary first solution.
+        Selection criteria (in order):
+        1) Fewest elements (partitions) in the solution
+        2) Smallest partition sizes (compare sorted size tuples lexicographically)
+        3) Deterministic fallback: lexicographically smallest tuple of partition bitmasks
 
         Args:
             s_edge: The edge to query
@@ -189,20 +181,27 @@ class LatticeSolutions:
         Returns:
             The single smallest solution, or None if no solutions exist
         """
-        minimal_solutions = self.get_minimal_by_indices_sum(s_edge, visit)
+        solutions = self.get_solutions_for_edge_visit(s_edge, visit)
 
-        if not minimal_solutions:
+        if not solutions:
             return None
 
-        if len(minimal_solutions) == 1:
-            return minimal_solutions[0]
+        if len(solutions) == 1:
+            return solutions[0]
 
-        # Among minimal solutions, find the one with the absolute smallest sum
-        def calculate_indices_sum(solution: PartitionSet[Partition]) -> int:
-            """Calculate the sum of lengths of all partition indices in the solution."""
-            return sum(len(partition.indices) for partition in solution)
+        def solution_key(sol: PartitionSet[Partition]) -> tuple[int, tuple[int, ...], tuple[int, ...]]:
+            def _popcount(x: int) -> int:
+                try:
+                    return x.bit_count()
+                except AttributeError:
+                    return bin(x).count("1")
 
-        return min(minimal_solutions, key=calculate_indices_sum)
+            num_parts = len(sol)
+            sizes_tuple = tuple(sorted((_popcount(p.bitmask) for p in sol)))
+            mask_tuple = tuple(sorted((p.bitmask for p in sol)))
+            return (num_parts, sizes_tuple, mask_tuple)
+
+        return min(solutions, key=solution_key)
 
     def get_solutions_grouped_by_visit_and_edge(
         self,

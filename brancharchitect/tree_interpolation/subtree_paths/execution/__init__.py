@@ -2,16 +2,10 @@
 
 from .microsteps import build_microsteps_for_selection
 from .reordering import (
-    PartialOrderingStrategy,
-    AdaptiveReorderingStrategy,
-    apply_partial_reordering,
-    create_reordering_strategy,
+    reorder_tree_toward_destination,
 )
 
 __all__ = [
     "build_microsteps_for_selection",
-    "PartialOrderingStrategy",
-    "AdaptiveReorderingStrategy",
-    "apply_partial_reordering",
-    "create_reordering_strategy",
+    "reorder_tree_toward_destination",
 ]

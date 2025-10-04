@@ -21,7 +21,7 @@ from brancharchitect.tree_interpolation.types.lattice_edge_data import (
 
 # Optimizer-side utilities
 from brancharchitect.leaforder.rotation_functions import (
-    get_s_edge_splits,
+    get_active_changing_splits,
 )
 from brancharchitect.jumping_taxa.lattice.depth_computation import (
     compute_lattice_edge_depths,
@@ -44,7 +44,7 @@ def _interpolation_order(target: Node, reference: Node) -> List[Tuple[int, ...]]
 
 def _optimizer_order(target: Node, reference: Node) -> List[Tuple[int, ...]]:
     # Use the same ordering as optimizer: depth map + deterministic ties
-    s_edges = list(get_s_edge_splits(reference, target))  # optimizer uses (ref, target)
+    s_edges = list(get_active_changing_splits(reference, target))  # optimizer uses (ref, target)
     if not s_edges:
         return []
     depth_map = compute_lattice_edge_depths(s_edges, target)

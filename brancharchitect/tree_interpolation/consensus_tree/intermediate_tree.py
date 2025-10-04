@@ -109,8 +109,6 @@ def _calculate_intermediate_ordered(
 def create_subtree_grafted_tree(
     base_tree: Node,
     ref_path_to_build: list[Partition],
-    reference_tree: Optional[Node] = None,
-    target_ordering_edge: Optional[Partition] = None,
 ) -> Node:
     """
     Create grafted tree with order-preserving split application.
@@ -133,30 +131,4 @@ def create_subtree_grafted_tree(
             # Apply the split to the base tree
             apply_split_in_tree(ref_split, grafted_tree)
 
-    # If reference tree and target edge provided, apply ordering immediately after grafting
-    if reference_tree is not None and target_ordering_edge is not None:
-        grafted_tree = _apply_order_preserving_graft(
-            grafted_tree, reference_tree, target_ordering_edge
-        )
-
-    return grafted_tree
-
-
-def _apply_order_preserving_graft(
-    grafted_tree: Node, reference_tree: Node, target_edge: Partition
-) -> Node:
-    """
-    Apply reference tree ordering to grafted tree at specific edge.
-    This eliminates the need for post-grafting reordering.
-    """
-    target_node = reference_tree.find_node_by_split(target_edge)
-    graft_node = grafted_tree.find_node_by_split(target_edge)
-
-    if target_node and graft_node:
-        correct_leaf_order = list(target_node.get_current_order())
-        try:
-            graft_node.reorder_taxa(correct_leaf_order)
-        except ValueError as e:
-            # Fallback: preserve existing order if reordering fails
-            logger.warning(f"Order-preserving graft failed for {target_edge}: {e}")
     return grafted_tree

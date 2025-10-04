@@ -18,7 +18,6 @@ def main():
     """Main entry point for the development server."""
     import sys
     import traceback
-    import logging
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="0.0.0.0")
@@ -40,7 +39,7 @@ def main():
         app.run(host=args.host, port=args.port, debug=debug_mode)
     except Exception as e:
         # If app creation failed, fallback to stderr
-        if 'app' in locals() and hasattr(app, 'logger'):
+        if "app" in locals() and hasattr(app, "logger"):
             app.logger.error(f"[ERROR] Failed to start server: {e}", exc_info=True)
         else:
             print(f"[ERROR] Failed to start server: {e}", file=sys.stderr)

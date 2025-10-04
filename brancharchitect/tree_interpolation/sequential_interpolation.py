@@ -10,15 +10,16 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import List, Optional, Dict, Callable, Any
+from typing import List, Optional, Dict
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.types import (
     TreeInterpolationSequence,
+    TreePairInterpolation,
 )
-from brancharchitect.tree_interpolation.active_changing_split_interpolation import (
-    build_active_changing_split_interpolation_sequence,
+from brancharchitect.tree_interpolation.pair_interpolation import (
+    process_tree_pair_interpolation,
 )
 
 __all__: List[str] = [
@@ -27,153 +28,158 @@ __all__: List[str] = [
 ]
 
 
-# collect_pair_results helper is no longer necessary with the stateful builder.
-
-
 class SequentialInterpolationBuilder:
     """
-    Stateful builder that constructs sequential interpolations across adjacent tree pairs.
+    Stateful builder for constructing sequential lattice interpolations.
 
-    - Keeps intermediate lists as instance attributes for inspection after build().
-    - Resets internal state at the start of each build() to avoid cross-run leakage.
-    - Uses the module's pair processor by default, but can be customized.
+    Builds smooth phylogenetic tree animations by processing consecutive tree pairs
+    and maintaining state for inspection and debugging. Features include:
+
+    - Stateful design preserving intermediate results for analysis
+    - Automatic state reset between builds to prevent cross-run contamination
+    - Configurable pair processing with optional precomputed solutions
+    - Comprehensive logging and performance tracking
+    - Data integrity validation ensuring 1:1 correspondence between trees and metadata
+
+    The builder processes tree pairs sequentially, generating interpolated trees
+    between each consecutive pair and maintaining complete metadata tracking.
     """
 
     def __init__(
         self,
-        pair_processor: Optional[
-            Callable[
-                [Node, Node, int, Optional[Dict[Partition, List[List[Partition]]]]], Any
-            ]
-        ] = None,
         logger: Optional[logging.Logger] = None,
         precomputed_pair_solutions: Optional[
             List[Optional[Dict[Partition, List[List[Partition]]]]]
         ] = None,
     ):
-        # Default to the active-changing split interpolation function
-        self.pair_processor: Callable[
-            [Node, Node, int, Optional[Dict[Partition, List[List[Partition]]]]], Any
-        ] = pair_processor or build_active_changing_split_interpolation_sequence
+        """
+        Initialize the sequential interpolation builder.
+
+        Args:
+            logger: Logger instance for operation tracking.
+                If None, uses the module's default logger.
+            precomputed_pair_solutions: Pre-calculated lattice solutions for each pair.
+                Can significantly speed up processing when available.
+        """
+        # Configure logging with fallback to module logger
         self.logger = logger or logging.getLogger(__name__)
+
         self.precomputed_pair_solutions = precomputed_pair_solutions
-        self._reset()
+        self._initialize_build_state()
 
-    def _reset(self) -> None:
-        self.results: List[Node] = []
-        self.mappings_one: List[Dict[Partition, Partition]] = []
-        self.mappings_two: List[Dict[Partition, Partition]] = []
-        self.active_changing_split_tracking: List[Optional[Partition]] = []
-        self.pair_interpolated_tree_counts: List[int] = []
-        self.lattice_solutions_list: List[Dict[Partition, List[List[Partition]]]] = []
+    def _initialize_build_state(self) -> None:
+        """Initialize all state variables for a fresh interpolation build."""
+        self.interpolated_trees: List[Node] = []
+        self.source_mappings: List[Dict[Partition, Partition]] = []
+        self.target_mappings: List[Dict[Partition, Partition]] = []
+        self.active_split_tracking: List[Optional[Partition]] = []
+        self.pair_tree_counts: List[int] = []
+        self.jumping_subtree_solutions: List[
+            Optional[Dict[Partition, List[List[Partition]]]]
+        ] = []
         # Deprecated: subtree tracking removed
-        self.last_result: Optional[TreeInterpolationSequence] = None
+        self.last_build_result: Optional[TreeInterpolationSequence] = None
 
-    @staticmethod
-    def _normalize_len(
-        seq: Optional[List[Optional[Partition]]],
-        target_len: int,
-        fill: Optional[Partition] = None,
-        label: str = "seq",
-        logger: Optional[logging.Logger] = None,
-    ) -> List[Optional[Partition]]:
-        if seq is None:
-            return [fill] * target_len
-        data = list(seq)
-        if len(data) == target_len:
-            return data
-        if logger is not None:
-            logger.warning(
-                f"{label} length {len(data)} != expected {target_len}; normalizing"
+    def _process_pair(
+        self,
+        t1: Node,
+        t2: Node,
+        pair_index: int,
+        precomputed_solution: Optional[Dict[Partition, List[List[Partition]]]],
+    ) -> None:
+        """Process a single tree pair and collect the results into the builder's state."""
+        pair_processing_start_time = time.perf_counter()
+        interpolation_result: TreePairInterpolation = process_tree_pair_interpolation(
+            t1.deep_copy(), t2.deep_copy(), precomputed_solution
+        )
+        processing_duration = time.perf_counter() - pair_processing_start_time
+
+        self.logger.debug(
+            f"Processed T{pair_index}→T{pair_index + 1} in {processing_duration:.3f}s; generated {len(interpolation_result.trees)} trees"
+        )
+
+        # Collect results into stateful attributes
+        self.interpolated_trees.extend(interpolation_result.trees)
+
+        interpolated_tree_count = len(interpolation_result.trees)
+
+        # Trees and tracking should have 1:1 correspondence from interpolation
+        if interpolation_result.active_changing_split_tracking is not None:
+            self.active_split_tracking.extend(
+                interpolation_result.active_changing_split_tracking
             )
-        if len(data) < target_len:
-            return data + [fill] * (target_len - len(data))
-        return data[:target_len]
 
-    def build(self, tree_list: List[Node]) -> TreeInterpolationSequence:
-        if len(tree_list) < 2:
+        self.pair_tree_counts.append(interpolated_tree_count)
+
+        self.jumping_subtree_solutions.append(
+            interpolation_result.jumping_subtree_solutions
+        )
+
+    def _get_precomputed_solution(
+        self, pair_index: int
+    ) -> Optional[Dict[Partition, List[List[Partition]]]]:
+        """Retrieve the precomputed solution for a given pair index."""
+        if self.precomputed_pair_solutions is not None:
+            return self.precomputed_pair_solutions[pair_index]
+        return None
+
+    def _add_delimiter_frame(self, tree: Node) -> None:
+        """Add an original tree and a None tracker to the sequence as a delimiter."""
+        self.interpolated_trees.append(tree)
+        self.active_split_tracking.append(None)
+
+    def _finalize_sequence(self, original_tree_count: int) -> TreeInterpolationSequence:
+        """Construct the final sequence object and log a summary."""
+        self.logger.info(
+            f"Completed interpolation sequence: {len(self.interpolated_trees)} total trees from {original_tree_count} originals + {sum(self.pair_tree_counts)} interpolated"
+        )
+        self.last_build_result = TreeInterpolationSequence(
+            interpolated_trees=self.interpolated_trees,
+            mapping_one=self.source_mappings,
+            mapping_two=self.target_mappings,
+            active_changing_split_tracking=self.active_split_tracking,
+            pair_interpolated_tree_counts=self.pair_tree_counts,
+            jumping_subtree_solutions_list=self.jumping_subtree_solutions,
+        )
+        return self.last_build_result
+
+    def build(self, trees: List[Node]) -> TreeInterpolationSequence:
+        """Build sequential interpolations between consecutive tree pairs."""
+        if len(trees) < 2:
             raise ValueError("Need at least 2 trees for interpolation")
 
-        # Reset state for a fresh build
-        self._reset()
+        # Initialize state for a fresh build
+        self._initialize_build_state()
 
         self.logger.info(
-            f"Building sequential lattice interpolations for {len(tree_list)} trees ({len(tree_list) - 1} pairs)"
+            f"Building sequential lattice interpolations for {len(trees)} trees ({len(trees) - 1} pairs)"
         )
 
-        for i in range(len(tree_list) - 1):
-            # Add original tree to sequence
-            self.results.append(tree_list[i])
-            self.active_changing_split_tracking.append(None)
-            # subtree tracking removed
+        for pair_index in range(len(trees) - 1):
+            self._add_delimiter_frame(trees[pair_index])
 
-            # Process tree pair (work on copies to avoid side effects)
-            t0 = time.perf_counter()
-            pre_sol = None
-            if self.precomputed_pair_solutions is not None and i < len(
-                self.precomputed_pair_solutions
-            ):
-                pre_sol = self.precomputed_pair_solutions[i]
-            pair_result: Any = self.pair_processor(
-                tree_list[i].deep_copy(),
-                tree_list[i + 1].deep_copy(),
-                i,
-                pre_sol,
-            )
-            pair_elapsed = time.perf_counter() - t0
+            # Safely get the precomputed solution for the current pair.
+            precomputed_solution = self._get_precomputed_solution(pair_index)
 
-            self.logger.debug(
-                f"Processed T{i}→T{i + 1} in {pair_elapsed:.3f}s; generated {len(pair_result.trees)} trees"
+            self._process_pair(
+                trees[pair_index],
+                trees[pair_index + 1],
+                pair_index,
+                precomputed_solution,
             )
 
-            # Collect results into stateful attributes
-            self.results.extend(pair_result.trees)
-            num_pair_trees = len(pair_result.trees)
-            self.mappings_one.append(pair_result.mapping_one)
-            self.mappings_two.append(pair_result.mapping_two)
+        self._add_delimiter_frame(trees[-1])
 
-            # Normalize s-edge tracking to align 1:1 with trees
-            track_list = self._normalize_len(
-                getattr(pair_result, "active_changing_split_tracking", None),
-                num_pair_trees,
-                fill=None,
-                label="s_edge_tracking",
-                logger=self.logger,
-            )
-
-            self.active_changing_split_tracking.extend(track_list)
-            # Count total generated trees per pair for reporting
-            self.pair_interpolated_tree_counts.append(num_pair_trees)
-
-            self.lattice_solutions_list.append(pair_result.lattice_edge_solutions)
-            # distances removed
-
-        # Add the final original tree to complete the sequence
-        self.results.append(tree_list[-1])
-        self.active_changing_split_tracking.append(None)
-        # subtree tracking removed
-        self.logger.info(
-            f"Completed interpolation sequence: {len(self.results)} total trees from {len(tree_list)} originals + {sum(self.pair_interpolated_tree_counts)} interpolated"
-        )
-
-        self.last_result = TreeInterpolationSequence(
-            interpolated_trees=self.results,
-            mapping_one=self.mappings_one,
-            mapping_two=self.mappings_two,
-            active_changing_split_tracking=self.active_changing_split_tracking,
-            pair_interpolated_tree_counts=self.pair_interpolated_tree_counts,
-            lattice_solutions_list=self.lattice_solutions_list,
-        )
-        return self.last_result
+        return self._finalize_sequence(len(trees))
 
 
 def build_sequential_lattice_interpolations(
-    tree_list: List[Node],
+    trees: List[Node],
     precomputed_pair_solutions: Optional[
         List[Optional[Dict[Partition, List[List[Partition]]]]]
     ] = None,
 ) -> TreeInterpolationSequence:
-    """Backwards-compatible wrapper that uses the stateful builder."""
+    """Build sequential lattice interpolations between consecutive tree pairs."""
     return SequentialInterpolationBuilder(
         precomputed_pair_solutions=precomputed_pair_solutions
-    ).build(tree_list)
+    ).build(trees)

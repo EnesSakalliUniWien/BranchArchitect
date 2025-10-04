@@ -56,20 +56,35 @@ class InterpolationState:
         """
         self.encoding = active_changing_edge.encoding
         self.all_collapsible_splits: PartitionSet[Partition] = all_collapse_splits
+        # Track all expand splits globally (needed for final aggregation queries)
+        self.all_expand_splits: PartitionSet[Partition] = all_expand_splits
 
-        all_unique_expand_splits: PartitionSet[Partition] = PartitionSet(
+        # Collect union of all subtree-assigned expand splits (primary expand splits)
+        all_primary_expand_splits: PartitionSet[Partition] = PartitionSet(
             encoding=self.encoding
         )
         for subtree_expand_splits in expand_splits_by_subtree.values():
-            all_unique_expand_splits |= subtree_expand_splits
+            all_primary_expand_splits |= subtree_expand_splits
 
-        self.available_compatible_splits = all_expand_splits - all_unique_expand_splits
+        # ========================================================================
+        # Contingent Split Tracking
+        # ========================================================================
+        # These are expand splits that aren't assigned to any specific subtree.
+        # They can be opportunistically used when collapse operations create space.
+        self.available_contingent_splits: PartitionSet[Partition] = (
+            all_expand_splits - all_primary_expand_splits
+        )
         self.collapse_splits_by_subtree = collapse_splits_by_subtree
         self.expand_splits_by_subtree = expand_splits_by_subtree
         self.processed_subtrees: PartitionSet[Partition] = PartitionSet(
             encoding=self.encoding
         )
-        self.used_compatible_splits: PartitionSet[Partition] = PartitionSet(
+        # Track which contingent (opportunistic) expand splits have been used
+        self.used_contingent_splits: PartitionSet[Partition] = PartitionSet(
+            encoding=self.encoding
+        )
+        # Track which (non-contingent) expand splits have been processed via subtrees
+        self.used_expand_splits: PartitionSet[Partition] = PartitionSet(
             encoding=self.encoding
         )
 
@@ -185,6 +200,7 @@ class InterpolationState:
         subtree: Partition,
         processed_collapse_splits: PartitionSet[Partition],
         processed_expand_splits: PartitionSet[Partition],
+        processed_contingent_splits: PartitionSet[Partition],
     ) -> None:
         """Mark splits as processed by removing them from all data structures."""
         for split in processed_collapse_splits:
@@ -192,8 +208,14 @@ class InterpolationState:
 
         for split in processed_expand_splits:
             self._delete_expand_split(split)
+            self.used_expand_splits.add(split)
 
-        # FIX: Clean up empty subtree entries to prevent endless loops
+        # Ensure contingent splits are marked as used and removed from availability.
+        if processed_contingent_splits:
+            self.used_contingent_splits |= processed_contingent_splits
+            self.available_contingent_splits -= processed_contingent_splits
+
+        # Clean up empty subtree entries to prevent endless loops
         self._cleanup_empty_subtree_entries()
 
     # ============================================================================
@@ -205,9 +227,9 @@ class InterpolationState:
         Selects the next subtree to process based on a clear priority system.
 
         Priority Order (lower is better):
-        1. (Priority 0): Subtrees with shared COLLAPSE splits. Tie-breaker: fewer shared splits.
+        1. (Priority 0): Subtrees with shared COLLAPSE splits. Tie-breaker: most shared splits.
         2. (Priority 1): Subtrees with only unique splits (no shared dependencies).
-        3. (Priority 2): Subtrees with shared EXPAND splits. Tie-breaker: fewer shared splits.
+        3. (Priority 2): Subtrees with shared EXPAND splits. Tie-breaker: most shared splits.
         """
         unprocessed_subtrees = (
             set(self.collapse_splits_by_subtree.keys())
@@ -224,13 +246,15 @@ class InterpolationState:
 
             shared_collapse = self.get_available_shared_collapse_splits(subtree)
             if len(shared_collapse) > 0:
-                priority_score = (0, len(shared_collapse), tie_breaker, subtree)
+                # Negate length to sort by most shared splits first
+                priority_score = (0, -len(shared_collapse), tie_breaker, subtree)
                 candidates.append(priority_score)
                 continue
 
             shared_expand = self.get_available_shared_expand_splits(subtree)
             if len(shared_expand) > 0:
-                priority_score = (2, len(shared_expand), tie_breaker, subtree)
+                # Negate length to sort by most shared splits first
+                priority_score = (2, -len(shared_expand), tie_breaker, subtree)
                 candidates.append(priority_score)
                 continue
 
@@ -260,39 +284,32 @@ class InterpolationState:
             candidate_splits=all_available_collapse_splits,
         )
 
-    def consume_compatible_expand_splits_for_subtree(
+    def consume_contingent_expand_splits_for_subtree(
         self,
         subtree: Partition,
         collapsed_splits: PartitionSet[Partition],
     ) -> PartitionSet[Partition]:
         """
-        Finds compatible expand splits for this subtree AND marks them as used.
+        Finds contingent expand splits for this subtree.
         This is an atomic operation to prevent reuse.
         """
-        compatible_splits: PartitionSet[Partition] = PartitionSet(
-            encoding=self.encoding
-        )
-
         if not collapsed_splits:
-            return compatible_splits
+            return PartitionSet(encoding=self.encoding)
 
-        # Use ALL collapsed splits (shared + unique) to find the biggest one
+        # Identify contingent splits: those that are unused and fit entirely within
+        # the largest collapsed partition.
         biggest_collapsed: Partition = max(
             collapsed_splits, key=lambda split: len(split.indices)
         )
+        biggest_collapsed_indices = set(biggest_collapsed.indices)
 
-        # Find splits that are subsets of the collapsed area and not already used
-        for expand_split in self.available_compatible_splits:
-            is_subset = set(expand_split.indices).issubset(
-                set(biggest_collapsed.indices)
-            )
-            if is_subset and expand_split not in self.used_compatible_splits:
-                compatible_splits.add(expand_split)
-
-        # FIX: Immediately mark the found splits as used to prevent reuse.
-        self.used_compatible_splits |= compatible_splits
-
-        return compatible_splits
+        contingent_generator = (
+            expand_split
+            for expand_split in self.available_contingent_splits
+            if expand_split not in self.used_contingent_splits
+            and set(expand_split.indices).issubset(biggest_collapsed_indices)
+        )
+        return PartitionSet(set(contingent_generator), encoding=self.encoding)
 
     # ============================================================================
     # 6. Remaining Work Queries
@@ -318,17 +335,27 @@ class InterpolationState:
         )
         return any(sub not in self.processed_subtrees for sub in all_subtrees)
 
-    def get_all_remaining_expand_splits(self) -> PartitionSet[Partition]:
+    def get_all_remaining_collapse_splits(self) -> PartitionSet[Partition]:
         """
-        Gathers all expand splits that have not yet been processed.
+        Gathers all collapse splits that have not yet been processed from unprocessed subtrees.
         """
         remaining_splits: PartitionSet[Partition] = PartitionSet(encoding=self.encoding)
+        unprocessed_subtrees = self.get_remaining_subtrees()
 
-        for subtree_splits in self.expand_splits_by_subtree.values():
-            remaining_splits |= subtree_splits
-
-        remaining_splits |= (
-            self.available_compatible_splits - self.used_compatible_splits
-        )
+        for subtree in unprocessed_subtrees:
+            if subtree in self.collapse_splits_by_subtree:
+                remaining_splits |= self.collapse_splits_by_subtree[subtree]
 
         return remaining_splits
+
+    def get_all_remaining_expand_splits(self) -> PartitionSet[Partition]:
+        """
+        Get all expand splits that haven't been processed.
+        This includes splits that were not yet claimed by any subtree.
+        """
+        # Remaining = All splits - used primary splits - used contingent splits
+        return (
+            self.all_expand_splits
+            - self.used_expand_splits
+            - self.used_contingent_splits
+        )

@@ -76,14 +76,27 @@ def collect_count_of_splits(trees: List[Node]) -> dict[Partition, dict[str, floa
 
 
 def create_star_tree(taxon_order: List[str]) -> Node:
-    star_tree: Node = Node()
-    star_tree.split_indices = Partition(tuple(i for i in range(len(taxon_order))))
-    star_tree.name = "R"
+    encoding = {name: i for i, name in enumerate(taxon_order)}
+
+    # Create children first
+    child_nodes = []
     for taxon in taxon_order:
-        new_node = Node(
-            name=taxon, split_indices=Partition((taxon_order.index(taxon),)), length=1
+        child_nodes.append(
+            Node(
+                name=taxon,
+                split_indices=Partition((encoding[taxon],), encoding),
+                length=1,
+                taxa_encoding=encoding,
+                _order=taxon_order,
+            )
         )
-        star_tree.children.append(new_node)
+
+    # Create parent with children
+    star_tree = Node(
+        name="R", children=child_nodes, taxa_encoding=encoding, _order=taxon_order
+    )
+    star_tree.split_indices = Partition(tuple(range(len(taxon_order))), encoding)
+
     return star_tree
 
 
@@ -324,7 +337,7 @@ def collect_splits(trees: List[Node]) -> dict[Partition, float]:
     total_trees: int = len(trees)
     counter: Counter[Partition] = Counter()  # Counter mapping each Partition to an int
     for tree in trees:
-        splits_in_tree = set(tree.to_splits())
+        splits_in_tree = set(tree.to_splits(with_leaves=True))
         for split in splits_in_tree:
             if len(split) > 1 and len(split) < taxa:
                 counter[split] += 1

@@ -40,7 +40,7 @@ class TreeInterpolationSequence:
         mapping_two: Reference-to-atom solution mappings for each tree pair
         active_changing_split_tracking: S-edge applied for each tree (None for originals/classical)
         pair_interpolated_tree_counts: Total interpolated trees generated per pair
-        lattice_solutions_list: Raw jumping taxa algorithm results per pair
+        jumping_subtree_solutions_list: Raw jumping taxa algorithm results per pair
         # distances removed
 
     Example:
@@ -60,7 +60,7 @@ class TreeInterpolationSequence:
     mapping_two: List[Dict[Partition, Partition]]
     active_changing_split_tracking: List[Optional[Partition]]
     pair_interpolated_tree_counts: List[int]
-    lattice_solutions_list: List[Dict[Partition, List[List[Partition]]]]
+    jumping_subtree_solutions_list: List[Dict[Partition, List[List[Partition]]]]
 
     def get_pair_count(self) -> int:
         """
@@ -107,7 +107,9 @@ class TreeInterpolationSequence:
             "mapping_one": self.mapping_one[pair_index],
             "mapping_two": self.mapping_two[pair_index],
             "s_edge_length": self.s_edge_lengths[pair_index],
-            "lattice_solutions": self.lattice_solutions_list[pair_index],
+            "jumping_subtree_solutions": self.jumping_subtree_solutions_list[
+                pair_index
+            ],
         }
 
     @property

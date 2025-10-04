@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Updated lattice algorithm functions with proper Pydantic validation.
 """
@@ -19,7 +21,7 @@ from brancharchitect.jumping_taxa.lattice.lattice_construction import (
 )
 
 # Map s-edges back to original common splits before accumulating
-from brancharchitect.jumping_taxa.lattice.mapping import (
+from brancharchitect.jumping_taxa.lattice.edge_sorting import (
     sort_lattice_edges_by_subset_hierarchy,
 )
 from brancharchitect.jumping_taxa.lattice.lattice_algorithm import (
@@ -94,8 +96,9 @@ def lattice_algorithm(
         s_edges_of_solutions_list: List[Partition] = []
 
         # Group solutions by s_edge (ignoring visit) to find all minimal solutions
+        # We rank by (fewest elements, smallest partition sizes lexicographically), then deterministic bitmask
         s_edge_to_solutions: defaultdict[
-            Partition, List[Tuple[PartitionSet[Partition], int, int]]
+            Partition, List[Tuple[PartitionSet[Partition], tuple, int]]
         ] = defaultdict(list)
 
         for (
@@ -110,18 +113,28 @@ def lattice_algorithm(
             )
 
             if smallest_solution:
-                solution_size = sum(
-                    len(partition.indices) for partition in smallest_solution
+
+                def _popcount(x: int) -> int:
+                    try:
+                        return x.bit_count()  # Python 3.8+
+                    except AttributeError:
+                        return bin(x).count("1")
+
+                num_parts = len(smallest_solution)
+                sizes_tuple = tuple(
+                    sorted((_popcount(p.bitmask) for p in smallest_solution))
                 )
+                mask_tuple = tuple(sorted((p.bitmask for p in smallest_solution)))
+                rank_key = (num_parts, sizes_tuple, mask_tuple)
                 s_edge_to_solutions[s_edge_partition].append(
-                    (smallest_solution, solution_size, visit)
+                    (smallest_solution, rank_key, visit)
                 )
 
-        # For each s_edge, keep only the solutions with minimum size
+        # For each s_edge, keep only the solutions with the minimal rank
         for s_edge_partition, solutions in s_edge_to_solutions.items():
-            min_size = min(size for _, size, _ in solutions)
+            min_key = min(key for _, key, _ in solutions)
             minimal_solutions = [
-                (sol, size, visit) for sol, size, visit in solutions if size == min_size
+                (sol, key, visit) for sol, key, visit in solutions if key == min_key
             ]
 
             # Add all minimal solutions
