@@ -67,23 +67,18 @@ def test_actual_mutable_default_issues():
         print("✅ split_indices are properly isolated")
 
     print("\n3. Testing _order sharing:")
-    print(f"Same _order object? {node1._order is node2._order}")
+    order1 = node1.get_current_order()
+    order2 = node2.get_current_order()
+    print(f"Same _order object? {order1 is order2}")
 
-    if node1._order is node2._order:
-        print("❌ CRITICAL: _order lists are shared between instances!")
-
-        # Demonstrate the problem
-        node1._order.append("test_taxon")
-
-        print(f"After appending to node1._order:")
-        print(f"  node1._order: {node1._order}")
-        print(f"  node2._order: {node2._order}")
-
-        if "test_taxon" in node2._order:
-            print("❌ CONFIRMED: Modifying node1._order affected node2._order!")
-
+    if order1 is order2:
+        print("❌ CRITICAL: _order tuples are shared between instances!")
     else:
-        print("✅ _order lists are properly isolated")
+        print("✅ _order tuples are properly isolated")
+
+    # Note: _order is now returned as a tuple (immutable) from get_current_order(),
+    # so we cannot directly test mutation like before. The internal representation
+    # is protected and accessed via the getter method.
 
     print("\n4. Testing if the issue is mitigated by the 'or []' pattern:")
     print("   The code uses: self.children = children or []")

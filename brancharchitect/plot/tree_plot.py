@@ -41,6 +41,8 @@ def plot_rectangular_tree_pair(
     margin: int = 30,
     label_offset: int = 2,
     ignore_branch_lengths: bool = True,
+    *,
+    vertical_leaf_labels: bool = False,
 ) -> str:
     """Display two rectangular trees side-by-side."""
     tree_width = (width - 3 * margin) // 2
@@ -56,10 +58,16 @@ def plot_rectangular_tree_pair(
     """.strip()
 
     tree1_svg = generate_rectangular_tree_svg(
-        tree1, width=tree_width, height=height - 2 * margin
+        tree1,
+        width=tree_width,
+        height=height - 2 * margin,
+        vertical_leaf_labels=vertical_leaf_labels,
     )
     tree2_svg = generate_rectangular_tree_svg(
-        tree2, width=tree_width, height=height - 2 * margin
+        tree2,
+        width=tree_width,
+        height=height - 2 * margin,
+        vertical_leaf_labels=vertical_leaf_labels,
     )
 
     return svg_template.format(
@@ -154,10 +162,16 @@ def plot_trees_side_by_side(
 
 
 def plot_rectangular_tree(
-    tree: Node, width: Optional[int] = 400, height: Optional[int] = 200
+    tree: Node,
+    width: Optional[int] = 400,
+    height: Optional[int] = 200,
+    *,
+    vertical_leaf_labels: bool = False,
 ) -> str:
     """Generate rectangular layout visualization for a single tree."""
-    return generate_rectangular_tree_svg(tree, width=width, height=height)
+    return generate_rectangular_tree_svg(
+        tree, width=width, height=height, vertical_leaf_labels=vertical_leaf_labels
+    )
 
 
 # --- Utility functions for annotation ---
@@ -194,60 +208,4 @@ def add_svg_gridlines(
     svg_element.insert(1, grid_group)
 
 
-def add_tree_labels(svg_element, num_trees, size, height, y_offset=2, font_size=14):
-    label_group = ET.Element("g", {"id": "tree_labels"})
-    for i in range(num_trees):
-        x = int(i * size + size / 2)
-        y = y_offset
-        label = ET.Element(
-            "text",
-            {
-                "x": str(x),
-                "y": str(y),
-                "text-anchor": "middle",
-                "font-size": str(font_size),
-                "font-family": "sans-serif",
-                "fill": "#333",
-                "font-weight": "bold",
-            },
-        )
-        label.text = f"Tree {i + 1}"
-        label_group.append(label)
-    svg_element.append(label_group)
-
-
-def add_direction_arrow(svg_element, width, y=16):
-    arrow_group = ET.Element("g", {"id": "direction_arrow"})
-    line = ET.Element(
-        "line",
-        {
-            "x1": "20",
-            "y1": str(y),
-            "x2": str(width - 20),
-            "y2": str(y),
-            "stroke": "#333",
-            "stroke-width": "2",
-            "marker-end": "url(#arrowhead)",
-        },
-    )
-    arrow_group.append(line)
-    defs = svg_element.find("defs")
-    if defs is None:
-        defs = ET.Element("defs")
-        svg_element.insert(0, defs)
-    marker = ET.Element(
-        "marker",
-        {
-            "id": "arrowhead",
-            "markerWidth": "10",
-            "markerHeight": "7",
-            "refX": "10",
-            "refY": "3.5",
-            "orient": "auto",
-            "markerUnits": "strokeWidth",
-        },
-    )
-    polygon = ET.Element("polygon", {"points": "0 0, 10 3.5, 0 7", "fill": "#333"})
-    marker.append(polygon)
-    defs.append(marker)
-    svg_element.append(arrow_group)
+"""Plotting utilities and helpers for tree SVG composition."""

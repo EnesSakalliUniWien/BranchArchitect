@@ -10,20 +10,19 @@ The original monolithic implementation has been broken down into separate module
 
 import logging
 
+# Main API function - simplified interface
+from typing import Optional
+
 # Re-export main components for backward compatibility
 from brancharchitect.movie_pipeline.types import (
     TreeList,
     TreePairSolution,
-    InterpolationSequence,
+    InterpolationResult,
     PipelineConfig,
 )
 from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
     TreeInterpolationPipeline,
 )
-
-
-# Main API function - simplified interface
-from typing import Optional
 
 
 def process_trees(
@@ -32,7 +31,7 @@ def process_trees(
     logger: Optional[logging.Logger] = None,
     optimization_iterations: int = 10,
     bidirectional_optimization: bool = False,
-) -> InterpolationSequence:
+) -> InterpolationResult:
     """
     Process trees through the complete pipeline.
 
@@ -44,7 +43,7 @@ def process_trees(
         bidirectional_optimization: Whether to use bidirectional optimization
 
     Returns:
-        InterpolationSequence containing all pipeline outputs
+        InterpolationResult containing all pipeline outputs
     """
     config = PipelineConfig(
         enable_rooting=enable_rooting,
@@ -58,7 +57,7 @@ def process_trees(
 __all__ = [
     "TreeList",
     "TreePairSolution",
-    "InterpolationSequence",
+    "InterpolationResult",
     "PipelineConfig",
     "TreeInterpolationPipeline",
     "process_trees",

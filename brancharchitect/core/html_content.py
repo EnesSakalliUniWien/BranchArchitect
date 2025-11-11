@@ -81,11 +81,6 @@ CSS_LOG = """
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* Alternative views - hidden by default */
-.ascii-matrix, .matrix-table {
-    display: none;
-}
-
 /* ASCII Matrix (shown when toggled) */
 .ascii-matrix {
     margin: 1em 0;
@@ -151,7 +146,6 @@ CSS_LOG = """
 
 
 COMPARE_TREE_SPLIT_CSS = """
-<style>
     .split-comparison {
         margin: 20px 0;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -243,7 +237,6 @@ COMPARE_TREE_SPLIT_CSS = """
     .comparison-table .col-hidden {
         display: none;
     }
-</style>
 """
 
 
@@ -360,7 +353,6 @@ MathJax = {
 
 
 UNIQUE_ATOMS_COVETS_CODE_CSS = """
-<style>
 .code-container {
     margin: 15px 0;
     border: 1px solid #444;
@@ -396,12 +388,10 @@ UNIQUE_ATOMS_COVETS_CODE_CSS = """
     color: #e0e0e0;
     font-family: 'Fira Code', 'DejaVu Sans Mono', 'Courier New', monospace;
 }
-</style>
 """
 
 # Newick visualization CSS styled to match the dark theme
 NEWICK_VISUALIZATION_CSS = """
-<style>
 .newick-container {
     margin-bottom: 20px;
     font-family: 'DejaVu Sans Mono', 'Fira Code', 'Courier New', monospace;
@@ -448,7 +438,6 @@ NEWICK_VISUALIZATION_CSS = """
 .copy-success {
     background-color: #28a745 !important;
 }
-</style>
 """
 
 # Newick JS for copy functionality
@@ -485,6 +474,147 @@ NEWICK_TEMPLATE_ONE_TREE = """
         <div class="newick-content" id="newick1">{0}</div>
     </div>
 </div>
+"""
+
+# Page-level base CSS for debug HTML documents
+DEBUG_PAGE_CSS = """
+/* Reset and base styles */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* Core theme */
+body {
+    background: #1d1d1d;
+    color: #c8c8c8;
+    font-family: 'Menlo', 'DejaVu Sans Mono', monospace;
+    line-height: 1.6;
+    padding: 20px;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Layout */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #222;
+    border: 1px solid #333;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 {
+    color: #fff;
+    margin: 1em 0 0.5em 0;
+    border-bottom: 1px solid #333;
+    padding-bottom: 0.3em;
+}
+
+/* Tables */
+.table-container {
+    margin: 1em 0;
+    overflow-x: auto;
+    background: #252525;
+    border-radius: 4px;
+    border: 1px solid #333;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+    background: transparent;
+}
+
+th {
+    background: #333;
+    color: #fff;
+    font-weight: bold;
+    text-align: left;
+    padding: 12px;
+    border: 1px solid #444;
+}
+
+td {
+    padding: 10px 12px;
+    border: 1px solid #444;
+    color: #c8c8c8;
+}
+
+tr:hover {
+    background: #2a2a2a;
+}
+
+/* SVG/IMG containers */
+.svg-container {
+    background: #252525;
+    padding: 20px;
+    margin: 1em 0;
+    border-radius: 4px;
+    border: 1px solid #333;
+    overflow-x: auto;
+}
+
+.svg-container svg,
+.svg-container img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+/* Analysis cards */
+.bidirectional-analysis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin: 1em 0;
+}
+
+.analysis-card {
+    background: #252525;
+    border: 1px solid #333;
+    padding: 15px;
+    border-radius: 4px;
+}
+
+.analysis-detail {
+    margin: 8px 0;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #333;
+    padding-bottom: 4px;
+}
+
+.detail-label {
+    color: #888;
+    margin-right: 10px;
+}
+
+/* Messages */
+.warning { color: #ffd700; }
+.error { color: #ff6b6b; }
+.success { color: #6bff6b; }
+
+/* Code blocks */
+pre {
+    background: #252525;
+    padding: 15px;
+    border-radius: 4px;
+    overflow-x: auto;
+    border: 1px solid #333;
+    margin: 1em 0;
+}
+
+/* Links */
+a {
+    color: #4a9eff;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
 """
 
 NEWICK_TEMPLATE_TWO_TREES = """
@@ -588,7 +718,6 @@ function copyAllNewick(button) {
 
 # Update the Newick visualization CSS for combined box
 NEWICK_COMBINED_CSS = """
-<style>
 .newick-container {
     margin-bottom: 20px;
     font-family: 'DejaVu Sans Mono', 'Fira Code', 'Courier New', monospace;
@@ -666,7 +795,6 @@ NEWICK_COMBINED_CSS = """
 .bracket {
     font-weight: bold;
 }
-</style>
 """
 
 # HTML template for the combined copyable Newick box

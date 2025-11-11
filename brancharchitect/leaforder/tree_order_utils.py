@@ -13,7 +13,7 @@ from brancharchitect.elements.partition import Partition
 
 def _ensure_split_indices(tree: Node) -> None:
     """Ensure split_indices are initialized for all nodes in the tree."""
-    tree._initialize_split_indices(tree.taxa_encoding)
+    tree.initialize_split_indices(tree.taxa_encoding)
 
 
 def _collect_subtree_splits(

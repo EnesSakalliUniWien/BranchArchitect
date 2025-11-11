@@ -139,12 +139,12 @@ def test_clear_jump_path_cache():
     # Use PartitionSet from tree2
     reference = trees[1].to_splits()
     # Call jump_path to fill cache
-    path1 = jump_path(trees[0], reference, trees[0]._index(component))
+    path1 = jump_path(trees[0], reference, trees[0].names_to_partition(component))
     assert path1 is not None
     # Clear cache
     clear_jump_path_cache()
     # After clearing, cache should be empty (indirectly tested by no error on next call)
-    path2 = jump_path(trees[0], reference, trees[0]._index(component))
+    path2 = jump_path(trees[0], reference, trees[0].names_to_partition(component))
     assert path2 is not None
 
 
@@ -168,7 +168,7 @@ def test_jump_path_public():
         trees = [trees]
     component = ("A", "B")
     reference = trees[1].to_splits()
-    partition = trees[0]._index(component)
+    partition = trees[0].names_to_partition(component)
     path = jump_path(trees[0], reference, partition)
     assert isinstance(path, list)
 
@@ -194,7 +194,10 @@ def test_calculate_component_distance_matrix():
         trees = [trees]
     # Use the same components for all pairs
     comps: List[List[Partition]] = [
-        [trees[0]._index(("A", "B")), trees[0]._index(("C", "D"))]
+        [
+            trees[0].names_to_partition(("A", "B")),
+            trees[0].names_to_partition(("C", "D")),
+        ]
     ] * len(trees)
     matrix = calculate_component_distance_matrix(trees, comps, weighted=False)
     assert matrix.shape[0] == len(trees)

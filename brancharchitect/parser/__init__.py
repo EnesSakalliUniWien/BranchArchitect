@@ -16,7 +16,6 @@ from .newick_parser import (
     close_node,
     create_new_node,
     init_nodestack,
-    get_linear_order,
 )
 
 __all__ = [

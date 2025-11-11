@@ -162,11 +162,10 @@ def test_parser_state_reset():
             metadata_count = count_metadata_nodes(tree)
             print(f"  Tree {i}: {metadata_count} nodes with metadata")
 
-        return True
-
+        # No explicit return; success is reaching this point without exceptions
     except Exception as e:
         print(f"❌ Error in state reset test: {e}")
-        return False
+        assert False, f"Parser state reset failed: {e}"
 
 
 if __name__ == "__main__":

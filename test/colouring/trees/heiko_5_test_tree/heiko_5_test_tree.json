@@ -10,6 +10,9 @@
             [
                 "E1",
                 "E2"
+            ],
+            [
+                "F1"
             ]
         ],
         [
@@ -20,9 +23,11 @@
             [
                 "D1",
                 "D2"
+            ],
+            [
+                "F1"
             ]
         ]
-
     ],
-    "comment": ""
+    "comment": "Both solutions require F1 to resolve the F clade conflict that remains after deleting either [C1,C2],[E1,E2] or [C1,C2],[D1,D2]"
 }

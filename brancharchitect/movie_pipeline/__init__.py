@@ -1,25 +1,21 @@
-"""Movie pipeline package for phylogenetic tree processing."""
-
-from .tree_interpolation_pipeline import TreeInterpolationPipeline
 from .types import (
     TreeList,
-    TreePairSolution,
-    TreeMetadata,
-    InterpolationSequence,
     PipelineConfig,
     DistanceMetrics,
-    create_empty_interpolation_sequence,
-    create_single_tree_interpolation_sequence,
+    TreePairSolution,
+    TreeMetadata,
+    InterpolationResult,
+    create_empty_result,
+    create_single_tree_result,
 )
 
 __all__ = [
-    "TreeInterpolationPipeline",
     "TreeList",
-    "TreePairSolution",
-    "TreeMetadata",
-    "InterpolationSequence",
     "PipelineConfig",
     "DistanceMetrics",
-    "create_empty_interpolation_sequence",
-    "create_single_tree_interpolation_sequence",
+    "TreePairSolution",
+    "TreeMetadata",
+    "InterpolationResult",
+    "create_empty_result",
+    "create_single_tree_result",
 ]

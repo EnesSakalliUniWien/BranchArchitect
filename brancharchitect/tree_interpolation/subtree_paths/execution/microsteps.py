@@ -1,0 +1,199 @@
+"""
+Helper and processing functions for tree interpolation.
+
+This module contains utility functions for processing split data,
+extracting data, and managing the interpolation workflow.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Tuple
+from brancharchitect.tree import Node
+from brancharchitect.elements.partition import Partition
+from brancharchitect.elements.partition_set import PartitionSet
+from brancharchitect.tree_interpolation.consensus_tree.consensus_tree import (
+    create_collapsed_consensus_tree,
+)
+from brancharchitect.tree_interpolation.consensus_tree.intermediate_tree import (
+    create_subtree_grafted_tree,
+    calculate_intermediate_implicit,
+)
+from .reordering import reorder_tree_toward_destination
+
+
+def extract_filtered_paths(
+    selection: Dict[str, Any],
+    current_pivot_edge: Partition,
+    subtree_partition: Partition,
+) -> Tuple[List[Partition], List[Partition]]:
+    """Extract and filter expand/collapse paths from selection, excluding specified partitions.
+
+    Args:
+        selection: Dictionary containing expand/collapse path segments
+        current_pivot_edge: Partition to exclude from paths
+        subtree_partition: Subtree partition to exclude from paths
+
+    Returns:
+        Tuple of (create_path, collapse_path) with exclusions filtered out
+    """
+    exclusions = {current_pivot_edge, subtree_partition}
+
+    # Extract path segments - now guaranteed to be lists from builder
+    expand_segments: List[Partition] = selection.get("expand", {}).get(
+        "path_segment", []
+    )
+    collapse_segments: List[Partition] = selection.get("collapse", {}).get(
+        "path_segment", []
+    )
+
+    expand_path: List[Partition] = [p for p in expand_segments if p not in exclusions]
+
+    collapse_path: List[Partition] = [
+        p for p in collapse_segments if p not in exclusions
+    ]
+
+    return expand_path, collapse_path
+
+
+def apply_reference_weights_to_path(
+    tree: Node,
+    expand_path: List[Partition],
+    reference_weights: Dict[Partition, float],
+) -> None:
+    """Set branch lengths on nodes along a path to match reference weights.
+
+    Mutates the provided tree in place.
+    """
+    for ref_split in expand_path:
+        node: Node | None = tree.find_node_by_split(ref_split)
+        if node is not None:
+            node.length = reference_weights.get(ref_split, 1)
+
+
+def add_step(
+    trees: List[Node],
+    edges: List[Optional[Partition]],
+    tree: Node,
+    edge: Optional[Partition],
+    subtree: Partition,
+) -> None:
+    """Add a tree and edge to the collection of microsteps.
+
+    Args:
+        trees: List to append the tree to
+        edges: List to append the edge to
+        tree: The tree to add
+        edge: The edge to add
+        subtree: The subtree partition (used internally for computations)
+    """
+    # subtree still used internally for computations above; not tracked anymore
+    trees.append(tree)
+    edges.append(edge)
+
+
+def build_microsteps_for_selection(
+    interpolation_state: Node,
+    destination_tree: Node,
+    current_pivot_edge: Partition,
+    selection: Dict[str, Any],
+) -> Tuple[List[Node], List[Optional[Partition]], Node]:
+    """
+    Build the 5 microsteps for a single selection under an active-changing edge.
+
+    Steps:
+    - IT_down: collapse zeros inside the subtree selection
+    - C: collapse zero-length branches to consensus
+    - C_reorder: partially reorder to match the destination
+    - IT_up: graft the reference path while preserving order
+    - IT_ref: apply final reference weights on the grafted path
+    """
+    trees: List[Node] = []
+    edges: List[Optional[Partition]] = []
+
+    # Extract and filter path segments using the modularized function
+    subtree_partition = selection["subtree"]
+
+    expand_path, collapse_path = extract_filtered_paths(
+        selection, current_pivot_edge, subtree_partition
+    )
+
+    # Guard: ensure we do not collapse splits that must exist in destination
+    it_down: Node = calculate_intermediate_implicit(
+        interpolation_state, PartitionSet(set(collapse_path))
+    )
+
+    add_step(
+        trees,
+        edges,
+        it_down,
+        current_pivot_edge,
+        subtree_partition,
+    )
+
+    # FIX: Pass destination tree so we only collapse splits that DON'T exist in destination
+    collapsed: Node = create_collapsed_consensus_tree(
+        it_down, current_pivot_edge, destination_tree=destination_tree
+    )
+
+    add_step(
+        trees,
+        edges,
+        collapsed,
+        current_pivot_edge,
+        subtree_partition,
+    )
+
+    # Apply partial reordering based on the interpolation context
+    reordered: Node = reorder_tree_toward_destination(
+        source_tree=collapsed,
+        destination_tree=destination_tree,
+        current_pivot_edge=current_pivot_edge,
+        moving_subtree_partition=subtree_partition,
+    )
+
+    add_step(
+        trees,
+        edges,
+        reordered,
+        current_pivot_edge,
+        subtree_partition,
+    )
+
+    # Graft with order preservation to eliminate second reordering step
+    pre_snap_reordered: Node = create_subtree_grafted_tree(
+        base_tree=reordered,
+        ref_path_to_build=expand_path,
+    )
+
+    pre_snap_reordered.reorder_taxa(list(reordered.get_current_order()))
+
+    snapped_tree: Node = pre_snap_reordered.deep_copy()
+
+    pre_snap_reordered.reorder_taxa(list(reordered.get_current_order()))
+
+    # Extract destination weights from the destination tree
+    destination_weights: Dict[Partition, float] = destination_tree.to_weighted_splits()
+
+    apply_reference_weights_to_path(
+        snapped_tree,
+        expand_path,
+        destination_weights,
+    )
+
+    add_step(
+        trees,
+        edges,
+        pre_snap_reordered,
+        current_pivot_edge,
+        subtree_partition,
+    )
+
+    add_step(
+        trees,
+        edges,
+        snapped_tree,
+        current_pivot_edge,
+        subtree_partition,
+    )
+
+    return trees, edges, snapped_tree

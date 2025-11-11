@@ -7,49 +7,28 @@ and constants used across the benchmark system.
 
 from typing import List, Dict, Any
 
-# Extensive Benchmark: All Fiedler/Optimizer/Bidirectional Combinations
+# Benchmark combinations: Optimizer-only variants
 BENCHMARK_COMBINATIONS: List[Dict[str, Any]] = [
     {
         "label": "Original Order",
-        "fiedler": False,
+        "fiedler": False,   # ignored; Fiedler ordering deprecated
         "optimizer": False,
         "bidirectional": False,
         "explanation": "No reordering or optimization; baseline.",
     },
     {
-        "label": "Fiedler Order Only",
-        "fiedler": True,
-        "optimizer": False,
-        "bidirectional": False,
-        "explanation": "Applies consensus Fiedler (spectral) ordering to all trees, but no further optimization.",
-    },
-    {
         "label": "TreeOrderOptimizer Local (forward)",
-        "fiedler": False,
+        "fiedler": False,   # ignored; Fiedler ordering deprecated
         "optimizer": True,
         "bidirectional": False,
         "explanation": "Runs the local optimizer in forward mode only (left-to-right).",
     },
     {
         "label": "TreeOrderOptimizer Local (bidirectional)",
-        "fiedler": False,
+        "fiedler": False,   # ignored; Fiedler ordering deprecated
         "optimizer": True,
         "bidirectional": True,
         "explanation": "Runs the local optimizer in both directions (left-to-right and right-to-left).",
-    },
-    {
-        "label": "Fiedler + TreeOrderOptimizer (forward)",
-        "fiedler": True,
-        "optimizer": True,
-        "bidirectional": False,
-        "explanation": "Applies Fiedler ordering, then runs the local optimizer in forward mode.",
-    },
-    {
-        "label": "Fiedler + TreeOrderOptimizer (bidirectional)",
-        "fiedler": True,
-        "optimizer": True,
-        "bidirectional": True,
-        "explanation": "Applies Fiedler ordering, then runs the local optimizer in both directions.",
     },
 ]
 

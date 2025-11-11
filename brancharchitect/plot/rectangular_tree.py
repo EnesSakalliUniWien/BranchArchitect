@@ -186,6 +186,7 @@ def render_single_rectangular_tree(
     label_y: float,
     cut_edges: Optional[set] = None,  # New parameter to specify edges to cut
     leaf_label_offset: float = 0.0,  # New parameter for label offset
+    vertical_leaf_labels: bool = False,  # If True, rotate leaf labels vertically
 ) -> None:
     """
     Render a single rectangular tree within the provided SVG group element
@@ -237,18 +238,23 @@ def render_single_rectangular_tree(
             )
 
             # Add label text below the connector (with offset)
+            text_attribs = {
+                "x": str(x),
+                "y": str(label_y + leaf_label_offset),  # Only the label moves
+                "font-family": DEFAULT_FONT_FAMILY,
+                "font-size": DEFAULT_FONT_SIZE,
+                "fill": DEFAULT_RECT_STROKE_COLOR,
+                "text-anchor": "middle",
+                "dominant-baseline": "middle",
+            }
+            if vertical_leaf_labels:
+                # Rotate label 90 degrees counter-clockwise around its anchor point
+                text_attribs["transform"] = f"rotate(-90 {x} {label_y + leaf_label_offset})"
+
             ET.SubElement(
                 group,
                 "text",
-                {
-                    "x": str(x),
-                    "y": str(label_y + leaf_label_offset),  # Only the label moves
-                    "font-family": DEFAULT_FONT_FAMILY,
-                    "font-size": DEFAULT_FONT_SIZE,
-                    "fill": DEFAULT_RECT_STROKE_COLOR,
-                    "text-anchor": "middle",
-                    "dominant-baseline": "middle",
-                },
+                text_attribs,
             ).text = get_node_label(node)
 
         else:  # It's an internal node
@@ -296,7 +302,11 @@ def render_single_rectangular_tree(
 
 
 def generate_rectangular_tree_svg(
-    root: Node, width: Optional[int] = None, height: Optional[int] = None
+    root: Node,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    *,
+    vertical_leaf_labels: bool = False,
 ) -> str:
     """
     Generate a classical rectangular layout tree with vertical orientation.
@@ -305,6 +315,7 @@ def generate_rectangular_tree_svg(
         root: The root node of the tree
         width: Width of the SVG. Defaults to 600 if None for better spacing.
         height: Height of the SVG. Defaults to 400 if None.
+        vertical_leaf_labels: If True, rotate leaf labels vertically (90°).
 
     Returns:
         SVG as a string
@@ -346,7 +357,13 @@ def generate_rectangular_tree_svg(
     )
 
     # Render the tree within the group, passing the calculated label_y
-    render_single_rectangular_tree(root, group, node_coords, label_y)
+    render_single_rectangular_tree(
+        root,
+        group,
+        node_coords,
+        label_y,
+        vertical_leaf_labels=vertical_leaf_labels,
+    )
 
     return ET.tostring(svg_root, encoding="utf8").decode("utf8")
 

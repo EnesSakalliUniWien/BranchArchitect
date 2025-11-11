@@ -1,48 +1,13 @@
 """Base logging functionality for visualization and debugging."""
 
 import logging
-import re
+import base64
 from typing import Any, cast, Callable, TypeVar
 from functools import wraps
 
-from brancharchitect.core.html_content import (
-    CSS_LOG,
-    MATH_JAX_HEADER,
-)
+from brancharchitect.core.html_content import CSS_LOG, MATH_JAX_HEADER
 
 F = TypeVar("F", bound=Callable[..., Any])
-
-
-def format_set(s: Any) -> str:
-    """Format set for consistent display."""
-    if not s:
-        return "∅"
-    return "{" + ", ".join(str(x) for x in sorted(s)) + "}"
-
-
-def beautify_frozenset(obj: Any) -> str:
-    """Convert frozenset objects to beautiful mathematical notation."""
-    if obj is None:
-        return "∅"
-
-    # Convert to string first
-    s = str(obj)
-
-    # Replace frozenset({...}) with just {...}
-    s = re.sub(r"frozenset\(\{(.+?)\}\)", r"{\1}", s)
-
-    # Replace nested frozensets recursively
-    while "frozenset" in s:
-        s = re.sub(r"frozenset\(\{(.+?)\}\)", r"{\1}", s)
-
-    # Replace double parentheses around single elements
-    s = re.sub(r"\(\((.+?)\)\)", r"(\1)", s)
-
-    # Clean up any remaining artifacts
-    s = s.replace("()", "∅")
-    s = s.replace("{}", "∅")
-
-    return s
 
 
 class AlgorithmLogger:
@@ -53,6 +18,7 @@ class AlgorithmLogger:
         self.disabled = False
         self._html_content = ['<div class="content">']
         self._css_content: list[str] = []
+        self._section_open = False
 
         # Include MathJax for mathematical notation
         self._include_mathjax = True
@@ -78,15 +44,22 @@ class AlgorithmLogger:
         """Create a new section in the log."""
         if self.disabled:
             return
+        # Close any previously open section to keep HTML balanced
+        if self._section_open:
+            self._html_content.append("</section>")
+            self._section_open = False
+
         self.logger.info(f"\n{'=' * 20} {title} {'=' * 20}\n")
         self._html_content.append(f'<section class="section"><h3>{title}</h3>')
+        self._section_open = True
 
     def subsection(self, title: str):
         """Create a new subsection in the log."""
         if self.disabled:
             return
         self.logger.info(f"\n{'-' * 15} {title} {'-' * 15}\n")
-        self._html_content.append(f'<div class="subsection"><h4>{title}</h4>')
+        # Emit a standalone subsection header block to avoid unclosed tags
+        self._html_content.append(f'<div class="subsection"><h4>{title}</h4></div>')
 
     def info(self, message: str):
         """Log info message."""
@@ -147,22 +120,58 @@ class AlgorithmLogger:
             return
         self._html_content.append(f'<div class="svg-container">{svg_content}</div>')
 
+    def add_png_from_svg(self, svg_content: str, scale: float = 1.0) -> bool:
+        """Convert SVG content to PNG and embed it as an image in the HTML log.
+
+        Returns True on success, False if conversion fails (caller may fallback).
+        """
+        if self.disabled:
+            return False
+
+        try:
+            # Import locally to avoid mandatory runtime dependency if not used
+            import cairosvg  # type: ignore
+
+            png_bytes = cairosvg.svg2png(
+                bytestring=svg_content.encode("utf-8"), scale=scale, background_color="white"
+            )
+            b64 = base64.b64encode(png_bytes).decode("ascii")
+            img_html = (
+                '<div class="svg-container">'
+                f'<img src="data:image/png;base64,{b64}" alt="Rendered tree visualization" '
+                'style="max-width:100%; height:auto; display:block; margin:0 auto;"/>'
+                "</div>"
+            )
+            self._html_content.append(img_html)
+            return True
+        except Exception:
+            # On any error, return False so caller can fallback to SVG
+            return False
+
     def end_section(self):
         """End the current section."""
         if self.disabled:
             return
-        self._html_content.append("</section>")
+        if self._section_open:
+            self._html_content.append("</section>")
+            self._section_open = False
 
     def clear(self):
         """Clear all accumulated content."""
-        self._html_content = []
-        self._css_content = []
+        # Reset content to a clean initial state and restore default CSS
+        self._html_content = ['<div class="content">']
+        self._css_content = [CSS_LOG]
+        self._section_open = False
 
     def get_html_content(self) -> str:
         """Get the accumulated HTML content with MathJax if enabled."""
-        # Close all open sections and the content div
-        self._html_content.append("</section>")
-        self._html_content.append("</div>")
+        # Build a snapshot without mutating internal buffers
+        parts = list(self._html_content)
+        # Close any open section for the snapshot
+        if self._section_open:
+            parts.append("</section>")
+        # Close the content wrapper
+        parts.append("</div>")
 
         # Add toggle script at the end
         toggle_script = """
@@ -209,11 +218,11 @@ class AlgorithmLogger:
             return (
                 self._mathjax_header
                 + "\n"
-                + "\n".join(self._html_content)
+                + "\n".join(parts)
                 + toggle_script
             )
         else:
-            return "\n".join(self._html_content) + toggle_script
+            return "\n".join(parts) + toggle_script
 
     def get_css_content(self) -> str:
         """Get the accumulated CSS content."""
