@@ -6,11 +6,36 @@ process, including result containers and intermediate data representations.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Optional
+
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
-from typing import List, Dict, Optional
+
 from .pair_data import PairData
+
+MappingDict = dict[Partition, dict[Partition, Partition]]
+JumpingSolutions = dict[Partition, list[Partition]]
+
+
+def _empty_node_list() -> list[Node]:
+    return []
+
+
+def _empty_mapping_list() -> list[MappingDict]:
+    return []
+
+
+def _empty_partition_list() -> list[Optional[Partition]]:
+    return []
+
+
+def _empty_int_list() -> list[int]:
+    return []
+
+
+def _empty_jumping_solutions() -> list[JumpingSolutions]:
+    return []
 
 
 @dataclass
@@ -37,7 +62,9 @@ class TreeInterpolationSequence:
     Attributes:
         interpolated_trees: Complete sequence of all trees (originals + interpolated)
         mapping_one: Target-to-atom solution mappings for each tree pair
+            (outer key = pivot edge, inner key = solution partition)
         mapping_two: Reference-to-atom solution mappings for each tree pair
+            (outer key = pivot edge, inner key = solution partition)
         active_changing_split_tracking: S-edge applied for each tree (None for originals/classical)
         pair_interpolated_tree_counts: Total interpolated trees generated per pair
         jumping_subtree_solutions_list: Raw jumping taxa algorithm results per pair
@@ -55,12 +82,16 @@ class TreeInterpolationSequence:
     """
 
     # Core interpolation results
-    interpolated_trees: List[Node]
-    mapping_one: List[Dict[Partition, Partition]]
-    mapping_two: List[Dict[Partition, Partition]]
-    active_changing_split_tracking: List[Optional[Partition]]
-    pair_interpolated_tree_counts: List[int]
-    jumping_subtree_solutions_list: List[Dict[Partition, List[List[Partition]]]]
+    interpolated_trees: list[Node] = field(default_factory=_empty_node_list)
+    mapping_one: list[MappingDict] = field(default_factory=_empty_mapping_list)
+    mapping_two: list[MappingDict] = field(default_factory=_empty_mapping_list)
+    current_pivot_edge_tracking: list[Optional[Partition]] = field(
+        default_factory=_empty_partition_list
+    )
+    pair_interpolated_tree_counts: list[int] = field(default_factory=_empty_int_list)
+    jumping_subtree_solutions_list: list[JumpingSolutions] = field(
+        default_factory=_empty_jumping_solutions
+    )
 
     def get_pair_count(self) -> int:
         """
@@ -72,6 +103,7 @@ class TreeInterpolationSequence:
             Number of tree pairs that were interpolated between
         """
         return len(self.pair_interpolated_tree_counts)
+
 
     def get_pair_data(self, pair_index: int) -> PairData:
         """
@@ -106,7 +138,7 @@ class TreeInterpolationSequence:
         return {
             "mapping_one": self.mapping_one[pair_index],
             "mapping_two": self.mapping_two[pair_index],
-            "s_edge_length": self.s_edge_lengths[pair_index],
+            "s_edge_length": self.pivot_edge_lengths[pair_index],
             "jumping_subtree_solutions": self.jumping_subtree_solutions_list[
                 pair_index
             ],
@@ -139,7 +171,7 @@ class TreeInterpolationSequence:
         """
         return sum(self.pair_interpolated_tree_counts)
 
-    def get_original_tree_indices(self) -> List[int]:
+    def get_original_tree_indices(self) -> list[int]:
         """
         Get global indices of original (non-interpolated) trees in the sequence.
 
@@ -148,11 +180,11 @@ class TreeInterpolationSequence:
         """
         return [
             i
-            for i, s_edge in enumerate(self.active_changing_split_tracking)
+            for i, s_edge in enumerate(self.current_pivot_edge_tracking)
             if s_edge is None
         ]
 
-    def get_interpolated_tree_indices(self) -> List[int]:
+    def get_interpolated_tree_indices(self) -> list[int]:
         """
         Get global indices of interpolated trees in the sequence.
 
@@ -161,11 +193,22 @@ class TreeInterpolationSequence:
         """
         return [
             i
-            for i, s_edge in enumerate(self.active_changing_split_tracking)
+            for i, s_edge in enumerate(self.current_pivot_edge_tracking)
             if s_edge is not None
         ]
 
-    def get_classical_interpolation_indices(self) -> List[int]:
+    @property
+    def current_pivt_edge_trackeing(self) -> list[Optional[Partition]]:
+        """Backward-compatible alias for legacy typo."""
+        return self.current_pivot_edge_tracking
+
+    @current_pivt_edge_trackeing.setter
+    def current_pivt_edge_trackeing(
+        self, value: list[Optional[Partition]]
+    ) -> None:
+        self.current_pivot_edge_tracking = value
+
+    def get_classical_interpolation_indices(self) -> list[int]:
         """
         Get global indices of trees generated by classical interpolation fallback.
 
@@ -177,7 +220,7 @@ class TreeInterpolationSequence:
         """
         return []
 
-    def get_zero_interpolation_pairs(self) -> List[int]:
+    def get_zero_interpolation_pairs(self) -> list[int]:
         """
         Get pair indices that generated zero interpolation trees (identical trees).
 
@@ -191,9 +234,6 @@ class TreeInterpolationSequence:
         ]
 
     @property
-    def s_edge_lengths(self) -> List[int]:
-        """Compatibility alias for legacy clients.
-
-        Returns the same values as pair_interpolated_tree_counts.
-        """
+    def pivot_edge_lengths(self) -> list[int]:
+        """Number of interpolation steps (per pair)."""
         return self.pair_interpolated_tree_counts

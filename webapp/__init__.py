@@ -22,19 +22,19 @@ def create_app() -> Flask:
     ``create_app()``) and prevents module-level side effects.
     """
     import sys
-    import logging
-    
+
+    app: Flask | None = None
     try:
         # Create app first to have access to logger
         app = Flask(__name__, static_folder="static")
         app.config.from_object(Config)
-        
+
         # Configure logging early to capture all messages
         configure_logging(app)
-        
+
         app.logger.info("[INIT] Creating Flask instance...")
         app.logger.info("[INIT] Loading config...")
-        
+
         app.logger.info("[INIT] Enabling CORS...")
         # Enable CORS
         CORS(app)
@@ -52,15 +52,16 @@ def create_app() -> Flask:
                 app.config["APP_COMMIT"] = fp.read().strip()
         except FileNotFoundError:
             app.config["APP_COMMIT"] = "unknown"
-        
+
         app.logger.info("[INIT] Flask app creation complete")
         return app
     except Exception as e:
         # If logging is not configured yet, fallback to stderr
-        if 'app' in locals() and hasattr(app, 'logger'):
+        if app is not None and hasattr(app, "logger"):
             app.logger.error(f"[INIT ERROR] Failed to create app: {e}", exc_info=True)
         else:
             print(f"[INIT ERROR] Failed to create app: {e}", file=sys.stderr)
             import traceback
+
             traceback.print_exc(file=sys.stderr)
         raise

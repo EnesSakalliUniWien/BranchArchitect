@@ -1,19 +1,11 @@
 """Debugging utilities for jumping taxa algorithms."""
 
 from brancharchitect.core.combined_logger import Logger
-
-from typing import Any, Set  # Utility functions
+from brancharchitect.core.formatting import format_set
 
 # Create logger instance first - before ANY other imports
 jt_logger = Logger("JumpingTaxa")
 jt_logger.disabled = True
-
-
-def format_set(s: Set[Any]) -> str:
-    """Format set for display."""
-    if not s:
-        return "∅"
-    return "{" + ", ".join(str(x) for x in sorted(s)) + "}"
 
 
 # Export core functionality first
@@ -31,7 +23,7 @@ from .error_handling import (  # noqa: E402
     debug_algorithm_execution,
 )  # noqa: E402
 
-# Update exports with submodule functionality
+# Update exports with submodule functionality (only what we actually provide)
 __all__ += [
     "generate_debug_html",
     "write_debug_output",
@@ -39,11 +31,4 @@ __all__ += [
     "log_stacktrace",
     "log_detailed_error",
     "debug_algorithm_execution",
-    "log_arms_definition",
-    "log_matrix_state",
-    "log_meet_result",
-    "log_classification_analysis",
-    "log_tree_comparison",
-    "log_process_direction",
-    "log_bidirectional_analysis",
 ]

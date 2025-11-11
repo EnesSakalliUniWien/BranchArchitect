@@ -8,7 +8,7 @@ from .interpolation_sequence import (
 )
 from .distance_metrics import DistanceMetrics
 from .tree_meta_data import TreeMetadata
-from .tree_pair_solution import TreePairSolution
+from .tree_pair_solution import TreePairSolution, SplitChangeEvent
 
 __all__ = [
     "TreeList",
@@ -19,4 +19,5 @@ __all__ = [
     "DistanceMetrics",
     "TreeMetadata",
     "TreePairSolution",
+    "SplitChangeEvent",
 ]

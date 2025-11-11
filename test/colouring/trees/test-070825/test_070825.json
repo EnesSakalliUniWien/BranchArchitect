@@ -1,23 +1,21 @@
 {
-    "tree1": "(O,((((C1,X),B1),C2),(D1,((D2,A1),A2)),B2));",
+    "tree1": "(O,(((((C1,X),B1),C2),(D1,((D2,A1),A2))),B2));",
     "tree2": "(O,(((((C1,D1),D2),C2),(X,((B1,A1),A2))),B2));",
     "solutions": [
         [
             [
-                "X1",
-                "X2"
-            ]
-        ],
-        [
+                "A1"
+            ],
             [
                 "A2"
-            ]
-        ],
-        [
+            ],
             [
-                "A3"
+                "C1"
+            ],
+            [
+                "C2"
             ]
         ]
     ],
-    "comment": ""
+    "comment": "Deleting [A1, A2, C1, C2] produces topologically identical trees with 6 remaining taxa: [B1, B2, D1, D2, O, X]"
 }

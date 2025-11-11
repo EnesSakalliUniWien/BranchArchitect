@@ -2,75 +2,36 @@ from typing import List, Dict, Tuple, Optional, Union, Any
 from dataclasses import dataclass
 import tempfile
 import os
+import importlib
+import xml.etree.ElementTree as ET
 
 # Local imports (always available)
 from brancharchitect.distances.distances import robinson_foulds_distance
-
-# Optional imports with proper error handling
-import xml.etree.ElementTree as ET
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import numpy as np
-import cairosvg  # type: ignore
-from IPython.display import Image, display
 from brancharchitect.plot.tree_plot import (
     plot_circular_trees_in_a_row,
     add_svg_gridlines,
 )
 
 
-# Configuration dataclasses to reduce parameter redundancy
-@dataclass
-class StylingConfig:
-    """Configuration for styling options."""
+def _require_optional_deps(context: str, modules: Optional[List[str]] = None) -> None:
+    """Ensure optional heavy dependencies are available with a friendly error.
 
-    font_family: str = "Monospace"
-    font_size: str = "18"
-    leaf_font_size: Optional[str] = None
-    stroke_color: str = "#000"
-    general_stroke_width: float = 2.0
-
-
-@dataclass
-class HighlightConfig:
-    """Configuration for branch highlighting."""
-
-    branches: Optional[Any] = None
-    width: Union[float, List[float]] = 10.0
-    colors: Optional[Any] = None
-
-
-@dataclass
-class BezierConfig:
-    """Configuration for Bezier curve styling."""
-
-    min_width: float = 4.0
-    max_width: float = 14.0
-    cmap_name: str = "viridis"
-    colors: Optional[Any] = None
-    stroke_widths: Optional[Any] = None
-
-
-@dataclass
-class PlotConfig:
-    """Configuration for distance plots."""
-
-    title: Optional[str] = None
-    xlabel: Optional[str] = None
-    ylabel: Optional[str] = None
-    plot_type: str = "both"  # "both", "rf", "circular"
-
-
-@dataclass
-class LayoutConfig:
-    """Configuration for layout dimensions."""
-
-    size: int = 240
-    margin: int = 50
-    label_offset: int = 18
-    y_steps: int = 7
-    top_margin: int = 210
-    bottom_margin: int = 36
+    Args:
+        context: Description of what feature needs the deps (for error message).
+        modules: Specific modules to check; defaults to common plotting deps.
+    """
+    mods = modules or []
+    missing: list[str] = []
+    for name in mods:
+        try:
+            importlib.import_module(name)
+        except Exception:
+            missing.append(name)
+    if missing:
+        raise ImportError(
+            f"The following optional dependencies are required for {context}: {', '.join(missing)}. "
+            "Install them (e.g., pip install matplotlib numpy cairosvg pillow) and retry."
+        )
 
 
 # --- Parameter Normalization Utilities ---
@@ -199,7 +160,6 @@ def plot_tree_row_with_beziers_and_distances(
     size: int = 240,
     margin: int = 50,
     label_offset: int = 18,
-    y_steps: int = 7,
     min_width: float = 4.0,
     max_width: float = 14.0,
     cmap_name: str = "viridis",
@@ -215,7 +175,6 @@ def plot_tree_row_with_beziers_and_distances(
     highlight_branches: Optional[Any] = None,
     highlight_width: Optional[Any] = None,
     highlight_colors: Optional[Any] = None,
-    glow: bool = True,
     show_zero_length_indicators: bool = False,
     zero_length_indicator_color: str = "#ff4444",
     zero_length_indicator_size: float = 6.0,
@@ -235,7 +194,10 @@ def plot_tree_row_with_beziers_and_distances(
         show_plot: If True, display plots in notebook output (default: True)
         Other parameters: See function signature for full parameter list
     """
-    _require_optional_deps("tree plotting with distances")
+    # Lazy-load heavy deps only when this function is called
+    _require_optional_deps("tree plotting with distances", modules=["matplotlib", "numpy"])
+    import matplotlib.pyplot as plt  # noqa: WPS433
+    import matplotlib.colors as mcolors  # noqa: WPS433
 
     # Handle single tree case - no distances, just tree visualization
     if len(trees) == 1:
@@ -258,26 +220,23 @@ def plot_tree_row_with_beziers_and_distances(
         if output_path:
             svg_string = ET.tostring(svg_element, encoding="unicode")
             if save_format.lower() == "png":
-                import tempfile
-
-                with tempfile.NamedTemporaryFile(
-                    suffix=".svg", delete=False
-                ) as tmp_svg:
+                _require_optional_deps("SVG→PNG export", modules=["cairosvg"])
+                import cairosvg  # type: ignore  # noqa: WPS433
+                with tempfile.NamedTemporaryFile(suffix=".svg", delete=False) as tmp_svg:
                     tmp_svg.write(svg_string.encode())
                     tmp_svg.flush()
-
-                    cairosvg.svg2png(
-                        url=tmp_svg.name, write_to=output_path, background_color="white"
-                    )
+                    cairosvg.svg2png(url=tmp_svg.name, write_to=output_path, background_color="white")
                     os.unlink(tmp_svg.name)
             else:
                 with open(output_path, "w") as f:
                     f.write(svg_string)
 
-        if show_plot:
-            # For single tree, just display the SVG without matplotlib plots
-            if output_path and os.path.exists(output_path):
+        if show_plot and output_path and os.path.exists(output_path):
+            try:
+                from IPython.display import Image, display  # noqa: WPS433
                 display(Image(filename=output_path))
+            except Exception:
+                pass
 
         return svg_element
 
@@ -341,7 +300,21 @@ def plot_tree_row_with_beziers_and_distances(
     )
 
     if gridlines:
-        add_svg_gridlines(svg_element, len(trees), size)
+        # Determine SVG canvas dimensions for proper gridlines
+        def _parse_dim(val: Optional[str], fallback: int) -> int:
+            if not val:
+                return fallback
+            try:
+                # Strip potential 'px' suffix and cast
+                return int(str(val).replace("px", "").strip())
+            except Exception:
+                return fallback
+
+        width_attr = svg_element.get("width")
+        height_attr = svg_element.get("height")
+        total_width = _parse_dim(width_attr, fallback=len(trees) * size)
+        total_height = _parse_dim(height_attr, fallback=size)
+        add_svg_gridlines(svg_element, total_width, total_height)
 
     # Only generate distance plots if show_distances=True
     if show_distances:
@@ -388,6 +361,7 @@ def plot_tree_row_with_beziers_and_distances(
 
 def _plot_distances(ax: Any, rf_dists: List[float], circ_dists: List[float]) -> None:
     """Create distance comparison plot."""
+    import numpy as np  # noqa: WPS433
     x_positions = np.arange(len(rf_dists))
     x_labels = [f"Tree {i}→Tree {i + 1}" for i in range(len(rf_dists))]
 
@@ -420,37 +394,31 @@ def _handle_output(
     show_plot: bool,
 ) -> None:
     """Handle saving and/or displaying the combined visualization."""
-    _require_optional_deps("output handling")
-
+    # Only import what we need based on output format
+    
     if output_path:
         if save_format.lower() == "png":
             # Create a combined image with both trees (SVG) and distance plot (matplotlib)
 
             # First, convert SVG to image
+            _require_optional_deps("PNG output", modules=["cairosvg", "PIL"])
+            import cairosvg  # type: ignore  # noqa: WPS433
             with tempfile.NamedTemporaryFile(suffix=".svg", delete=False) as tmp_svg:
                 tmp_svg.write(svg_string.encode())
                 tmp_svg.flush()
 
                 # Convert SVG to PNG in memory
-                svg_png_data = cairosvg.svg2png(
-                    url=tmp_svg.name, background_color="white"
-                )
+                svg_png_data = cairosvg.svg2png(url=tmp_svg.name, background_color="white")
                 os.unlink(tmp_svg.name)
 
             # Save matplotlib figure to memory
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_mpl:
-                fig.savefig(
-                    tmp_mpl.name,
-                    dpi=150,
-                    bbox_inches="tight",
-                    facecolor="white",
-                    edgecolor="none",
-                )
+                fig.savefig(tmp_mpl.name, dpi=150, bbox_inches="tight", facecolor="white", edgecolor="none")
                 mpl_png_path = tmp_mpl.name
 
             # Combine the images vertically using PIL
-            from PIL import Image as PILImage
-            import io
+            from PIL import Image as PILImage  # noqa: WPS433
+            import io  # noqa: WPS433
 
             # Load images
             svg_image = PILImage.open(io.BytesIO(svg_png_data))
@@ -484,15 +452,19 @@ def _handle_output(
 
     # Only display the plot in the notebook if show_plot=True
     if show_plot:
-        # Display the figure if explicitly requested
-        display(fig)
-        plt.show()
+        try:
+            from IPython.display import display  # noqa: WPS433
+            display(fig)
+        except Exception:
+            pass
+        try:
+            import matplotlib.pyplot as plt  # noqa: WPS433
+            plt.show()
+        except Exception:
+            pass
 
     # Always close the figure to prevent memory leaks, regardless of show_plot
     plt.close(fig)
 
 
-# Simplified API function for basic use cases
-def plot_tree_sequence(trees: List[Any], **kwargs) -> Any:
-    """Simplified interface for plotting a sequence of trees with default settings."""
-    return plot_tree_row_with_beziers_and_distances(trees, **kwargs)
+# (Removed legacy alias plot_tree_sequence; use plot_tree_row_with_beziers_and_distances directly.)

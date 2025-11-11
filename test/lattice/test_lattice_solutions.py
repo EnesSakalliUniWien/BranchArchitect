@@ -1,12 +1,14 @@
 import unittest
-from brancharchitect.jumping_taxa.lattice.lattice_solution import LatticeSolutions
-from brancharchitect.elements.partition_set import PartitionSet, Partition
+import pytest
+from brancharchitect.jumping_taxa.lattice.registry import SolutionRegistry
+from brancharchitect.elements.partition import Partition
+from brancharchitect.elements.partition_set import PartitionSet
 
 
-class TestLatticeSolutions(unittest.TestCase):
+class TestSolutionRegistry(unittest.TestCase):
     def test_minimal_by_indices_sum(self):
-        # Create some mock PartitionSet objects and add them to LatticeSolutions
-        lattice_solutions = LatticeSolutions()
+        # Create some mock PartitionSet objects and add them to SolutionRegistry
+        lattice_solutions = SolutionRegistry()
 
         # Create mock Partitions
         partition1 = Partition((1, 2, 3))

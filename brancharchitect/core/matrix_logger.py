@@ -3,7 +3,11 @@
 import re
 from typing import Any, List, Callable, Optional
 
-from brancharchitect.core.base_logger import AlgorithmLogger, beautify_frozenset
+from brancharchitect.core.base_logger import AlgorithmLogger
+from brancharchitect.core.formatting import (
+    format_partition_set,
+    beautify_frozenset,
+)
 from brancharchitect.jumping_taxa.lattice.types import PMatrix
 
 
@@ -35,71 +39,11 @@ def to_latex_matrix(
     return latex_code
 
 
-def format_partition(part):
-    """Format a Partition (or its tuple representation) as '(a, b, ...)'."""
-    # Check if it's a Partition object with reverse_encoding
-    if hasattr(part, 'reverse_encoding') and hasattr(part, 'indices'):
-        try:
-            # Use the reverse_encoding to get taxon names
-            reverse_encoding = part.reverse_encoding
-            taxa_names = sorted(reverse_encoding.get(i, str(i)) for i in part.indices)
-            return "(" + ", ".join(taxa_names) + ")"
-        except Exception:
-            # Fall back to indices if something goes wrong
-            pass
     
-    # Default behavior for non-Partition objects or if reverse_encoding fails
-    try:
-        values = tuple(part)  # works if part is iterable (like Partition)
-    except TypeError:
-        values = part
-    return "(" + ", ".join(str(x) for x in values) + ")"
-
-
-def format_partition_set(ps):
-    """Format a PartitionSet as a brace-enclosed, comma-separated list of partitions."""
-    parts = sorted(ps, key=lambda p: format_partition(p))
-    return "{" + ", ".join(format_partition(p) for p in parts) + "}"
-
-
-def format_matrix(matrix: PMatrix) -> str:
-    """
-    Given a 2x2 matrix (list of lists) of PartitionSet objects,
-    return a string representation that looks like:
-
-      ⎡ cell00         │ cell01 ⎤
-      ⎢─────────────────────────────⎥
-      ⎣ cell10         │ cell11 ⎦
-    """
-    formatted = [[format_partition_set(cell) for cell in row] for row in matrix]
-    col_widths = [max(len(row[j]) for row in formatted) for j in range(2)]
-
-    def pad(cell, width):
-        return cell.ljust(width)
-
-    top = (
-        "⎡ "
-        + pad(formatted[0][0], col_widths[0])
-        + "   │ "
-        + pad(formatted[0][1], col_widths[1])
-        + " ⎤"
-    )
-    bottom = (
-        "⎣ "
-        + pad(formatted[1][0], col_widths[0])
-        + "   │ "
-        + pad(formatted[1][1], col_widths[1])
-        + " ⎦"
-    )
-    sep_width = len(top) - 2
-    middle = "⎢ " + "─" * (sep_width - 4) + " ⎥"
-    return "\n".join([top, middle, bottom])
 
 
 class MatrixLogger(AlgorithmLogger):
     """Extension of AlgorithmLogger with matrix display support."""
-
-    from typing import Callable, Optional
 
     def matrix(
         self,
@@ -139,22 +83,15 @@ class MatrixLogger(AlgorithmLogger):
             ]
 
             # Add appropriate brackets based on position
-            if r_idx == 0 and len(matrix) > 1:
-                line = f"⎡ {' │ '.join(row_vals)} ⎤"
-            elif r_idx == len(matrix) - 1 and len(matrix) > 1:
-                line = f"⎣ {' │ '.join(row_vals)} ⎦"
-            elif len(matrix) > 1:
-                line = f"⎢ {' │ '.join(row_vals)} ⎥"
-            else:
-                line = f"[ {' │ '.join(row_vals)} ]"
+            # Use ASCII-only brackets/dividers for consistent width across terminals
+            line = f"[ {' | '.join(row_vals)} ]"
 
             terminal_output.append(line)
 
             # Add dividers between rows (except after last row)
             if r_idx < len(matrix) - 1 and len(matrix) > 1:
-                divider = (
-                    "⎢ " + "─" * (sum(col_widths) + (len(col_widths) - 1) * 3) + " ⎥"
-                )
+                content_width = sum(col_widths) + (len(col_widths) - 1) * 3
+                divider = f"[ {'-' * content_width} ]"
                 terminal_output.append(divider)
 
         # Print ASCII art to terminal
@@ -223,40 +160,14 @@ class MatrixLogger(AlgorithmLogger):
             ]
 
             # Add appropriate brackets based on position
-            if r_idx == 0 and len(matrix) > 1:
-                line = f"⎡ {' │ '.join(row_vals)} ⎤"
-            elif r_idx == len(matrix) - 1 and len(matrix) > 1:
-                line = f"⎣ {' │ '.join(row_vals)} ⎦"
-            elif len(matrix) > 1:
-                line = f"⎢ {' │ '.join(row_vals)} ⎥"
-            else:
-                line = f"[ {' │ '.join(row_vals)} ]"
-
-            # Add HTML styling
-            formatted_line = re.sub(
-                r"([⎡⎢⎣⎤⎥⎦\[\]])", r'<span class="bracket">\1</span>', line
-            )
-            formatted_line = re.sub(
-                r"(│)", r'<span class="divider">│</span>', formatted_line
-            )
-            formatted_line = re.sub(
-                r"(\{[^{}]*\})", r'<span class="set">\1</span>', formatted_line
-            )
-            formatted_line = re.sub(
-                r"(\([^()]+\))", r'<span class="element">\1</span>', formatted_line
-            )
-
-            html += formatted_line + "\n"
+            # Use ASCII-only brackets/dividers for consistent width
+            line = f"[ {' | '.join(row_vals)} ]"
+            html += line + "\n"
 
             # Add dividers between rows (except after last row)
             if r_idx < len(matrix) - 1 and len(matrix) > 1:
-                divider = (
-                    "⎢ " + "─" * (sum(col_widths) + (len(col_widths) - 1) * 3) + " ⎥"
-                )
-                divider = re.sub(
-                    r"([⎡⎢⎣⎤⎥⎦\[\]])", r'<span class="bracket">\1</span>', divider
-                )
-                divider = re.sub(r"(─)", r'<span class="divider">─</span>', divider)
+                content_width = sum(col_widths) + (len(col_widths) - 1) * 3
+                divider = f"[ {'-' * content_width} ]"
                 html += divider + "\n"
 
         html += "</pre>\n</div>"
@@ -281,22 +192,104 @@ class MatrixLogger(AlgorithmLogger):
         table_logger = TableLogger(self.name)
         return table_logger._create_html_table(table_data, headers)
 
-    def matrix_pretty(self, matrix: List[List[Any]], title: str = ""):
-        """
-        Display a matrix of PartitionSet objects using pretty printing.
-        This uses the custom format_matrix function.
-        """
-        if self.disabled or not matrix:
+    def log_strategy_selection(self, rows: int, cols: int, category: str) -> None:
+        """Log which meet product strategy was selected."""
+        if self.disabled:
             return
 
-        if title:
-            self.info(f"\n{title}:")
+        if category == "VECTOR":
+            self.info("Strategy: Vector meet product for 1×2 matrix")
+        elif category == "SQUARE":
+            self.info(f"Strategy: Square meet product for {rows}×{cols} matrix")
+        elif category == "RECTANGULAR":
+            self.info(
+                f"Strategy: Rectangular row-wise meet product for {rows}×{cols} matrix"
+            )
 
-        # Generate the formatted matrix string
-        pretty_output = format_matrix(matrix)
+    def log_results_collection(self, main_result, counter_result) -> None:
+        """Log collection of non-empty diagonal results."""
+        if self.disabled:
+            return
 
-        # Log it to the terminal
-        self.logger.info(pretty_output)
+        self.info("\n  📋 Collecting Non-Empty Results:")
 
-        # Include it in the HTML output as a preformatted code block
-        self._html_content.append(f'<pre class="matrix">{pretty_output}</pre>')
+        count = 0
+        if main_result:
+            self.info(f"    ✓ Main diagonal solution added: {main_result}")
+            count += 1
+        else:
+            self.info("    ✗ Main diagonal empty - not added")
+
+        if counter_result:
+            self.info(f"    ✓ Counter diagonal solution added: {counter_result}")
+            count += 1
+        else:
+            self.info("    ✗ Counter diagonal empty - not added")
+
+        return count
+
+    def log_split_analysis(self, rows: int, cols: int) -> None:
+        """Log start of matrix splitting analysis."""
+        if self.disabled:
+            return
+
+        self.info(f"Analyzing {rows}×{cols} matrix for potential splitting")
+
+    def log_degenerate_extraction(self, count: int) -> None:
+        """Log extraction of degenerate rows."""
+        if self.disabled:
+            return
+
+        self.info(f"Extracted {count} degenerate singleton row(s) as 1×2 matrices")
+
+    def log_grouping_analysis(
+        self, left_count: int, right_count: int, selected: str
+    ) -> None:
+        """Log column grouping analysis results."""
+        if self.disabled:
+            return
+
+        self.info(f"Grouping by left column resulted in {left_count} groups.")
+        self.info(f"Grouping by right column resulted in {right_count} groups.")
+
+        if selected == "right":
+            self.info("Selected right column grouping as it is more effective.")
+        else:
+            self.info("Selected left column grouping.")
+
+    def log_no_split(
+        self, reason: str = "single group or no grouping achieved"
+    ) -> None:
+        """Log when no split is performed."""
+        if self.disabled:
+            return
+
+        self.info(f"No effective split found - {reason}.")
+
+    def log_split_results(self, count: int) -> None:
+        """Log split results summary."""
+        if self.disabled:
+            return
+
+        self.info(f"Created {count} sub-matrices")
+
+    def log_pairing_mode(self, n: int, mode: str) -> None:
+        """Log which pairing mode is being used."""
+        if self.disabled:
+            return
+
+        if mode == "reverse":
+            self.info(f"✓ Using standard reverse mapping for {n} pairs")
+            self.info("  • Position i pairs with position (n-1-i)")
+            self.info(f"  • Mappings: {[(i, n - 1 - i) for i in range(n)]}")
+        elif mode == "asymmetric":
+            self.info("📝 Asymmetric Case: Cannot use pure reverse mapping")
+            self.info("   Reason: Different number of results from each matrix")
+            self.info("   Fallback: Using generalized union approach instead")
+
+    def log_union_creation(self, count: int) -> None:
+        """Log creation of union solutions."""
+        if self.disabled:
+            return
+
+        self.info(f"Creating {count} union solutions")

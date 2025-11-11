@@ -8,7 +8,9 @@ from brancharchitect.elements.partition_set import PartitionSet
 # --- BranchArchitect Imports ---
 # (Ensure these are correctly resolved in your environment)
 from brancharchitect.elements.partition import Partition
-from brancharchitect.jumping_taxa.lattice.lattice_edge import LatticeEdge
+from brancharchitect.jumping_taxa.lattice.pivot_edge_subproblem import (
+    PivotEdgeSubproblem,
+)
 from brancharchitect.plot.paper_plot.rectanlge_plot_configuration import (
     DEFAULT_STYLE_CONFIG,
 )
@@ -208,7 +210,7 @@ def draw_flat_partition_panel(
 
 
 def create_flat_partition_visualization(
-    lattice_edge: LatticeEdge,
+    lattice_edge: PivotEdgeSubproblem,
     output_dir: Optional[str] = None,
     output_filename_base: str = "flat_partition_visualization",
     style_config: Dict = DEFAULT_STYLE_CONFIG,
@@ -218,20 +220,22 @@ def create_flat_partition_visualization(
 ) -> plt.Figure:
     """Creates the original two-panel flat partition visualization."""
     # --- Validation --- (Copied from previous version)
-    if not isinstance(lattice_edge, LatticeEdge):
-        raise ValueError("Invalid input: lattice_edge must be a LatticeEdge object.")
+    if not isinstance(lattice_edge, PivotEdgeSubproblem):
+        raise ValueError(
+            "Invalid input: lattice_edge must be a PivotEdgeSubproblem object."
+        )
     if not hasattr(lattice_edge, "t1_common_covers") or not hasattr(
         lattice_edge, "t2_common_covers"
     ):
         raise ValueError(
-            "LatticeEdge object missing 't1_common_covers' or 't2_common_covers'."
+            "PivotEdgeSubproblem object missing 't1_common_covers' or 't2_common_covers'."
         )
     if use_unique_cover_labels and (
         not hasattr(lattice_edge, "t1_unique_covers")
         or not hasattr(lattice_edge, "t2_unique_covers")
     ):
         print(
-            "Warning: LatticeEdge object missing 't1_unique_covers' or 't2_unique_covers'. Defaulting to 'Group X' labels."
+            "Warning: PivotEdgeSubproblem object missing 't1_unique_covers' or 't2_unique_covers'. Defaulting to 'Group X' labels."
         )
         use_unique_cover_labels = False
 

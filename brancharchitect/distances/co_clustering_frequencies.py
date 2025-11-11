@@ -191,9 +191,9 @@ def filter_minimal_splits(splits: List[Set[int]]) -> List[Set[int]]:
 def get_taxa_and_indices(list_of_trees: List[Node]):
     """
     Extract taxa, taxa_indices, and index_to_taxon from a list of trees.
-    Assumes all trees have the same taxa order (_order).
+    Uses the first tree's current leaf order as canonical.
     """
-    taxa = list_of_trees[0]._order
+    taxa = list(list_of_trees[0].get_current_order())
     taxa_indices = {taxon: idx for idx, taxon in enumerate(taxa)}
     index_to_taxon = {idx: taxon for taxon, idx in taxa_indices.items()}
     return taxa, taxa_indices, index_to_taxon

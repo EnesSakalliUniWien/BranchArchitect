@@ -8,9 +8,13 @@ def traverse(root):
 
 
 def trees_equal(t1, t2):
-    split_set_1 = set(n.split_indices for n in traverse(t1))
-    split_set_2 = set(n.split_indices for n in traverse(t2))
-    return split_set_1 == split_set_2
+    """
+    Check if two trees are topologically identical.
+
+    Uses the Node.__eq__ method which compares the complete set of
+    internal splits (full topology), not just individual split_indices.
+    """
+    return t1 == t2
 
 
 def contains(a, b):

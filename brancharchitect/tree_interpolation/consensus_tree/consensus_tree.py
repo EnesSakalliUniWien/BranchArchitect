@@ -13,11 +13,20 @@ def calculate_consensus_tree(tree: Node, split_dict: Dict[Partition, float]) -> 
     return _calculate_consensus_tree(consensus_tree, split_dict)
 
 
-def collapse_zero_length_branches_for_node(node: Node, tol: float = 0.0) -> None:
+def collapse_zero_length_branches_for_node(
+    node: Node, tol: float = 0.0, destination_tree: Node | None = None
+) -> None:
     """
     Collapse branches whose length is effectively zero (<= tol) in `node`'s subtree.
     Runs to a fixpoint and refreshes indices/caches after structural changes.
+
+    If destination_tree is provided, only collapse branches whose splits DON'T exist
+    in the destination tree. This ensures we preserve topology needed for the final tree.
     """
+    # Pre-compute destination splits if provided
+    destination_splits = None
+    if destination_tree is not None:
+        destination_splits = set(destination_tree.to_splits())
 
     def _collapse_once(cur: Node) -> bool:
         changed = False
@@ -28,11 +37,26 @@ def collapse_zero_length_branches_for_node(node: Node, tol: float = 0.0) -> None
         for ch in cur.children:
             ch_len = 0.0 if ch.length is None else float(ch.length)
             if ch_len <= tol and ch.children:
-                # splice grandchildren
-                for g in ch.children:
-                    g.parent = cur
-                    new_children.append(g)
-                changed = True
+                # Check if this split should be preserved
+                should_collapse = True
+                if destination_splits is not None:
+                    if ch.split_indices in destination_splits:
+                        # Split exists in destination - DON'T collapse
+                        should_collapse = False
+                        logger.debug(
+                            f"[CONSENSUS COLLAPSE] Preserving zero-length branch "
+                            f"(split exists in destination): {ch.split_indices}"
+                        )
+
+                if should_collapse:
+                    # splice grandchildren
+                    for g in ch.children:
+                        g.parent = cur
+                        new_children.append(g)
+                    changed = True
+                else:
+                    # Keep the branch even though it's zero-length
+                    new_children.append(ch)
             else:
                 new_children.append(ch)
 
@@ -97,7 +121,7 @@ def reorder_consensus_tree_by_edge(
             node_to_reorder.reorder_taxa(correct_leaf_order)
         except ValueError as e:
             logger.warning(
-                f"Could not reorder node for s-edge {edge} due to taxa mismatch: {e}. "
+                f"Could not reorder node for pivot edge {edge} due to taxa mismatch: {e}. "
                 "The order may be partially inconsistent for this step."
             )
 
@@ -106,16 +130,23 @@ def reorder_consensus_tree_by_edge(
 
 def create_collapsed_consensus_tree(
     down_phase_tree: Node,
-    s_edge: Partition,
+    pivot_edge: Partition,
     tol: float = 0,  # small tolerance for numeric stability
+    destination_tree: Node
+    | None = None,  # to preserve splits that exist in destination
 ) -> Node:
     """
-    Copy down_phase_tree, collapse zero-length internal branches under s_edge, and refresh indices.
+    Copy down_phase_tree, collapse zero-length internal branches under pivot_edge, and refresh indices.
+
+    If destination_tree is provided, only collapse zero-length branches whose splits DON'T
+    exist in the destination. This ensures the final tree topology matches the destination.
     """
     collapsed_tree: Node = down_phase_tree.deep_copy()
-    consensus_edge_node: Node | None = collapsed_tree.find_node_by_split(s_edge)
+    consensus_edge_node: Node | None = collapsed_tree.find_node_by_split(pivot_edge)
     if consensus_edge_node is not None:
-        collapse_zero_length_branches_for_node(consensus_edge_node, tol=tol)
+        collapse_zero_length_branches_for_node(
+            consensus_edge_node, tol=tol, destination_tree=destination_tree
+        )
 
     root: Node = collapsed_tree.get_root()
     root.initialize_split_indices(root.taxa_encoding)

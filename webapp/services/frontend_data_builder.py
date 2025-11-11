@@ -137,7 +137,7 @@ def _derive_split_change_tracking_from_events(
     for meta in processed_tree_metadata:
         pair_key = meta.get("tree_pair_key")
         step = meta.get("step_in_pair")
-        if pair_key and step == 1:
+        if pair_key and step == 1 and pair_key not in first_global_for_pair:
             first_global_for_pair[pair_key] = meta["global_tree_index"]
 
     for pair_key, events in events_by_pair.items():
@@ -205,7 +205,7 @@ def _index_timeline_anchors(
     for meta in tree_metadata:
         pair_key = meta.get("tree_pair_key")
         step = meta.get("step_in_pair")
-        if pair_key and step == 1:
+        if pair_key and step == 1 and pair_key not in first_global_for_pair:
             first_global_for_pair[pair_key] = meta["global_tree_index"]
         if pair_key is None:
             originals[orig_counter] = {
@@ -265,9 +265,14 @@ def _serialize_tree_pair_solutions(
     """Convert TreePairSolution objects to a JSON-serializable dict."""
     serialized: Dict[str, Dict[str, Any]] = {}
     for pair_key, solution in tree_pair_solutions.items():
+        # Maintain backward-compatible JSON shape for the frontend:
+        # Convert flat partitions per pivot into a single nested solution set per pivot.
+        raw_js = solution["jumping_subtree_solutions"]  # Dict[Partition, List[Partition]]
+        wrapped_js = {pivot: [parts] for pivot, parts in raw_js.items()}
+
         item: Dict[str, Any] = {
             "jumping_subtree_solutions": serialize_partition_dict_to_indices(
-                solution["jumping_subtree_solutions"]
+                wrapped_js
             ),
             "mapping_one": serialize_partition_dict_to_indices(
                 solution.get("mapping_one", solution.get("solution_to_target_map", {}))
@@ -282,6 +287,9 @@ def _serialize_tree_pair_solutions(
                 for edge in solution["ancestor_of_changing_splits"]
             ],
         }
+        # NOTE: Keep jumping_subtree_solutions flat: {pivot: [partition, ...]}
+        # serialize_partition_dict_to_indices already serializes values to List[List[int]]
+        # representing the flat list of partitions. No wrapping into nested lists.
         if "split_change_events" in solution:
             events_ser: List[Dict[str, Any]] = []
             for ev in solution["split_change_events"]:

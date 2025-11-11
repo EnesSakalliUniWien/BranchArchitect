@@ -1,7 +1,7 @@
 """Text formatting utilities for logging."""
 
 import re
-from typing import Any, Set
+from typing import Any, Iterable, Set
 
 
 def format_set(s: Set[Any]) -> str:
@@ -37,7 +37,23 @@ def beautify_frozenset(obj: Any) -> str:
 
 
 def format_partition(part: Any) -> str:
-    """Format a Partition (or its tuple representation) as '(a, b, ...)'."""
+    """Format a Partition (or its tuple) as '(a, b, ...)'.
+
+    If a Partition object exposes `reverse_encoding` and `indices`, map indices to
+    human-readable taxon names using `reverse_encoding`.
+    """
+    # Prefer pretty names when available
+    if hasattr(part, "reverse_encoding") and hasattr(part, "indices"):
+        try:
+            reverse_encoding = getattr(part, "reverse_encoding")
+            indices: Iterable[Any] = getattr(part, "indices")
+            taxa_names = sorted(reverse_encoding.get(i, str(i)) for i in indices)
+            return "(" + ", ".join(taxa_names) + ")"
+        except Exception:
+            # Fallback to generic representation
+            pass
+
+    # Default behavior for non-Partition objects or if reverse_encoding fails
     try:
         values = tuple(part)  # works if part is iterable (like Partition)
     except TypeError:
@@ -45,7 +61,11 @@ def format_partition(part: Any) -> str:
     return "(" + ", ".join(str(x) for x in values) + ")"
 
 
-def format_partition_set(ps):
+def format_partition_set(ps: Iterable[Any]) -> str:
     """Format a PartitionSet as a brace-enclosed, comma-separated list of partitions."""
-    parts = sorted(ps, key=lambda p: format_partition(p))
+    try:
+        parts = sorted(ps, key=lambda p: format_partition(p))
+    except Exception:
+        # Robust fallback: best-effort formatting without sorting
+        parts = list(ps)
     return "{" + ", ".join(format_partition(p) for p in parts) + "}"

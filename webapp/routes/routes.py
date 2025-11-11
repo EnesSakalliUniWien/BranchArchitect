@@ -4,14 +4,13 @@
 from __future__ import annotations
 
 from logging import Logger
-import os
 import json
 from pathlib import Path
 from typing import Dict, Any
 from flask import Response
 from flask import Blueprint, current_app, jsonify, request, send_from_directory
 from brancharchitect.io import UUIDEncoder
-from werkzeug.datastructures.file_storage import FileStorage
+from webapp.routes.helpers import parse_tree_data_request
 from webapp.services.tree_processing_service import handle_uploaded_file
 from typing import Union, Tuple
 
@@ -24,20 +23,6 @@ def about() -> Response:
     return jsonify(
         {"about": "Phylo-Movies API backend. See the Vue/React front-end for the UI."}
     )
-
-
-# ----------------------------------------------------------------------
-# Static assets – works both during *vite dev* and after production build
-# ----------------------------------------------------------------------
-@bp.route("/static/<path:filename>")
-def vite_static(filename: str):  # noqa: D401  (simple function suffices)
-    dist_path = Path(__file__).resolve().parent.parent / "dist"
-    static_fallback = Path(__file__).resolve().parent / "static"
-
-    # Prefer production build artefacts if present (``npm run build``)
-    if (dist_path / filename).exists():
-        return send_from_directory(dist_path, filename)
-    return send_from_directory(static_fallback, filename)
 
 
 @bp.route("/favicon.ico")
@@ -57,58 +42,25 @@ def favicon():
 
 @bp.route("/treedata", methods=["POST"])
 def treedata() -> Union[Response, Tuple[dict[str, Any], int]]:
+    log: Logger = current_app.logger
+    log.info("[treedata] POST /treedata from %s", request.remote_addr)
+
     try:
-        log: Logger = current_app.logger
+        req_data = parse_tree_data_request(request)
 
-        log.info("[treedata] POST /treedata from %s", request.remote_addr)
-        tree_file = request.files.get("treeFile")
-        if not tree_file or tree_file.filename == "":
-            return _fail(400, "Missing required file 'treeFile'."), 400
+        log.info(
+            f"[treedata] Processing file: {req_data.tree_file.filename}, "
+            f"Rooting: {req_data.enable_rooting}, "
+            f"Window: {req_data.window_size}, Step: {req_data.window_step}, "
+            f"MSA provided: {req_data.msa_content is not None}"
+        )
 
-        # Small sanity‑check against empty uploads (common drag‑and‑drop issue)
-        tree_file.seek(0, os.SEEK_END)
-        if tree_file.tell() == 0:
-            return _fail(400, "Uploaded file 'treeFile' is empty."), 400
-        tree_file.seek(0)
-
-        window_size = int(request.form.get("windowSize", 1))
-        window_step = int(request.form.get("windowStepSize", 1))
-
-        # Get the rooting parameter from the form
-        enable_rooting = request.form.get("midpointRooting", "") == "on"
-        log.info(f"[treedata] Midpoint rooting: {enable_rooting}")
-
-        # Simple MSA handling - just get content if provided
-        msa_content = None
-        log.info(f"[treedata] Request files: {list(request.files.keys())}")
-        msa_file: FileStorage | None = request.files.get("msaFile")
-        if msa_file and msa_file.filename:
-            # Check file size by seeking to end
-            msa_file.seek(0, os.SEEK_END)
-            file_size = msa_file.tell()
-            msa_file.seek(0)  # Reset to beginning
-
-            if file_size > 0:
-                msa_content = msa_file.read().decode("utf-8", errors="replace")
-                log.info(
-                    f"[treedata] MSA file provided: {msa_file.filename} ({file_size} bytes)"
-                )
-
-                log.debug(
-                    f"[treedata] MSA content preview: {msa_content[:100] if msa_content else 'None'}"
-                )
-            else:
-                log.info(f"[treedata] MSA file {msa_file.filename} is empty")
-        else:
-            log.info("[treedata] No MSA file provided")
-
-        # Process the uploaded file and get structured response
         response_data: Dict[str, Any] = handle_uploaded_file(
-            tree_file,
-            msa_content=msa_content,
-            enable_rooting=enable_rooting,
-            window_size=window_size,
-            window_step=window_step,
+            req_data.tree_file,
+            msa_content=req_data.msa_content,
+            enable_rooting=req_data.enable_rooting,
+            window_size=req_data.window_size,
+            window_step=req_data.window_step,
         )
 
         log.info(
@@ -118,13 +70,14 @@ def treedata() -> Union[Response, Tuple[dict[str, Any], int]]:
         return Response(
             json.dumps(response_data, cls=UUIDEncoder), mimetype="application/json"
         )
-    except Exception as e:
-        import traceback
 
-        current_app.logger.error("[treedata] Exception: %s", str(e))
-        current_app.logger.error(
-            "[treedata] Full traceback: %s", traceback.format_exc()
-        )
+    except ValueError as e:
+        log.warning(f"[treedata] Bad request: {e}")
+        log.warning("[treedata] Full traceback:", exc_info=True)
+        return _fail(400, str(e)), 400
+
+    except Exception as e:
+        log.error("[treedata] Exception: %s", str(e), exc_info=True)
         return _fail(500, str(e)), 500
 
 

@@ -15,20 +15,20 @@ logging.getLogger(
 def apply_stepwise_plan_for_edge(
     current_base_tree: Node,
     destination_tree: Node,
-    active_changing_edge: Partition,
-    expand_paths_for_s_edge: Dict[Partition, PartitionSet[Partition]],
-    collapse_paths_for_s_edge: Dict[Partition, PartitionSet[Partition]],
+    current_pivot_edge: Partition,
+    expand_paths_for_pivot_edge: Dict[Partition, PartitionSet[Partition]],
+    collapse_paths_for_pivot_edge: Dict[Partition, PartitionSet[Partition]],
 ) -> Tuple[List[Node], List[Optional[Partition]], Node]:
     """
-    Executes the stepwise plan for one s-edge across all selections.
+    Executes the stepwise plan for one pivot edge (active-changing split) across all selections.
     Returns the generated trees/edges and the updated interpolation state.
 
     Args:
         current_base_tree: The current tree state
         destination_tree: The destination tree we're morphing toward
-        active_changing_edge: The edge being processed
-        expand_paths_for_s_edge: Paths for partitions that will be expanded
-        collapse_paths_for_s_edge: Paths for partitions that will be collapsed
+        current_pivot_edge: The pivot edge (active-changing split) being processed
+        expand_paths_for_pivot_edge: Paths for partitions that will be expanded
+        collapse_paths_for_pivot_edge: Paths for partitions that will be collapsed
 
     Returns:
         Tuple of (trees, edges, interpolation_state)
@@ -38,15 +38,15 @@ def apply_stepwise_plan_for_edge(
     interpolation_state: Node = current_base_tree.deep_copy()
 
     selections: Dict[Partition, Dict[str, Any]] = build_edge_plan(
-        expand_paths_for_s_edge,
-        collapse_paths_for_s_edge,
+        expand_paths_for_pivot_edge,
+        collapse_paths_for_pivot_edge,
         current_base_tree,
         destination_tree,
-        active_changing_edge,
+        current_pivot_edge=current_pivot_edge,
     )
 
     # Clean logging of selections
-    logging.debug(f"\nSelections for edge {active_changing_edge}:")
+    logging.debug(f"\nSelections for edge {current_pivot_edge}:")
     for subtree, selection in selections.items():
         logging.debug(f"\nSubtree: {subtree}")
 
@@ -68,7 +68,7 @@ def apply_stepwise_plan_for_edge(
         step_trees, step_edges, interpolation_state = build_microsteps_for_selection(
             interpolation_state=interpolation_state,
             destination_tree=destination_tree,
-            active_changing_edge=active_changing_edge,
+            current_pivot_edge=current_pivot_edge,
             selection=selection_with_subtree,
         )
         trees.extend(step_trees)

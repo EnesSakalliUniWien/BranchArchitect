@@ -18,73 +18,31 @@ from brancharchitect.core.html_content import (
 class TreeLogger(AlgorithmLogger):
     """Extension of AlgorithmLogger with tree visualization support."""
 
-    def print_sedge_comparison(self, s_edge):
-        """Print comparison of s-edge trees using rectangular layout."""
-        if self.disabled:
-            return
-
-        self.section("S-Edge Tree Comparison")
-
-        try:
-            if hasattr(s_edge, "node_one") and hasattr(s_edge, "node_two"):
-                svg_content = plot_rectangular_tree_pair(
-                    s_edge.node_one,
-                    s_edge.node_two,
-                    width=800,
-                    height=400,
-                    margin=30,
-                    label_offset=2,
-                )
-                self.add_svg(svg_content)
-
-                # Add text description
-                self.info(f"Edge Type One: {s_edge.edge_type_one}")
-                self.info(f"Edge Type Two: {s_edge.edge_type_two}")
-                if hasattr(s_edge, "split"):
-                    self.info(f"Split: {s_edge.split}")
-
-        except Exception as e:
-            self.info(f"Failed to generate s-edge visualization: {str(e)}")
-            self.info(str(s_edge))  # Fallback to string representation
-
-    def print_trees_side_by_side(self, tree1, tree2, show_internal_names=False):
-        """Print two trees side by side."""
-        self.log_tree_comparison(tree1, tree2)  # removed show_internal_names
-
     def log_tree_comparison(
         self,
         node_one: Node,
         node_two: Node,
         title: str = "Tree Comparison",
         show_internal_names=False,
+        vertical_taxon_labels: bool = False,
     ):
         """Log visual comparison of two trees - rectangular layout only."""
         self.section(title)
-        svg_content = plot_rectangular_tree_pair(node_one, node_two)
-        self.add_svg(svg_content)
-
-    def log_solutions_for_sub_lattice(self, s_edge, solutions):
-        """Log solutions for a sub-lattice."""
-        if self.disabled:
-            return
-        self.section(
-            f"Solutions found for s_edge: {s_edge.split if hasattr(s_edge, 'split') else s_edge}"
+        svg_content = plot_rectangular_tree_pair(
+            node_one, node_two, vertical_leaf_labels=vertical_taxon_labels
         )
-        for sol in solutions:
-            self.info(f"Solution: {sol}")
+        # Prefer PNG embedding in HTML; fallback to inline SVG on failure
+        success = self.add_png_from_svg(svg_content)
+        if not success:
+            self.add_svg(svg_content)
 
-    def log_cover_cartesian_product(
-        self, t1_common_covers: List[Any], t2_common_covers: List[Any]
+    def compare_tree_splits(
+        self,
+        tree1: Node,
+        tree2: Node,
+        sort_by: str = "taxa",
+        show_indices: bool = False,
     ):
-        """Log the Cartesian product of covers."""
-        self.section("Cartesian Product of Covers")
-        for i, left_set in enumerate(t1_common_covers):
-            for j, right_set in enumerate(t2_common_covers):
-                self.info(
-                    f"Pair: (Left {i}, Right {j}) => Left: {left_set}, Right: {right_set}"
-                )
-
-    def compare_tree_splits(self, tree1: Node, tree2: Node, sort_by: str = "indices"):
         """
         Generate an interactive, beautiful comparison table of splits between two trees.
 
@@ -193,24 +151,34 @@ class TreeLogger(AlgorithmLogger):
             all_data.sort(key=lambda x: (x["common"], x["size"]))
 
         # Import here to avoid circular imports
-        from brancharchitect.core.base_logger import format_set
+        from brancharchitect.core.formatting import format_set
 
         # Generate the HTML table
-        html = """
+        # Determine initial active sort button
+        sort_indices_active = "active" if sort_by == "indices" else ""
+        sort_taxa_active = "active" if sort_by == "taxa" else ""
+        sort_common_active = "active" if sort_by == "common_first" else ""
+        sort_diff_active = "active" if sort_by == "diff_first" else ""
+
+        # Determine initial column visibility for indices
+        idx_active_class = "active" if show_indices else ""
+        idx_hidden_class = "" if show_indices else " col-hidden"
+
+        html = f"""
         <div class="split-comparison">
             <div class="controls">
                 <div class="sort-options">
                     <span>Sort by:</span>
-                    <button class="sort-btn active" data-sort="indices">Indices</button>
-                    <button class="sort-btn" data-sort="taxa">Taxa</button>
-                    <button class="sort-btn" data-sort="common">Common First</button>
-                    <button class="sort-btn" data-sort="diff">Differences First</button>
+                    <button class="sort-btn {sort_indices_active}" data-sort="indices">Indices</button>
+                    <button class="sort-btn {sort_taxa_active}" data-sort="taxa">Taxa</button>
+                    <button class="sort-btn {sort_common_active}" data-sort="common">Common First</button>
+                    <button class="sort-btn {sort_diff_active}" data-sort="diff">Differences First</button>
                 </div>
                 <div class="column-toggle">
                     <span>Toggle columns:</span>
-                    <button class="col-toggle-btn active" data-col="0">Left Indices</button>
+                    <button class="col-toggle-btn {idx_active_class}" data-col="0">Left Indices</button>
                     <button class="col-toggle-btn active" data-col="1">Left Taxa</button>
-                    <button class="col-toggle-btn active" data-col="2">Right Indices</button>
+                    <button class="col-toggle-btn {idx_active_class}" data-col="2">Right Indices</button>
                     <button class="col-toggle-btn active" data-col="3">Right Taxa</button>
                     <button class="col-toggle-btn active" data-col="4">Match</button>
                 </div>
@@ -219,9 +187,9 @@ class TreeLogger(AlgorithmLogger):
                 <table class="comparison-table">
                     <thead>
                         <tr>
-                            <th class="col-0">Left Indices</th>
+                            <th class="col-0{idx_hidden_class}">Left Indices</th>
                             <th class="col-1">Left Taxa</th>
-                            <th class="col-2">Right Indices</th>
+                            <th class="col-2{idx_hidden_class}">Right Indices</th>
                             <th class="col-3">Right Taxa</th>
                             <th class="col-4">Match</th>
                         </tr>
@@ -231,9 +199,11 @@ class TreeLogger(AlgorithmLogger):
 
         # Add data rows
         for item in all_data:
-            left_indices_str = format_set(item["left_indices"])
+            left_indices_str = format_set(item["left_indices"]) if show_indices else ""
             left_taxa_str = format_set(item["left_taxa"])
-            right_indices_str = format_set(item["right_indices"])
+            right_indices_str = (
+                format_set(item["right_indices"]) if show_indices else ""
+            )
             right_taxa_str = format_set(item["right_taxa"])
 
             # Determine row class based on match status
@@ -243,9 +213,9 @@ class TreeLogger(AlgorithmLogger):
 
             html += f"""
             <tr class="{row_class}">
-                <td class="col-0">{left_indices_str}</td>
+                <td class="col-0{idx_hidden_class}">{left_indices_str}</td>
                 <td class="col-1">{left_taxa_str}</td>
-                <td class="col-2">{right_indices_str}</td>
+                <td class="col-2{idx_hidden_class}">{right_indices_str}</td>
                 <td class="col-3">{right_taxa_str}</td>
                 <td class="col-4 {match_class}">{match_symbol}</td>
             </tr>
@@ -273,8 +243,145 @@ class TreeLogger(AlgorithmLogger):
         </div>
         """
 
-        # Add everything to the page
-        self.raw_html(COMPARE_TREE_SPLIT_CSS + html + summary + TABLE_SPLIT_JS)
+        # Add CSS via logger and inject the HTML and JS separately
+        self.add_css(COMPARE_TREE_SPLIT_CSS)
+        self.raw_html(html + summary)
+        self.raw_html(TABLE_SPLIT_JS)
+
+    def log_lattice_edge_tables(
+        self,
+        edge: Any,
+        *,
+        show_common_covers: bool = True,
+        show_unique_min_covers: bool = True,
+        show_atoms: bool = False,
+        tablefmt: str = "html",
+    ) -> None:
+        """Log tables for a lattice edge: common covers, unique minimum covers, and atoms.
+
+        Options:
+            show_common_covers: Include tables for left/right common covers.
+            show_unique_min_covers: Include tables for minimum covers of unique splits per side.
+            show_atoms: Include atom tables (minimal elements) of the unique split sets.
+            tablefmt: Table format for terminal/HTML output (default 'html').
+        """
+        if self.disabled:
+            return
+
+        from brancharchitect.core.formatting import format_set as _fmt
+
+        self.section("Lattice Edge Tables")
+        # Edge header
+        try:
+            split_taxa = getattr(edge, "pivot_split", getattr(edge, "split", None))
+            split_taxa = getattr(split_taxa, "taxa", set())
+            self.info(f"Edge split: {_fmt(split_taxa)}")
+        except Exception:
+            self.info(f"Edge split: {getattr(edge, 'split', 'N/A')}")
+
+        # Helper: compute unique splits and their minimum cover per side
+        def _min_cover_unique(node_a: Node, node_b: Node):
+            try:
+                a_s = node_a.to_splits()
+                b_s = node_b.to_splits()
+                uniq = a_s - b_s
+                return uniq.minimum_cover(), uniq
+            except Exception:
+                return None, None
+
+        # Build a single combined table
+        left_covers = []
+        right_covers = []
+        if show_common_covers:
+            try:
+                left_covers = [
+                    _fmt(set(cov))
+                    for cov in (getattr(edge, "t1_common_covers", []) or [])
+                ]
+                right_covers = [
+                    _fmt(set(cov))
+                    for cov in (getattr(edge, "t2_common_covers", []) or [])
+                ]
+            except Exception:
+                left_covers, right_covers = [], []
+
+        left_min = []
+        right_min = []
+        left_atoms = []
+        right_atoms = []
+
+        if show_unique_min_covers or show_atoms:
+            # Handle both old attribute names (t1_node, t2_node) and new names (tree1_node, tree2_node)
+            tree1_node = getattr(edge, "tree1_node", getattr(edge, "t1_node", None))
+            tree2_node = getattr(edge, "tree2_node", getattr(edge, "t2_node", None))
+
+            t1_min, t1_uniq = _min_cover_unique(tree1_node, tree2_node)
+            t2_min, t2_uniq = _min_cover_unique(tree2_node, tree1_node)
+
+            if show_unique_min_covers:
+                if t1_min:
+                    left_min = [_fmt(p.taxa) for p in t1_min]
+                if t2_min:
+                    right_min = [_fmt(p.taxa) for p in t2_min]
+
+            if show_atoms:
+                if t1_uniq:
+                    try:
+                        left_atoms = [_fmt(p.taxa) for p in t1_uniq.minimal_elements()]
+                    except Exception:
+                        left_atoms = []
+                if t2_uniq:
+                    try:
+                        right_atoms = [_fmt(p.taxa) for p in t2_uniq.minimal_elements()]
+                    except Exception:
+                        right_atoms = []
+
+        # Normalize to a single table with aligned rows
+        def _get(lst: List[str], i: int) -> str:
+            return lst[i] if i < len(lst) else ""
+
+        n_rows = max(
+            len(left_covers),
+            len(right_covers),
+            len(left_min),
+            len(right_min),
+            len(left_atoms),
+            len(right_atoms),
+            1,
+        )
+
+        combined_rows: List[List[str]] = []
+        # First column: Edge split (only for first row to avoid repetition)
+        _pivot_obj = getattr(edge, "pivot_split", None)
+        if _pivot_obj is None:
+            _pivot_obj = getattr(edge, "split", None)
+        split_str = (
+            _fmt(getattr(_pivot_obj, "taxa", set())) if _pivot_obj is not None else ""
+        )
+        for i in range(n_rows):
+            combined_rows.append(
+                [
+                    split_str if i == 0 else "",
+                    _get(left_covers, i),
+                    _get(right_covers, i),
+                    _get(left_min, i),
+                    _get(right_min, i),
+                    _get(left_atoms, i),
+                    _get(right_atoms, i),
+                ]
+            )
+
+        headers = [
+            "Edge Split",
+            "L Common Cover",
+            "R Common Cover",
+            "L Unique Min",
+            "R Unique Min",
+            "L Atoms",
+            "R Atoms",
+        ]
+
+        self.table(combined_rows, headers=headers, tablefmt=tablefmt)
 
     def log_newick_strings(
         self, tree1: Node, tree2: Optional[Node] = None, title: str = "Newick Strings"
@@ -305,17 +412,16 @@ class TreeLogger(AlgorithmLogger):
         if tree2:
             newick2 = tree2.to_newick(lengths=False)
             # Create HTML with properly formatted trees
-            html_content = (
-                enhanced_css
-                + NEWICK_TEMPLATE_COMBINED.format(newick1.strip(), newick2.strip())
-                + NEWICK_HIGHLIGHT_JS
+            # Inject CSS separately and then add HTML + JS
+            self.add_css(enhanced_css)
+            html_content = NEWICK_TEMPLATE_COMBINED.format(
+                newick1.strip(), newick2.strip()
             )
+            self.raw_html(html_content)
+            self.raw_html(NEWICK_HIGHLIGHT_JS)
         else:
             # Single tree case
-            html_content = (
-                enhanced_css
-                + NEWICK_TEMPLATE_SINGLE_COMBINED.format(newick1.strip())
-                + NEWICK_HIGHLIGHT_JS
-            )
-
-        self.raw_html(html_content)
+            self.add_css(enhanced_css)
+            html_content = NEWICK_TEMPLATE_SINGLE_COMBINED.format(newick1.strip())
+            self.raw_html(html_content)
+            self.raw_html(NEWICK_HIGHLIGHT_JS)

@@ -25,5 +25,5 @@ def call_jumping_taxa(
     f = ALGORITHMS[algorithm]
     copy_tree_one = tree1.deep_copy()
     copy_tree_two = tree2.deep_copy()
-    jumping_taxa = f(copy_tree_one, copy_tree_two, tree1._order)
+    jumping_taxa = f(copy_tree_one, copy_tree_two, list(tree1.get_current_order()))
     return jumping_taxa

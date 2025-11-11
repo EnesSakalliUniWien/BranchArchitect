@@ -2,7 +2,7 @@ from typing import Dict, Any
 from collections import OrderedDict
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from .state import InterpolationState
+from .state_v2 import InterpolationState
 
 from ..analysis.split_analysis import (
     get_unique_splits_for_active_changing_edge_subtree,
@@ -73,10 +73,8 @@ def _finalize_and_store_plan(
         expand_path |= state.get_all_remaining_expand_splits()
         collapse_path |= state.get_all_remaining_collapse_splits()
 
-    # Sort by partition size for deterministic ordering (larger partitions = shallower in tree come first)
-    collapse_path_list = sorted(
-        collapse_path, key=lambda p: len(p.indices), reverse=True
-    )
+    # Deterministic path ordering (larger partitions first)
+    collapse_path_list = sorted(collapse_path, key=lambda p: len(p.indices), reverse=True)
     expand_path_list = sorted(expand_path, key=lambda p: len(p.indices), reverse=True)
 
     # Store the full paths in the plan
@@ -91,11 +89,19 @@ def _update_state(
     subtree: Partition,
     splits: Dict[str, PartitionSet[Partition]],
     incompatible_splits: PartitionSet[Partition],
+    collapse_path: PartitionSet[Partition],
 ) -> None:
-    """Marks splits and the subtree as processed in the state."""
-    processed_collapse = (
-        splits["shared_collapse"] | splits["unique_collapse"] | incompatible_splits
-    )
+    """Marks splits and the subtree as processed in the state.
+
+    Args:
+        state: The interpolation state to update
+        subtree: The subtree being processed
+        splits: Dictionary of split categories for this subtree
+        incompatible_splits: Incompatible splits that were identified
+        collapse_path: The ACTUAL collapse path that will be executed (may be ALL splits for TABULA RASA)
+    """
+    # Use the actual collapse_path that will be executed (covers TABULA RASA first subtree)
+    processed_collapse = collapse_path
     processed_expand = splits["last_user_expand"] | splits["unique_expand"]
 
     # Mark splits as processed in the state - this will remove shared splits from all subtrees
@@ -114,7 +120,7 @@ def build_edge_plan(
     collapse_splits_by_subtree: Dict[Partition, PartitionSet[Partition]],
     collapse_tree: Node,
     expand_tree: Node,
-    active_changing_edge: Partition,
+    current_pivot_edge: Partition,
 ) -> OrderedDict[Partition, Dict[str, Any]]:
     plans: OrderedDict[Partition, Dict[str, Any]] = OrderedDict()
 
@@ -123,7 +129,7 @@ def build_edge_plan(
         get_unique_splits_for_active_changing_edge_subtree(
             collapse_tree,
             expand_tree,
-            active_changing_edge,
+            current_pivot_edge,
         )
     )
 
@@ -133,7 +139,7 @@ def build_edge_plan(
         all_expand_splits,
         collapse_splits_by_subtree,
         expand_splits_by_subtree,
-        active_changing_edge,
+        current_pivot_edge,
     )
 
     while state.has_remaining_work():
@@ -147,35 +153,76 @@ def build_edge_plan(
         splits = _gather_subtree_splits(state, subtree)
 
         # ========================================================================
-        # 4. Build the final path segments for this subtree
+        # 2. TABULA RASA STRATEGY
         # ========================================================================
+        # First subtree may collapse everything (tabula rasa) only if there are
+        # actual collapses at this pivot edge. Otherwise, respect per-subtree
+        # assignments even for the first subtree.
+        is_first_subtree = not state.first_subtree_processed
 
-        # Build expand path
+        collapse_path: PartitionSet[Partition]
+        incompatible: PartitionSet[Partition] = PartitionSet(encoding=state.encoding)
+        if is_first_subtree:
+            all_collapse_splits = state.get_all_collapse_splits_for_first_subtree(
+                subtree
+            )
+            if len(all_collapse_splits) > 0:
+                collapse_path = all_collapse_splits
+            else:
+                # Compute incompatibilities for this subtree's planned expands
+                prospective_expand = (
+                    splits["last_user_expand"]
+                    | splits["unique_expand"]
+                    | splits["contingent_expand"]
+                )
+                incompatible = state.find_all_incompatible_splits_for_expand(
+                    prospective_expand, state.all_collapsible_splits
+                )
+
+                collapse_path = build_collapse_path(
+                    splits["shared_collapse"],
+                    splits["unique_collapse"],
+                    incompatible,
+                )
+        else:
+            # Subsequent subtrees: only their assigned splits
+            # Compute incompatibilities for this subtree's planned expands
+            prospective_expand = (
+                splits["last_user_expand"]
+                | splits["unique_expand"]
+                | splits["contingent_expand"]
+            )
+            incompatible = state.find_all_incompatible_splits_for_expand(
+                prospective_expand, state.all_collapsible_splits
+            )
+
+            collapse_path = build_collapse_path(
+                splits["shared_collapse"],
+                splits["unique_collapse"],
+                incompatible,
+            )
+
+        # Build expand path (all subtrees get their expand work)
         expand_path: PartitionSet[Partition] = build_expand_path(
             splits["last_user_expand"],
             splits["unique_expand"],
             splits["contingent_expand"],
         )
 
-        # Find incompatible splits
-        incompatible_splits: PartitionSet[Partition] = (
-            state.find_all_incompatible_splits_for_expand(
-                expand_partitions=(expand_path),
-                all_available_collapse_splits=state.all_collapsible_splits,
-            )
-        )
-
-        # Build collapse path BEFORE deleting anything
-        collapse_path: PartitionSet[Partition] = build_collapse_path(
-            splits["shared_collapse"],
-            splits["unique_collapse"],
-            incompatible_splits,  # Still available in state
-        )
+        # Mark first subtree as processed
+        if is_first_subtree:
+            state.mark_first_subtree_processed()
 
         # Finalize the plan for this subtree
         _finalize_and_store_plan(plans, state, subtree, collapse_path, expand_path)
 
-        # Update the global state
-        _update_state(state, subtree, splits, incompatible_splits)
+        # Update the global state - pass the actual collapse_path for TABULA RASA handling
+        _update_state(
+            state,
+            subtree,
+            splits,
+            incompatible,
+            collapse_path,
+        )
 
     return plans

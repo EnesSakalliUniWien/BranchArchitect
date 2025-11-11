@@ -7,7 +7,6 @@ extracting data, and managing the interpolation workflow.
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Dict, List, Optional, Tuple
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
@@ -21,25 +20,23 @@ from brancharchitect.tree_interpolation.consensus_tree.intermediate_tree import 
 )
 from .reordering import reorder_tree_toward_destination
 
-logger: logging.Logger = logging.getLogger(__name__)
-
 
 def extract_filtered_paths(
     selection: Dict[str, Any],
-    active_changing_edge: Partition,
+    current_pivot_edge: Partition,
     subtree_partition: Partition,
 ) -> Tuple[List[Partition], List[Partition]]:
     """Extract and filter expand/collapse paths from selection, excluding specified partitions.
 
     Args:
         selection: Dictionary containing expand/collapse path segments
-        active_changing_edge: Partition to exclude from paths
+        current_pivot_edge: Partition to exclude from paths
         subtree_partition: Subtree partition to exclude from paths
 
     Returns:
         Tuple of (create_path, collapse_path) with exclusions filtered out
     """
-    exclusions = {active_changing_edge, subtree_partition}
+    exclusions = {current_pivot_edge, subtree_partition}
 
     # Extract path segments - now guaranteed to be lists from builder
     expand_segments: List[Partition] = selection.get("expand", {}).get(
@@ -97,7 +94,7 @@ def add_step(
 def build_microsteps_for_selection(
     interpolation_state: Node,
     destination_tree: Node,
-    active_changing_edge: Partition,
+    current_pivot_edge: Partition,
     selection: Dict[str, Any],
 ) -> Tuple[List[Node], List[Optional[Partition]], Node]:
     """
@@ -117,9 +114,10 @@ def build_microsteps_for_selection(
     subtree_partition = selection["subtree"]
 
     expand_path, collapse_path = extract_filtered_paths(
-        selection, active_changing_edge, subtree_partition
+        selection, current_pivot_edge, subtree_partition
     )
 
+    # Guard: ensure we do not collapse splits that must exist in destination
     it_down: Node = calculate_intermediate_implicit(
         interpolation_state, PartitionSet(set(collapse_path))
     )
@@ -128,16 +126,20 @@ def build_microsteps_for_selection(
         trees,
         edges,
         it_down,
-        active_changing_edge,
+        current_pivot_edge,
         subtree_partition,
     )
 
-    collapsed: Node = create_collapsed_consensus_tree(it_down, active_changing_edge)
+    # FIX: Pass destination tree so we only collapse splits that DON'T exist in destination
+    collapsed: Node = create_collapsed_consensus_tree(
+        it_down, current_pivot_edge, destination_tree=destination_tree
+    )
+
     add_step(
         trees,
         edges,
         collapsed,
-        active_changing_edge,
+        current_pivot_edge,
         subtree_partition,
     )
 
@@ -145,7 +147,7 @@ def build_microsteps_for_selection(
     reordered: Node = reorder_tree_toward_destination(
         source_tree=collapsed,
         destination_tree=destination_tree,
-        active_changing_edge=active_changing_edge,
+        current_pivot_edge=current_pivot_edge,
         moving_subtree_partition=subtree_partition,
     )
 
@@ -153,7 +155,7 @@ def build_microsteps_for_selection(
         trees,
         edges,
         reordered,
-        active_changing_edge,
+        current_pivot_edge,
         subtree_partition,
     )
 
@@ -163,11 +165,11 @@ def build_microsteps_for_selection(
         ref_path_to_build=expand_path,
     )
 
-    pre_snap_reordered.reorder_taxa(reordered.get_current_order())
+    pre_snap_reordered.reorder_taxa(list(reordered.get_current_order()))
 
     snapped_tree: Node = pre_snap_reordered.deep_copy()
 
-    pre_snap_reordered.reorder_taxa(reordered.get_current_order())
+    pre_snap_reordered.reorder_taxa(list(reordered.get_current_order()))
 
     # Extract destination weights from the destination tree
     destination_weights: Dict[Partition, float] = destination_tree.to_weighted_splits()
@@ -182,7 +184,7 @@ def build_microsteps_for_selection(
         trees,
         edges,
         pre_snap_reordered,
-        active_changing_edge,
+        current_pivot_edge,
         subtree_partition,
     )
 
@@ -190,7 +192,7 @@ def build_microsteps_for_selection(
         trees,
         edges,
         snapped_tree,
-        active_changing_edge,
+        current_pivot_edge,
         subtree_partition,
     )
 

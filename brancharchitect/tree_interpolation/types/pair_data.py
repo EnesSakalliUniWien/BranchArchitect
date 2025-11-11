@@ -13,7 +13,7 @@ from brancharchitect.elements.partition import Partition
 class PairData(TypedDict):
     """A structured dictionary for per-pair interpolation data."""
 
-    mapping_one: Dict[Partition, Partition]
-    mapping_two: Dict[Partition, Partition]
+    mapping_one: Dict[Partition, Dict[Partition, Partition]]
+    mapping_two: Dict[Partition, Dict[Partition, Partition]]
     s_edge_length: int
-    jumping_subtree_solutions: Dict[Partition, List[List[Partition]]]
+    jumping_subtree_solutions: Dict[Partition, List[Partition]]

@@ -1,0 +1,33 @@
+{
+  "tree1": "((((A:1,B:1):1,C:1):1,((D:1,E:1):1,F:1):1):1,(((G:1,H:1):1,I:1):1,((J:1,K:1):1,L:1):1):1):0;",
+  "tree2": "((((A:1,G:1):1,D:1):1,((B:1,J:1):1,E:1):1):1,(((C:1,H:1):1,F:1):1,((I:1,K:1):1,L:1):1):1):0;",
+  "solutions": [
+    [
+      [
+        "A"
+      ],
+      [
+        "C"
+      ],
+      [
+        "E"
+      ],
+      [
+        "F"
+      ],
+      [
+        "G"
+      ],
+      [
+        "H"
+      ],
+      [
+        "I"
+      ],
+      [
+        "J"
+      ]
+    ]
+  ],
+  "comment": "HARDCORE CASE 3: Deep tree with 12 taxa and multiple solution sets. Two different minimal colorings exist - either G+J cross the root, OR B+C+H+I cross. This tests the algorithm's ability to find multiple alternative solutions with root crossings."
+}

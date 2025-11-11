@@ -15,6 +15,9 @@ class Partition:
         Partition represents a subset of taxa as a tuple of integer indices.
         encoding: dict mapping taxon names (str) to indices (int).
         Indices are stored sorted and unique.
+        Preconditions/validation:
+        - All indices must be integers >= 0
+        - If encoding is provided and non-empty, all indices must be present in encoding.values()
         """
         # Ensure input is iterable, then get unique elements, then sort.
         # This makes self.indices always represent a set of unique, sorted indices.
@@ -22,6 +25,18 @@ class Partition:
         self.indices: Tuple[int, ...] = tuple(sorted(list(_unique_indices_set)))
 
         self.encoding: Dict[str, int] = encoding or {}
+
+        # Validate indices
+        for idx in self.indices:
+            if idx < 0:
+                raise ValueError(
+                    f"Partition indices must be non-negative integers; got {self.indices}"
+                )
+
+        # Note: We intentionally do NOT require all indices to appear in the
+        # provided encoding because trees/sets may be mutated (e.g., deletions)
+        # before encodings are fully reconciled. Bitmask-based equality ensures
+        # correctness regardless of encoding completeness.
         # Compute bitmask for fast hashing/comparison
         bitmask = 0
         # Iterate over the unique, sorted indices
@@ -36,6 +51,11 @@ class Partition:
     def __len__(self) -> int:
         # Accurately reflects the number of unique indices in the partition
         return len(self.indices)
+
+    @property
+    def is_singleton(self) -> bool:
+        """Return True if this partition contains exactly one index (atom)."""
+        return len(self.indices) == 1
 
     def _tuple_to_indices(self, other: Any) -> Tuple[int, ...] | None:
         """
@@ -108,7 +128,11 @@ class Partition:
 
     def bipartition(self) -> str:
         """
-        Return a string representation of the bipartition (left | right) using taxon names.
+        Return a string representation of the bipartition (left | right).
+
+        WARNING: This method relies on the partition's `encoding` to define the
+        universe of taxa for the complement. If the encoding is incomplete,
+        the right-hand side of the bipartition may also be incomplete.
         """
         left: List[str] = sorted(
             (self.reverse_encoding[i] for i in self.indices), key=len
@@ -120,7 +144,12 @@ class Partition:
 
     def complementary_indices(self) -> Tuple[int, ...]:
         """
-        Return the indices not in this partition (complement set).
+        Return the indices not in this partition (the complement set).
+
+        WARNING: The universe for the complement is derived from the keys in the
+        `encoding` dictionary. If the encoding is not complete (i.e., it does
+        not contain all taxa in the analysis), this method will produce an
+        incorrect or incomplete complement.
         """
         full_set = set(self.reverse_encoding.keys())
         return tuple(sorted(full_set - set(self.indices)))
@@ -179,6 +208,31 @@ class Partition:
             return Partition(tuple(sorted(common_indices)), self.encoding)
         return NotImplemented
 
+    def intersection(self, *others: Any) -> "Partition":
+        """
+        Return the set intersection with one or more other partitions/partition-like inputs.
+
+        Accepts other Partition instances or tuples of indices/names (resolved via encoding).
+        Returns a new Partition with the same encoding.
+        """
+        # Start with current indices
+        result_set = set(self.indices)
+
+        for other in others:
+            if isinstance(other, Partition):
+                result_set &= set(other.indices)
+            else:
+                other_indices_tuple = self._tuple_to_indices(other)
+                if other_indices_tuple is None:
+                    return NotImplemented  # type: ignore[return-value]
+                result_set &= set(other_indices_tuple)
+
+            # Early exit if empty
+            if not result_set:
+                break
+
+        return Partition(tuple(sorted(result_set)), self.encoding)
+
     def __sub__(self, other: Any) -> "Partition":
         """
         Set-difference between partitions or partition-like inputs.
@@ -206,7 +260,7 @@ class Partition:
         """
         return tuple(self.indices)
 
-    def is_compatible_with(self, other: "Partition") -> bool:
+    def is_compatible_with(self, other: "Partition", all_indices: set[int]) -> bool:
         """
         Check if this partition is compatible with another partition.
 
@@ -217,30 +271,22 @@ class Partition:
         - A_complement ∩ B_complement
 
         Where A and B are the two partitions, and complements are with respect
-        to the universal set of all taxa in the encoding.
+        to the provided universal set of all taxa indices.
 
         Args:
-            other: Another Partition to check compatibility with
+            other: Another Partition to check compatibility with.
+            all_indices: The set of all possible indices, defining the universe.
 
         Returns:
-            bool: True if partitions are compatible, False otherwise
+            bool: True if partitions are compatible, False otherwise.
 
         Raises:
-            ValueError: If partitions have different encodings
+            ValueError: If partitions have different encodings.
         """
-
-        # Ensure both partitions use the same encoding
         if self.encoding != other.encoding:
             raise ValueError(
                 "Cannot check compatibility between partitions with different encodings"
             )
-
-        # Get universal set from encoding
-        if not self.encoding:
-            # If no encoding, assume partitions contain all relevant indices
-            all_indices = set(self.indices) | set(other.indices)
-        else:
-            all_indices = set(self.encoding.values())
 
         # Convert partitions to sets
         A = set(self.indices)
@@ -260,15 +306,18 @@ class Partition:
 
         return False
 
-    def check_compatibility_with_list(self, partitions: List["Partition"]) -> bool:
+    def check_compatibility_with_list(
+        self, partitions: List["Partition"], all_indices: set[int]
+    ) -> bool:
         """
         Check if this partition is compatible with all partitions in a list.
 
         Args:
-            partitions: List of Partition objects to check compatibility with
+            partitions: List of Partition objects to check compatibility with.
+            all_indices: The set of all possible indices for the compatibility check.
 
         Returns:
             bool: True if this partition is compatible with ALL partitions in the list,
-                  False if incompatible with any partition
+                  False if incompatible with any partition.
         """
-        return all(self.is_compatible_with(p) for p in partitions)
+        return all(self.is_compatible_with(p, all_indices) for p in partitions)

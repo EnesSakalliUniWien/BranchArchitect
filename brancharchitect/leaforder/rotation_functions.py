@@ -32,6 +32,7 @@ def try_node_reversal_local(
     """
     node.swap_children()
     new_dist = circular_distance_for_node_subset(tree, destination_order, node)
+    logger.debug(f"  - new_dist: {new_dist}")
     if new_dist < initial_dist:
         rotated_splits.add(node.split_indices)
         return True, new_dist
@@ -52,10 +53,12 @@ def optimize_splits(
     Returns True if any improvement was made.
     """
     any_improvement = False
+    logger.debug(f"Optimizing {len(splits_to_optimize)} splits")
     for sp in splits_to_optimize:
         node = tree.find_node_by_split(sp)
         if node and node.children:
             init_dist = circular_distance_for_node_subset(tree, destination_order, node)
+            logger.debug(f"- Optimizing split {sp} with initial_dist: {init_dist}")
             improved, _ = try_node_reversal_local(
                 node, tree, init_dist, destination_order, rotated_splits
             )

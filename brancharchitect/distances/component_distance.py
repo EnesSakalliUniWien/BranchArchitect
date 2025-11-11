@@ -24,28 +24,27 @@ from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
 
 
-
 # =============================================================================
-# JUMP PATH FROM COMPONENT TO S_EDGE NODE
+# JUMP PATH FROM COMPONENT TO PIVOT EDGE NODE
 # =============================================================================
-def jump_path_component_to_s_edge(
-    tree: Node, component: Partition, s_edge_split: Partition
+def jump_path_component_to_pivot_edge(
+    tree: Node, component: Partition, pivot_edge_split: Partition
 ) -> List[Node]:
     """
     Compute the jump path from the node corresponding to the component (solution taxa)
-    up to the node corresponding to the s_edge split in the tree.
+    up to the node corresponding to the pivot edge split in the tree.
 
     Args:
         tree: The tree (Node) to search in.
         component: The Partition representing the solution taxa (component).
-        s_edge_split: The Partition representing the s_edge split (target split).
+        pivot_edge_split: The Partition representing the pivot edge split (target split).
 
     Returns:
-        List[Node]: The path from the component node up to (and including) the s_edge node.
-        If the component node is not a descendant of the s_edge node, returns an empty list.
+        List[Node]: The path from the component node up to (and including) the pivot edge node.
+        If the component node is not a descendant of the pivot edge node, returns an empty list.
     """
     start_node: Node | None = tree.find_node_by_split(component)
-    target_node: Node | None = tree.find_node_by_split(s_edge_split)
+    target_node: Node | None = tree.find_node_by_split(pivot_edge_split)
     if start_node is None or target_node is None:
         return []
     # Traverse up from start_node to target_node
@@ -54,7 +53,7 @@ def jump_path_component_to_s_edge(
     while current is not None:
         path.append(current)
         if current is target_node:
-            return path  # Path from component up to s_edge (inclusive)
+            return path  # Path from component up to pivot edge (inclusive)
         current = getattr(current, "parent", None)
     # If we reach here, target_node was not found in the ancestry
     return []
@@ -181,7 +180,14 @@ def _build_jump_path_main(
         if current_bitmask == target_bitmask:
             break
         # If current split is in reference, clear the path (reset)
-        if current_node.split_indices in reference:
+        # Handle encoding mismatches gracefully (treat as not in reference)
+        try:
+            split_in_reference = current_node.split_indices in reference
+        except ValueError:
+            # Different encodings - treat as not in reference
+            split_in_reference = False
+
+        if split_in_reference:
             path.clear()
         else:
             path.append(current_node)
@@ -232,7 +238,7 @@ def component_distance(
     """
     # Convert components once at the beginning
     component_partitions: List[Partition] = [
-        tree1._index(component) for component in components
+        tree1.names_to_partition(component) for component in components
     ]
     return _component_distance_core(
         tree1, tree2, component_partitions, weighted=weighted
@@ -249,7 +255,7 @@ def jump_distance(
     Adapter function that converts tuple-of-strings to Partition objects
     and delegates to the core performance function.
     """
-    component_partition: Partition = node._index(component)
+    component_partition: Partition = node.names_to_partition(component)
     return _jump_distance_core(node, reference, component_partition, weighted=weighted)
 
 
@@ -261,7 +267,9 @@ def jump_path_distance(
     and delegates to the core performance function.
     """
     # Convert component tuples to Partition objects once at the beginning
-    components_partitions: List[Partition] = [tree1._index(c) for c in components]
+    components_partitions: List[Partition] = [
+        tree1.names_to_partition(c) for c in components
+    ]
     return _jump_path_distance_core(
         tree1, tree2, components_partitions, weighted=weighted
     )
@@ -295,16 +303,16 @@ def get_lattice_solution_sizes(
     Run the iterative lattice algorithm and return the sizes of all minimal reconciliation solutions.
     Returns an empty list if no solutions are found.
     """
-    from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import iterate_lattice_algorithm
+    from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
+        iterate_lattice_algorithm,
+    )
 
-    s_edge_solutions = iterate_lattice_algorithm(tree1, tree2, leaf_order)
+    # iterate_lattice_algorithm returns a tuple: (dict, list)
+    s_edge_solutions, _ = iterate_lattice_algorithm(tree1, tree2, leaf_order)
     if not s_edge_solutions:
         return []
-    # Flatten all solution sets to get all solutions
-    all_solutions = [
-        sol for solution_sets in s_edge_solutions.values() for sol in solution_sets
-    ]
-    return [len(sol) for sol in all_solutions]
+    # Return count of partitions per pivot edge
+    return [len(parts) for parts in s_edge_solutions.values()]
 
 
 # =============================================================================
@@ -342,34 +350,3 @@ def calculate_component_distance_matrix(
                     )
                     distance_matrix[i, j] = np.mean(dists) if dists else 0.0
     return distance_matrix
-
-
-def calculate_normalised_matrix(results, max_trees):
-    max_component_sum = max(
-        (sum(len(c) for c in comp) for _, _, comp, _, _, _ in results), default=1
-    )
-    max_num_solutions = max((len(comp) for _, _, comp, _, _, _ in results), default=1)
-    max_path_length = max(
-        ((len(pi) + len(pj)) for _, _, _, _, pi, pj in results), default=1
-    )
-    # 2. Optionally set weights for each component (can be tuned)
-    w1, w2, w3 = 1.0, 1.0, 1.0
-    # 3. Build normalized distance matrix
-    normalized_matrix = np.zeros((max_trees, max_trees), dtype=float)
-    for i, j, components, s_edges, path_i, path_j in results:
-        component_sum: int = sum(len(c) for c in components)
-        num_solutions: int = len(components)
-        path_lengths: int = sum([len(pi) + len(pj) for pi, pj in zip(path_i, path_j)])
-        norm_component_sum: float | Literal[0] = (
-            component_sum / max_component_sum if max_component_sum else 0
-        )
-        norm_num_solutions: float | Literal[0] = (
-            num_solutions / max_num_solutions if max_num_solutions else 0
-        )
-        norm_path_length: float | Literal[0] = (
-            path_lengths / max_path_length if max_path_length else 0
-        )
-        dist = w1 * norm_component_sum + w2 * norm_num_solutions + w3 * norm_path_length
-        normalized_matrix[i, j] = dist
-        normalized_matrix[j, i] = dist
-    return normalized_matrix

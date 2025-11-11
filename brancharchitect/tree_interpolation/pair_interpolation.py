@@ -15,6 +15,9 @@ from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.subtree_paths import (
     create_interpolation_for_active_split_sequence,
 )
+from brancharchitect.tree_interpolation.edge_sorting_utils import (
+    sort_edges_by_depth,
+)
 
 # Import here to avoid circular import
 from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
@@ -22,7 +25,6 @@ from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
 )
 from brancharchitect.tree_interpolation.types import (
     TreePairInterpolation,
-    LatticeEdgeData,
 )
 # distance_metrics import removed (metrics no longer used here)
 
@@ -33,42 +35,10 @@ __all__: List[str] = [
 ]
 
 
-def discover_active_changing_splits(
-    source_tree: Node,
-    destination_tree: Node,
-    precomputed_solutions: Optional[Dict[Partition, List[List[Partition]]]] = None,
-) -> LatticeEdgeData:
-    """
-    Discover active-changing splits between two trees using the lattice algorithm.
-
-    Args:
-        source_tree: Source tree for interpolation
-        destination_tree: Destination tree for interpolation
-
-    Returns:
-        LatticeEdgeData containing discovered edges and their jumping subtree solutions
-    """
-    # The caller (SequentialInterpolationBuilder) already passes deep-copied trees
-    # for each pair, so we can call the lattice algorithm directly without
-    # performing additional copies here.
-    # Use precomputed lattice solutions when provided; otherwise compute fresh
-    jumping_subtree_solutions: Dict[Partition, List[List[Partition]]] = (
-        precomputed_solutions
-        if precomputed_solutions is not None
-        else iterate_lattice_algorithm(source_tree, destination_tree)
-    )
-
-    lattice_edges: List[Partition] = list(jumping_subtree_solutions.keys())
-    active_split_data = LatticeEdgeData(lattice_edges, jumping_subtree_solutions)
-    active_split_data.compute_depths(source_tree, destination_tree)
-
-    return active_split_data
-
-
 def process_tree_pair_interpolation(
     source_tree: Node,
     destination_tree: Node,
-    precomputed_solutions: Optional[Dict[Partition, List[List[Partition]]]] = None,
+    precomputed_solutions: Optional[Dict[Partition, List[Partition]]] = None,
 ) -> TreePairInterpolation:
     """
     Build interpolation sequence using active-changing splits.
@@ -96,24 +66,49 @@ def process_tree_pair_interpolation(
     Returns:
         TreePairInterpolation aggregating trees, mappings, tracking, and metrics
     """
-    # Step 1: Discover active-changing splits between trees
-    active_split_data: LatticeEdgeData = discover_active_changing_splits(
-        source_tree, destination_tree, precomputed_solutions
-    )
+    # Step 1: Discover active-changing splits via lattice algorithm
+    # The caller (SequentialInterpolationBuilder) already passes deep-copied trees
+    # for each pair, so we can call the lattice algorithm directly without
+    # performing additional copies here.
+    if precomputed_solutions is not None:
+        jumping_subtree_solutions: Dict[Partition, List[Partition]] = (
+            precomputed_solutions
+        )
+    else:
+        # iterate_lattice_algorithm returns (solutions_dict, deleted_taxa_list)
+        jumping_subtree_solutions, _ = iterate_lattice_algorithm(
+            source_tree, destination_tree
+        )
+
+    lattice_edges: List[Partition] = list(jumping_subtree_solutions.keys())
 
     # Step 2: Order splits by depth for optimal interpolation progression
-    ordered_edges = active_split_data.get_sorted_edges(
-        use_reference=False, ascending=True
+    # Process from leaves to root (ascending=True means smaller depths first)
+    # This ensures child-level reordering happens before parent-level reordering,
+    # preventing parent edges from overriding child reordering decisions (snapback).
+    ordered_edges = sort_edges_by_depth(
+        edges=lattice_edges,
+        tree=source_tree,
+        ascending=True,  # Leaves to root: subsets before supersets
     )
 
     sequence_trees, failed_active_split, active_split_changing_tracking = (
         create_interpolation_for_active_split_sequence(
             source_tree=source_tree,
             destination_tree=destination_tree,
-            target_active_changing_edges=ordered_edges,
-            jumping_subtree_solutions=active_split_data.jumping_subtree_solutions,
+            target_pivot_edges=ordered_edges,
+            jumping_subtree_solutions=jumping_subtree_solutions,
         )
     )
+
+    # For identical trees (no active edges), ensure destination tree has same ordering as source
+    if not ordered_edges:
+        logger.debug(
+            "No active-changing edges found - trees are identical. Ensuring consistent ordering."
+        )
+        # Copy the leaf ordering from source to destination tree
+        source_order = source_tree.get_current_order()
+        destination_tree.reorder_taxa(list(source_order))
 
     # Log any failed edges for debugging
     if failed_active_split:
@@ -123,6 +118,6 @@ def process_tree_pair_interpolation(
 
     return TreePairInterpolation(
         trees=sequence_trees,
-        active_changing_split_tracking=active_split_changing_tracking,
-        jumping_subtree_solutions=active_split_data.jumping_subtree_solutions,
+        current_pivot_edge_tracking=active_split_changing_tracking,
+        jumping_subtree_solutions=jumping_subtree_solutions,
     )

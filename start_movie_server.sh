@@ -45,8 +45,9 @@ echo "[backend] Using Poetry environment"
 # Set PYTHONPATH to include the project root
 export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
 
-# Set library path for cairo (required by cairosvg in brancharchitect)
-export DYLD_LIBRARY_PATH="/opt/homebrew/lib:$DYLD_LIBRARY_PATH"
+# Set library path for cairo (optional, only needed if using advanced SVG rendering)
+# Uncomment the line below if you installed the 'plotting' extras
+# export DYLD_LIBRARY_PATH="/opt/homebrew/lib:$DYLD_LIBRARY_PATH"
 
 # Check if run.py exists before starting backend
 if [ ! -f "run.py" ]; then
@@ -62,8 +63,8 @@ echo "[backend] Library path: $DYLD_LIBRARY_PATH" >> "$STARTUP_LOG"
 
 # Run the server using poetry with proper environment, log output for diagnostics
 cd "$PROJECT_ROOT"
-echo "[backend] Running command: PYTHONPATH=\"$PROJECT_ROOT:$PYTHONPATH\" DYLD_LIBRARY_PATH=\"/opt/homebrew/lib:$DYLD_LIBRARY_PATH\" poetry run python webapp/run.py --host=127.0.0.1 --port=5002" >> "$STARTUP_LOG"
-PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH" DYLD_LIBRARY_PATH="/opt/homebrew/lib:$DYLD_LIBRARY_PATH" poetry run python webapp/run.py --host=127.0.0.1 --port=5002 >"$PROJECT_ROOT/backend.log" 2>&1 &
+echo "[backend] Running command: PYTHONPATH=\"$PROJECT_ROOT:$PYTHONPATH\" poetry run python webapp/run.py --host=127.0.0.1 --port=5002" >> "$STARTUP_LOG"
+PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH" poetry run python webapp/run.py --host=127.0.0.1 --port=5002 >"$PROJECT_ROOT/backend.log" 2>&1 &
 BACKEND_PID=$!
 echo "[backend] Backend PID: $BACKEND_PID" >> "$STARTUP_LOG"
 echo "[backend] Backend log: $PROJECT_ROOT/backend.log"

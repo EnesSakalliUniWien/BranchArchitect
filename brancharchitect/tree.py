@@ -38,7 +38,6 @@ class Node:
         length: float = 0.00001,
         values: Optional[Dict[str, Any]] = None,
         split_indices: Optional[Partition] = None,
-        _order: Optional[List[str]] = None,
         taxa_encoding: Optional[Dict[str, int]] = None,
         depth: Optional[int] = None,
     ):
@@ -54,7 +53,6 @@ class Node:
         self.split_indices = (
             split_indices if split_indices is not None else Partition((), {})
         )
-        self._order = list(_order) if _order is not None else []
         self._split_index = None
         self._cached_subtree_order = None
         self._cached_subtree_cost = None
@@ -68,12 +66,11 @@ class Node:
         )  # Initialize s_edge_block as an empty partition
         # Explicitly initialize s_edge_depth
 
-        if not self._order:
-            self._order = self.get_current_order()
-        if not taxa_encoding:
-            self.taxa_encoding: Dict[str, int] = {
-                name: i for i, name in enumerate(self._order)
-            }
+        # Encoding is the single source of truth for split_indices.
+        # Derive encoding from current leaves only if not provided.
+        if taxa_encoding is None:
+            leaf_order = list(self.get_current_order())
+            self.taxa_encoding = {name: i for i, name in enumerate(leaf_order)}
         else:
             self.taxa_encoding = taxa_encoding
 
@@ -106,12 +103,48 @@ class Node:
     # Equality & hashing
     # ------------------------------------------------------------------------
     def __eq__(self, other: Any) -> bool:
+        """
+        Check if two trees are topologically identical.
+
+        Compares the complete set of splits (internal tree structure),
+        not just the root split. Two trees are equal if and only if they
+        have the exact same set of internal splits.
+
+        The comparison uses PartitionSet.__eq__ which compares the bitmask sets,
+        ensuring accurate topological equality checking.
+
+        Note: This is more expensive than comparing just root splits, but
+        provides accurate topological equality. Use `split_indices` directly
+        if you only need to check if trees have the same leaf set.
+        """
         if not isinstance(other, Node):
             return NotImplemented
-        return self.split_indices == other.split_indices
+
+        # Quick check: if root splits differ, trees are definitely different
+        if self.split_indices != other.split_indices:
+            return False
+
+        # Full topology check: compare all internal splits using PartitionSet equality
+        # PartitionSet.__eq__ compares _bitmask_set internally, which is efficient
+        splits_self = self.to_splits()
+        splits_other = other.to_splits()
+
+        # PartitionSet inherits from MutableSet, so == compares the sets
+        return splits_self == splits_other
 
     def __hash__(self) -> int:
-        """Hash based on split_indices to maintain consistency with __eq__."""
+        """
+        Hash based on split_indices to maintain consistency with __eq__.
+
+        Note: Since __eq__ now compares full topology, ideally we would hash
+        the full split set. However, computing to_splits() for every hash
+        operation would be expensive. We keep the hash based on split_indices
+        (root split) as a performance optimization, accepting that hash
+        collisions are possible for trees with same leaves but different
+        internal structure. This is acceptable because:
+        1. Equality still works correctly (uses full topology)
+        2. Hash collisions just mean slower lookups in dicts/sets, not incorrectness
+        """
         return hash(self.split_indices)
 
     def __repr__(self) -> str:
@@ -144,15 +177,24 @@ class Node:
             return self._splits_cache
 
         splits: PartitionSet[Partition] = PartitionSet(encoding=self.taxa_encoding)
+
+        # All splits in a subtree must be subsets of the root's split.
+        current_node_indices = set(self.split_indices.indices)
+
         for nd in self.traverse():
             # An internal node always defines a split. A leaf node only does if with_leaves is True.
             if nd.children:
                 # Ensure the split is not empty before adding
                 if nd.split_indices:
-                    splits.add(nd.split_indices)
+                    # Validate that the node's split is a subset of the current subtree's root split
+                    if set(nd.split_indices.indices).issubset(current_node_indices):
+                        splits.add(nd.split_indices)
+                    # Skip splits with indices outside the current subtree
             elif with_leaves:
                 if nd.split_indices:
-                    splits.add(nd.split_indices)
+                    # Also validate leaf splits
+                    if set(nd.split_indices.indices).issubset(current_node_indices):
+                        splits.add(nd.split_indices)
 
         if not with_leaves:
             self._splits_cache = splits
@@ -173,6 +215,10 @@ class Node:
     def find_node_by_split(self, target_split: Any) -> Optional[Self]:
         """
         Find a node by its split indices (accepts tuple or Partition).
+
+        Strict encoding policy:
+        - If a Partition is provided and its encoding differs from this tree's
+          taxa_encoding, a ValueError is raised. Callers must re-encode upstream.
         """
         try:
             if self._split_index is None:
@@ -181,6 +227,12 @@ class Node:
             # Convert tuple to Partition if needed (only if it's not already a Partition)
             if not isinstance(target_split, Partition):
                 target_split = Partition(tuple(target_split), self.taxa_encoding)
+            else:
+                if target_split.encoding != self.taxa_encoding:
+                    raise ValueError(
+                        "Cannot search for split with different encoding. "
+                        "Provide a Partition using this tree's taxa_encoding."
+                    )
 
             # At this point _split_index should not be None due to build_split_index
             if self._split_index is not None:
@@ -207,7 +259,6 @@ class Node:
             length=self.length if self.length is not None else 0.0,
             values=self.values.copy(),
             split_indices=self.split_indices,
-            _order=[name for name in self._order],
             taxa_encoding=self.taxa_encoding,  # Reuse immutable encoding reference
         )
 
@@ -263,6 +314,7 @@ class Node:
                 idxs: list[int] = []
                 for ch in self.children:
                     idxs.extend(tuple(sorted(ch.split_indices)))
+
                 self.split_indices = Partition(tuple(sorted(idxs)), encoding)
 
             # Rebuild split index after modification
@@ -300,11 +352,19 @@ class Node:
         self._traverse_cache = nodes
         return nodes
 
-    def _index(self, component: Tuple[str, ...]) -> Partition:
-        return Partition(
-            tuple(sorted(self._order.index(name) for name in component)),
-            self.taxa_encoding,
-        )
+    def names_to_partition(self, names: Tuple[str, ...]) -> Partition:
+        """
+        Convert a tuple of taxon names to a Partition using this tree's taxa_encoding.
+
+        This is the preferred API over the legacy `_index` helper.
+        """
+        try:
+            indices = tuple(sorted(self.taxa_encoding[name] for name in names))
+        except KeyError as e:
+            raise ValueError(
+                f"Unknown taxon name '{e.args[0]}' for this tree's encoding"
+            )
+        return Partition(indices, self.taxa_encoding)
 
     def fix_child_order(self) -> None:
         self.children.sort(
@@ -393,12 +453,14 @@ class Node:
                 node.children.sort(
                     key=lambda child: (
                         strategy_fn(child.get_leaves()),
-                        min(
-                            (
-                                self.taxa_encoding.get(leaf.name, float("inf"))
-                                for leaf in child.get_leaves()
-                            ),
-                            default=float("inf"),
+                        # Secondary tie-breaker by the ordered list of target indices
+                        tuple(
+                            sorted(
+                                (
+                                    _visual_order_indices[leaf.name]
+                                    for leaf in child.get_leaves()
+                                )
+                            )
                         ),
                     )
                 )
@@ -504,6 +566,22 @@ class Node:
         # Update order and reinitialize indices
         self._initialize_split_indices(self.taxa_encoding)
 
+        # Debug: Log the leaves after deletion
+        try:
+            from brancharchitect.jumping_taxa.debug import jt_logger
+
+            remaining_leaves = [leaf.name for leaf in self.get_leaves()]
+            taxa_to_delete_names = [
+                name
+                for name, idx in self.taxa_encoding.items()
+                if idx in indices_to_delete
+            ]
+            jt_logger.info(
+                f"After deleting indices {taxa_to_delete_names}, remaining leaves: {remaining_leaves}"
+            )
+        except Exception:
+            pass
+
         # Clear all caches
         self._split_index = None  # Force rebuild of split index
         # Rebuild split index with new indices
@@ -539,8 +617,12 @@ class Node:
 
     def _prune_single_child_nodes(self) -> Self:
         """Remove internal nodes with exactly one child by connecting their child directly to the parent."""
-        self.children = [self._get_end_child(child) for child in self.children]
+        # Replace each child with the deepest descendant that does not have exactly one child
+        new_children = [self._get_end_child(child) for child in self.children]
+        # Reattach and fix parent pointers
+        self.children = new_children
         for child in self.children:
+            child.parent = self
             child._prune_single_child_nodes()
         return self
 
@@ -553,19 +635,29 @@ class Node:
     # ------------------------------------------------------------------------
     # (NEW) Subtree cache management
     # ------------------------------------------------------------------------
-    def invalidate_caches(self, propagate_up: bool = True) -> None:
+    def invalidate_caches(
+        self, propagate_up: bool = True, propagate_down: bool = True
+    ) -> None:
         """
         Invalidate all caches for this node, including splits cache, subtree order, and cost.
         This should be called after any tree modification to ensure cache consistency.
         If propagate_up is True, also invalidate caches for all ancestors.
+        If propagate_down is True, also invalidate caches for all descendants.
         """
         self._cached_subtree_order = None
         self._cached_subtree_cost = None
         self._cache_valid = False
         self._traverse_cache = None
         self._splits_cache = None
+
+        # Propagate down to children
+        if propagate_down:
+            for child in self.children:
+                child.invalidate_caches(propagate_up=False, propagate_down=True)
+
+        # Propagate up to parents
         if propagate_up and self.parent is not None:
-            self.parent.invalidate_caches(propagate_up=True)
+            self.parent.invalidate_caches(propagate_up=True, propagate_down=False)
 
     def update_caches(self) -> None:
         """
@@ -628,7 +720,7 @@ class Node:
             return self
 
         # Get paths to root for both nodes
-        self_ancestors = set()
+        self_ancestors: set["Node"] = set()
         current = self
         while current is not None:
             self_ancestors.add(current)

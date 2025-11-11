@@ -43,7 +43,7 @@ class InterpolationState:
         all_expand_splits: PartitionSet[Partition],
         collapse_splits_by_subtree: Dict[Partition, PartitionSet[Partition]],
         expand_splits_by_subtree: Dict[Partition, PartitionSet[Partition]],
-        active_changing_edge: Partition,
+        current_pivot_edge: Partition,
     ):
         """
         Initialize the interpolation state.
@@ -52,17 +52,16 @@ class InterpolationState:
             all_expand_splits: All splits that can be expanded
             collapse_splits_by_subtree: Initial collapse splits for each subtree
             expand_splits_by_subtree: Initial expand splits for each subtree
-            active_changing_edge: The edge being processed
+            current_pivot_edge: The edge being processed
         """
-        self.encoding = active_changing_edge.encoding
+        self.encoding = current_pivot_edge.encoding
         self.all_collapsible_splits: PartitionSet[Partition] = all_collapse_splits
         # Track all expand splits globally (needed for final aggregation queries)
         self.all_expand_splits: PartitionSet[Partition] = all_expand_splits
 
         # Collect union of all subtree-assigned expand splits (primary expand splits)
-        all_primary_expand_splits: PartitionSet[Partition] = PartitionSet(
-            encoding=self.encoding
-        )
+        # Don't specify encoding initially - let it inherit from first partition set
+        all_primary_expand_splits: PartitionSet[Partition] = PartitionSet()
         for subtree_expand_splits in expand_splits_by_subtree.values():
             all_primary_expand_splits |= subtree_expand_splits
 
@@ -103,26 +102,28 @@ class InterpolationState:
     ) -> PartitionSet[Partition]:
         """Get shared collapse splits still available for this subtree."""
         shared_counts = self._get_shared_splits(self.collapse_splits_by_subtree)
-        subtree_splits = self.collapse_splits_by_subtree.get(
-            subtree, PartitionSet(encoding=self.encoding)
-        )
-        return PartitionSet(
-            {s for s in subtree_splits if shared_counts.get(s, 0) > 1},
-            encoding=self.encoding,
-        )
+        subtree_splits = self.collapse_splits_by_subtree.get(subtree, PartitionSet())
+        # Filter and return with same encoding
+        filtered = {s for s in subtree_splits if shared_counts.get(s, 0) > 1}
+        if filtered:
+            # Use encoding from first split
+            first_split = next(iter(filtered))
+            return PartitionSet(filtered, encoding=first_split.encoding)
+        return PartitionSet(encoding=self.encoding)
 
     def get_available_shared_expand_splits(
         self, subtree: Partition
     ) -> PartitionSet[Partition]:
         """Get shared expand splits still available for this subtree."""
         shared_counts = self._get_shared_splits(self.expand_splits_by_subtree)
-        subtree_splits = self.expand_splits_by_subtree.get(
-            subtree, PartitionSet(encoding=self.encoding)
-        )
-        return PartitionSet(
-            {s for s in subtree_splits if shared_counts.get(s, 0) > 1},
-            encoding=self.encoding,
-        )
+        subtree_splits = self.expand_splits_by_subtree.get(subtree, PartitionSet())
+        # Filter and return with same encoding
+        filtered = {s for s in subtree_splits if shared_counts.get(s, 0) > 1}
+        if filtered:
+            # Use encoding from first split
+            first_split = next(iter(filtered))
+            return PartitionSet(filtered, encoding=first_split.encoding)
+        return PartitionSet(encoding=self.encoding)
 
     def get_expand_splits_for_last_user(
         self, subtree: Partition
@@ -132,25 +133,30 @@ class InterpolationState:
         Implements the 'expand-last' strategy.
         """
         shared_counts = self._get_shared_splits(self.expand_splits_by_subtree)
-        subtree_splits = self.expand_splits_by_subtree.get(
-            subtree, PartitionSet(encoding=self.encoding)
-        )
-        return PartitionSet(
-            {s for s in subtree_splits if shared_counts.get(s, 0) == 1},
-            encoding=self.encoding,
-        )
+        subtree_splits = self.expand_splits_by_subtree.get(subtree, PartitionSet())
+        # Filter and return with same encoding
+        filtered = {s for s in subtree_splits if shared_counts.get(s, 0) == 1}
+        if filtered:
+            # Use encoding from first split
+            first_split = next(iter(filtered))
+            return PartitionSet(filtered, encoding=first_split.encoding)
+        return PartitionSet(encoding=self.encoding)
 
     def get_unique_collapse_splits(self, subtree: Partition) -> PartitionSet[Partition]:
         """Get unique collapse splits for this subtree (not shared with others)."""
-        return self.collapse_splits_by_subtree.get(
+        subtree_splits = self.collapse_splits_by_subtree.get(
             subtree, PartitionSet(encoding=self.encoding)
-        ) - self.get_available_shared_collapse_splits(subtree)
+        )
+        shared_splits = self.get_available_shared_collapse_splits(subtree)
+        return subtree_splits - shared_splits
 
     def get_unique_expand_splits(self, subtree: Partition) -> PartitionSet[Partition]:
         """Get unique expand splits for this subtree (not shared with others)."""
-        return self.expand_splits_by_subtree.get(
+        subtree_splits = self.expand_splits_by_subtree.get(
             subtree, PartitionSet(encoding=self.encoding)
-        ) - self.get_available_shared_expand_splits(subtree)
+        )
+        shared_splits = self.get_available_shared_expand_splits(subtree)
+        return subtree_splits - shared_splits
 
     # ============================================================================
     # 3. Split Deletion and Processing
@@ -294,7 +300,7 @@ class InterpolationState:
         This is an atomic operation to prevent reuse.
         """
         if not collapsed_splits:
-            return PartitionSet(encoding=self.encoding)
+            return PartitionSet()
 
         # Identify contingent splits: those that are unused and fit entirely within
         # the largest collapsed partition.
@@ -309,7 +315,8 @@ class InterpolationState:
             if expand_split not in self.used_contingent_splits
             and set(expand_split.indices).issubset(biggest_collapsed_indices)
         )
-        return PartitionSet(set(contingent_generator), encoding=self.encoding)
+        # Don't specify encoding - let PartitionSet inherit from the partitions
+        return PartitionSet(set(contingent_generator))
 
     # ============================================================================
     # 6. Remaining Work Queries
@@ -339,7 +346,7 @@ class InterpolationState:
         """
         Gathers all collapse splits that have not yet been processed from unprocessed subtrees.
         """
-        remaining_splits: PartitionSet[Partition] = PartitionSet(encoding=self.encoding)
+        remaining_splits: PartitionSet[Partition] = PartitionSet()
         unprocessed_subtrees = self.get_remaining_subtrees()
 
         for subtree in unprocessed_subtrees:

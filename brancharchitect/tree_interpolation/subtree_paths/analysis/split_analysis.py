@@ -9,7 +9,7 @@ from brancharchitect.tree import Node
 def get_unique_splits_for_active_changing_edge_subtree(
     to_be_collapsed_tree: Node,
     expanded_tree: Node,
-    active_changing_edge: Partition,
+    current_pivot_edge: Partition,
 ) -> Tuple[PartitionSet[Partition], PartitionSet[Partition]]:
     """
     Get splits within the active changing edge scope only.
@@ -17,10 +17,10 @@ def get_unique_splits_for_active_changing_edge_subtree(
     Returns (to_be_collapsed_splits, to_be_expanded_splits).
     """
     to_be_collapsed_node: Node | None = to_be_collapsed_tree.find_node_by_split(
-        active_changing_edge
+        current_pivot_edge
     )
     to_be_created_node: Node | None = expanded_tree.find_node_by_split(
-        active_changing_edge
+        current_pivot_edge
     )
 
     if to_be_collapsed_node and to_be_created_node:
@@ -35,7 +35,7 @@ def get_unique_splits_for_active_changing_edge_subtree(
         return to_be_collapsed_splits, to_be_expanded_splits
     else:
         raise ValueError(
-            f"Active changing edge {active_changing_edge} not found in either tree."
+            f"Active changing edge {current_pivot_edge} not found in either tree."
         )
 
 
@@ -44,12 +44,43 @@ def find_incompatible_splits(
     candidate_splits: PartitionSet[Partition],
     max_size_ratio: Optional[float] = None,
 ) -> PartitionSet[Partition]:
-    """Find all candidate splits incompatible with any reference split."""
+    """Find all candidate splits incompatible with any reference split.
+
+    Raises:
+        ValueError: If encodings differ between reference and candidate sets,
+                    or if any input set contains mixed encodings.
+    """
     if not reference_splits or not candidate_splits:
         encoding = list(reference_splits)[0].encoding if reference_splits else {}
         return PartitionSet(encoding=encoding)
 
-    encoding = list(reference_splits)[0].encoding
+    # ------------------------------------------------------------------
+    # Encoding-compatibility guard
+    # ------------------------------------------------------------------
+    # Determine representative encodings from any element in each set
+    ref_enc = list(reference_splits)[0].encoding
+    cand_enc = list(candidate_splits)[0].encoding
+
+    # Ensure each set is internally consistent
+    for s in reference_splits:
+        if s.encoding != ref_enc:
+            raise ValueError(
+                "find_incompatible_splits: reference_splits contains mixed encodings"
+            )
+    for s in candidate_splits:
+        if s.encoding != cand_enc:
+            raise ValueError(
+                "find_incompatible_splits: candidate_splits contains mixed encodings"
+            )
+
+    # Ensure both sets share the same encoding for compatibility checks
+    if ref_enc != cand_enc:
+        raise ValueError(
+            "find_incompatible_splits: reference and candidate encodings differ"
+        )
+
+    encoding = ref_enc
+    all_indices = set(encoding.values())
     incompatible_splits: PartitionSet[Partition] = PartitionSet(encoding=encoding)
     seen_bitmasks: Set[int] = set()
 
@@ -70,7 +101,7 @@ def find_incompatible_splits(
                 candidate_size = len(candidate_split.indices)
                 if candidate_size > max_allowed_size:
                     continue
-            if not ref_split.is_compatible_with(candidate_split):
+            if not ref_split.is_compatible_with(candidate_split, all_indices):
                 incompatible_splits.add(candidate_split)
                 seen_bitmasks.add(candidate_split.bitmask)
 
@@ -98,4 +129,3 @@ def get_shared_split_paths(
         for split_path, info in shared.items()
         if len(info["subtrees"]) >= 2
     }
-

@@ -85,20 +85,22 @@ class InterpolationResult(TypedDict):
     """
 
     # Solution-to-atom mappings per pair
-    mapping_one: List[Dict[Partition, Partition]]
+    mapping_one: List[Dict[Partition, Dict[Partition, Partition]]]
     """
     List of solution-to-atom mappings for the target tree of each pair.
 
     Each dictionary in the list corresponds to a tree pair (e.g., T0->T1, T1->T2).
-    The dictionary maps from a solution partition to an atom partition in the target tree.
+    Within that dictionary the outer key is the pivot/active-changing split and the
+    nested dictionary maps each solution partition under that pivot to its atom in the target tree.
     """
 
-    mapping_two: List[Dict[Partition, Partition]]
+    mapping_two: List[Dict[Partition, Dict[Partition, Partition]]]
     """
     List of solution-to-atom mappings for the reference tree of each pair.
 
     Each dictionary in the list corresponds to a tree pair (e.g., T0->T1, T1->T2).
-    The dictionary maps from a solution partition to an atom partition in the reference tree.
+    The outer key is the pivot split and the nested dictionary maps each solution partition
+    to its atom in the reference tree.
     """
 
     # Core flattened sequences - globally indexed

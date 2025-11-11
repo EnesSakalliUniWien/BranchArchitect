@@ -1,14 +1,15 @@
 from itertools import pairwise
 from typing import Dict, List, Callable, Tuple, Optional, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import numpy as np
 from tqdm import tqdm
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
-from brancharchitect.distances.component_distance import jump_path_component_to_s_edge
-import numpy as np
+from brancharchitect.distances.component_distance import (
+    jump_path_component_to_pivot_edge,
+)
 from numpy.typing import NDArray
-
 
 
 def robinson_foulds_distance(tree1: Node, tree2: Node) -> float:
@@ -82,7 +83,7 @@ def compute_pair(
     j: int,
     tree_i: Node,
     tree_j: Node,
-    leaf_order: tuple[str, ...],
+    leaf_order: List[str] = [],
     reroot_to_compair: bool = False,
 ) -> Optional[Tuple[int, int, Any, Any, List[List[Node]], List[List[Node]]]]:
     if i == j:
@@ -92,52 +93,53 @@ def compute_pair(
     copy_tree_j: Node = tree_j.deep_copy()
 
     # Get s-edge solutions from lattice algorithm
-    from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import iterate_lattice_algorithm
-    s_edge_solutions = iterate_lattice_algorithm(copy_tree_i, copy_tree_j, leaf_order)
-    s_edges = list(s_edge_solutions.keys())
-    # Flatten all solution sets to get components (individual partitions)
+    from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
+        iterate_lattice_algorithm,
+    )
+
+    pivot_edge_solutions, _ = iterate_lattice_algorithm(
+        copy_tree_i, copy_tree_j, leaf_order
+    )
+    pivot_edges = list(pivot_edge_solutions.keys())
+    # Flatten to get components (individual partitions)
     components = [
-        partition for solution_sets in s_edge_solutions.values() 
-        for solution_set in solution_sets 
-        for partition in solution_set
+        partition
+        for partitions in pivot_edge_solutions.values()
+        for partition in partitions
     ]
 
     paths_i: List[List[Node]] = []
     paths_j: List[List[Node]] = []
 
     try:
-        # Process each s-edge and its solution sets
-        for s_edge in s_edges:
-            solution_sets = s_edge_solutions[s_edge]
-            for solution_set in solution_sets:
-                for component in solution_set:
-                    # Jump path component to s_edge
-                    path_i: List[Node] = jump_path_component_to_s_edge(
-                        tree=copy_tree_i,
-                        component=component,
-                        s_edge_split=s_edge,
-                    )
-                    path_j: List[Node] = jump_path_component_to_s_edge(
-                        tree=copy_tree_j,
-                        component=component,
-                        s_edge_split=s_edge,
-                    )
-                    paths_i.append(path_i)
-                    paths_j.append(path_j)
+        # Process each pivot edge and its solution sets
+        for pivot_edge in pivot_edges:
+            for component in pivot_edge_solutions[pivot_edge]:
+                # Jump path component to pivot edge
+                path_i: List[Node] = jump_path_component_to_pivot_edge(
+                    tree=copy_tree_i,
+                    component=component,
+                    pivot_edge_split=pivot_edge,
+                )
+                path_j: List[Node] = jump_path_component_to_pivot_edge(
+                    tree=copy_tree_j,
+                    component=component,
+                    pivot_edge_split=pivot_edge,
+                )
+                paths_i.append(path_i)
+                paths_j.append(path_j)
     except Exception as e:
-        print(f"s_edge_solutions structure: {s_edge_solutions}")
+        print(f"pivot_edge_solutions structure: {pivot_edge_solutions}")
         print(f"Error while computing paths for trees {i} and {j}: {e}")
         return None
-    return (i, j, components, s_edges, paths_i, paths_j)
+    return (i, j, components, pivot_edges, paths_i, paths_j)
 
 
 def compute_all_pairs(
-    trees: List[Node], leaf_order: tuple[str]
+    trees: List[Node],
 ) -> List[Tuple[int, int, Any, Any, List[List[Node]], List[List[Node]]]]:
     pair_args = [
-        (i, j, trees[i], trees[j], leaf_order)
-        for i in range(len(trees))
-        for j in range(i)
+        (i, j, trees[i], trees[j]) for i in range(len(trees)) for j in range(i)
     ]
     # Profile the parallel computation
     results: List[Tuple[int, int, Any, Any, List[List[Node]], List[List[Node]]]] = []

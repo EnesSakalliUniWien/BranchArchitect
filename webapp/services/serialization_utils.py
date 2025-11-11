@@ -31,7 +31,24 @@ def serialize_partition_dict_to_indices(
     Returns:
         Dictionary with string keys representing serialized Partition indices
     """
+
+    def _serialize_value(val: Any) -> Any:
+        # Partition-like objects: have 'indices'
+        if hasattr(val, "indices"):
+            return serialize_partition_to_indices(val)  # -> List[int]
+        # Lists or other iterables of partitions
+        if isinstance(val, list):
+            out: List[Any] = []
+            for item in val:
+                out.append(_serialize_value(item))
+            return out
+        # Nested dicts: recursively serialize keys and values
+        if isinstance(val, dict):
+            return serialize_partition_dict_to_indices(val)
+        # Primitive or unknown: pass through
+        return val
+
     return {
-        str(serialize_partition_to_indices(key)): value
+        str(serialize_partition_to_indices(key)): _serialize_value(value)
         for key, value in partition_dict.items()
     }

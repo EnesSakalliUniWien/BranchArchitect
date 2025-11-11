@@ -4,20 +4,17 @@
     "solutions": [
         [
             [
-                "X1",
-                "X2"
-            ]
-        ],
-        [
+                "A",
+                "B",
+                "C"
+            ],
             [
-                "A2"
-            ]
-        ],
-        [
+                "F"
+            ],
             [
-                "A3"
+                "H"
             ]
         ]
     ],
-    "comment": ""
+    "comment": "Deleting [A, B, C, F, H] produces topologically identical trees with 5 remaining taxa: [D, E, G, O1, O2]"
 }

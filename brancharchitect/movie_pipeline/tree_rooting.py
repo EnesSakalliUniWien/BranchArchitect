@@ -8,7 +8,7 @@ to ensure consistent orientation for interpolation and visualization.
 from typing import List
 import io
 from brancharchitect.tree import Node
-from skbio import TreeNode as SkbioTreeNode
+from skbio import TreeNode as SkbioTreeNode  # type: ignore[import-untyped]
 from brancharchitect.parser.newick_parser import parse_newick
 
 
@@ -31,26 +31,32 @@ def root_trees(trees: List[Node]) -> List[Node]:
     Returns:
         List of midpoint-rooted trees (new copies, originals unchanged)
     """
-    rooted_trees: List[Node] = []
+    rooted_newick_strings: List[str] = []
     for tree in trees:
         # 1. Convert brancharchitect.tree.Node to Newick string
         newick_string = tree.to_newick()
 
         # 2. Create a skbio.TreeNode from the Newick string
         # Use a file-like wrapper for efficiency and clarity
-        skbio_tree = SkbioTreeNode.read(io.StringIO(newick_string))
+        # cSpell:ignore Skbio
+        skbio_tree: SkbioTreeNode = SkbioTreeNode.read(io.StringIO(newick_string))  # type: ignore[assignment]
 
         # 3. Root the skbio.TreeNode at the midpoint
-        rooted_skbio_tree = skbio_tree.root_at_midpoint()
+        # Explicitly specify parameters for scikit-bio 0.7.0+ compatibility
+        rooted_skbio_tree: SkbioTreeNode = skbio_tree.root_at_midpoint(  # type: ignore[assignment]
+            reset=True, branch_attrs=[], root_name=""
+        )
 
         # 4. Convert the rooted skbio.TreeNode back to a Newick string
         rooted_newick_string = str(rooted_skbio_tree)
 
+        rooted_newick_strings.append(rooted_newick_string)
+
         # 5. Parse the new Newick string back to a brancharchitect.tree.Node
         # The parser returns a list, so we take the first element.
-        rooted_tree = parse_newick(
-            rooted_newick_string, force_list=True, treat_zero_as_epsilon=True
-        )[0]
-        rooted_trees.append(rooted_tree)
+    rooted_trees: List[Node] = parse_newick(  # type: ignore[assignment]
+        "\n".join(rooted_newick_strings), force_list=True, treat_zero_as_epsilon=True
+    )
+    print("\n".join(rooted_newick_strings))
 
     return rooted_trees

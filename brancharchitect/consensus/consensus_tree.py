@@ -3,6 +3,9 @@ from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import Partition, PartitionSet
 from collections import Counter
 from typing import Tuple
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_taxa_circular_order(node: Node) -> List[str]:
@@ -79,7 +82,7 @@ def create_star_tree(taxon_order: List[str]) -> Node:
     encoding = {name: i for i, name in enumerate(taxon_order)}
 
     # Create children first
-    child_nodes = []
+    child_nodes: List[Node] = []
     for taxon in taxon_order:
         child_nodes.append(
             Node(
@@ -87,14 +90,11 @@ def create_star_tree(taxon_order: List[str]) -> Node:
                 split_indices=Partition((encoding[taxon],), encoding),
                 length=1,
                 taxa_encoding=encoding,
-                _order=taxon_order,
             )
         )
 
     # Create parent with children
-    star_tree = Node(
-        name="R", children=child_nodes, taxa_encoding=encoding, _order=taxon_order
-    )
+    star_tree = Node(name="R", children=child_nodes, taxa_encoding=encoding)
     star_tree.split_indices = Partition(tuple(range(len(taxon_order))), encoding)
 
     return star_tree
@@ -221,7 +221,31 @@ def filter_incompatible_splits(
     return compatible_split_memory
 
 
-def apply_split_in_tree(split: Partition, node: Node):
+def apply_split_in_tree(split: Partition, node: Node, validate: bool = True):
+    """
+    Apply a split to a tree by creating a new internal node grouping the appropriate children.
+
+    Args:
+        split: The partition to apply to the tree
+        node: The root node of the tree
+        validate: If True, verifies the split was successfully applied (default: True)
+
+    Raises:
+        ValueError: If encoding cannot be converted
+        RuntimeError: If validate=True and split was not successfully applied
+    """
+    # Store original split for validation
+    original_split = split
+
+    # Re-encode split to the target tree's encoding if needed
+    if split.encoding != node.taxa_encoding:
+        try:
+            names = [split.reverse_encoding[i] for i in split.indices]
+            new_indices = tuple(sorted(node.taxa_encoding[name] for name in names))
+            split = Partition(new_indices, node.taxa_encoding)
+        except Exception as e:
+            raise ValueError(f"Cannot re-encode split to target tree encoding: {e}")
+
     split_set = set(split)  # Convert split to set
 
     # Check if split_set is a proper subset of node.split_indices
@@ -242,7 +266,11 @@ def apply_split_in_tree(split: Partition, node: Node):
         # Only create a new node if we have children to reassign
         if reassigned_children and len(reassigned_children) > 1:
             new_node = Node(
-                name="", split_indices=split, children=reassigned_children, length=0
+                name="",
+                split_indices=split,
+                children=reassigned_children,
+                length=0,
+                taxa_encoding=node.taxa_encoding,
             )
             # Update original node's children and append new node
             node.children = remaining_children
@@ -251,7 +279,89 @@ def apply_split_in_tree(split: Partition, node: Node):
     # Recursively apply to children
     for child in node.children:
         if child.children:
-            apply_split_in_tree(split, child)
+            apply_split_in_tree(
+                split, child, validate=False
+            )  # Don't validate recursively
+
+    # Validate split was applied (only at top level)
+    if validate:
+        # Get root and refresh splits
+        root = node.get_root()
+        root.initialize_split_indices(root.taxa_encoding)
+
+        # Force cache invalidation to get fresh splits
+        root.invalidate_caches()
+
+        # Check if split is now in tree
+        tree_splits = root.to_splits()
+        if split not in tree_splits:
+            # Find incompatible splits that prevented application
+            all_indices = set(split.encoding.values())
+            incompatible_splits_to_collapse: List[Partition] = []
+
+            for tree_split in tree_splits:
+                if not split.is_compatible_with(tree_split, all_indices):
+                    incompatible_splits_to_collapse.append(tree_split)
+
+            # Collapse incompatible splits if found
+            if incompatible_splits_to_collapse:
+                logger.debug(
+                    f"[CONSENSUS] Collapsing {len(incompatible_splits_to_collapse)} "
+                    f"incompatible split(s) to apply split {list(original_split.indices)}"
+                )
+
+                # Collapse each incompatible split by finding its node and setting length to 0
+                for incompatible_split in incompatible_splits_to_collapse:
+                    _collapse_split_in_tree(root, incompatible_split)
+
+                # Refresh tree structure
+                root.initialize_split_indices(root.taxa_encoding)
+                root.invalidate_caches()
+
+                # Retry applying the split
+                apply_split_in_tree(split, root, validate=True)
+            else:
+                # No incompatible splits found - different issue
+                split_indices_list = [list(s.indices) for s in tree_splits]
+                raise RuntimeError(
+                    f"Failed to apply split {list(original_split.indices)} to tree. "
+                    f"No incompatible splits detected. Tree has {len(tree_splits)} splits: "
+                    f"{split_indices_list[:10]}... Target split not present."
+                )
+
+
+def _collapse_split_in_tree(node: Node, split_to_collapse: Partition) -> None:
+    """
+    Find and collapse a specific split in the tree by removing the internal node.
+
+    Args:
+        node: The root or current node to search from
+        split_to_collapse: The partition representing the split to collapse
+    """
+    if not node.children:
+        return
+
+    # Check if any child has the split we want to collapse
+    for child in node.children:
+        if child.split_indices == split_to_collapse and child.children:
+            # Found the node to collapse - splice its children up to parent
+            logger.debug(
+                f"[CONSENSUS] Collapsing split {list(split_to_collapse.indices)}"
+            )
+
+            # Remove this child from parent's children
+            node.children.remove(child)
+
+            # Add all grandchildren to parent
+            for grandchild in child.children:
+                grandchild.parent = node
+                node.children.append(grandchild)
+
+            return
+
+        # Recursively search in child's subtree
+        if child.children:
+            _collapse_split_in_tree(child, split_to_collapse)
 
 
 def sort_splits(splits: Dict[Partition, float]) -> list[Tuple[Partition, float]]:
@@ -259,7 +369,7 @@ def sort_splits(splits: Dict[Partition, float]) -> list[Tuple[Partition, float]]
 
 
 def create_consensus_tree(trees: list[Node]) -> Node:
-    tree: Node = create_star_tree(trees[0]._order)
+    tree: Node = create_star_tree(list(trees[0].get_current_order()))
     observed_number_of_splits = collect_splits(trees)
     for split, frequency in sorted(
         observed_number_of_splits.items(), key=lambda x: (x[1], x[0]), reverse=True
@@ -271,7 +381,7 @@ def create_consensus_tree(trees: list[Node]) -> Node:
 
 
 def create_majority_consensus_tree(trees: list[Node], threshold: float = 0.50) -> Node:
-    tree: Node = create_star_tree(trees[0]._order)
+    tree: Node = create_star_tree(list(trees[0].get_current_order()))
     splits: Dict[Partition, float] = collect_splits(trees)
     for split, frequency in sort_splits(splits):
         if frequency <= threshold:
@@ -285,7 +395,7 @@ def create_majority_consensus_tree_extended(trees: list[Node]) -> Node:
     Create an extended majority consensus tree from a list of trees by applying mutually
     compatible splits.
 
-    The function begins by constructing a star tree based on the taxon order of the first tree.
+    The function begins by constructing a star tree based on the current leaf order of the first tree.
     It then collects split frequencies from all trees using ``collect_splits()``. The splits are
     sorted in descending order based on a tuple of criteria: frequency, the size of the split,
     and the lexicographical order of the split. For each split, the function checks if it is
@@ -294,18 +404,17 @@ def create_majority_consensus_tree_extended(trees: list[Node]) -> Node:
     the list of applied splits.
 
     Args:
-        trees (list[Node]): A list of tree nodes. Each tree should have an attribute ``_order``
-            representing the taxon order and a method ``to_splits()`` that returns a collection
+        trees (list[Node]): A list of tree nodes. Each tree should have a method ``to_splits()`` that returns a collection
             of Partition splits.
 
     Returns:
         Node: The extended consensus tree that incorporates all mutually compatible splits.
     """
-    tree: Node = create_star_tree(trees[0]._order)
+    tree: Node = create_star_tree(list(trees[0].get_current_order()))
     splits: dict[Partition, float] = collect_splits(trees)
     applied_splits: list[Partition] = []
 
-    for split, frequency in sorted(
+    for split, _ in sorted(
         splits.items(), key=lambda x: (x[1], len(x[0]), x[0]), reverse=True
     ):
         if all(compatible(split, existing_split) for existing_split in applied_splits):
@@ -326,20 +435,19 @@ def collect_splits(trees: List[Node]) -> dict[Partition, float]:
     the split appears divided by the total number of trees.
 
     Args:
-        trees (List[Node]): A list of tree nodes. Each tree is expected to have an
-            attribute ``_order`` representing the taxon order and a method ``to_splits()``
-            returning a collection of Partition splits.
+        trees (List[Node]): A list of tree nodes. Each tree is expected to provide
+            ``to_splits()`` returning a collection of Partition splits.
 
     Returns:
         dict[Partition, float]: A dictionary mapping each split (Partition) to its frequency. Frequency is given as a float value in the range [0, 1].
     """
-    taxa: list[int] = len(trees[0]._order)
+    taxa_count: int = len(list(trees[0].get_current_order()))
     total_trees: int = len(trees)
     counter: Counter[Partition] = Counter()  # Counter mapping each Partition to an int
     for tree in trees:
         splits_in_tree = set(tree.to_splits(with_leaves=True))
         for split in splits_in_tree:
-            if len(split) > 1 and len(split) < taxa:
+            if len(split) > 1 and len(split) < taxa_count:
                 counter[split] += 1
     # Calculate frequencies and assign to a new variable:
     frequencies: dict[Partition, float] = {

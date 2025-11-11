@@ -8,11 +8,15 @@ class TreePairSolution(TypedDict):
     """Solution data for a single tree pair."""
 
     # Core jumping taxa algorithm result - solutions for subtree rearrangements
-    jumping_subtree_solutions: Dict[Partition, List[List[Partition]]]
+    jumping_subtree_solutions: Dict[Partition, List[Partition]]
 
     # Mappings for atom translation (actual keys used in implementation)
-    solution_to_target_map: Dict[Partition, Partition]  # Mapping from solution to target tree atoms
-    solution_to_reference_map: Dict[Partition, Partition]  # Mapping from solution to reference tree atoms
+    solution_to_target_map: Dict[
+        Partition, Dict[Partition, Partition]
+    ]  # Mapping from solution to target tree atoms, grouped by pivot edge
+    solution_to_reference_map: Dict[
+        Partition, Dict[Partition, Partition]
+    ]  # Mapping from solution to reference tree atoms, grouped by pivot edge
     
     # Backward compatibility aliases (if needed for existing code)
     # mapping_one: Dict[Partition, Partition]  # Alias for solution_to_target_map

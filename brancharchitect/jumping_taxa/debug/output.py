@@ -1,5 +1,6 @@
 import os
 from . import jt_logger, format_set
+from brancharchitect.core.html_content import DEBUG_PAGE_CSS
 from typing import Optional
 from brancharchitect.tree import Node
 from datetime import datetime
@@ -8,153 +9,12 @@ from pathlib import Path
 
 def generate_debug_html(title="Branch Architect Debug Output"):
     """Generate HTML content for debug output."""
-    # Get the actual debug content first
+    # Get the actual debug content and any accumulated CSS from the logger
     debug_content = jt_logger.get_html_content()
-    print(f"Debug content in generate_debug_html: {len(debug_content)} bytes")
-
+    logger_css = jt_logger.get_css_content()
     if not debug_content:
         debug_content = "<p>No debug information recorded.</p>"
-        print("Warning: No debug content available!")
 
-    # Define CSS styles
-    css_styles = """
-        /* Reset and base styles */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        /* Core theme */
-        body {
-            background: #1d1d1d;
-            color: #c8c8c8;
-            font-family: 'Menlo', 'DejaVu Sans Mono', monospace;
-            line-height: 1.6;
-            padding: 20px;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        /* Layout */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: #222;
-            border: 1px solid #333;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-
-        /* Headers */
-        h1, h2, h3, h4, h5, h6 {
-            color: #fff;
-            margin: 1em 0 0.5em 0;
-            border-bottom: 1px solid #333;
-            padding-bottom: 0.3em;
-        }
-
-        /* Tables */
-        .table-container {
-            margin: 1em 0;
-            overflow-x: auto;
-            background: #252525;
-            border-radius: 4px;
-            border: 1px solid #333;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9em;
-            background: transparent;
-        }
-
-        th {
-            background: #333;
-            color: #fff;
-            font-weight: bold;
-            text-align: left;
-            padding: 12px;
-            border: 1px solid #444;
-        }
-
-        td {
-            padding: 10px 12px;
-            border: 1px solid #444;
-            color: #c8c8c8;
-        }
-
-        tr:hover {
-            background: #2a2a2a;
-        }
-
-        /* SVG containers */
-        .svg-container {
-            background: #252525;
-            padding: 20px;
-            margin: 1em 0;
-            border-radius: 4px;
-            border: 1px solid #333;
-            overflow-x: auto;
-        }
-
-        .svg-container svg {
-            max-width: 100%;
-            height: auto;
-            display: block;
-            margin: 0 auto;
-        }
-
-        /* Analysis cards */
-        .bidirectional-analysis {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin: 1em 0;
-        }
-
-        .analysis-card {
-            background: #252525;
-            border: 1px solid #333;
-            padding: 15px;
-            border-radius: 4px;
-        }
-
-        .analysis-detail {
-            margin: 8px 0;
-            display: flex;
-            justify-content: space-between;
-            border-bottom: 1px solid #333;
-            padding-bottom: 4px;
-        }
-
-        .detail-label {
-            color: #888;
-            margin-right: 10px;
-        }
-
-        /* Messages */
-        .warning { color: #ffd700; }
-        .error { color: #ff6b6b; }
-        .success { color: #6bff6b; }
-
-        /* Code blocks */
-        pre {
-            background: #252525;
-            padding: 15px;
-            border-radius: 4px;
-            overflow-x: auto;
-            border: 1px solid #333;
-            margin: 1em 0;
-        }
-
-        /* Links */
-        a {
-            color: #4a9eff;
-            text-decoration: none;
-        }
-
-        a:hover {
-            text-decoration: underline;
-        }
-    """
 
     # Create HTML structure
     html_content = f"""<!DOCTYPE html>
@@ -163,7 +23,7 @@ def generate_debug_html(title="Branch Architect Debug Output"):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title}</title>
-    <style>{css_styles}</style>
+    <style>{DEBUG_PAGE_CSS}\n{logger_css}</style>
 </head>
 <body>
     <div class="container">
@@ -229,7 +89,7 @@ def log_tree_splits(
     splits2 = tree2.to_splits(with_leaves=True)
 
     # Log the order/mapping with more detail
-    order_map = tree1.split_indices.reverse_lookup
+    order_map = tree1.split_indices.reverse_encoding
 
     # Create comparison table with correlation between indices and taxa
     table_data = [
@@ -329,19 +189,21 @@ def log_tree_splits(
     jt_logger.info(f"Mismatches Found: {len(mismatches)}")
 
 
-def create_debug_index():
+def create_debug_index(verbose: bool = False):
     """
     Creates an 'index.html' in 'output/test_debug' that lists all debug
     HTML files (except index.html) sorted by creation time (newest first).
     """
-    print("Starting index creation process...")
+    if verbose:
+        print("Starting index creation process...")
 
     # Use the project root instead of the current file's directory
     project_root = Path(__file__).parent.parent.parent.parent
     output_dir = project_root / "output" / "test_debug"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Creating index in: {output_dir}")  # Debug print
+    if verbose:
+        print(f"Creating index in: {output_dir}")
 
     # Gather debug HTML files in 'output/test_debug'
     debug_files = []
@@ -488,11 +350,12 @@ def create_debug_index():
         f.write(html)
 
     # Confirm success
-    if os.path.exists(index_path):
-        print(
-            f"Index file created at: {index_path} ({os.path.getsize(index_path)} bytes)"
-        )
-    else:
-        print("WARNING: Index file creation failed!")
+    if verbose:
+        if os.path.exists(index_path):
+            print(
+                f"Index file created at: {index_path} ({os.path.getsize(index_path)} bytes)"
+            )
+        else:
+            print("WARNING: Index file creation failed!")
 
     return str(index_path)

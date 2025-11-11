@@ -24,8 +24,18 @@ tskit = "^0.6.4"
 msprime = "^1.3.4"
 ipywidgets = "^8.0.0"
 scikit-bio = "^0.6.3"
-cairosvg = "^2.8.2"
 nbformat = "^5.10.4"
+python-constraint = "^1.4.0"
+ortools = "^9.10.4067"
+toytree = "^3.0.10"
+toyplot = "^2.0.0"
+
+# Optional dependencies for advanced plotting features
+cairosvg = {version = "^2.8.2", optional = true}
+pycairo = {version = "^1.28.0", optional = true}
+
+[tool.poetry.extras]
+plotting = ["cairosvg", "pycairo"]
 
 
 [tool.poetry.group.test.dependencies]
@@ -58,3 +68,4 @@ ignore_missing_imports = false
 [tool.pytest.ini_options]
 addopts = "--mypy"  # Tells pytest to run mypy checks each time
 mypy_ignore_missing_imports = true
+timeout = 10  # Default timeout for tests (overridden by per-test marks)

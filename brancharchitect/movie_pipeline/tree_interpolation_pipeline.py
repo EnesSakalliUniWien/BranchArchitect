@@ -1,6 +1,6 @@
 """Tree processing pipeline."""
 
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, cast
 import logging
 import time
 from brancharchitect.elements.partition import Partition
@@ -13,6 +13,7 @@ from brancharchitect.movie_pipeline.types import (
     DistanceMetrics,
     TreeMetadata,
     TreePairSolution,
+    SplitChangeEvent,
 )
 from brancharchitect.leaforder.tree_order_optimiser import TreeOrderOptimizer
 from brancharchitect.distances.distances import (
@@ -54,7 +55,7 @@ class TreeInterpolationPipeline:
         self.config: PipelineConfig = config or PipelineConfig()
         self.logger = logger or logging.getLogger(self.config.logger_name)
 
-    def process_trees(self, trees: List[Node]) -> InterpolationResult:
+    def process_trees(self, trees: Node | List[Node]) -> InterpolationResult:
         """
         Executes the complete tree interpolation pipeline.
 
@@ -68,8 +69,10 @@ class TreeInterpolationPipeline:
         start_time = time.time()
 
         # --- Taxa consistency check (before any processing) ---
-        processed_trees: List[Node] = trees
+        processed_trees: Node | List[Node] = trees
 
+        if isinstance(processed_trees, Node):
+            processed_trees = [processed_trees]
         # Handle edge cases
         if not processed_trees:
             return create_empty_result()
@@ -100,6 +103,8 @@ class TreeInterpolationPipeline:
             tree_metadata,
             tree_pair_solutions,
             pair_interpolation_ranges,
+            solution_to_target_map_list,
+            solution_to_reference_map_list,
         ) = self._interpolate_tree_sequence(
             processed_trees, precomputed_pair_solutions=precomputed_pair_solutions
         )
@@ -123,6 +128,8 @@ class TreeInterpolationPipeline:
             interpolated_trees=interpolated_trees,
             tree_metadata=tree_metadata,
             tree_pair_solutions=tree_pair_solutions,
+            mapping_one=solution_to_target_map_list,
+            mapping_two=solution_to_reference_map_list,
             rfd_list=distances.rfd_list,
             wrfd_list=distances.wrfd_list,
             original_tree_count=len(processed_trees),
@@ -137,13 +144,15 @@ class TreeInterpolationPipeline:
         self,
         trees: List[Node],
         precomputed_pair_solutions: Optional[
-            List[Optional[Dict[Partition, List[List[Partition]]]]]
+            List[Optional[Dict[Partition, List[Partition]]]]
         ] = None,
     ) -> tuple[
         List[Node],
         List[TreeMetadata],
         Dict[str, TreePairSolution],
         List[List[int]],
+        List[Dict[Partition, Dict[Partition, Partition]]],
+        List[Dict[Partition, Dict[Partition, Partition]]],
     ]:
         """
         Orchestrates the interpolation between all consecutive tree pairs.
@@ -178,13 +187,8 @@ class TreeInterpolationPipeline:
             result.mapping_two
         )  # Map from solution to atoms in REFERENCE tree
 
-        self.logger.debug(f"Solution to Target Maps: {solution_to_target_map_list}")
-        self.logger.debug(
-            f"Solution to Reference Maps: {solution_to_reference_map_list}"
-        )
-
         active_changing_split_tracking = (
-            result.active_changing_split_tracking
+            result.current_pivot_edge_tracking
         )  # Active changing split applied per tree
 
         jumping_subtree_solutions_list = (
@@ -200,7 +204,6 @@ class TreeInterpolationPipeline:
         # This organizes pair-specific data for efficient lookup and analysis
         tree_pair_solutions_dict, pair_interpolation_ranges = (
             self._create_keyed_solutions(
-                trees,
                 solution_to_target_map_list,
                 solution_to_reference_map_list,
                 jumping_subtree_solutions_list,
@@ -221,6 +224,8 @@ class TreeInterpolationPipeline:
             tree_metadata,
             tree_pair_solutions_dict,
             pair_interpolation_ranges,
+            solution_to_target_map_list,
+            solution_to_reference_map_list,
         )
 
     def _optimize_tree_order(
@@ -256,7 +261,11 @@ class TreeInterpolationPipeline:
         if self.config.use_anchor_ordering:
             # Use anchor-based ordering (deterministic, non-iterative)
             self.logger.info("Using anchor-based ordering (lattice algorithm)")
-            optimizer.optimize_with_anchor_ordering()
+            optimizer.optimize_with_anchor_ordering(
+                anchor_weight_policy=self.config.anchor_weight_policy,
+                circular=self.config.circular,
+                circular_boundary_policy=self.config.circular_boundary_policy,
+            )
         else:
             # Use rotation-based optimization (iterative, heuristic)
             self.logger.info("Using rotation-based optimization")
@@ -270,7 +279,7 @@ class TreeInterpolationPipeline:
     # --- One-time lattice solutions for all adjacent pairs ---
     def _precompute_pair_solutions(
         self, trees: List[Node]
-    ) -> List[Optional[Dict[Partition, List[List[Partition]]]]]:
+    ) -> List[Optional[Dict[Partition, List[Partition]]]]:
         """
         Runs the lattice algorithm once for each adjacent pair of trees.
 
@@ -279,18 +288,18 @@ class TreeInterpolationPipeline:
         """
         if len(trees) < 2:
             return []
-        sols: List[Optional[Dict[Partition, List[List[Partition]]]]] = []
+        sols: List[Optional[Dict[Partition, List[Partition]]]] = []
         for i in range(len(trees) - 1):
             # Use deep copies to avoid any side effects (lattice may mutate working copies)
             source_tree = trees[i]
             destination_tree = trees[i + 1]
             try:
                 self.logger.info(f"Precomputing solution for pair {i}-{i + 1}...")
-                sols.append(
-                    iterate_lattice_algorithm(
-                        source_tree.deep_copy(), destination_tree.deep_copy()
-                    )
+                # iterate_lattice_algorithm returns a tuple (dict, list), we only need the dict
+                solution_dict, _ = iterate_lattice_algorithm(
+                    source_tree.deep_copy(), destination_tree.deep_copy()
                 )
+                sols.append(solution_dict)
             except Exception as e:
                 self.logger.error(
                     f"Failed to compute lattice solution for pair {i}-{i + 1}. Error: {e}",
@@ -301,36 +310,43 @@ class TreeInterpolationPipeline:
 
     def _extract_active_changing_split_sets(
         self,
-        precomputed_pair_solutions: List[
-            Optional[Dict[Partition, List[List[Partition]]]]
-        ],
+        precomputed_pair_solutions: List[Optional[Dict[Partition, List[Partition]]]],
         trees: List[Node],
     ) -> List[Optional[PartitionSet[Partition]]]:
         """
-        Extracts the set of active-changing-split keys from precomputed solutions.
+        Extracts active changing split sets from precomputed lattice solutions.
 
-        This is used to provide the leaf order optimizer with initial active-changing-splits.
+        Converts the lattice algorithm results (Dict[Partition, List[Partition]])
+        into PartitionSet objects containing just the keys (active changing splits).
+        This format is required by the TreeOrderOptimizer for rotation-based optimization.
+
+        Args:
+            precomputed_pair_solutions: Pre-calculated lattice solutions for each pair.
+            trees: List of trees (used for getting encoding reference).
+
+        Returns:
+            List of PartitionSet objects, one per tree pair, containing active changing splits.
+            Returns None for pairs where lattice computation failed.
         """
-        # Convert solution dicts to PartitionSet keys for optimizer usage
-        # Since all trees should have the same taxa encoding, use the first tree's encoding
-        from brancharchitect.elements.partition_set import PartitionSet
-
-        if not trees:
+        if not precomputed_pair_solutions:
             return []
 
-        # All trees should have the same taxa encoding - use the first one
-        common_encoding = trees[0].taxa_encoding
+        split_sets: List[Optional[PartitionSet[Partition]]] = []
+        for solution in precomputed_pair_solutions:
+            if solution is None:
+                # Lattice algorithm failed for this pair
+                split_sets.append(None)
+            else:
+                # Extract the keys (active changing splits) from the lattice solution
+                active_changing_splits_list: List[Partition] = list(solution.keys())
+                # Partitions already have encoding from lattice algorithm
+                # Don't specify encoding - let PartitionSet infer it from the partitions
+                split_set: PartitionSet[Partition] = PartitionSet(
+                    set(active_changing_splits_list)
+                )
+                split_sets.append(split_set)
 
-        active_changing_split_sets: List[Optional[PartitionSet[Partition]]] = []
-        for sol in precomputed_pair_solutions:
-            if sol is None:
-                active_changing_split_sets.append(None)
-                continue
-            ps: PartitionSet[Partition] = PartitionSet(encoding=common_encoding)
-            for active_changing_split in sol.keys():
-                ps.add(active_changing_split)
-            active_changing_split_sets.append(ps)
-        return active_changing_split_sets
+        return split_sets
 
     def _calculate_distances(self, trees: List[Node]) -> DistanceMetrics:
         """
@@ -357,10 +373,11 @@ class TreeInterpolationPipeline:
 
     def _create_keyed_solutions(
         self,
-        trees: List[Node],  # Original trees
-        solution_to_target_map_list: List[Dict[Partition, Partition]],
-        solution_to_reference_map_list: List[Dict[Partition, Partition]],
-        jumping_subtree_solutions_list: List[Dict[Partition, List[List[Partition]]]],
+        solution_to_target_map_list: List[Dict[Partition, Dict[Partition, Partition]]],
+        solution_to_reference_map_list: List[
+            Dict[Partition, Dict[Partition, Partition]]
+        ],
+        jumping_subtree_solutions_list: List[Dict[Partition, List[Partition]]],
         active_changing_split_tracking: List[Optional[Partition]],
         original_tree_global_indices: List[int],
     ) -> tuple[Dict[str, TreePairSolution], List[List[int]]]:
@@ -371,7 +388,6 @@ class TreeInterpolationPipeline:
         (e.g., "pair_0_1") for easy lookup of solutions and metadata for each pair.
 
         Args:
-            trees: Original trees being interpolated between.
             solution_to_target_map_list: Target tree solution-to-atom mappings.
             solution_to_reference_map_list: Reference tree solution-to-atom mappings.
             jumping_subtree_solutions_list: Jumping subtree solutions for each pair.
@@ -381,112 +397,93 @@ class TreeInterpolationPipeline:
         Returns:
             A dictionary of TreePairSolution objects.
         """
+        # Each helper list produced by SequentialInterpolationBuilder aligns to len(original_trees) - 1 pairs.
+        pair_count = len(original_tree_global_indices) - 1
+        pair_ranges = [
+            [original_tree_global_indices[i], original_tree_global_indices[i + 1]]
+            for i in range(pair_count)
+        ]
+
         tree_pair_solutions: Dict[str, TreePairSolution] = {}
-        pair_interpolation_ranges: List[List[int]] = []
 
-        for i in range(len(trees) - 1):
-            # Create pair key
-            pair_key = f"pair_{i}_{i + 1}"
-
-            # Get jumping subtree solutions for this pair
-            pair_jumping_subtree_solutions = (
-                jumping_subtree_solutions_list[i]
-                if i < len(jumping_subtree_solutions_list)
-                else {}
+        for pair_index, (source_global_idx, target_global_idx) in enumerate(
+            zip(original_tree_global_indices, original_tree_global_indices[1:])
+        ):
+            pair_key = f"pair_{pair_index}_{pair_index + 1}"
+            start = source_global_idx + 1
+            end = target_global_idx
+            pair_sequence = cast(
+                List[Partition], active_changing_split_tracking[start:end]
             )
 
-            # Slice per-pair sequences using None boundaries (exclude the boundary None)
-            if i < len(original_tree_global_indices) - 1:
-                start = original_tree_global_indices[i] + 1
-                end = original_tree_global_indices[i + 1]
-                interpolation_start_idx = start  # First interpolated tree for this pair
-            else:
-                # Fallback if boundaries are unexpected; produce empty sequences
-                start = 0
-                end = 0
-                interpolation_start_idx = 0
-
-            pair_active_changing_split_sequence = active_changing_split_tracking[
-                start:end
-            ]
-
-            # Compute steps based on split sequence only; subtrees removed
-            num_steps = len(pair_active_changing_split_sequence)
-
-            # Get global indices for this pair (needed for emit_event function)
-            source_global_idx = original_tree_global_indices[i]
-            target_global_idx = original_tree_global_indices[i + 1]
-
-            # Build split_change_events (0-based step indices within this pair)
-            split_change_events = []
-            if num_steps > 0:
-                current_split = None
-                start_idx = 0
-                # Maintain order-preserving list + O(1) membership set
-
-                def emit_event(end_idx: int):
-                    if current_split is None:
-                        return
-                    split_change_events.append(
-                        {
-                            "split": current_split,
-                            "step_range": (start_idx, end_idx),
-                            "source_tree_global_index": source_global_idx,
-                            "target_tree_global_index": target_global_idx,
-                        }
-                    )
-
-                for local_idx in range(num_steps):
-                    split = pair_active_changing_split_sequence[local_idx]
-
-                    if local_idx == 0:
-                        current_split = split
-                        start_idx = 0
-                        continue
-
-                    if split != current_split:
-                        # Close previous event at local_idx - 1
-                        emit_event(local_idx - 1)
-                        # Start new event
-                        current_split = split
-                        start_idx = local_idx
-                        # Subtree tracking removed
-
-                # Emit final event (end at last index)
-                emit_event(num_steps - 1)
-
-            # No running index needed; boundaries determine slices per pair
+            split_change_events = self._build_split_change_events(
+                pair_sequence, source_global_idx, target_global_idx
+            )
 
             solution: TreePairSolution = {
-                "jumping_subtree_solutions": pair_jumping_subtree_solutions,
-                "solution_to_target_map": solution_to_target_map_list[i]
-                if i < len(solution_to_target_map_list)
-                else {},
-                "solution_to_reference_map": solution_to_reference_map_list[i]
-                if i < len(solution_to_reference_map_list)
-                else {},
-                "ancestor_of_changing_splits": pair_active_changing_split_sequence,
+                "jumping_subtree_solutions": jumping_subtree_solutions_list[pair_index],
+                "solution_to_target_map": solution_to_target_map_list[pair_index],
+                "solution_to_reference_map": solution_to_reference_map_list[pair_index],
+                "ancestor_of_changing_splits": cast(
+                    List[Optional[Partition]], pair_sequence
+                ),
                 "split_change_events": split_change_events,
                 "source_tree_global_index": source_global_idx,
                 "target_tree_global_index": target_global_idx,
-                "interpolation_start_global_index": interpolation_start_idx,
+                "interpolation_start_global_index": start,
             }
 
             tree_pair_solutions[pair_key] = solution
 
-            # Add the range for this pair (from source original tree to target original tree)
-            # This includes the source tree, all interpolated trees, and the target tree
-            pair_start = source_global_idx  # Start at source original tree
-            pair_end = target_global_idx  # End at target original tree
-            pair_interpolation_ranges.append([pair_start, pair_end])
+        return tree_pair_solutions, pair_ranges
 
-        return tree_pair_solutions, pair_interpolation_ranges
+    def _build_split_change_events(
+        self,
+        split_sequence: List[Partition],
+        source_global_idx: int,
+        target_global_idx: int,
+    ) -> List[SplitChangeEvent]:
+        """
+        Aggregate contiguous occurrences of a split into SplitChangeEvent entries.
+        """
+        if not split_sequence:
+            return []
+
+        events: List[SplitChangeEvent] = []
+        current_split: Partition = split_sequence[0]
+        start_idx = 0
+
+        for local_idx, split in enumerate(split_sequence[1:], start=1):
+            if split == current_split:
+                continue
+
+            events.append(
+                {
+                    "split": current_split,
+                    "step_range": (start_idx, local_idx - 1),
+                    "source_tree_global_index": source_global_idx,
+                    "target_tree_global_index": target_global_idx,
+                }
+            )
+            current_split = split
+            start_idx = local_idx
+
+        events.append(
+            {
+                "split": current_split,
+                "step_range": (start_idx, len(split_sequence) - 1),
+                "source_tree_global_index": source_global_idx,
+                "target_tree_global_index": target_global_idx,
+            }
+        )
+
+        return events
 
     def _create_global_tree_metadata(
         self,
         active_changing_split_tracking: List[
             Optional[Partition]
-        ],  # This is result.active_changing_split_tracking
+        ],  # This is result.current_pivot_edge_tracking
         original_tree_global_indices: List[int],
     ) -> List[TreeMetadata]:
         """
@@ -513,8 +510,8 @@ class TreeInterpolationPipeline:
                         step_in_pair=None,
                         reference_pair_tree_index=None,
                         target_pair_tree_index=None,
-                        source_tree_global_index=global_idx,  # Original tree references itself
-                        target_tree_global_index=None,  # No target for original trees
+                        source_tree_global_index=None,
+                        target_tree_global_index=None,
                     )
                 )
                 # When encountering an original, advance the pair anchor to this original
@@ -523,6 +520,7 @@ class TreeInterpolationPipeline:
                 interpolated_step_in_current_pair = 0  # Reset step counter for new pair
             else:  # This is an interpolated tree
                 interpolated_step_in_current_pair += 1
+                phase_in_pair = ((interpolated_step_in_current_pair - 1) % 5) + 1
                 pair_key: str = f"pair_{current_pair_original_start_idx}_{current_pair_original_start_idx + 1}"
 
                 # Get global indices of source and target trees using pre-scanned positions
@@ -537,7 +535,7 @@ class TreeInterpolationPipeline:
                     TreeMetadata(
                         global_tree_index=global_idx,
                         tree_pair_key=pair_key,
-                        step_in_pair=interpolated_step_in_current_pair,
+                        step_in_pair=phase_in_pair,
                         reference_pair_tree_index=current_pair_original_start_idx,
                         target_pair_tree_index=current_pair_original_start_idx + 1,
                         source_tree_global_index=source_global_idx,
