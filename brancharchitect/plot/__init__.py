@@ -13,8 +13,4 @@ Interactive viewers and Cairo-dependent modules are intentionally not imported h
 
 # Expose submodule names for discoverability; functions are available via
 # direct submodule imports to avoid eager loading.
-__all__ = [
-    "tree_plot",
-    "circular_tree",
-    "rectangular_tree",
-]
+__all__ = []

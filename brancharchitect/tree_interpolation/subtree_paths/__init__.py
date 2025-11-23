@@ -5,7 +5,7 @@ This module contains all components related to subtree path-based tree interpola
 including path planning, state management, execution, and ordering strategies.
 """
 
-from .orchestrator import create_interpolation_for_active_split_sequence
+from .pivot_sequence_orchestrator import create_interpolation_for_active_split_sequence
 from .planning import (
     build_edge_plan,
     InterpolationState,

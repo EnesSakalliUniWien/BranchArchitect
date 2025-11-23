@@ -17,6 +17,12 @@
   "python.analysis.diagnosticMode": "workspace",
   "python.analysis.inlayHints.variableTypes": true,
   "python.analysis.inlayHints.functionReturnTypes": true,
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportUnknownMemberType": "none",
+    "reportUnknownParameterType": "none",
+    "reportUnknownArgumentType": "none",
+    "reportUnknownVariableType": "none"
+  },
 
   // JavaScript/TypeScript
   "editor.formatOnSave": true,

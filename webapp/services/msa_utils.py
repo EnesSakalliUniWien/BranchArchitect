@@ -82,7 +82,7 @@ def infer_window_parameters(num_trees: int, alignment_length: int) -> WindowPara
 def msa_to_dict(msa_content: str) -> Dict[str, str]:
     """Parse MSA content (FASTA) into a dictionary."""
     try:
-        msa = skbio.io.read(StringIO(msa_content), format="fasta")
+        msa = skbio.io.read(StringIO(msa_content), format="fasta")  # type: ignore[reportUnknownMemberType]
         return {seq.metadata["id"]: str(seq) for seq in msa}  # type: ignore
     except Exception:
         return {}

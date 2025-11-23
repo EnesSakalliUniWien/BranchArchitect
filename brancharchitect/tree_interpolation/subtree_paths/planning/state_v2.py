@@ -147,15 +147,6 @@ class InterpolationState:
             self.shared_expand_splits,
         ) = categorize_splits(self.expand_splits_by_subtree)
 
-        # Track which expand splits started as shared (used by expand-last logic)
-        expand_usage_counts: Dict[Partition, int] = {}
-        for splits in self.expand_splits_by_subtree.values():
-            for sp in splits:
-                expand_usage_counts[sp] = expand_usage_counts.get(sp, 0) + 1
-        self._initial_shared_expand_splits: Set[Partition] = {
-            sp for sp, cnt in expand_usage_counts.items() if cnt > 1
-        }
-
         # Store original full sets for incompatibility checks and final cleanup
         self.all_collapsible_splits = all_collapse_splits
         self.all_expand_splits = all_expand_splits
@@ -234,6 +225,9 @@ class InterpolationState:
         Implements the "expand-last" strategy using dynamic counts from the
         current by-subtree mapping, matching v1 semantics used by tests.
         """
+        # Ensure shared/unique views reflect any external mutations
+        self._recompute_categories()
+
         # Build dynamic counts from current mapping
         counts: Dict[Partition, int] = {}
         for splits in self.expand_splits_by_subtree.values():
@@ -243,25 +237,15 @@ class InterpolationState:
         subtree_splits = self.expand_splits_by_subtree.get(
             subtree, PartitionSet(encoding=self.encoding)
         )
-        # Consider both current by-subtree counts and direct edits on shared mapping
-        last_by_mapping = {
-            s
-            for s in subtree_splits
-            if counts.get(s, 0) == 1 and s in self._initial_shared_expand_splits
-        }
-        last_by_shared_view = {
-            s
-            for s, users in self.shared_expand_splits.items()
-            if len(users) == 1 and subtree in users
-        }
-        result_set = last_by_mapping | last_by_shared_view
+        # Treat splits that are currently shared as eligible
+        candidate_shared = set(self.shared_expand_splits.keys())
+
+        result_set = {s for s in subtree_splits if counts.get(s, 0) == 1 and s in candidate_shared}
 
         # If this subtree has no shared expand splits at all, treat its unique
         # expands as "last user" too (useful for subtrees that never shared).
         if not result_set:
-            has_any_shared_for_subtree = any(
-                (s in self._initial_shared_expand_splits) for s in subtree_splits
-            )
+            has_any_shared_for_subtree = any(s in candidate_shared for s in subtree_splits)
             if not has_any_shared_for_subtree:
                 result_set = set(self.get_unique_expand_splits(subtree))
 
@@ -367,6 +351,8 @@ class InterpolationState:
                 list(split.indices),
             )
             self._delete_collapse_split(split)
+            # Keep global snapshot in sync so future tabula-rasa/incompat checks ignore it
+            self.all_collapsible_splits.discard(split)
 
     def mark_splits_as_processed(
         self,
@@ -385,6 +371,8 @@ class InterpolationState:
         # Process collapse splits: delete globally
         for split in processed_collapse_splits:
             self._delete_collapse_split(split)
+            # Remove from global snapshot to keep incompatibility checks accurate
+            self.all_collapsible_splits.discard(split)
 
         # Process expand splits: remove this subtree as a user and from mapping
         for split in processed_expand_splits:
@@ -395,6 +383,19 @@ class InterpolationState:
         if processed_contingent_splits:
             self.used_contingent_splits |= processed_contingent_splits
             self.available_contingent_splits -= processed_contingent_splits
+
+        # Drop any remaining expand claims for this subtree so other users can
+        # become the last user of shared splits.
+        remaining_claims = self.expand_splits_by_subtree.pop(
+            subtree, PartitionSet(encoding=self.encoding)
+        )
+        for split in remaining_claims:
+            if split in self.shared_expand_splits:
+                self.shared_expand_splits[split].discard(subtree)
+                if not self.shared_expand_splits[split]:
+                    self.shared_expand_splits.pop(split, None)
+            if self.unique_expand_splits.get(split) == subtree:
+                self.unique_expand_splits.pop(split, None)
 
         # Clean up empty subtrees in the by-subtree mappings
         self._cleanup_empty_subtree_entries()
@@ -589,19 +590,26 @@ class InterpolationState:
             return PartitionSet(encoding=self.encoding)
 
         # Identify contingent splits: those that are unused and fit entirely within
-        # the largest collapsed partition.
-        biggest_collapsed: Partition = max(
-            collapsed_splits, key=lambda split: len(split.indices)
-        )
-        biggest_collapsed_indices = set(biggest_collapsed.indices)
+        # ANY of the collapsed partitions passed in. This lets us capture
+        # opportunities created by multiple collapse regions (tabula rasa,
+        # incompatibility collapses, or multi-region collapses).
+        collapsed_regions = [set(split.indices) for split in collapsed_splits]
 
-        contingent_generator = (
-            expand_split
-            for expand_split in self.available_contingent_splits
-            if expand_split not in self.used_contingent_splits
-            and set(expand_split.indices).issubset(biggest_collapsed_indices)
-        )
-        return PartitionSet(set(contingent_generator), encoding=self.encoding)
+        contingent_set = PartitionSet(encoding=self.encoding)
+        for expand_split in self.available_contingent_splits:
+            if expand_split in self.used_contingent_splits:
+                continue
+            expand_indices = set(expand_split.indices)
+            if any(expand_indices.issubset(region) for region in collapsed_regions):
+                contingent_set.add(expand_split)
+
+        # Atomic consumption: mark as used immediately to prevent reuse in the
+        # same planning cycle before mark_splits_as_processed is called.
+        if contingent_set:
+            self.used_contingent_splits |= contingent_set
+            self.available_contingent_splits -= contingent_set
+
+        return contingent_set
 
     # ============================================================================
     # 7. Remaining Work Queries

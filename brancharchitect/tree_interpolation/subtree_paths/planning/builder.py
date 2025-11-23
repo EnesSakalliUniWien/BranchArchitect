@@ -46,18 +46,12 @@ def _gather_subtree_splits(
     )
     unique_expand: PartitionSet[Partition] = state.get_unique_expand_splits(subtree)
 
-    # Consume contingent splits based on the collapse path
-    contingent_expand = state.consume_contingent_expand_splits_for_subtree(
-        subtree=subtree,
-        collapsed_splits=shared_collapse | unique_collapse,
-    )
-
     return {
         "shared_collapse": shared_collapse,
         "unique_collapse": unique_collapse,
         "last_user_expand": last_user_expand,
         "unique_expand": unique_expand,
-        "contingent_expand": contingent_expand,
+        "contingent_expand": PartitionSet(encoding=state.encoding),
     }
 
 
@@ -201,6 +195,14 @@ def build_edge_plan(
                 splits["unique_collapse"],
                 incompatible,
             )
+
+        # After determining the actual collapse path (including tabula rasa or
+        # incompatibility collapses), consume contingent splits that fit within
+        # ANY collapsed region.
+        extra_contingent = state.consume_contingent_expand_splits_for_subtree(
+            subtree=subtree, collapsed_splits=collapse_path
+        )
+        splits["contingent_expand"] |= extra_contingent
 
         # Build expand path (all subtrees get their expand work)
         expand_path: PartitionSet[Partition] = build_expand_path(

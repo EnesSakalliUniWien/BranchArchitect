@@ -64,6 +64,10 @@ def circular_distance_tree_pair(reference_tree: Node, target_tree: Node) -> floa
     """
     ox: tuple[str, ...] = reference_tree.get_current_order()
     oy: tuple[str, ...] = target_tree.get_current_order()
+    if len(set(ox)) != len(ox):
+        raise ValueError(f"Reference tree order contains duplicates: {ox}")
+    if len(set(oy)) != len(oy):
+        raise ValueError(f"Target tree order contains duplicates: {oy}")
     return circular_distance(ox, oy)
 
 

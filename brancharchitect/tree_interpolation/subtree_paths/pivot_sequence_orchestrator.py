@@ -59,11 +59,7 @@ def create_interpolation_for_active_split_sequence(
 
     current_base_tree = interpolation_state.deep_copy()
 
-    for pivot_idx, current_pivot_edge in enumerate(target_pivot_edges):
-        logger.debug(
-            f"[ORCHESTRATOR] Pivot {pivot_idx + 1}/{len(target_pivot_edges)}: {current_pivot_edge.bipartition()}"
-        )
-
+    for current_pivot_edge in target_pivot_edges:
         current_base_tree: Node = interpolation_state.deep_copy()
 
         current_base_tree.initialize_split_indices(current_base_tree.taxa_encoding)
@@ -71,40 +67,15 @@ def create_interpolation_for_active_split_sequence(
         # Paths for this current_pivot_edge (kept separate for destination/source)
         # Keep as PartitionSet[Partition] - no conversion needed
         source_paths_for_pivot_edge = source_subtree_paths.get(current_pivot_edge, {})
+
         destination_paths_for_pivot_edge = destination_subtree_paths.get(
             current_pivot_edge, {}
         )
 
-        logger.debug(
-            f"[ORCHESTRATOR] Paths src={len(source_paths_for_pivot_edge)} dst={len(destination_paths_for_pivot_edge)}"
-        )
-
         # Guard: verify the pivot edge exists in both trees before planning
-        logger.debug("[ORCHESTRATOR] Checking pivot presence in both trees...")
-
-        src_node = current_base_tree.find_node_by_split(current_pivot_edge)
-        dst_node = destination_tree.find_node_by_split(current_pivot_edge)
-
-        logger.debug(
-            f"[ORCHESTRATOR] Present src={src_node is not None} dst={dst_node is not None}"
+        src_node, dst_node = _find_and_validate_pivot_nodes(
+            current_base_tree, destination_tree, current_pivot_edge
         )
-
-        if src_node is None or dst_node is None:
-            # Analyze why this pivot edge is missing
-            missing_in: list[str] = []
-            if src_node is None:
-                missing_in.append("source (current interpolation state)")
-            if dst_node is None:
-                missing_in.append("destination")
-
-            raise ValueError(
-                f"Pivot edge {current_pivot_edge.bipartition()} "
-                f"missing in {' and '.join(missing_in)} tree. "
-                f"This edge was identified by the lattice algorithm but doesn't exist in both trees. "
-                f"See debug logs above for edge comparison."
-            )
-
-        logger.debug("[ORCHESTRATOR]   ✓ Pivot edge found in both trees, proceeding...")
 
         step_trees, step_edges, new_state = apply_stepwise_plan_for_edge(
             current_base_tree=current_base_tree,
@@ -118,54 +89,76 @@ def create_interpolation_for_active_split_sequence(
             interpolation_sequence.extend(step_trees)
             processed_pivot_edge_tracking.extend(step_edges)
 
-            # DEBUG: Check if new_state topology matches what we expect
-            new_state_node_count = len(new_state.traverse())
-            destination_node_count = len(destination_tree.traverse())
-
-            logger.debug(
-                f"[ORCHESTRATOR] Pivot {pivot_idx + 1} done: new={new_state_node_count} dst={destination_node_count} nodes"
-            )
-
             interpolation_state = new_state
-
-            if new_state_node_count != destination_node_count:
-                new_state_splits = new_state.to_splits()
-                destination_splits = destination_tree.to_splits()
-
-                if new_state_splits == destination_splits:
-                    logger.debug(
-                        "[ORCHESTRATOR]     Node count differs but topology matches (likely due to unary-node collapse)."
-                    )
-                else:
-                    logger.warning(
-                        "[ORCHESTRATOR] Pivot %s topology mismatch (expected %s nodes, got %s)",
-                        pivot_idx + 1,
-                        destination_node_count,
-                        new_state_node_count,
-                    )
-
-                    missing_partitions = destination_splits - new_state_splits
-                    extra_partitions = new_state_splits - destination_splits
-
-                    if missing_partitions:
-                        logger.debug(
-                            "[ORCHESTRATOR]     Missing splits: %s",
-                            ", ".join(
-                                str(partition.indices)
-                                for partition in missing_partitions
-                            ),
-                        )
-
-                    if extra_partitions:
-                        logger.debug(
-                            "[ORCHESTRATOR]     Extra splits: %s",
-                            ", ".join(
-                                str(partition.indices) for partition in extra_partitions
-                            ),
-                        )
 
     return (
         interpolation_sequence,
         failed_pivot_edges,
         processed_pivot_edge_tracking,
     )
+
+
+def assert_final_topology_matches(
+    final_state: Node, destination_tree: Node, logger: logging.Logger
+) -> None:
+    """
+    Helper to verify final interpolation state matches destination topology.
+
+    Logs an error with missing/extra splits if a mismatch is detected.
+    """
+    final_splits = final_state.to_splits()
+    dest_splits = destination_tree.to_splits()
+
+    if final_splits != dest_splits:
+        missing = dest_splits - final_splits
+        extra = final_splits - dest_splits
+        logger.error(
+            "[ORCHESTRATOR] Final topology mismatch: expected %s splits, got %s",
+            len(dest_splits),
+            len(final_splits),
+        )
+        if missing:
+            logger.error(
+                "[ORCHESTRATOR]   Missing splits: %s",
+                {tuple(s.indices) for s in missing},
+            )
+        if extra:
+            logger.error(
+                "[ORCHESTRATOR]   Extra splits: %s",
+                {tuple(s.indices) for s in extra},
+            )
+
+
+def _ensure_pivot_present(
+    current_pivot_edge: Partition,
+    src_node: Optional[Node],
+    dst_node: Optional[Node],
+) -> None:
+    """
+    Validate that the pivot edge exists in both source and destination trees.
+
+    Raises a ValueError with a descriptive message if the edge is missing.
+    """
+    if src_node is None or dst_node is None:
+        missing_in: list[str] = []
+        if src_node is None:
+            missing_in.append("source (current interpolation state)")
+        if dst_node is None:
+            missing_in.append("destination")
+
+        raise ValueError(
+            f"Pivot edge {current_pivot_edge.bipartition()} "
+            f"missing in {' and '.join(missing_in)} tree. "
+            f"This edge was identified by the lattice algorithm but doesn't exist in both trees. "
+            f"See debug logs above for edge comparison."
+        )
+
+
+def _find_and_validate_pivot_nodes(
+    current_base_tree: Node, destination_tree: Node, current_pivot_edge: Partition
+) -> tuple[Optional[Node], Optional[Node]]:
+    """Locate pivot nodes in both trees and validate presence."""
+    src_node = current_base_tree.find_node_by_split(current_pivot_edge)
+    dst_node = destination_tree.find_node_by_split(current_pivot_edge)
+    _ensure_pivot_present(current_pivot_edge, src_node, dst_node)
+    return src_node, dst_node

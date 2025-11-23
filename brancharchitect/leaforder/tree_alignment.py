@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, FrozenSet, List
 import logging
 
 from brancharchitect.tree import Node
@@ -44,7 +44,9 @@ def final_pairwise_alignment_pass(trees: List[Node]) -> None:
         # reorder_tree_if_full_common expects a map. We build one for all
         # common splits. The function will internally filter this down to
         # only the 'full-common' ones.
-        orientation_map = {split: [] for split in common_splits}
+        orientation_map: Dict[Partition, List[FrozenSet[str]]] = {
+            split: [] for split in common_splits
+        }
 
         # This function mutates target_tree in place.
         reorder_tree_if_full_common(ref_tree, target_tree, orientation_map)

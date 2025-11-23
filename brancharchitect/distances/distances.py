@@ -1,6 +1,6 @@
 from itertools import pairwise
 from typing import Dict, List, Callable, Tuple, Optional, Any
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import numpy as np
 from tqdm import tqdm
 from brancharchitect.tree import Node
@@ -78,78 +78,107 @@ def calculate_matrix_distance(
     return distance_matrix
 
 
-def compute_pair(
+def compute_tree_pair_component_paths(
     i: int,
     j: int,
     tree_i: Node,
     tree_j: Node,
-    leaf_order: List[str] = [],
     reroot_to_compair: bool = False,
 ) -> Optional[Tuple[int, int, Any, Any, List[List[Node]], List[List[Node]]]]:
     if i == j:
         return None  # Skip diagonal
-
-    copy_tree_i: Node = tree_i.deep_copy()
-    copy_tree_j: Node = tree_j.deep_copy()
 
     # Get s-edge solutions from lattice algorithm
     from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
         iterate_lattice_algorithm,
     )
 
-    pivot_edge_solutions, _ = iterate_lattice_algorithm(
-        copy_tree_i, copy_tree_j, leaf_order
-    )
-    pivot_edges = list(pivot_edge_solutions.keys())
-    # Flatten to get components (individual partitions)
-    components = [
-        partition
-        for partitions in pivot_edge_solutions.values()
-        for partition in partitions
-    ]
+    raw_pivot_edge_solutions, _ = iterate_lattice_algorithm(tree_i, tree_j)
 
+    # Deduplicate solutions per pivot edge to avoid double-counting identical components
+    pivot_edge_solutions = {}
+    for pivot_edge, solutions in raw_pivot_edge_solutions.items():
+        seen: set[int] = set()
+        unique_solutions: list[Partition] = []
+        for sol in solutions:
+            if sol.bitmask in seen:
+                continue
+            seen.add(sol.bitmask)
+            unique_solutions.append(sol)
+        pivot_edge_solutions[pivot_edge] = unique_solutions
+
+    # Collect components and paths while de-duplicating across all pivot edges
+    components: List[Partition] = []
+    pivot_edges_for_components: List[Partition] = []
     paths_i: List[List[Node]] = []
     paths_j: List[List[Node]] = []
+    seen_components: set[int] = set()
 
-    try:
-        # Process each pivot edge and its solution sets
-        for pivot_edge in pivot_edges:
-            for component in pivot_edge_solutions[pivot_edge]:
-                # Jump path component to pivot edge
-                path_i: List[Node] = jump_path_component_to_pivot_edge(
-                    tree=copy_tree_i,
-                    component=component,
-                    pivot_edge_split=pivot_edge,
-                )
-                path_j: List[Node] = jump_path_component_to_pivot_edge(
-                    tree=copy_tree_j,
-                    component=component,
-                    pivot_edge_split=pivot_edge,
-                )
-                paths_i.append(path_i)
-                paths_j.append(path_j)
-    except Exception as e:
-        print(f"pivot_edge_solutions structure: {pivot_edge_solutions}")
-        print(f"Error while computing paths for trees {i} and {j}: {e}")
-        return None
-    return (i, j, components, pivot_edges, paths_i, paths_j)
+    for pivot_edge, solutions in pivot_edge_solutions.items():
+        for component in solutions:
+            if component.bitmask in seen_components:
+                continue
+            seen_components.add(component.bitmask)
+
+            # Jump path component to pivot edge
+            path_i: List[Node] = jump_path_component_to_pivot_edge(
+                tree=tree_i,
+                component=component,
+                pivot_edge_split=pivot_edge,
+            )
+            path_j: List[Node] = jump_path_component_to_pivot_edge(
+                tree=tree_j,
+                component=component,
+                pivot_edge_split=pivot_edge,
+            )
+
+            components.append(component)
+            pivot_edges_for_components.append(pivot_edge)
+            paths_i.append(path_i)
+            paths_j.append(path_j)
+    return (i, j, components, pivot_edges_for_components, paths_i, paths_j)
 
 
-def compute_all_pairs(
+def compute_tree_pairs_component_paths(
     trees: List[Node],
 ) -> List[Tuple[int, int, Any, Any, List[List[Node]], List[List[Node]]]]:
+    """Compute pivot-edge solutions and component paths for every unique tree pair.
+
+    Returns a list of (i, j, components, pivot_edges, paths_i, paths_j) tuples for
+    each successful pair (i > j), leveraging `compute_tree_pair_component_paths`
+    in parallel.
+    """
     pair_args = [
         (i, j, trees[i], trees[j]) for i in range(len(trees)) for j in range(i)
     ]
     # Profile the parallel computation
     results: List[Tuple[int, int, Any, Any, List[List[Node]], List[List[Node]]]] = []
-    with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(compute_pair, *arg) for arg in pair_args]
-        for f in tqdm(as_completed(futures), total=len(futures)):
+    with ProcessPoolExecutor() as executor:
+        future_to_pair = {
+            executor.submit(compute_tree_pair_component_paths, *arg): (arg[0], arg[1])
+            for arg in pair_args
+        }
+        for f in tqdm(as_completed(future_to_pair), total=len(future_to_pair)):
+            pair_indices = future_to_pair[f]
             res = f.result()
-            if res is not None:
-                results.append(res)
+            if res is None:
+                raise RuntimeError(
+                    f"compute_pair unexpectedly returned None for pair {pair_indices}"
+                )
+            results.append(res)
     return results
+
+
+# Backward compatible aliases
+compute_pair = compute_tree_pair_component_paths
+compute_pairwise_pivot_edge_paths = compute_tree_pairs_component_paths
+
+
+def compute_all_pairs(
+    trees: List[Node],
+) -> List[Tuple[int, int, Any, Any, List[List[Node]], List[List[Node]]]]:
+    """Backward-compatible wrapper. Prefer `compute_pairwise_pivot_edge_paths`."""
+    return compute_pairwise_pivot_edge_paths(trees)
 
 
 def calculate_normalised_matrix(

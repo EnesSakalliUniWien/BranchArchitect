@@ -7,8 +7,9 @@ from matplotlib.axes import Axes
 import seaborn as sns
 import plotly.graph_objs as go
 from sklearn.cluster import SpectralClustering
+from sklearn.metrics import silhouette_score
 from numpy.typing import NDArray
-from typing import List, Optional, Union, Tuple, Literal
+from typing import List, Optional, Union, Tuple, Literal, cast
 from scipy.sparse import coo_matrix
 
 
@@ -56,32 +57,19 @@ def perform_clustering(
     Perform spectral clustering on the distance matrix.
     Handles NaN values by imputation or removal.
     """
-    # Check for NaN values and handle them
-    if np.isnan(distance_matrix).any():
-        print(
-            f"Warning: Found {np.sum(np.isnan(distance_matrix))} NaN values in distance matrix. Applying imputation..."
+    distance_matrix = sanitize_distance_matrix(distance_matrix)
+
+    n_samples = distance_matrix.shape[0]
+    if n_clusters > n_samples:
+        raise ValueError(
+            f"n_clusters ({n_clusters}) cannot exceed number of samples ({n_samples})"
         )
+    if n_clusters < 2:
+        raise ValueError("n_clusters must be at least 2 for spectral clustering")
 
-        # Strategy 1: Replace NaN with median of non-NaN values
-        # This preserves the matrix dimensions while providing reasonable estimates
-        distance_matrix = np.copy(distance_matrix)  # Don't modify original
-
-        # Calculate median of non-NaN values
-        non_nan_values: NDArray[np.float64] = distance_matrix[
-            ~np.isnan(distance_matrix)
-        ]
-        if len(non_nan_values) == 0:
-            raise ValueError("All values in distance matrix are NaN")
-
-        median_distance: np.float64 = np.median(non_nan_values)
-
-        # Replace NaN values with median
-        distance_matrix[np.isnan(distance_matrix)] = median_distance
-
-        print(f"Replaced NaN values with median distance: {median_distance:.4f}")
-
-    # Ensure matrix is symmetric (required for spectral clustering)
-    distance_matrix = (distance_matrix + distance_matrix.T) / 2
+    # For precomputed affinity, we need to convert the distance matrix to a similarity matrix
+    sigma: float = robust_bandwidth(distance_matrix)
+    similarity_matrix = distance_to_similarity(distance_matrix, sigma)
 
     clustering: SpectralClustering = SpectralClustering(
         n_clusters=n_clusters,
@@ -89,17 +77,6 @@ def perform_clustering(
         assign_labels="kmeans",
         random_state=42,
     )
-
-    # For precomputed affinity, we need to convert the distance matrix to a similarity matrix
-    # Add small epsilon to avoid division by zero
-    std_dev: np.float64 = np.std(distance_matrix)
-    if std_dev == 0:
-        print(
-            "Warning: Distance matrix has zero standard deviation. Using uniform similarity."
-        )
-        similarity_matrix: NDArray[np.float64] = np.ones_like(distance_matrix)
-    else:
-        similarity_matrix = np.exp(-distance_matrix / std_dev)
 
     cluster_labels: np.ndarray = clustering.fit_predict(similarity_matrix)
     return cluster_labels
@@ -173,6 +150,172 @@ def perform_umap(
     if return_model:
         return embedding, umap_model
     return embedding
+
+
+def scan_silhouette_scores(
+    distance_matrix: NDArray[np.float64],
+    k_values: List[int],
+    random_state: int = 42,
+) -> List[Tuple[int, float]]:
+    """
+    Compute silhouette scores over a range of cluster counts using spectral clustering.
+    Returns list of (k, score) where invalid ks yield np.nan.
+    """
+    distance_matrix = sanitize_distance_matrix(distance_matrix)
+    sigma = robust_bandwidth(distance_matrix)
+    similarity_matrix = distance_to_similarity(distance_matrix, sigma)
+
+    scores: List[Tuple[int, float]] = []
+    n_samples = distance_matrix.shape[0]
+
+    for k in k_values:
+        if k < 2 or k > n_samples:
+            scores.append((k, np.nan))
+            continue
+        try:
+            labels = SpectralClustering(
+                n_clusters=k,
+                affinity="precomputed",
+                assign_labels="kmeans",
+                random_state=random_state,
+            ).fit_predict(similarity_matrix)
+            score = float(
+                silhouette_score(distance_matrix, labels, metric="precomputed")
+            )
+        except Exception:
+            score = np.nan
+        scores.append((k, score))
+    return scores
+
+
+def compute_eigengap_spectrum(
+    distance_matrix: NDArray[np.float64],
+    k_max: int = 10,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Compute normalized Laplacian eigenvalues and eigengaps up to k_max components.
+    Returns (eigenvalues_sorted, eigengaps) where eigengaps[i] = lambda_{i+1} - lambda_i.
+    """
+    distance_matrix = sanitize_distance_matrix(distance_matrix)
+    sigma = robust_bandwidth(distance_matrix)
+    similarity_matrix = distance_to_similarity(distance_matrix, sigma)
+
+    # Normalized Laplacian L = I - D^{-1/2} S D^{-1/2}
+    degrees = similarity_matrix.sum(axis=1)
+    with np.errstate(divide="ignore"):
+        inv_sqrt_deg = np.diag(1.0 / np.sqrt(np.clip(degrees, 1e-12, None)))
+    laplacian = (
+        np.eye(similarity_matrix.shape[0])
+        - inv_sqrt_deg @ similarity_matrix @ inv_sqrt_deg
+    )
+
+    eigvals = np.linalg.eigvalsh(laplacian)
+    eigvals_sorted = np.sort(eigvals)
+    k_max = min(k_max, len(eigvals_sorted))
+    eigvals_sorted = eigvals_sorted[:k_max]
+    eigengaps = np.diff(eigvals_sorted)
+    return eigvals_sorted, eigengaps
+
+
+def elbow_intra_cluster_distances(
+    distance_matrix: NDArray[np.float64],
+    k_values: List[int],
+    random_state: int = 42,
+) -> List[Tuple[int, float]]:
+    """
+    Compute total intra-cluster distance for a range of k (useful for elbow plots).
+    """
+    distance_matrix = sanitize_distance_matrix(distance_matrix)
+    sigma = robust_bandwidth(distance_matrix)
+    similarity_matrix = distance_to_similarity(distance_matrix, sigma)
+    n_samples = distance_matrix.shape[0]
+
+    totals: List[Tuple[int, float]] = []
+    for k in k_values:
+        if k < 1 or k > n_samples:
+            totals.append((k, np.nan))
+            continue
+        labels = SpectralClustering(
+            n_clusters=k,
+            affinity="precomputed",
+            assign_labels="kmeans",
+            random_state=random_state,
+        ).fit_predict(similarity_matrix)
+        totals.append((k, _total_intra_cluster_distance(distance_matrix, labels)))
+    return totals
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def sanitize_distance_matrix(
+    distance_matrix: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    """Ensure symmetry, zero diagonal, and impute NaNs with median of observed values."""
+    distance_array: NDArray[np.float64] = np.asarray(distance_matrix, dtype=float)
+    if np.isnan(distance_array).any():
+        print(
+            f"Warning: Found {np.sum(np.isnan(distance_array))} NaN values in distance matrix. Applying imputation..."
+        )
+        non_nan_values: NDArray[np.float64] = distance_array[~np.isnan(distance_array)]
+        if len(non_nan_values) == 0:
+            raise ValueError("All values in distance matrix are NaN")
+        median_distance: np.float64 = np.median(non_nan_values)
+        distance_array = np.where(
+            np.isnan(distance_array), median_distance, distance_array
+        )
+        print(f"Replaced NaN values with median distance: {median_distance:.4f}")
+
+    distance_array = (distance_array + distance_array.T) / 2
+    np.fill_diagonal(distance_array, 0.0)
+    return distance_array
+
+
+def robust_bandwidth(distance_matrix: NDArray[np.float64]) -> float:
+    """
+    Compute a robust bandwidth (sigma) from off-diagonal distances using median/IQR.
+    Avoids diagonal zeros shrinking the scale.
+    """
+    upper = distance_matrix[np.triu_indices_from(distance_matrix, k=1)]
+    upper = upper[~np.isnan(upper)]
+    if upper.size == 0:
+        return 1.0
+    median = float(np.median(upper))
+    iqr = float(np.percentile(upper, 75) - np.percentile(upper, 25))
+    sigma_candidates = [median, iqr / 1.349 if iqr > 0 else 0.0, float(np.std(upper))]
+    sigma = (
+        max(c for c in sigma_candidates if c > 0)
+        if any(c > 0 for c in sigma_candidates)
+        else median
+    )
+    return max(sigma, 1e-8)
+
+
+def distance_to_similarity(
+    distance_matrix: NDArray[np.float64], sigma: float
+) -> NDArray[np.float64]:
+    """Convert distances to a positive similarity matrix using an RBF kernel."""
+    if sigma <= 0:
+        raise ValueError("sigma must be positive")
+    similarity = np.exp(-distance_matrix / sigma)
+    np.fill_diagonal(similarity, 1.0)
+    return similarity
+
+
+def _total_intra_cluster_distance(
+    distance_matrix: NDArray[np.float64], labels: NDArray[np.int64]
+) -> float:
+    """Sum of intra-cluster distances (upper triangle) for the given labels."""
+    total = 0.0
+    for cluster_id in np.unique(labels):
+        idx = np.where(labels == cluster_id)[0]
+        if len(idx) < 2:
+            continue
+        sub = distance_matrix[np.ix_(idx, idx)]
+        total += float(sub[np.triu_indices_from(sub, k=1)].sum())
+    return total
 
 
 def create_3d_scatter_plot(
@@ -499,13 +642,16 @@ def plot_component_umap_3d_with_graph(
         Whether to show the UMAP k-nearest neighbor graph structure
     """
     # Perform UMAP and get both embedding and model
-    embedding, umap_model = perform_umap(
+    result = perform_umap(
         distance_matrix,
         n_components=3,
         n_neighbors=n_neighbors,
         min_dist=min_dist,
         return_model=True,
     )
+
+    # Type guard: when return_model=True, result is always a tuple
+    embedding, umap_model = cast(Tuple[NDArray[np.float64], umap.UMAP], result)
 
     # Plot with graph structure
     plot_component_umap_3d(

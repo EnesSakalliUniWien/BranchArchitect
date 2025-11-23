@@ -101,6 +101,13 @@ def process_tree_pair_interpolation(
         )
     )
 
+    # Final topology check: ensure last interpolated tree matches destination
+    from brancharchitect.tree_interpolation.subtree_paths.pivot_sequence_orchestrator import (
+        assert_final_topology_matches,
+    )
+    if sequence_trees:
+        assert_final_topology_matches(sequence_trees[-1], destination_tree, logger)
+
     # For identical trees (no active edges), ensure destination tree has same ordering as source
     if not ordered_edges:
         logger.debug(

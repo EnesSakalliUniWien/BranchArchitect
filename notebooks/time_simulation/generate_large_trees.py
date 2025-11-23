@@ -10,7 +10,6 @@ from pathlib import Path
 
 # Import BranchArchitect modules
 from brancharchitect.tree import Node
-from brancharchitect.io.newick import write_newick
 
 
 def generate_taxa_names(num_taxa: int = 300) -> List[str]:
@@ -208,7 +207,7 @@ def save_trees_to_files(
     for i, tree in enumerate(trees):
         filename = output_path / f"tree_{i:03d}.newick"
         try:
-            newick_str = write_newick(tree)
+            newick_str = tree.to_newick()
             with open(filename, "w") as f:
                 f.write(newick_str + "\n")
             print(f"Saved {filename}")
