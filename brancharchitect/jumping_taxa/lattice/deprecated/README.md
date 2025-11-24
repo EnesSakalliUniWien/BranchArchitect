@@ -158,7 +158,7 @@ from brancharchitect.jumping_taxa.lattice.lattice_solver import lattice_algorith
 from brancharchitect.jumping_taxa.lattice.pivot_edge_solver import lattice_algorithm
 ```
 
-**Note:** One stale import exists in `notebooks/paper_plots/rotation_system.ipynb` but the notebook imports `iterate_lattice_algorithm` which doesn't exist in this file, so the import would fail anyway.
+**Note:** One stale import exists in `notebooks/paper_plots/rotation_system.ipynb` but the notebook imports `compute_pivot_solutions_with_deletions` which doesn't exist in this file, so the import would fail anyway.
 
 ---
 

@@ -89,11 +89,11 @@ def compute_tree_pair_component_paths(
         return None  # Skip diagonal
 
     # Get s-edge solutions from lattice algorithm
-    from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
-        iterate_lattice_algorithm,
+    from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+        compute_pivot_solutions_with_deletions,
     )
 
-    raw_pivot_edge_solutions, _ = iterate_lattice_algorithm(tree_i, tree_j)
+    raw_pivot_edge_solutions, _ = compute_pivot_solutions_with_deletions(tree_i, tree_j)
 
     # Deduplicate solutions per pivot edge to avoid double-counting identical components
     pivot_edge_solutions = {}
