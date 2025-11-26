@@ -4,10 +4,10 @@ Test interpolation with small_example.newick file
 
 from brancharchitect.io import read_newick
 from brancharchitect.tree_interpolation.sequential_interpolation import (
-    build_sequential_lattice_interpolations,
+    SequentialInterpolationBuilder,
 )
-from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
-    iterate_lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    compute_pivot_solutions_with_deletions,
 )
 
 
@@ -43,7 +43,7 @@ def test_small_example():
 
         # Check s-edges first
         print("\n--- Discovering S-Edges ---")
-        jumping_subtree_solutions, deleted_taxa = iterate_lattice_algorithm(
+        jumping_subtree_solutions, deleted_taxa = compute_pivot_solutions_with_deletions(
             tree1, tree2
         )
 
@@ -83,7 +83,7 @@ def test_small_example():
         print("=" * 80)
 
         try:
-            sequential_results = build_sequential_lattice_interpolations([tree1, tree2])
+            sequential_results = SequentialInterpolationBuilder().build([tree1, tree2])
 
             print(f"\n✓ Success!")
             print(
@@ -130,7 +130,7 @@ def test_small_example():
         print("=" * 80)
 
         try:
-            sequential_results_all = build_sequential_lattice_interpolations(trees)
+            sequential_results_all = SequentialInterpolationBuilder().build(trees)
 
             print(f"\n✓ Success!")
             print(

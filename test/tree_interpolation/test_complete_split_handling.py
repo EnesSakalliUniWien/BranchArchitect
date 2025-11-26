@@ -5,7 +5,7 @@ This test verifies that:
 1. ALL collapsed splits are properly deleted from the tree
 2. ALL expanded splits are properly applied to the tree
 3. Errors are thrown when splits cannot be applied
-4. The iterate_lattice_algorithm is used correctly
+4. The compute_pivot_solutions_with_deletions is used correctly
 """
 
 import unittest
@@ -20,8 +20,8 @@ from brancharchitect.tree_interpolation.consensus_tree.consensus_tree import (
     collapse_zero_length_branches_for_node,
 )
 from brancharchitect.consensus.consensus_tree import apply_split_in_tree
-from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
-    iterate_lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.tree_interpolation.subtree_paths.planning.builder import (
     build_edge_plan,
@@ -228,8 +228,8 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
     def test_all_subtrees_processed_in_plan(self):
         """Verify ALL subtrees in plan are processed."""
-        # Use iterate_lattice_algorithm to get jumping subtrees
-        jumping_subtrees, deleted_taxa = iterate_lattice_algorithm(
+        # Use compute_pivot_solutions_with_deletions to get jumping subtrees
+        jumping_subtrees, deleted_taxa = compute_pivot_solutions_with_deletions(
             self.tree1, self.tree2, self.taxa_order
         )
 
@@ -268,8 +268,8 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
     def test_plan_covers_all_collapse_splits(self):
         """Verify plan includes ALL collapse splits across all subtrees."""
-        # Use iterate_lattice_algorithm
-        jumping_subtrees, _ = iterate_lattice_algorithm(
+        # Use compute_pivot_solutions_with_deletions
+        jumping_subtrees, _ = compute_pivot_solutions_with_deletions(
             self.tree1, self.tree2, self.taxa_order
         )
 
@@ -312,7 +312,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
     def test_plan_covers_all_expand_splits(self):
         """Verify plan includes ALL expand splits across all subtrees."""
-        jumping_subtrees, _ = iterate_lattice_algorithm(
+        jumping_subtrees, _ = compute_pivot_solutions_with_deletions(
             self.tree1, self.tree2, self.taxa_order
         )
 
@@ -388,15 +388,15 @@ class TestCompleteSplitHandling(unittest.TestCase):
                 )
 
     def test_iterate_lattice_algorithm_integration(self):
-        """Test complete workflow with iterate_lattice_algorithm."""
-        # Run iterate_lattice_algorithm
-        jumping_subtrees, deleted_taxa = iterate_lattice_algorithm(
+        """Test complete workflow with compute_pivot_solutions_with_deletions."""
+        # Run compute_pivot_solutions_with_deletions
+        jumping_subtrees, deleted_taxa = compute_pivot_solutions_with_deletions(
             self.tree1, self.tree2, self.taxa_order
         )
 
         # Should find solutions
         self.assertGreater(
-            len(jumping_subtrees), 0, "iterate_lattice_algorithm found no solutions"
+            len(jumping_subtrees), 0, "compute_pivot_solutions_with_deletions found no solutions"
         )
 
         # Each edge should have valid subtree partitions
@@ -408,8 +408,8 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
     def test_complete_interpolation_workflow(self):
         """Test complete interpolation: collapse → expand → verify."""
-        # Use iterate_lattice_algorithm
-        jumping_subtrees, _ = iterate_lattice_algorithm(
+        # Use compute_pivot_solutions_with_deletions
+        jumping_subtrees, _ = compute_pivot_solutions_with_deletions(
             self.tree1, self.tree2, self.taxa_order
         )
 
@@ -476,7 +476,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
     def test_no_duplicate_splits_in_plan(self):
         """Verify no split appears multiple times in same subtree plan."""
-        jumping_subtrees, _ = iterate_lattice_algorithm(
+        jumping_subtrees, _ = compute_pivot_solutions_with_deletions(
             self.tree1, self.tree2, self.taxa_order
         )
 
@@ -566,8 +566,8 @@ class TestLargerDatasetSplitHandling(unittest.TestCase):
         """Test that larger dataset properly handles all splits."""
         tree1, tree2 = self.trees[0], self.trees[2]
 
-        # Run iterate_lattice_algorithm
-        jumping_subtrees, _ = iterate_lattice_algorithm(tree1, tree2, self.taxa_order)
+        # Run compute_pivot_solutions_with_deletions
+        jumping_subtrees, _ = compute_pivot_solutions_with_deletions(tree1, tree2, self.taxa_order)
 
         if not jumping_subtrees:
             # Trees might be identical or very similar

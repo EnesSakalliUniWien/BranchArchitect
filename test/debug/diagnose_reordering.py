@@ -3,8 +3,8 @@ Diagnostic to check the reordering logic in detail
 """
 
 from brancharchitect.io import read_newick
-from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
-    iterate_lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.tree_interpolation.pair_interpolation import discover_pivot_split
 
@@ -29,7 +29,7 @@ def diagnose_reordering_logic():
     print("-" * 80)
 
     # Get s-edges and their solutions
-    jumping_subtree_solutions, deleted_taxa = iterate_lattice_algorithm(tree1, tree2)
+    jumping_subtree_solutions, deleted_taxa = compute_pivot_solutions_with_deletions(tree1, tree2)
 
     # Get ordered s-edges (now using correct leaves-to-root ordering)
     active_split_data = discover_pivot_split(tree1, tree2)

@@ -4,7 +4,7 @@ Simple verification that the interpolation pipeline works end-to-end
 
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.tree_interpolation.sequential_interpolation import (
-    build_sequential_lattice_interpolations,
+    SequentialInterpolationBuilder,
 )
 
 # Test Case: Simple trees
@@ -21,7 +21,7 @@ trees = parse_newick(tree1_str + tree2_str)
 
 print("\n--- Running interpolation ---")
 try:
-    sequential_results = build_sequential_lattice_interpolations(trees)
+    sequential_results = SequentialInterpolationBuilder().build(trees)
 
     print(f"✓ Success!")
     print(

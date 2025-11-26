@@ -5,7 +5,7 @@ Complex reordering tests using real example trees from the repository:
 - test-data/reverse_test_tree_moving_updwards.tree: tests upward-moving scenario
 
 We validate that running reorder_tree_toward_destination step-by-step for the
-moving subtrees (from iterate_lattice_algorithm) preserves anchor order and
+moving subtrees (from compute_pivot_solutions_with_deletions) preserves anchor order and
 forms a contiguous block of movers in the result within the active pivot.
 """
 
@@ -16,8 +16,8 @@ from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.subtree_paths.execution.reordering import (
     reorder_tree_toward_destination,
 )
-from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
-    iterate_lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.tree_interpolation.pair_interpolation import (
     process_tree_pair_interpolation,
@@ -58,7 +58,7 @@ def test_reordering_small_example_stepwise():
     _shares_encoding(src, dst)
 
     # Use first changing edge and its first solution set
-    jumping, _ = iterate_lattice_algorithm(src, dst, list(src.taxa_encoding.keys()))
+    jumping, _ = compute_pivot_solutions_with_deletions(src, dst, list(src.taxa_encoding.keys()))
     assert jumping, "No changing edges detected in small_example"
     active_edge = next(iter(jumping.keys()))
     first_solution_set = jumping[active_edge]
@@ -114,7 +114,7 @@ def test_reordering_reverse_upwards_from_file():
     _shares_encoding(src, dst)
 
     # Compute changing edges and use the first with its first solution set
-    jumping, _ = iterate_lattice_algorithm(src, dst, list(src.taxa_encoding.keys()))
+    jumping, _ = compute_pivot_solutions_with_deletions(src, dst, list(src.taxa_encoding.keys()))
     assert jumping, "Expected at least one changing edge"
     active_edge = next(iter(jumping.keys()))
     solution_set = jumping[active_edge]

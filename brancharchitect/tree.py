@@ -414,6 +414,15 @@ class Node:
         permutation: List[str],
         strategy: "ReorderStrategy" = ReorderStrategy.MINIMUM,
     ) -> None:
+        """
+        Reorder the children of this subtree to match a desired leaf permutation.
+
+        Stability guarantees:
+        - If the current leaf order of a node already matches the desired permutation
+          for that node, the node and all of its descendants are left untouched.
+        - Subtrees that are already aligned keep their internal ordering, preventing
+          churn in unaffected regions when only a sibling needs to move.
+        """
         tree_taxa = {leaf.name for leaf in self.get_leaves()}
         if set(permutation) != tree_taxa:
             raise ValueError(
@@ -443,30 +452,55 @@ class Node:
             ),
         }
 
-        def _reorder(node: Self) -> None:
-            if node.children:
-                for child in node.children:
-                    _reorder(child)
-                # Sort children using the selected strategy.
-                # A secondary tie-breaking key from the taxa encoding is used for stability.
-                strategy_fn = sorting_strategies[strategy]
-                node.children.sort(
-                    key=lambda child: (
-                        strategy_fn(child.get_leaves()),
-                        # Secondary tie-breaker by the ordered list of target indices
-                        tuple(
-                            sorted(
-                                (
-                                    _visual_order_indices[leaf.name]
-                                    for leaf in child.get_leaves()
-                                )
-                            )
-                        ),
-                    )
+        def _desired_leaf_order(node: Self) -> tuple[str, ...]:
+            """Return this node's leaves ordered by the target permutation."""
+            return tuple(
+                leaf.name
+                for leaf in sorted(
+                    node.get_leaves(), key=lambda leaf: _visual_order_indices[leaf.name]
                 )
+            )
 
-        _reorder(self)
-        self.invalidate_caches(propagate_up=True)
+        def _reorder(node: Self) -> bool:
+            """
+            Reorder node.children in place. Returns True if any change occurred.
+
+            If the node's current leaf order already matches the desired order
+            under the target permutation, the node (and its descendants) are
+            left untouched to preserve subtree stability.
+            """
+            if not node.children:
+                return False
+
+            # Skip this subtree entirely if it already matches the desired order
+            if node.get_current_order() == _desired_leaf_order(node):
+                return False
+
+            changed = False
+            for child in node.children:
+                changed = _reorder(child) or changed
+
+            strategy_fn = sorting_strategies[strategy]
+            sorted_children = sorted(
+                node.children,
+                key=lambda child: (
+                    strategy_fn(child.get_leaves()),
+                    tuple(
+                        sorted(
+                            (_visual_order_indices[leaf.name] for leaf in child.get_leaves())
+                        )
+                    ),
+                ),
+            )
+
+            if sorted_children != node.children:
+                node.children = sorted_children
+                changed = True
+
+            return changed
+
+        if _reorder(self):
+            self.invalidate_caches(propagate_up=True)
 
     def get_leaves(self) -> List[Self]:
         """

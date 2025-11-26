@@ -38,6 +38,10 @@ def reorder_tree_toward_destination(
     destination_order = list(dest_subtree.get_current_order())
     mover_leaves = set(moving_subtree_partition.taxa)
 
+    # If no movers, keep subtree stable.
+    if not mover_leaves:
+        return source_tree.deep_copy()
+
     # Validate leaf-set/encoding compatibility under the active edge
     if set(source_order) != set(destination_order):
         raise ValueError(
@@ -70,12 +74,22 @@ def reorder_tree_toward_destination(
 
     # 3. Build the new order: anchors remain in SOURCE order, movers inserted en bloc
     new_order: List[str] = list(source_anchors)
-    mover_block_ordered = [taxon for taxon in destination_order if taxon in mover_leaves]
+    mover_block_src = [taxon for taxon in source_order if taxon in mover_leaves]
+    mover_block_dst = [taxon for taxon in destination_order if taxon in mover_leaves]
+
+    # Preserve movers' internal order; only move the block relative to anchors.
+    # If destination has the same ordering, this is identical; otherwise we keep
+    # the source mover order while placing it at the destination anchor slot.
+    mover_block_ordered = mover_block_src
 
     if insertion_index > len(new_order):
         insertion_index = len(new_order)
 
     new_order[insertion_index:insertion_index] = mover_block_ordered
+
+    # If reordering does nothing, keep original tree
+    if new_order == source_order:
+        return source_tree.deep_copy()
 
     # 4. Apply the new order to a copy of the tree.
     new_tree = source_tree.deep_copy()

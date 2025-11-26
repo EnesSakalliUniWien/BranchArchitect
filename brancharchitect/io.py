@@ -1,6 +1,7 @@
-from typing import Dict, List, IO, Tuple
-from xml.etree.ElementTree import Element
+from typing import Dict, List, IO
+import xml.etree.ElementTree as ET
 from brancharchitect.parser.newick_parser import parse_newick
+from brancharchitect.plot.circular_tree import generate_multiple_circular_trees_svg
 from brancharchitect.tree import Node
 from uuid import UUID
 import json
@@ -68,13 +69,12 @@ def write_json(tree: Node, path: str):
 
 
 def write_svg(tree: Node, path: str, ignore_branch_lengths: bool = False):
-    svg: Tuple[Element[str], List[Dict[str, Tuple[float, float]]]] = (
-        generate_multiple_circular_trees_svg(
-            [tree], ignore_branch_lengths=ignore_branch_lengths
-        )
+    svg_element, _ = generate_multiple_circular_trees_svg(
+        [tree], ignore_branch_lengths=ignore_branch_lengths
     )
+    svg_bytes = ET.tostring(svg_element, encoding="utf-8", xml_declaration=True)
     with open(path, mode="wb") as f:
-        f.write(svg)
+        f.write(svg_bytes)
 
 
 def serialize_tree_list_to_json(tree_list: List[Node]) -> List[Dict[str, Any]]:

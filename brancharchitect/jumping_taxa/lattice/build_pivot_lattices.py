@@ -20,7 +20,7 @@ from typing import (
 )
 from brancharchitect.elements.partition import Partition
 from brancharchitect.jumping_taxa.lattice.types import TopToBottom
-from brancharchitect.jumping_taxa.lattice.child_frontiers_refactored import (
+from brancharchitect.jumping_taxa.lattice.child_frontiers import (
     compute_child_frontiers,
 )
 from brancharchitect.jumping_taxa.lattice.cover_relations import (
@@ -156,7 +156,7 @@ def construct_sublattices(t1: Node, t2: Node) -> List[PivotEdgeSubproblem]:
 ###############################################################################
 # Utility Functions
 ###############################################################################
-# Note: compute_child_frontiers has been moved to child_frontiers_refactored.py
+# Note: compute_child_frontiers has been moved to child_frontiers.py
 # The original implementation is preserved in child_frontiers_original.py
 
 

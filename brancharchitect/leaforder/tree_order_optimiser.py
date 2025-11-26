@@ -11,7 +11,7 @@ from brancharchitect.leaforder.split_analysis import (
     clear_split_pair_cache,
     get_common_splits,
 )
-from brancharchitect.leaforder.tree_alignment import final_pairwise_alignment_pass
+from brancharchitect.leaforder.pairwise_alignment import final_pairwise_alignment_pass
 from brancharchitect.leaforder.anchor_order import derive_order_for_pair
 from brancharchitect.leaforder.tree_order_utils import build_orientation_map
 from brancharchitect.leaforder.tree_order_utils import reorder_tree_if_full_common

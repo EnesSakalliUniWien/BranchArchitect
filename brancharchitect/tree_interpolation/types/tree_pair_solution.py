@@ -1,6 +1,6 @@
 """Core type definitions for phylogenetic analysis."""
 
-from typing import List, Dict, TypedDict, Optional
+from typing import List, Dict, TypedDict
 from brancharchitect.elements.partition import Partition
 
 
@@ -10,20 +10,13 @@ class TreePairSolution(TypedDict):
     # Core jumping taxa algorithm result - solutions for subtree rearrangements
     jumping_subtree_solutions: Dict[Partition, List[Partition]]
 
-    # Mappings for atom translation (actual keys used in implementation)
-    solution_to_target_map: Dict[
+    # Mappings for atom translation - where movers come from and go to
+    solution_to_destination_map: Dict[
         Partition, Dict[Partition, Partition]
-    ]  # Mapping from solution to target tree atoms, grouped by pivot edge
-    solution_to_reference_map: Dict[
+    ]  # Mapping from solution to destination tree atoms, grouped by pivot edge
+    solution_to_source_map: Dict[
         Partition, Dict[Partition, Partition]
-    ]  # Mapping from solution to reference tree atoms, grouped by pivot edge
-    
-    # Backward compatibility aliases (if needed for existing code)
-    # mapping_one: Dict[Partition, Partition]  # Alias for solution_to_target_map
-    # mapping_two: Dict[Partition, Partition]  # Alias for solution_to_reference_map
-
-    # Ancestors of the changing splits for each interpolation step
-    ancestor_of_changing_splits: List[Optional[Partition]]
+    ]  # Mapping from solution to source tree atoms, grouped by pivot edge
 
     # Aggregated occurrences per changing split within this pair
     split_change_events: List["SplitChangeEvent"]
@@ -31,10 +24,10 @@ class TreePairSolution(TypedDict):
     # Global indices of the source and target trees in the complete interpolated sequence
     source_tree_global_index: int
     """Global index of the source tree this pair interpolates FROM."""
-    
+
     target_tree_global_index: int
     """Global index of the target tree this pair interpolates TO."""
-    
+
     interpolation_start_global_index: int
     """Global index where interpolated trees for this pair begin (first interpolated tree)."""
 

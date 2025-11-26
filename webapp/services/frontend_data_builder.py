@@ -12,7 +12,9 @@ Key Responsibilities:
 - Assemble the final, flat dictionary that will be sent as the API response.
 """
 
-from typing import List, Dict, Any, Optional, TYPE_CHECKING
+from __future__ import annotations
+
+from typing import List, Dict, Any, Optional
 
 from brancharchitect.movie_pipeline.types import (
     InterpolationResult,
@@ -24,9 +26,7 @@ from .serialization_utils import (
     serialize_partition_to_indices,
     serialize_partition_dict_to_indices,
 )
-
-if TYPE_CHECKING:
-    from .movie_data import MovieData
+from .movie_data import MovieData
 
 
 def build_movie_data_from_result(
@@ -35,16 +35,13 @@ def build_movie_data_from_result(
     msa_data: Dict[str, Any],
     enable_rooting: bool,
     sorted_leaves: List[str],
-) -> "MovieData":
+) -> MovieData:
     """
     Create a MovieData instance from the backend's InterpolationResult.
 
     This is the main entry point for this module. It orchestrates the
     transformation of backend data into a structured MovieData object.
     """
-    # Import MovieData locally to avoid circular import
-    from .movie_data import MovieData
-
     interpolated_trees = result["interpolated_trees"]
     serialized_trees = serialize_tree_list_to_json(interpolated_trees)
     tree_metadata = _process_tree_metadata(result["tree_metadata"])
@@ -68,23 +65,17 @@ def build_movie_data_from_result(
         window_size=msa_data.get("inferred_window_size", 1),
         window_step_size=msa_data.get("inferred_step_size", 1),
         msa_dict=msa_data.get("msa_dict"),
-        alignment_length=msa_data.get("alignment_length"),
-        windows_are_overlapping=msa_data.get("windows_are_overlapping", False),
-        original_tree_count=result["original_tree_count"],
-        interpolated_tree_count=result["interpolated_tree_count"],
-        rooting_enabled=enable_rooting,
         pair_interpolation_ranges=result.get("pair_interpolation_ranges", []),
     )
 
 
-def assemble_frontend_dict(movie_data: "MovieData") -> Dict[str, Any]:
+def assemble_frontend_dict(movie_data: MovieData) -> Dict[str, Any]:
     """
     Convert the MovieData object to the final, flat dictionary for the frontend.
     """
     timeline = _build_split_change_timeline(
         movie_data.tree_metadata,
         movie_data.tree_pair_solutions,
-        movie_data.original_tree_count,
     )
 
     return {
@@ -97,33 +88,19 @@ def assemble_frontend_dict(movie_data: "MovieData") -> Dict[str, Any]:
             movie_data.tree_pair_solutions
         ),
         "split_change_timeline": timeline,
-        "original_tree_count": movie_data.original_tree_count,
-        "interpolated_tree_count": movie_data.interpolated_tree_count,
         "sorted_leaves": movie_data.sorted_leaves,
         "split_change_tracking": movie_data.split_change_tracking,
         "pair_interpolation_ranges": movie_data.pair_interpolation_ranges,
-        "covers": [],
         "msa": {
             "sequences": movie_data.msa_dict,
-            "alignment_length": movie_data.alignment_length,
             "window_size": movie_data.window_size,
             "step_size": movie_data.window_step_size,
-            "overlapping": movie_data.windows_are_overlapping,
         },
         "file_name": movie_data.file_name,
-        "processing_options": {
-            "rooting_enabled": movie_data.rooting_enabled,
-        },
-        "tree_count": {
-            "original": movie_data.original_tree_count,
-            "interpolated": movie_data.interpolated_tree_count,
-        },
         "distances": {
             "robinson_foulds": movie_data.rfd_list,
             "weighted_robinson_foulds": movie_data.weighted_robinson_foulds_distance_list,
         },
-        "window_size": movie_data.window_size,
-        "window_step_size": movie_data.window_step_size,
     }
 
 
@@ -134,11 +111,11 @@ def _derive_split_change_tracking_from_events(
     """Derive per-tree split tracking aligned to metadata indices."""
     tracking: List[Optional[List[int]]] = [None for _ in processed_tree_metadata]
     first_global_for_pair: Dict[str, int] = {}
-    for meta in processed_tree_metadata:
+    for idx, meta in enumerate(processed_tree_metadata):
         pair_key = meta.get("tree_pair_key")
         step = meta.get("step_in_pair")
         if pair_key and step == 1 and pair_key not in first_global_for_pair:
-            first_global_for_pair[pair_key] = meta["global_tree_index"]
+            first_global_for_pair[pair_key] = idx
 
     for pair_key, events in events_by_pair.items():
         start_global = first_global_for_pair.get(pair_key)
@@ -178,13 +155,13 @@ def _extract_split_change_events_from_solutions(
 def _build_split_change_timeline(
     tree_metadata: List[TreeMetadataType],
     tree_pair_solutions: Dict[str, TreePairSolution],
-    original_tree_count: int,
 ) -> List[Dict[str, Any]]:
     """Build a global timeline with originals, split events, and explicit gaps."""
     timeline: List[Dict[str, Any]] = []
     first_global_for_pair, originals = _index_timeline_anchors(tree_metadata)
     per_pair_events = _extract_split_change_events_from_solutions(tree_pair_solutions)
 
+    original_tree_count = len(originals)
     for i in range(original_tree_count):
         _append_original_entry(timeline, i, originals)
         if i < original_tree_count - 1:
@@ -202,14 +179,14 @@ def _index_timeline_anchors(
     first_global_for_pair: Dict[str, int] = {}
     originals: Dict[int, Dict[str, Any]] = {}
     orig_counter = 0
-    for meta in tree_metadata:
+    for idx, meta in enumerate(tree_metadata):
         pair_key = meta.get("tree_pair_key")
         step = meta.get("step_in_pair")
         if pair_key and step == 1 and pair_key not in first_global_for_pair:
-            first_global_for_pair[pair_key] = meta["global_tree_index"]
+            first_global_for_pair[pair_key] = idx
         if pair_key is None:
             originals[orig_counter] = {
-                "global_index": meta["global_tree_index"],
+                "global_index": idx,
                 "name": "",
             }
             orig_counter += 1
@@ -265,31 +242,35 @@ def _serialize_tree_pair_solutions(
     """Convert TreePairSolution objects to a JSON-serializable dict."""
     serialized: Dict[str, Dict[str, Any]] = {}
     for pair_key, solution in tree_pair_solutions.items():
-        # Maintain backward-compatible JSON shape for the frontend:
-        # Convert flat partitions per pivot into a single nested solution set per pivot.
-        raw_js = solution["jumping_subtree_solutions"]  # Dict[Partition, List[Partition]]
+        # Preserve the historical nesting shape for the frontend:
+        # pivot -> [solutions] (a single list wrapper around the flat list).
+        raw_js = solution[
+            "jumping_subtree_solutions"
+        ]  # Dict[Partition, List[Partition]]
         wrapped_js = {pivot: [parts] for pivot, parts in raw_js.items()}
 
+        # Support both legacy and new mapping field names.
+        dest_map = (
+            solution.get("solution_to_destination_map")
+            or solution.get("mapping_one")
+            or solution.get("solution_to_target_map")
+            or {}
+        )
+        src_map = (
+            solution.get("solution_to_source_map")
+            or solution.get("mapping_two")
+            or solution.get("solution_to_reference_map")
+            or {}
+        )
         item: Dict[str, Any] = {
             "jumping_subtree_solutions": serialize_partition_dict_to_indices(
                 wrapped_js
             ),
-            "mapping_one": serialize_partition_dict_to_indices(
-                solution.get("mapping_one", solution.get("solution_to_target_map", {}))
+            "solution_to_destination_map": serialize_partition_dict_to_indices(
+                dest_map
             ),
-            "mapping_two": serialize_partition_dict_to_indices(
-                solution.get(
-                    "mapping_two", solution.get("solution_to_reference_map", {})
-                )
-            ),
-            "ancestor_of_changing_splits": [
-                serialize_partition_to_indices(edge)
-                for edge in solution["ancestor_of_changing_splits"]
-            ],
+            "solution_to_source_map": serialize_partition_dict_to_indices(src_map),
         }
-        # NOTE: Keep jumping_subtree_solutions flat: {pivot: [partition, ...]}
-        # serialize_partition_dict_to_indices already serializes values to List[List[int]]
-        # representing the flat list of partitions. No wrapping into nested lists.
         if "split_change_events" in solution:
             events_ser: List[Dict[str, Any]] = []
             for ev in solution["split_change_events"]:
@@ -304,11 +285,8 @@ def _serialize_tree_pair_solutions(
     return serialized
 
 
-def create_empty_movie_data(filename: str) -> "MovieData":
+def create_empty_movie_data(filename: str) -> MovieData:
     """Create empty MovieData for failed processing scenarios."""
-    # Import MovieData locally to avoid circular import
-    from .movie_data import MovieData
-
     return MovieData(
         interpolated_trees=[],
         tree_metadata=[],
@@ -321,21 +299,8 @@ def create_empty_movie_data(filename: str) -> "MovieData":
         window_size=1,
         window_step_size=1,
         msa_dict=None,
-        alignment_length=None,
-        windows_are_overlapping=False,
-        original_tree_count=0,
-        interpolated_tree_count=0,
-        rooting_enabled=False,
         pair_interpolation_ranges=[],
     )
-
-
-def movie_data_to_frontend_dict(movie_data: "MovieData") -> Dict[str, Any]:
-    """
-    Convert MovieData to the final frontend dictionary.
-    This is the standalone version of the to_frontend_dict method.
-    """
-    return assemble_frontend_dict(movie_data)
 
 
 def _process_tree_metadata(
@@ -346,13 +311,9 @@ def _process_tree_metadata(
     for meta in tree_metadata:
         processed_metadata.append(
             TreeMetadataType(
-                global_tree_index=meta["global_tree_index"],
                 tree_pair_key=meta.get("tree_pair_key"),
                 step_in_pair=meta.get("step_in_pair"),
-                reference_pair_tree_index=meta.get("reference_pair_tree_index"),
-                target_pair_tree_index=meta.get("target_pair_tree_index"),
                 source_tree_global_index=meta.get("source_tree_global_index"),
-                target_tree_global_index=meta.get("target_tree_global_index"),
             )
         )
     return processed_metadata

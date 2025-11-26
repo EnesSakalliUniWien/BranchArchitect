@@ -136,7 +136,9 @@ class TestIncompatibilityDetection:
         )
 
         # Find incompatible splits
-        incompatible = find_incompatible_splits(expand_splits, collapse_splits)
+        incompatible = state.find_all_incompatible_splits_for_expand(
+            expand_splits, collapse_splits
+        )
 
         # Should find exactly one incompatible split
         assert len(incompatible) == 1
@@ -179,7 +181,9 @@ class TestIncompatibilityDetection:
             active_changing_edge=Partition((0,), encoding),
         )
 
-        incompatible = find_incompatible_splits(expand_splits, collapse_splits)
+        incompatible = state.find_all_incompatible_splits_for_expand(
+            expand_splits, collapse_splits
+        )
 
         # Should find two incompatible splits
         assert len(incompatible) == 2
@@ -198,14 +202,14 @@ class TestIncompatibilityDetection:
         )
 
         # Empty expand splits
-        result = find_incompatible_splits(
+        result = state.find_all_incompatible_splits_for_expand(
             PartitionSet(encoding=encoding),
             PartitionSet([Partition((0, 1), encoding)], encoding=encoding),
         )
         assert len(result) == 0
 
         # Empty collapse splits
-        result = find_incompatible_splits(
+        result = state.find_all_incompatible_splits_for_expand(
             PartitionSet([Partition((0, 1), encoding)], encoding=encoding),
             PartitionSet(encoding=encoding),
         )
@@ -230,7 +234,9 @@ class TestIncompatibilityDetection:
             active_changing_edge=Partition((0,), encoding),
         )
 
-        incompatible = find_incompatible_splits(expand_splits, collapse_splits)
+        incompatible = state.find_all_incompatible_splits_for_expand(
+            expand_splits, collapse_splits
+        )
 
         # Should be empty - a split is not incompatible with itself
         assert len(incompatible) == 0
@@ -284,7 +290,9 @@ class TestRealTreeScenarios:
             active_changing_edge=Partition((0,), encoding),
         )
 
-        incompatible = find_incompatible_splits(expand_splits, collapse_splits)
+        incompatible = state.find_all_incompatible_splits_for_expand(
+            expand_splits, collapse_splits
+        )
 
         # Should find two incompatible splits
         assert len(incompatible) == 2
@@ -317,7 +325,9 @@ class TestRealTreeScenarios:
             active_changing_edge=Partition((0,), encoding),
         )
 
-        incompatible = find_incompatible_splits(expand_splits, collapse_splits)
+        incompatible = state.find_all_incompatible_splits_for_expand(
+            expand_splits, collapse_splits
+        )
 
         # Should be empty - nested splits are compatible
         assert len(incompatible) == 0
@@ -352,7 +362,9 @@ class TestRealTreeScenarios:
             active_changing_edge=Partition((0,), encoding),
         )
 
-        incompatible = find_incompatible_splits(expand_splits, collapse_splits)
+        incompatible = state.find_all_incompatible_splits_for_expand(
+            expand_splits, collapse_splits
+        )
 
         # All three should be incompatible
         assert len(incompatible) == 3
@@ -396,7 +408,9 @@ class TestCollapseBeforeExpand:
         )
 
         # Find what must be collapsed
-        must_collapse = find_incompatible_splits(expand_splits, collapse_splits)
+        must_collapse = state.find_all_incompatible_splits_for_expand(
+            expand_splits, collapse_splits
+        )
 
         # Verify only the incompatible split is identified
         assert len(must_collapse) == 1
@@ -440,7 +454,9 @@ class TestCollapseBeforeExpand:
         )
 
         # Find all incompatibilities
-        must_collapse = find_incompatible_splits(expand_splits, collapse_splits)
+        must_collapse = state.find_all_incompatible_splits_for_expand(
+            expand_splits, collapse_splits
+        )
 
         # Should find both incompatible splits
         assert len(must_collapse) == 2

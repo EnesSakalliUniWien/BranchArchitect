@@ -43,14 +43,17 @@ def sort_edges_by_depth(
     # Compute depths for all edges
     depths: Dict[Partition, float] = compute_pivot_edge_depths(edges, tree)
 
-    # Sort with multi-level key for deterministic ordering
-    def sort_key(edge: Partition):
-        depth = depths.get(edge, 0)
-        size = len(edge)
-        indices = tuple(sorted(int(i) for i in edge))
-        return (depth, size, indices)
-
-    return sorted(edges, key=sort_key, reverse=not ascending)
+    # Sort with multi-level key for deterministic ordering:
+    # (depth, partition size, sorted indices tuple)
+    return sorted(
+        edges,
+        key=lambda edge: (
+            depths.get(edge, 0),
+            len(edge),
+            tuple(sorted(int(i) for i in edge)),
+        ),
+        reverse=not ascending,
+    )
 
 
 def compute_edge_depths(edges: List[Partition], tree: Node) -> Dict[Partition, float]:

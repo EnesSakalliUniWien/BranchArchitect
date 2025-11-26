@@ -13,8 +13,8 @@ from brancharchitect.tree import Node, ReorderStrategy
 from brancharchitect.jumping_taxa.lattice.mapping import (
     map_solution_elements_to_minimal_frontiers,
 )
-from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
-    iterate_lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.jumping_taxa.debug import jt_logger
 
@@ -130,12 +130,12 @@ def _get_solution_mappings(
 ]:
     r"""Calculate per-pivot solution mappings using pivot-scoped minimal unique splits.
 
-    For each pivot edge from iterate_lattice_algorithm, compute the unique splits
+    For each pivot edge from compute_pivot_solutions_with_deletions, compute the unique splits
     locally under that pivot (t1_pivot_splits \ t2_pivot_splits and vice versa),
     take their minimal elements (the unique frontiers), and map the pivot's
     jumping-taxa solution partitions onto these minimal frontiers for t1 and t2.
     """
-    solutions_by_edge, _ = iterate_lattice_algorithm(input_tree1=t1, input_tree2=t2)
+    solutions_by_edge, _ = compute_pivot_solutions_with_deletions(input_tree1=t1, input_tree2=t2)
 
     mapped_t1: Dict[Partition, Dict[Partition, Partition]] = {}
     mapped_t2: Dict[Partition, Dict[Partition, Partition]] = {}
@@ -274,6 +274,11 @@ def blocked_order_and_apply(
     src_current_order = src_node.get_current_order()
     dst_current_order = dst_node.get_current_order()
 
+    # If the pivot subtree is already aligned and there are no jumping partitions,
+    # leave it untouched to keep common subtrees stable.
+    if not sources and not destinations and src_current_order == dst_current_order:
+        return
+
     destination_index = {taxon: i for i, taxon in enumerate(dst_current_order)}
     source_index = {taxon: i for i, taxon in enumerate(src_current_order)}
 
@@ -310,8 +315,7 @@ def blocked_order_and_apply(
     # Exclude jumping taxa from free_taxa - jumping taxa get their own extreme weights
     free_taxa = set(edge.taxa) - taxa_in_stable_blocks - jumping_taxa
 
-    # Get the leaf order for each stable common split as a block.
-    # Add None check to avoid crashes if node isn't found
+    # Build blocks: stable common splits preserve their current order; free taxa are singletons
     source_blocked: List[Tuple[str, ...]] = []
     for cs in stable_common_splits:
         node = t1.find_node_by_split(cs)
@@ -321,33 +325,7 @@ def blocked_order_and_apply(
             jt_logger.warning(
                 f"Warning: Could not find node for common split {cs} in tree 1"
             )
-
-    # Add each free taxon as its own block (a single-element tuple).
     source_blocked.extend([(taxon,) for taxon in sorted(list(free_taxa))])
-
-    # Debug: print pivot, jumping taxa (solution partitions), stable frontiers, free taxa, and ordering policy
-    try:
-        jt_logger.info(f"[anchor_order] pivot edge={list(edge.indices)}")
-        jt_logger.info(
-            f"  jumping taxa (solution partitions): {[sorted(list(p.taxa)) for p in jumping_taxa_partitions]}"
-        )
-        jt_logger.info(
-            "  stable frontiers: "
-            + str(
-                [
-                    sorted(list(s.taxa))
-                    for s in sorted(
-                        stable_common_splits, key=lambda p: (len(p.indices), p.indices)
-                    )
-                ]
-            )
-        )
-        jt_logger.info(f"  free taxa: {sorted(list(free_taxa))}")
-        jt_logger.info(
-            f"  ordering: banded_tuple_keys, anchor_policy={anchor_weight_policy}, mover_policy={mover_weight_policy}"
-        )
-    except Exception:
-        pass
 
     # Tuple-based sort keys per taxon to avoid large numeric weights and floats.
     # Key = (band, anchor_pos_or_rank, within_block_pos)

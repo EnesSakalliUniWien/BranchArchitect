@@ -12,7 +12,7 @@ from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
 from werkzeug.datastructures import FileStorage
 from .frontend_data_builder import (
     build_movie_data_from_result,
-    movie_data_to_frontend_dict,
+    assemble_frontend_dict,
     create_empty_movie_data,
 )
 from brancharchitect.io import parse_newick
@@ -136,10 +136,10 @@ def _create_structured_response(
         enable_rooting=enable_rooting,
         sorted_leaves=sorted_leaves,
     )
-    return movie_data_to_frontend_dict(movie_data)
+    return assemble_frontend_dict(movie_data)
 
 
 def _create_empty_response(filename: str) -> Dict[str, Any]:
     """Create an empty hierarchical response for failed processing."""
     empty_movie_data = create_empty_movie_data(filename)
-    return movie_data_to_frontend_dict(empty_movie_data)
+    return assemble_frontend_dict(empty_movie_data)

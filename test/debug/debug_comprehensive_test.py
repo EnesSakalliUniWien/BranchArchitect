@@ -2,8 +2,8 @@
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.subtree_paths.planning.state_v2 import (
-    InterpolationState,
+from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
+    PivotSplitRegistry,
 )
 
 # Setup from comprehensive test
@@ -41,7 +41,7 @@ for subtree, splits in collapse_by_subtree.items():
 print()
 
 # Create state
-state = InterpolationState(
+state = PivotSplitRegistry(
     PartitionSet([part_A, part_B], encoding=encoding),
     PartitionSet([part_AB, part_A, part_B], encoding=encoding),
     collapse_by_subtree,
@@ -51,26 +51,26 @@ state = InterpolationState(
 
 print("=== STATE AFTER INITIALIZATION ===")
 print(
-    f"Unique expand splits: {dict((str(k), str(v)) for k, v in state.unique_expand_splits.items())}"
+    f"Unique expand splits: {dict((str(k), str(v)) for k, v in state.expand_tracker.get_all_unique_resources().items())}"
 )
 print(
-    f"Shared expand splits: {dict((str(k), {str(u) for u in v}) for k, v in state.shared_expand_splits.items())}"
+    f"Shared expand splits: {dict((str(k), {str(u) for u in v}) for k, v in state.expand_tracker.get_all_shared_resources().items())}"
 )
 print()
 
 # Check if part_A is in collapse
 print("=== COLLAPSE SPLITS ===")
 print(
-    f"Unique collapse splits: {dict((str(k), str(v)) for k, v in state.unique_collapse_splits.items())}"
+    f"Unique collapse splits: {dict((str(k), str(v)) for k, v in state.collapse_tracker.get_all_unique_resources().items())}"
 )
 print(
-    f"Shared collapse splits: {dict((str(k), {str(u) for u in v}) for k, v in state.shared_collapse_splits.items())}"
+    f"Shared collapse splits: {dict((str(k), {str(u) for u in v}) for k, v in state.collapse_tracker.get_all_shared_resources().items())}"
 )
 print()
 
 # Check incompatible splits
 print("=== INCOMPATIBLE SPLITS ===")
-# Note: InterpolationState no longer has all_incompatible_splits attribute
+# Note: PivotSplitRegistry no longer has all_incompatible_splits attribute
 # Incompatible splits are now computed per-subtree via find_all_incompatible_splits_for_expand()
 print("Incompatible splits are now computed per-subtree, not stored globally")
 print()
@@ -99,8 +99,11 @@ if last_user_A:
         print(f"  Split indices: {split.indices}")
         print(f"  Is it part_A? {split == part_A}")
         print(f"  Is it part_AB? {split == part_AB}")
-        print(f"  Is it in unique_expand? {split in state.unique_expand_splits}")
-        print(f"  Is it in shared_expand? {split in state.shared_expand_splits}")
-        if split in state.shared_expand_splits:
-            print(f"    Users: {[str(u) for u in state.shared_expand_splits[split]]}")
-            print(f"    Number of users: {len(state.shared_expand_splits[split])}")
+        print(
+            f"  Is it in unique_expand? {split in state.expand_tracker.get_all_unique_resources()}"
+        )
+        shared_expand_resources = state.expand_tracker.get_all_shared_resources()
+        print(f"  Is it in shared_expand? {split in shared_expand_resources}")
+        if split in shared_expand_resources:
+            print(f"    Users: {[str(u) for u in shared_expand_resources[split]]}")
+            print(f"    Number of users: {len(shared_expand_resources[split])}")

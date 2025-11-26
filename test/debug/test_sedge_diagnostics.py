@@ -1,10 +1,10 @@
 """
-Diagnostic script to inspect s-edges and solutions returned by iterate_lattice_algorithm
+Diagnostic script to inspect s-edges and solutions returned by compute_pivot_solutions_with_deletions
 """
 
 from brancharchitect.parser.newick_parser import parse_newick
-from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
-    iterate_lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.jumping_taxa.lattice.pivot_edge_solver import lattice_algorithm
 
@@ -26,9 +26,9 @@ def inspect_sedges_and_solutions():
     print(f"\nTree 1: {tree1_str}")
     print(f"Tree 2: {tree2_str}")
 
-    # Call iterate_lattice_algorithm
-    print("\n--- Calling iterate_lattice_algorithm ---")
-    jumping_subtree_solutions, deleted_taxa_per_iteration = iterate_lattice_algorithm(
+    # Call compute_pivot_solutions_with_deletions
+    print("\n--- Calling compute_pivot_solutions_with_deletions ---")
+    jumping_subtree_solutions, deleted_taxa_per_iteration = compute_pivot_solutions_with_deletions(
         tree1, tree2
     )
 
@@ -97,8 +97,8 @@ def inspect_sedges_and_solutions():
     print(f"\nTree 1: {tree1_complex_str}")
     print(f"Tree 2: {tree2_complex_str}")
 
-    print("\n--- Calling iterate_lattice_algorithm ---")
-    jumping_subtree_solutions_complex, deleted_taxa_complex = iterate_lattice_algorithm(
+    print("\n--- Calling compute_pivot_solutions_with_deletions ---")
+    jumping_subtree_solutions_complex, deleted_taxa_complex = compute_pivot_solutions_with_deletions(
         tree1_complex, tree2_complex
     )
 

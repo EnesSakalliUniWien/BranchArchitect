@@ -2,8 +2,8 @@
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.subtree_paths.planning.state_v2 import (
-    InterpolationState,
+from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
+    PivotSplitRegistry,
 )
 
 # Setup from the test
@@ -23,7 +23,7 @@ collapse_by_subtree = {
     part_B: PartitionSet([part_B], encoding=encoding),
 }
 
-state = InterpolationState(
+state = PivotSplitRegistry(
     PartitionSet([part_A, part_B], encoding=encoding),
     PartitionSet([part_AB, part_A, part_B], encoding=encoding),
     collapse_by_subtree,
@@ -33,14 +33,14 @@ state = InterpolationState(
 
 print("=== EXPAND SPLITS CATEGORIZATION ===")
 print(
-    f"Unique expand splits: {dict((str(k), str(v)) for k, v in state.unique_expand_splits.items())}"
+    f"Unique expand splits: {dict((str(k), str(v)) for k, v in state.expand_tracker.get_all_unique_resources().items())}"
 )
 print(
-    f"Shared expand splits: {dict((str(k), {str(u) for u in v}) for k, v in state.shared_expand_splits.items())}"
+    f"Shared expand splits: {dict((str(k), {str(u) for u in v}) for k, v in state.expand_tracker.get_all_shared_resources().items())}"
 )
 
 print("\n=== INCOMPATIBLE SPLITS ===")
-print(f"All incompatible splits: {[str(s) for s in state.all_incompatible_splits]}")
+print("Incompatible splits are now computed per-subtree, not stored globally")
 
 print("\n=== GET LAST USER FOR part_A ===")
 last_user_A = state.get_expand_splits_for_last_user(part_A)

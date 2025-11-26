@@ -1,11 +1,9 @@
 from typing import List, Dict, TypedDict
 from brancharchitect.tree import Node
-
-from brancharchitect.elements.partition import Partition
-
-# Ensure TreePairSolution is defined in the target module and imported correctly
-from .tree_pair_solution import TreePairSolution
-from .tree_meta_data import TreeMetadata
+from brancharchitect.tree_interpolation.types import (
+    TreePairSolution,
+    TreeMetadata,
+)
 
 
 class InterpolationResult(TypedDict):
@@ -62,7 +60,10 @@ class InterpolationResult(TypedDict):
     # Analyze specific tree pair
     pair_solution = result.tree_pair_solutions["pair_1_2"]
     lattice_data = pair_solution.jumping_subtree_solutions
-    mappings = (pair_solution.mapping_one, pair_solution.mapping_two)
+    mappings = (
+        pair_solution.solution_to_destination_map,
+        pair_solution.solution_to_source_map,
+    )
     ```
 
     ## Data Flow and Relationships:
@@ -84,32 +85,12 @@ class InterpolationResult(TypedDict):
     ```
     """
 
-    # Solution-to-atom mappings per pair
-    mapping_one: List[Dict[Partition, Dict[Partition, Partition]]]
-    """
-    List of solution-to-atom mappings for the target tree of each pair.
-
-    Each dictionary in the list corresponds to a tree pair (e.g., T0->T1, T1->T2).
-    Within that dictionary the outer key is the pivot/active-changing split and the
-    nested dictionary maps each solution partition under that pivot to its atom in the target tree.
-    """
-
-    mapping_two: List[Dict[Partition, Dict[Partition, Partition]]]
-    """
-    List of solution-to-atom mappings for the reference tree of each pair.
-
-    Each dictionary in the list corresponds to a tree pair (e.g., T0->T1, T1->T2).
-    The outer key is the pivot split and the nested dictionary maps each solution partition
-    to its atom in the reference tree.
-    """
-
     # Core flattened sequences - globally indexed
     interpolated_trees: List[Node]
     """
     Complete sequence of all trees in the interpolation: original + interpolated.
 
     This is the main tree sequence containing every tree in global order.
-    Each tree can be accessed directly using its global_tree_index from metadata.
 
     Structure (CONDITIONAL - depends on s-edge discovery):
         [T0, IT0_down_1, C0_1, C0_1_reorder, IT0_up_1, IT0_ref_1,  # IF s-edge found in pair 0->1
@@ -123,7 +104,7 @@ class InterpolationResult(TypedDict):
 
     Access Patterns:
         - Direct: interpolated_trees[global_index]
-        - With metadata: interpolated_trees[metadata.global_tree_index]
+        - With metadata: interpolated_trees[i] alongside tree_metadata[i]
         - Streaming: for tree in interpolated_trees
 
     Note: Length equals len(tree_metadata) - they are parallel arrays
@@ -137,7 +118,6 @@ class InterpolationResult(TypedDict):
     tree_metadata[i] always describes interpolated_trees[i].
 
     Each TreeMetadata contains:
-        - global_tree_index: Index in interpolated_trees (redundant but useful)
         - tree_pair_key: Key to tree_pair_solutions (for interpolated trees only, None for originals)
         - step_in_pair: Interpolation step number (1-5), None for originals
 
@@ -161,8 +141,7 @@ class InterpolationResult(TypedDict):
 
     TreePairSolution Contents:
         - jumping_subtree_solutions: Raw lattice algorithm results
-        - mapping_one/mapping_two: Solution-to-atom mappings for both trees
-        - ancestor_of_changing_splits: Sequence of ancestor splits associated with each step
+        - solution_to_destination_map / solution_to_source_map: Solution-to-atom mappings for both trees
 
     Usage Examples:
         # Access specific pair data
@@ -171,8 +150,8 @@ class InterpolationResult(TypedDict):
 
         # Iterate over all pairs
         for pair_key, solution in tree_pair_solutions.items():
-            steps = len(solution.ancestor_of_changing_splits)
-            # Use 'steps' as needed
+            # Process solution data as needed
+            pass
     """
 
     # Distance metrics - trajectory analysis
@@ -203,33 +182,6 @@ class InterpolationResult(TypedDict):
     """
 
     # Processing metadata - pipeline information
-    original_tree_count: int
-    """
-    Number of original input trees processed by the pipeline.
-
-    This is the count of trees provided to process_trees(), before any interpolation.
-    Used to distinguish original trees from interpolated trees in the result.
-
-    Relationship: interpolated_tree_count = original_tree_count + sum(s_edges_found_per_pair × 5)
-    Note: s_edges_found_per_pair can be 0 for identical/similar trees
-    """
-
-    interpolated_tree_count: int
-    """
-    Total number of trees in the complete interpolated sequence.
-
-    This equals len(interpolated_trees) and len(tree_metadata).
-    Includes both original trees and all interpolated trees.
-
-    Calculation: original_tree_count + sum(s_edges_found_per_pair × 5)
-    Where s_edges_found_per_pair can be 0 for identical/similar trees
-
-    Examples:
-    - [T0, T1, T2] where all different: original=3, interpolated=3+(a×5+b×5) where a,b=s_edges found
-    - [T0, T1, T2] where T1=T2: original=3, interpolated=3+(1×5+0×5)=8
-    - [T0, T1] where T0=T1: original=2, interpolated=2+(0×5)=2 (no interpolation!)
-    """
-
     processing_time: float
     """
     Total time taken to process the trees through the complete pipeline (seconds).
@@ -243,10 +195,10 @@ class InterpolationResult(TypedDict):
     pair_interpolation_ranges: List[List[int]]
     """
     Global index ranges [start, end] for each pair's interpolated trees.
-    
-    For each tree pair i->i+1, gives the [start, end] indices where the interpolated 
+
+    For each tree pair i->i+1, gives the [start, end] indices where the interpolated
     trees for that pair appear in the global interpolated_trees sequence.
-    
+
     Example: [[1, 3], [5, 7]] means:
     - Pair 0->1: interpolated trees at global indices 1, 2, 3
     - Pair 1->2: interpolated trees at global indices 5, 6, 7
@@ -261,13 +213,9 @@ def create_single_tree_result(
     # Create metadata for the single tree
     tree_metadata = [
         TreeMetadata(
-            global_tree_index=0,
             tree_pair_key=None,
             step_in_pair=None,
-            reference_pair_tree_index=None,
-            target_pair_tree_index=None,
             source_tree_global_index=None,
-            target_tree_global_index=None,
         )
     ]
 
@@ -275,12 +223,8 @@ def create_single_tree_result(
         interpolated_trees=trees,
         tree_metadata=tree_metadata,
         tree_pair_solutions={},
-        mapping_one=[],
-        mapping_two=[],
         rfd_list=[0.0],
         wrfd_list=[0.0],
-        original_tree_count=1,
-        interpolated_tree_count=1,
         processing_time=0.0,
         pair_interpolation_ranges=[],
     )
@@ -292,12 +236,8 @@ def create_empty_result() -> InterpolationResult:
         interpolated_trees=[],
         tree_metadata=[],
         tree_pair_solutions={},
-        mapping_one=[],
-        mapping_two=[],
         rfd_list=[0.0],
         wrfd_list=[0.0],
-        original_tree_count=0,
-        interpolated_tree_count=0,
         processing_time=0.0,
         pair_interpolation_ranges=[],
     )

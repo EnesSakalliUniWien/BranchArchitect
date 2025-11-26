@@ -6,8 +6,8 @@ from brancharchitect.io import read_newick
 from brancharchitect.tree_interpolation.pair_interpolation import (
     process_tree_pair_interpolation,
 )
-from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
-    iterate_lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.tree_interpolation.edge_sorting_utils import (
     sort_edges_by_depth,
@@ -35,7 +35,7 @@ def diagnose_sedge_ordering():
     print("-" * 80)
 
     # Get s-edges and their solutions
-    jumping_subtree_solutions, deleted_taxa = iterate_lattice_algorithm(tree1, tree2)
+    jumping_subtree_solutions, deleted_taxa = compute_pivot_solutions_with_deletions(tree1, tree2)
 
     print(f"\nDiscovered {len(jumping_subtree_solutions)} s-edges:")
     for i, (s_edge, partitions) in enumerate(jumping_subtree_solutions.items(), 1):

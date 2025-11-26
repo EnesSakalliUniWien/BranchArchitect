@@ -15,7 +15,7 @@ from brancharchitect.jumping_taxa.lattice.delete_taxa import (
 logger = logging.getLogger(__name__)
 
 
-def iterate_lattice_algorithm(
+def compute_pivot_solutions_with_deletions(
     input_tree1: Node, input_tree2: Node, leaf_order: List[str] = []
 ) -> Tuple[Dict[Partition, List[Partition]], List[Set[int]]]:
     """
@@ -83,14 +83,14 @@ def iterate_lattice_algorithm(
     return jumping_subtree_solutions_dict, deleted_taxa_per_iteration
 
 
-def adapter_iterate_lattice_algorithm(
+def adapter_compute_pivot_solutions_with_deletions(
     input_tree1: Node, input_tree2: Node, leaf_order: List[str] = []
 ) -> List[Tuple[int, ...]]:
     """
-    Backward compatibility adapter for the lattice algorithm.
+    Adapter for the lattice algorithm.
 
-    Converts the new dictionary format back to the old tuple format
-    that existing tests and API expect.
+    Converts the dictionary format back to the old tuple format
+    expected by callers needing the deleted-jumping-taxa list.
 
     Args:
         input_tree1: First input tree
@@ -102,8 +102,10 @@ def adapter_iterate_lattice_algorithm(
         ONLY includes taxa that were actually deleted during the iterative process.
     """
     # Get results in new jumping subtree solutions format
-    jumping_subtree_solutions, deleted_taxa_per_iteration = iterate_lattice_algorithm(
+    jumping_subtree_solutions, deleted_taxa_per_iteration = (
+        compute_pivot_solutions_with_deletions(
         input_tree1, input_tree2, leaf_order
+    )
     )
 
     # Convert to old tuple format for backward compatibility

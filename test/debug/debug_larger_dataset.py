@@ -6,8 +6,8 @@ from brancharchitect.tree_interpolation.subtree_paths.planning.builder import (
 )
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
-from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
-    iterate_lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    compute_pivot_solutions_with_deletions,
 )
 from typing import Dict
 import sys
@@ -110,7 +110,7 @@ encoding = trees[0].taxa_encoding
 tree1, tree2 = trees[0], trees[2]
 
 print("=== RUNNING LATTICE ALGORITHM ===")
-jumping_subtrees, _ = iterate_lattice_algorithm(tree1, tree2, list(encoding.keys()))
+jumping_subtrees, _ = compute_pivot_solutions_with_deletions(tree1, tree2, list(encoding.keys()))
 
 if not jumping_subtrees:
     print("No jumping subtrees - trees identical")

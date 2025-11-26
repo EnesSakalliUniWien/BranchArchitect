@@ -151,7 +151,9 @@ class SolutionRegistry:
         solutions: Dict[str, List[PartitionSet[Partition]]] = (
             self.solutions_by_pivot_and_iteration.get((pivot_edge, visit), {})
         )
-        jt_logger.info(f"[get_solutions_for_edge_visit] pivot_edge={pivot_edge}, visit={visit}")
+        jt_logger.info(
+            f"[get_solutions_for_edge_visit] pivot_edge={pivot_edge}, visit={visit}"
+        )
         jt_logger.info(f"[get_solutions_for_edge_visit] solutions dict: {solutions}")
         jt_logger.info(
             f"[get_solutions_for_edge_visit] dict keys: {list(solutions.keys())}"
@@ -167,57 +169,6 @@ class SolutionRegistry:
         )
         jt_logger.info(f"[get_solutions_for_edge_visit] Final result: {result}")
         return result
-
-    def minimal_by_indices_sum(
-        self, solutions: List[PartitionSet[Partition]]
-    ) -> List[PartitionSet[Partition]]:
-        """
-        Find solutions with the minimal sum of indices lengths.
-
-        Args:
-            solutions: List of solutions to analyze
-
-        Returns:
-            List of solutions with the minimal indices sum
-        """
-        if not solutions:
-            return []
-
-        # Calculate indices sum for each solution
-        def calculate_indices_sum(solution: PartitionSet[Partition]) -> int:
-            """Calculate the sum of lengths of all partition indices in the solution."""
-            return sum(len(partition.indices) for partition in solution)
-
-        try:
-            # Find the minimum sum
-            min_sum = min(calculate_indices_sum(s) for s in solutions)
-
-            # Return solutions with the minimum sum
-            return [s for s in solutions if calculate_indices_sum(s) == min_sum]
-        except Exception as e:
-            # Log error and return empty list
-            print(f"Error in minimal_by_indices_sum: {e}")
-            return []
-
-    def get_minimal_by_indices_sum(
-        self, s_edge: Partition, visit: int
-    ) -> List[PartitionSet[Partition]]:
-        """
-        Get solutions for a specific edge and visit with minimal indices sum.
-
-        This is a convenience method that combines get_solutions_for_edge_visit and minimal_by_indices_sum.
-
-        Args:
-            s_edge: The edge to query
-            visit: The visit number
-
-        Returns:
-            List of solutions with minimal indices sum
-        """
-        solutions: List[PartitionSet[Partition]] = self.get_solutions_for_edge_visit(
-            s_edge, visit
-        )
-        return self.minimal_by_indices_sum(solutions)
 
     def get_single_smallest_solution(
         self, pivot_edge: Partition, visit: int
@@ -245,62 +196,4 @@ class SolutionRegistry:
         if len(solutions) == 1:
             return solutions[0]
 
-        def solution_key(
-            sol: PartitionSet[Partition],
-        ) -> tuple[int, tuple[int, ...], tuple[int, ...]]:
-            def _popcount(x: int) -> int:
-                try:
-                    return x.bit_count()
-                except AttributeError:
-                    return bin(x).count("1")
-
-            num_parts = len(sol)
-            sizes_tuple = tuple(sorted((_popcount(p.bitmask) for p in sol)))
-            mask_tuple = tuple(sorted((p.bitmask for p in sol)))
-            return (num_parts, sizes_tuple, mask_tuple)
-
-        return min(solutions, key=solution_key)
-
-    def get_solutions_grouped_by_visit_and_edge(
-        self,
-    ) -> Dict[int, Dict[Partition, List[PartitionSet[Partition]]]]:
-        """
-        Group all solutions first by iteration, then by pivot edge.
-
-        Returns:
-            Dictionary mapping iteration numbers to dictionaries mapping pivot edges to lists of solutions
-        """
-        grouped: Dict[int, Dict[Partition, List[PartitionSet[Partition]]]] = {}
-        for (
-            pivot_edge,
-            iteration,
-        ), category_solutions in self.solutions_by_pivot_and_iteration.items():
-            for sols in category_solutions.values():
-                grouped.setdefault(iteration, {}).setdefault(pivot_edge, []).extend(
-                    sols
-                )
-        return grouped
-
-    def get_solutions_by_edge(self) -> Dict[Partition, List[Partition]]:
-        """
-        Get all solutions organized by pivot edge for use in tree interpolation.
-
-        Flattens iteration and category structure to provide a simple mapping
-        from each pivot edge to a flat list of solution partitions.
-
-        Returns:
-            Dictionary mapping pivot edges to partitions involved in solutions:
-            {pivot_edge: [partition_1, partition_2, ...]}
-        """
-        result: Dict[Partition, List[Partition]] = {}
-
-        for (
-            pivot_edge,
-            iteration,
-        ), category_solutions in self.solutions_by_pivot_and_iteration.items():
-            for sols in category_solutions.values():
-                for solution_set in sols:
-                    for part in solution_set:
-                        result.setdefault(pivot_edge, []).append(part)
-
-        return result
+        return min(solutions, key=compute_solution_rank_key)

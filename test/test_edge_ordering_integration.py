@@ -11,8 +11,8 @@ This test verifies that:
 import pytest
 from brancharchitect.io import read_newick
 from brancharchitect.parser.newick_parser import parse_newick
-from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
-    iterate_lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.tree_interpolation.edge_sorting_utils import (
     sort_edges_by_depth,
@@ -57,7 +57,7 @@ class TestEdgeOrderingIntegration:
         tree1, tree2 = simple_tree_pair
 
         # Get s-edges from lattice algorithm
-        solutions, _ = iterate_lattice_algorithm(tree1, tree2)
+        solutions, _ = compute_pivot_solutions_with_deletions(tree1, tree2)
         edges = list(solutions.keys())
 
         # Compute depths in tree1
@@ -84,7 +84,7 @@ class TestEdgeOrderingIntegration:
         tree1, tree2 = simple_tree_pair
 
         # Get s-edges from lattice algorithm
-        solutions, _ = iterate_lattice_algorithm(tree1, tree2)
+        solutions, _ = compute_pivot_solutions_with_deletions(tree1, tree2)
         edges = list(solutions.keys())
 
         if not edges:
@@ -114,7 +114,7 @@ class TestEdgeOrderingIntegration:
         tree1, tree2 = simple_tree_pair
 
         # Get s-edges from lattice algorithm
-        solutions, _ = iterate_lattice_algorithm(tree1, tree2)
+        solutions, _ = compute_pivot_solutions_with_deletions(tree1, tree2)
         edges = list(solutions.keys())
 
         if not edges:
@@ -144,7 +144,7 @@ class TestEdgeOrderingIntegration:
         tree1, tree2 = simple_tree_pair
 
         # Get s-edges from lattice algorithm
-        solutions, _ = iterate_lattice_algorithm(tree1, tree2)
+        solutions, _ = compute_pivot_solutions_with_deletions(tree1, tree2)
         edges = list(solutions.keys())
 
         if not edges:
@@ -206,7 +206,7 @@ class TestEdgeOrderingIntegration:
         tree1, tree2 = complex_tree_pair
 
         # Get s-edges from lattice algorithm
-        solutions, _ = iterate_lattice_algorithm(tree1, tree2)
+        solutions, _ = compute_pivot_solutions_with_deletions(tree1, tree2)
         edges = list(solutions.keys())
 
         if not edges:
@@ -238,7 +238,7 @@ class TestEdgeOrderingIntegration:
         tree1, tree2 = simple_tree_pair
 
         # Get s-edges and sort them
-        solutions, _ = iterate_lattice_algorithm(tree1, tree2)
+        solutions, _ = compute_pivot_solutions_with_deletions(tree1, tree2)
         edges = list(solutions.keys())
 
         if not edges:
@@ -273,7 +273,7 @@ class TestEdgeOrderingIntegration:
         tree1, tree2 = simple_tree_pair
 
         # Create a single-edge list
-        solutions, _ = iterate_lattice_algorithm(tree1, tree2)
+        solutions, _ = compute_pivot_solutions_with_deletions(tree1, tree2)
         edges = list(solutions.keys())
 
         if not edges:
@@ -288,7 +288,7 @@ class TestEdgeOrderingIntegration:
         """Test that depth computation is consistent across multiple calls."""
         tree1, tree2 = simple_tree_pair
 
-        solutions, _ = iterate_lattice_algorithm(tree1, tree2)
+        solutions, _ = compute_pivot_solutions_with_deletions(tree1, tree2)
         edges = list(solutions.keys())
 
         if not edges:
@@ -310,7 +310,7 @@ class TestEdgeOrderingIntegration:
         tree2 = tree1.deep_copy()
 
         # Should have no s-edges
-        solutions, _ = iterate_lattice_algorithm(tree1, tree2)
+        solutions, _ = compute_pivot_solutions_with_deletions(tree1, tree2)
         edges = list(solutions.keys())
 
         assert len(edges) == 0, "Identical trees should produce no s-edges"
@@ -337,7 +337,7 @@ class TestEdgeOrderingWithRealData:
         tree2 = trees[1]
 
         # Get s-edges
-        solutions, _ = iterate_lattice_algorithm(tree1, tree2)
+        solutions, _ = compute_pivot_solutions_with_deletions(tree1, tree2)
         edges = list(solutions.keys())
 
         if not edges:

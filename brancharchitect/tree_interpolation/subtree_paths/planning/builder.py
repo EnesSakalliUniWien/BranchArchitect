@@ -1,13 +1,17 @@
 from typing import Dict, Any
 from collections import OrderedDict
+import logging
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from .state_v2 import InterpolationState
+from .pivot_split_registry import PivotSplitRegistry
 
 from ..analysis.split_analysis import (
-    get_unique_splits_for_active_changing_edge_subtree,
+    get_unique_splits_for_current_pivot_edge_subtree,
+    find_incompatible_splits,
 )
 from brancharchitect.tree import Node
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -34,7 +38,7 @@ def build_expand_path(
 
 
 def _gather_subtree_splits(
-    state: InterpolationState, subtree: Partition
+    state: PivotSplitRegistry, subtree: Partition
 ) -> Dict[str, PartitionSet[Partition]]:
     """Gathers all necessary split sets for a subtree from the state."""
     shared_collapse: PartitionSet[Partition] = (
@@ -57,7 +61,7 @@ def _gather_subtree_splits(
 
 def _finalize_and_store_plan(
     plans: OrderedDict[Partition, Dict[str, Any]],
-    state: InterpolationState,
+    state: PivotSplitRegistry,
     subtree: Partition,
     collapse_path: PartitionSet[Partition],
     expand_path: PartitionSet[Partition],
@@ -68,7 +72,9 @@ def _finalize_and_store_plan(
         collapse_path |= state.get_all_remaining_collapse_splits()
 
     # Deterministic path ordering (larger partitions first)
-    collapse_path_list = sorted(collapse_path, key=lambda p: len(p.indices), reverse=True)
+    collapse_path_list = sorted(
+        collapse_path, key=lambda p: len(p.indices), reverse=True
+    )
     expand_path_list = sorted(expand_path, key=lambda p: len(p.indices), reverse=True)
 
     # Store the full paths in the plan
@@ -79,7 +85,7 @@ def _finalize_and_store_plan(
 
 
 def _update_state(
-    state: InterpolationState,
+    state: PivotSplitRegistry,
     subtree: Partition,
     splits: Dict[str, PartitionSet[Partition]],
     incompatible_splits: PartitionSet[Partition],
@@ -96,17 +102,20 @@ def _update_state(
     """
     # Use the actual collapse_path that will be executed (covers TABULA RASA first subtree)
     processed_collapse = collapse_path
-    processed_expand = splits["last_user_expand"] | splits["unique_expand"]
+    # Include contingent splits in processed_expand since they're now tracked in expand_tracker
+    processed_expand = (
+        splits["last_user_expand"]
+        | splits["unique_expand"]
+        | splits["contingent_expand"]
+    )
 
     # Mark splits as processed in the state - this will remove shared splits from all subtrees
+    # Note: This also marks the subtree as processed to prevent reprocessing
     state.mark_splits_as_processed(
         subtree=subtree,
         processed_collapse_splits=processed_collapse,
         processed_expand_splits=processed_expand,
-        processed_contingent_splits=splits["contingent_expand"],
     )
-    # Mark the subtree as processed for this cycle to prevent infinite loops
-    state.processed_subtrees.add(subtree)
 
 
 def build_edge_plan(
@@ -116,24 +125,70 @@ def build_edge_plan(
     expand_tree: Node,
     current_pivot_edge: Partition,
 ) -> OrderedDict[Partition, Dict[str, Any]]:
+    """Build execution plan for a pivot edge by assigning splits to subtrees.
+
+    Note: expand_splits_by_subtree contains PATH-based assignments (splits on the path
+    between subtree and pivot). This may not cover ALL splits in the pivot edge subtree,
+    so we ensure completeness below.
+    """
     plans: OrderedDict[Partition, Dict[str, Any]] = OrderedDict()
 
     # Get splits within the active changing edge scope only
     all_collapse_splits, all_expand_splits = (
-        get_unique_splits_for_active_changing_edge_subtree(
+        get_unique_splits_for_current_pivot_edge_subtree(
             collapse_tree,
             expand_tree,
             current_pivot_edge,
         )
     )
 
+    # COMPLETENESS GUARANTEE: Path-based assignments may miss splits not on any path
+    # (e.g., contingent splits from jumping taxa, cross-branch splits). Assign any
+    # unassigned expands to first subtree as fallback to ensure every split is processed.
+    claimed_expands = PartitionSet(
+        set().union(*expand_splits_by_subtree.values())
+        if expand_splits_by_subtree
+        else set(),
+        encoding=all_expand_splits.encoding,
+    )
+    unassigned_expands = all_expand_splits - claimed_expands
+    if unassigned_expands:
+        first_subtree = (
+            next(iter(expand_splits_by_subtree.keys()))
+            if expand_splits_by_subtree
+            else current_pivot_edge
+        )
+        if first_subtree not in expand_splits_by_subtree:
+            expand_splits_by_subtree[first_subtree] = PartitionSet(
+                encoding=all_expand_splits.encoding
+            )
+        # Reassign with a new PartitionSet to avoid in-place quirks
+        expand_splits_by_subtree[first_subtree] = (
+            expand_splits_by_subtree[first_subtree] | unassigned_expands
+        )
+        logger.debug(
+            "[builder] pivot=%s assigning %d unclaimed expands to subtree=%s",
+            current_pivot_edge.bipartition(),
+            len(unassigned_expands),
+            first_subtree.bipartition(),
+        )
+
     # Initialize state management for proper shared splits handling
-    state = InterpolationState(
+    state = PivotSplitRegistry(
         all_collapse_splits,
         all_expand_splits,
         collapse_splits_by_subtree,
         expand_splits_by_subtree,
         current_pivot_edge,
+    )
+    logger.debug(
+        "[builder] pivot=%s all_expand_splits=%s expand_paths_by_subtree=%s",
+        current_pivot_edge.bipartition(),
+        [list(p.indices) for p in all_expand_splits],
+        {
+            st.bipartition(): [list(p.indices) for p in splits]
+            for st, splits in expand_splits_by_subtree.items()
+        },
     )
 
     while state.has_remaining_work():
@@ -157,19 +212,16 @@ def build_edge_plan(
         collapse_path: PartitionSet[Partition]
         incompatible: PartitionSet[Partition] = PartitionSet(encoding=state.encoding)
         if is_first_subtree:
-            all_collapse_splits = state.get_all_collapse_splits_for_first_subtree(
-                subtree
-            )
+            all_collapse_splits = state.get_tabula_rasa_collapse_splits()
             if len(all_collapse_splits) > 0:
                 collapse_path = all_collapse_splits
             else:
                 # Compute incompatibilities for this subtree's planned expands
+                # NOTE: Don't include contingent_expand here - they haven't been consumed yet!
                 prospective_expand = (
-                    splits["last_user_expand"]
-                    | splits["unique_expand"]
-                    | splits["contingent_expand"]
+                    splits["last_user_expand"] | splits["unique_expand"]
                 )
-                incompatible = state.find_all_incompatible_splits_for_expand(
+                incompatible = find_incompatible_splits(
                     prospective_expand, state.all_collapsible_splits
                 )
 
@@ -181,12 +233,9 @@ def build_edge_plan(
         else:
             # Subsequent subtrees: only their assigned splits
             # Compute incompatibilities for this subtree's planned expands
-            prospective_expand = (
-                splits["last_user_expand"]
-                | splits["unique_expand"]
-                | splits["contingent_expand"]
-            )
-            incompatible = state.find_all_incompatible_splits_for_expand(
+            # NOTE: Don't include contingent_expand here - they haven't been consumed yet!
+            prospective_expand = splits["last_user_expand"] | splits["unique_expand"]
+            incompatible = find_incompatible_splits(
                 prospective_expand, state.all_collapsible_splits
             )
 

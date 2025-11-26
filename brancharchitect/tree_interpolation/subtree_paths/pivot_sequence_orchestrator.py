@@ -15,12 +15,13 @@ from __future__ import annotations
 
 import logging
 from typing import Dict, List, Optional
+from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
 from .paths import calculate_subtree_paths
 from .execution.step_executor import apply_stepwise_plan_for_edge
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def create_interpolation_for_active_split_sequence(
@@ -28,6 +29,7 @@ def create_interpolation_for_active_split_sequence(
     destination_tree: Node,
     target_pivot_edges: List[Partition],
     jumping_subtree_solutions: Dict[Partition, List[Partition]],
+    pair_index: Optional[int] = None,
 ) -> tuple[
     List[Node],
     List[Partition],
@@ -66,14 +68,21 @@ def create_interpolation_for_active_split_sequence(
 
         # Paths for this current_pivot_edge (kept separate for destination/source)
         # Keep as PartitionSet[Partition] - no conversion needed
-        source_paths_for_pivot_edge = source_subtree_paths.get(current_pivot_edge, {})
-
-        destination_paths_for_pivot_edge = destination_subtree_paths.get(
-            current_pivot_edge, {}
+        source_paths_for_pivot_edge: Dict[Partition, PartitionSet[Partition]] = (
+            source_subtree_paths.get(current_pivot_edge, {})
         )
 
+        destination_paths_for_pivot_edge: Dict[Partition, PartitionSet[Partition]] = (
+            destination_subtree_paths.get(current_pivot_edge, {})
+        )
+
+        logger.info(
+            "[ORCHESTRATOR] Pair %s pivot %s",
+            pair_index if pair_index is not None else "?",
+            current_pivot_edge.bipartition(),
+        )
         # Guard: verify the pivot edge exists in both trees before planning
-        src_node, dst_node = _find_and_validate_pivot_nodes(
+        _ = _find_and_validate_pivot_nodes(
             current_base_tree, destination_tree, current_pivot_edge
         )
 
@@ -112,21 +121,14 @@ def assert_final_topology_matches(
     if final_splits != dest_splits:
         missing = dest_splits - final_splits
         extra = final_splits - dest_splits
-        logger.error(
-            "[ORCHESTRATOR] Final topology mismatch: expected %s splits, got %s",
-            len(dest_splits),
-            len(final_splits),
+        msg = (
+            "[ORCHESTRATOR] Final topology mismatch: "
+            f"expected {len(dest_splits)} splits, got {len(final_splits)}. "
+            f"Missing splits: { {tuple(s.indices) for s in missing} } "
+            f"Extra splits: { {tuple(s.indices) for s in extra} }"
         )
-        if missing:
-            logger.error(
-                "[ORCHESTRATOR]   Missing splits: %s",
-                {tuple(s.indices) for s in missing},
-            )
-        if extra:
-            logger.error(
-                "[ORCHESTRATOR]   Extra splits: %s",
-                {tuple(s.indices) for s in extra},
-            )
+        logger.error(msg)
+        raise ValueError(msg)
 
 
 def _ensure_pivot_present(

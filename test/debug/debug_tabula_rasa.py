@@ -15,8 +15,8 @@ from brancharchitect.tree_interpolation.consensus_tree.intermediate_tree import 
     calculate_intermediate_tree,
 )
 from brancharchitect.consensus.consensus_tree import apply_split_in_tree
-from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
-    iterate_lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.elements.partition_set import PartitionSet
 
@@ -118,7 +118,7 @@ def main():
 
     # Find jumping subtrees
     print("Running lattice algorithm to find jumping subtrees...")
-    jumping_subtrees, _ = iterate_lattice_algorithm(
+    jumping_subtrees, _ = compute_pivot_solutions_with_deletions(
         tree1, tree2, list(tree1.taxa_encoding.keys())
     )
 

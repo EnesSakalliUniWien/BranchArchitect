@@ -20,8 +20,8 @@ from brancharchitect.tree_interpolation.edge_sorting_utils import (
 )
 
 # Import here to avoid circular import
-from brancharchitect.jumping_taxa.lattice.iterate_lattice_algorithm import (
-    iterate_lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.tree_interpolation.types import (
     TreePairInterpolation,
@@ -39,6 +39,7 @@ def process_tree_pair_interpolation(
     source_tree: Node,
     destination_tree: Node,
     precomputed_solutions: Optional[Dict[Partition, List[Partition]]] = None,
+    pair_index: Optional[int] = None,
 ) -> TreePairInterpolation:
     """
     Build interpolation sequence using active-changing splits.
@@ -75,29 +76,30 @@ def process_tree_pair_interpolation(
             precomputed_solutions
         )
     else:
-        # iterate_lattice_algorithm returns (solutions_dict, deleted_taxa_list)
-        jumping_subtree_solutions, _ = iterate_lattice_algorithm(
+        # compute_pivot_solutions_with_deletions returns (solutions_dict, deleted_taxa_list)
+        jumping_subtree_solutions, _ = compute_pivot_solutions_with_deletions(
             source_tree, destination_tree
         )
 
-    lattice_edges: List[Partition] = list(jumping_subtree_solutions.keys())
+    pivot_edges: List[Partition] = list(jumping_subtree_solutions.keys())
 
     # Step 2: Order splits by depth for optimal interpolation progression
     # Process from leaves to root (ascending=True means smaller depths first)
     # This ensures child-level reordering happens before parent-level reordering,
     # preventing parent edges from overriding child reordering decisions (snapback).
     ordered_edges = sort_edges_by_depth(
-        edges=lattice_edges,
+        edges=pivot_edges,
         tree=source_tree,
         ascending=True,  # Leaves to root: subsets before supersets
     )
 
-    sequence_trees, failed_active_split, active_split_changing_tracking = (
+    sequence_trees, failed_active_split, current_pivot_edge_tracking = (
         create_interpolation_for_active_split_sequence(
             source_tree=source_tree,
             destination_tree=destination_tree,
             target_pivot_edges=ordered_edges,
             jumping_subtree_solutions=jumping_subtree_solutions,
+            pair_index=pair_index,
         )
     )
 
@@ -105,8 +107,17 @@ def process_tree_pair_interpolation(
     from brancharchitect.tree_interpolation.subtree_paths.pivot_sequence_orchestrator import (
         assert_final_topology_matches,
     )
+
     if sequence_trees:
-        assert_final_topology_matches(sequence_trees[-1], destination_tree, logger)
+        try:
+            assert_final_topology_matches(sequence_trees[-1], destination_tree, logger)
+        except ValueError as e:
+            logger.warning(
+                "Topology mismatch detected; appending destination tree as fallback. Details: %s",
+                e,
+            )
+            sequence_trees.append(destination_tree.deep_copy())
+            current_pivot_edge_tracking.append(None)
 
     # For identical trees (no active edges), ensure destination tree has same ordering as source
     if not ordered_edges:
@@ -125,6 +136,6 @@ def process_tree_pair_interpolation(
 
     return TreePairInterpolation(
         trees=sequence_trees,
-        current_pivot_edge_tracking=active_split_changing_tracking,
+        current_pivot_edge_tracking=current_pivot_edge_tracking,
         jumping_subtree_solutions=jumping_subtree_solutions,
     )

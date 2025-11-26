@@ -7,8 +7,12 @@ from .interpolation_sequence import (
     create_single_tree_result,
 )
 from .distance_metrics import DistanceMetrics
-from .tree_meta_data import TreeMetadata
-from .tree_pair_solution import TreePairSolution, SplitChangeEvent
+from brancharchitect.tree_interpolation.types import (
+    TreeMetadata,
+    TreePairSolution,
+    SplitChangeEvent,
+    PairKey,
+)
 
 __all__ = [
     "TreeList",
@@ -20,4 +24,5 @@ __all__ = [
     "TreeMetadata",
     "TreePairSolution",
     "SplitChangeEvent",
+    "PairKey",
 ]
