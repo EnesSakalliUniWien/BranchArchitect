@@ -123,16 +123,17 @@ class SequentialInterpolationBuilder:
         )
 
         # Build and store solution-to-atom mappings (destination/source) for this pair
-        destination_map: Dict[Partition, Dict[Partition, Partition]] = {}
-        source_map: Dict[Partition, Dict[Partition, Partition]] = {}
         if interpolation_result.jumping_subtree_solutions:
             destination_map, source_map = generate_solution_mappings(
                 interpolation_result.jumping_subtree_solutions,
                 target=t2,
                 reference=t1,
             )
-        self.source_mappings.append(destination_map)
-        self.target_mappings.append(source_map)
+            self.source_mappings.append(destination_map)
+            self.target_mappings.append(source_map)
+        else:
+            self.source_mappings.append({})
+            self.target_mappings.append({})
 
         # Return the final resolved tree from this interpolation
         if len(interpolation_result.trees) > 0:
