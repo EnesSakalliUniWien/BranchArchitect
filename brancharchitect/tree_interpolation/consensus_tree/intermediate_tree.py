@@ -10,7 +10,7 @@ import logging
 from typing import Dict, Optional
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
-from brancharchitect.jumping_taxa.lattice.edge_depth_ordering import (
+from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
     compute_pivot_edge_depths,
 )
 from brancharchitect.elements.partition_set import PartitionSet
@@ -182,3 +182,18 @@ def create_subtree_grafted_tree(
             apply_split_in_tree(ref_split, grafted_tree)
 
     return grafted_tree
+
+
+def apply_reference_weights_to_path(
+    tree: Node,
+    expand_path: list[Partition],
+    reference_weights: Dict[Partition, float],
+) -> None:
+    """Set branch lengths on nodes along a path to match reference weights.
+
+    Mutates the provided tree in place.
+    """
+    for ref_split in expand_path:
+        node: Node | None = tree.find_node_by_split(ref_split)
+        if node is not None:
+            node.length = reference_weights.get(ref_split, 1)

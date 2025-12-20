@@ -45,30 +45,10 @@ from brancharchitect.elements.partition_set import Partition, PartitionSet
 from brancharchitect.jumping_taxa.debug import jt_logger
 
 
-def _popcount(bitmask: int) -> int:
-    """
-    Count the number of set bits in a bitmask.
-
-    This gives the cardinality |p| of a partition p represented as a bitmask.
-
-    Args:
-        bitmask: Integer bitmask representation of a partition
-
-    Returns:
-        Number of 1-bits in the bitmask
-    """
-    try:
-        return bitmask.bit_count()  # Python 3.10+
-    except AttributeError:
-        return bin(bitmask).count("1")  # Fallback for older Python
-
-
 def map_iterative_pivot_edges_to_original(
     pivot_edges_from_iteration: List[Partition],
     original_t1: Node,
     original_t2: Node,
-    current_t1: Node | None = None,
-    current_t2: Node | None = None,
     jumping_taxa_solutions: List[List[Partition]] | None = None,
 ) -> List[Partition]:
     """
@@ -98,8 +78,6 @@ def map_iterative_pivot_edges_to_original(
         pivot_edges_from_iteration: Pivot edges p from the current iteration.
         original_t1: Original unpruned tree T₁.
         original_t2: Original unpruned tree T₂.
-        current_t1: Current pruned tree T₁⁽ⁱ⁾ (unused, for API compatibility).
-        current_t2: Current pruned tree T₂⁽ⁱ⁾ (unused, for API compatibility).
         jumping_taxa_solutions: Flat list of partitions per pivot edge, if available.
 
     Returns:
@@ -184,7 +162,7 @@ def map_iterative_pivot_edges_to_original(
             expected_bitmask |= 1 << index
 
         jt_logger.info(
-            f"[MAPPING DEBUG]   Expected bitmask popcount: {_popcount(expected_bitmask)}"
+            f"[MAPPING DEBUG]   Expected bitmask popcount: {expected_bitmask.bit_count()}"
         )
 
         # Step 2: Find all common splits that are supersets of the expected taxa set.
@@ -214,7 +192,7 @@ def map_iterative_pivot_edges_to_original(
             )
             # Show the smallest 3
             smallest = sorted(
-                containing_splits, key=lambda s: (_popcount(s.bitmask), s.bitmask)
+                containing_splits, key=lambda s: (s.bitmask.bit_count(), s.bitmask)
             )[:3]
             for j, split in enumerate(smallest):
                 jt_logger.info(
@@ -231,13 +209,13 @@ def map_iterative_pivot_edges_to_original(
             if is_direct_pivot:
                 # Direct pivot edge: map to the LARGEST containing split
                 selected_split: Partition = max(
-                    containing_splits, key=lambda s: (_popcount(s.bitmask), s.bitmask)
+                    containing_splits, key=lambda s: (s.bitmask.bit_count(), s.bitmask)
                 )
                 jt_logger.info("✓ Direct pivot edge - mapping to MAXIMUM split")
             else:
                 # Pivot with jumping taxa: map to the SMALLEST containing split
                 selected_split: Partition = min(
-                    containing_splits, key=lambda s: (_popcount(s.bitmask), s.bitmask)
+                    containing_splits, key=lambda s: (s.bitmask.bit_count(), s.bitmask)
                 )
                 jt_logger.info("✓ Pivot with jumping taxa - mapping to MINIMUM split")
 

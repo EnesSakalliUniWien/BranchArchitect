@@ -6,10 +6,10 @@ using PartitionSet.discard() rather than the non-existent .remove() method.
 """
 
 from brancharchitect.elements.partition_set import PartitionSet, Partition
-from brancharchitect.jumping_taxa.lattice.pivot_edge_subproblem import (
+from brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem import (
     PivotEdgeSubproblem,
 )
-from brancharchitect.jumping_taxa.lattice.types import TopToBottom
+from brancharchitect.jumping_taxa.lattice.types.types import TopToBottom
 from brancharchitect.tree import Node
 
 

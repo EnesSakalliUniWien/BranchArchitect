@@ -6,7 +6,7 @@ from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree import Node
 
 
-def get_unique_splits_for_active_changing_edge_subtree(
+def get_unique_splits_for_current_pivot_edge_subtree(
     to_be_collapsed_tree: Node,
     expanded_tree: Node,
     current_pivot_edge: Partition,
@@ -35,7 +35,7 @@ def get_unique_splits_for_active_changing_edge_subtree(
         return to_be_collapsed_splits, to_be_expanded_splits
     else:
         raise ValueError(
-            f"Active changing edge {current_pivot_edge} not found in either tree."
+            f"Current pivot edge {current_pivot_edge} not found in either tree."
         )
 
 
@@ -51,7 +51,13 @@ def find_incompatible_splits(
                     or if any input set contains mixed encodings.
     """
     if not reference_splits or not candidate_splits:
-        encoding = list(reference_splits)[0].encoding if reference_splits else {}
+        # If either set is empty, no incompatibilities exist
+        if reference_splits:
+            encoding = list(reference_splits)[0].encoding
+        elif candidate_splits:
+            encoding = list(candidate_splits)[0].encoding
+        else:
+            encoding = {}
         return PartitionSet(encoding=encoding)
 
     # ------------------------------------------------------------------

@@ -6,13 +6,16 @@ process, including result containers and intermediate data representations.
 """
 
 from __future__ import annotations
+import logging
 from dataclasses import dataclass, field
-from typing import Optional
+from itertools import groupby
+from typing import Optional, Dict, List, Sequence, Tuple
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
-
-from .pair_data import PairData
+from .pair_key import PairKey
+from .tree_pair_solution import TreePairSolution, SplitChangeEvent
+from .tree_meta_data import TreeMetadata
 
 MappingDict = dict[Partition, dict[Partition, Partition]]
 JumpingSolutions = dict[Partition, list[Partition]]
@@ -35,6 +38,18 @@ def _empty_int_list() -> list[int]:
 
 
 def _empty_jumping_solutions() -> list[JumpingSolutions]:
+    return []
+
+
+def _empty_pair_ranges() -> list[list[int]]:
+    return []
+
+
+def _empty_pair_solutions() -> dict[str, TreePairSolution]:
+    return {}
+
+
+def _empty_tree_metadata() -> list[TreeMetadata]:
     return []
 
 
@@ -75,7 +90,8 @@ class TreeInterpolationSequence:
         # Tree sequence: T0, [10 interpolated], T1, T2
         # Total trees: 3 + 10 + 0 = 13 trees (NOT 28!)
 
-        result = build_sequential_lattice_interpolations([tree1, tree2, tree3])
+        from brancharchitect.tree_interpolation.sequential_interpolation import SequentialInterpolationBuilder
+        result = SequentialInterpolationBuilder().build([tree1, tree2, tree3])
         # result.total_interpolated_trees -> 13 (conditional!)
         # result.pair_interpolated_tree_counts -> [10, 0]
         # result.get_pair_count() -> 2
@@ -92,6 +108,13 @@ class TreeInterpolationSequence:
     jumping_subtree_solutions_list: list[JumpingSolutions] = field(
         default_factory=_empty_jumping_solutions
     )
+    tree_pair_solutions: Dict[str, TreePairSolution] = field(
+        default_factory=_empty_pair_solutions
+    )
+    tree_metadata: list[TreeMetadata] = field(default_factory=_empty_tree_metadata)
+    pair_interpolation_ranges: list[list[int]] = field(
+        default_factory=_empty_pair_ranges
+    )
 
     def get_pair_count(self) -> int:
         """
@@ -104,45 +127,97 @@ class TreeInterpolationSequence:
         """
         return len(self.pair_interpolated_tree_counts)
 
-
-    def get_pair_data(self, pair_index: int) -> PairData:
-        """
-        Get comprehensive interpolation data for a specific tree pair.
-
-        Retrieves all interpolation-related data for the tree pair at the given index,
-        including lattice solutions, atom mappings, s-edge sequences, and distance metrics.
-
-        Args:
-            pair_index: Zero-based index of the tree pair (0 for T0->T1, 1 for T1->T2, etc.)
-
-        Returns:
-            Dictionary containing:
-            - mapping_one: Target tree solution-to-atom mappings
-            - mapping_two: Reference tree solution-to-atom mappings
-            - s_edge_length: Number of interpolation steps for this pair
-            - lattice_solutions: Raw jumping taxa algorithm results
-            # distances removed
-
-        Raises:
-            IndexError: If pair_index is out of valid range
-
-        Example:
-            pair_data = result.get_pair_data(0)  # Data for T0->T1 interpolation
-            # pair_data['s_edge_length'] -> number of steps for the pair
-        """
-        if pair_index >= self.get_pair_count():
+    def get_pair_ranges(self, original_tree_indices: list[int]) -> list[list[int]]:
+        """Compute global index ranges [start, end] for each pair's interpolated trees."""
+        pair_count = len(self.jumping_subtree_solutions_list)
+        if len(original_tree_indices) < pair_count + 1:
             raise IndexError(
-                f"Pair index {pair_index} out of range (0-{self.get_pair_count() - 1})"
+                "Not enough original tree delimiters to key solutions "
+                f"(have {len(original_tree_indices)}, need {pair_count + 1})"
+            )
+        bounded = original_tree_indices[: pair_count + 1]
+        return [[bounded[i], bounded[i + 1]] for i in range(pair_count)]
+
+    def build_pair_solutions(
+        self,
+        original_tree_indices: list[int],
+        logger: Optional[logging.Logger] = None,
+    ) -> Tuple[Dict[str, TreePairSolution], List[List[int]]]:
+        """Build keyed TreePairSolution dict and pair ranges from the sequence data."""
+        pair_ranges = self.get_pair_ranges(original_tree_indices)
+        tree_pair_solutions: Dict[str, TreePairSolution] = {}
+
+        for pair_index, (start, end) in enumerate(pair_ranges):
+            pair_key = str(PairKey.from_index(pair_index))
+            source_global_idx = start
+            target_global_idx = end
+            pivot_sequence = self.current_pivot_edge_tracking[
+                source_global_idx + 1 : target_global_idx
+            ]
+            # Filter out None to keep ancestor list contiguous and events aligned
+            ancestor_sequence: List[Partition] = [
+                p for p in pivot_sequence if p is not None
+            ]
+            split_change_events = self._build_split_change_events(
+                ancestor_sequence, source_global_idx, target_global_idx
             )
 
-        return {
-            "mapping_one": self.mapping_one[pair_index],
-            "mapping_two": self.mapping_two[pair_index],
-            "s_edge_length": self.pivot_edge_lengths[pair_index],
-            "jumping_subtree_solutions": self.jumping_subtree_solutions_list[
-                pair_index
-            ],
-        }
+            pair_solution: TreePairSolution = {
+                "jumping_subtree_solutions": self.jumping_subtree_solutions_list[
+                    pair_index
+                ],
+                "solution_to_destination_map": self.mapping_one[pair_index],
+                "solution_to_source_map": self.mapping_two[pair_index],
+                "split_change_events": split_change_events,
+                "source_tree_global_index": source_global_idx,
+                "target_tree_global_index": target_global_idx,
+                "interpolation_start_global_index": source_global_idx + 1,
+            }
+            tree_pair_solutions[pair_key] = pair_solution
+
+            if logger:
+                logger.debug(
+                    "[pair_solutions] pair=%s range=[%d,%d] splits=%d",
+                    pair_key,
+                    start,
+                    end,
+                    len(split_change_events),
+                )
+
+        return tree_pair_solutions, pair_ranges
+
+    @staticmethod
+    def _build_split_change_events(
+        split_sequence: Sequence[Optional[Partition]],
+        source_global_idx: int,
+        target_global_idx: int,
+    ) -> List[SplitChangeEvent]:
+        """Aggregate contiguous occurrences of a split into SplitChangeEvent entries.
+
+        Retains None entries as gaps; they are skipped in event aggregation.
+        """
+        if not split_sequence:
+            return []
+
+        events: List[SplitChangeEvent] = []
+        start_idx = 0
+
+        for split, group in groupby(split_sequence):
+            group_size = sum(1 for _ in group)
+            if split is None:
+                start_idx += group_size
+                continue
+            events.append(
+                {
+                    "split": split,
+                    "step_range": (start_idx, start_idx + group_size - 1),
+                    "source_tree_global_index": source_global_idx,
+                    "target_tree_global_index": target_global_idx,
+                }
+            )
+            start_idx += group_size
+
+        return events
 
     @property
     def total_interpolated_trees(self) -> int:
@@ -196,17 +271,6 @@ class TreeInterpolationSequence:
             for i, s_edge in enumerate(self.current_pivot_edge_tracking)
             if s_edge is not None
         ]
-
-    @property
-    def current_pivt_edge_trackeing(self) -> list[Optional[Partition]]:
-        """Backward-compatible alias for legacy typo."""
-        return self.current_pivot_edge_tracking
-
-    @current_pivt_edge_trackeing.setter
-    def current_pivt_edge_trackeing(
-        self, value: list[Optional[Partition]]
-    ) -> None:
-        self.current_pivot_edge_tracking = value
 
     def get_classical_interpolation_indices(self) -> list[int]:
         """

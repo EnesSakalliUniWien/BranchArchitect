@@ -4,7 +4,7 @@ Tests for interpolation plan builder.
 Tests cover:
 - Path building (collapse and expand)
 - Edge plan construction
-- Integration with InterpolationState
+- Integration with PivotSplitRegistry
 - Handling of shared, unique, and contingent splits
 - Last subtree aggregation
 - Deterministic ordering

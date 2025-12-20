@@ -1,6 +1,6 @@
 """Serialization utilities for converting Partition objects to JSON-serializable formats."""
 
-from typing import Dict, Any, Optional, List, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from brancharchitect.elements.partition import Partition
@@ -38,13 +38,14 @@ def serialize_partition_dict_to_indices(
             return serialize_partition_to_indices(val)  # -> List[int]
         # Lists or other iterables of partitions
         if isinstance(val, list):
+            val_list = cast(List[Any], val)
             out: List[Any] = []
-            for item in val:
+            for item in val_list:
                 out.append(_serialize_value(item))
             return out
         # Nested dicts: recursively serialize keys and values
         if isinstance(val, dict):
-            return serialize_partition_dict_to_indices(val)
+            return serialize_partition_dict_to_indices(cast(Dict[Any, Any], val))
         # Primitive or unknown: pass through
         return val
 

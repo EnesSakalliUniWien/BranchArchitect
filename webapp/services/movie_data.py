@@ -38,11 +38,4 @@ class MovieData:
 
     # MSA data
     msa_dict: Optional[Dict[str, str]]
-    alignment_length: Optional[int]
-    windows_are_overlapping: bool
-
-    # Processing metadata
-    original_tree_count: int
-    interpolated_tree_count: int
-    rooting_enabled: bool
     pair_interpolation_ranges: List[List[int]]

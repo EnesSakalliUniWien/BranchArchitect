@@ -8,7 +8,7 @@ from brancharchitect.elements.partition_set import PartitionSet
 # --- BranchArchitect Imports ---
 # (Ensure these are correctly resolved in your environment)
 from brancharchitect.elements.partition import Partition
-from brancharchitect.jumping_taxa.lattice.pivot_edge_subproblem import (
+from brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem import (
     PivotEdgeSubproblem,
 )
 from brancharchitect.plot.paper_plot.rectanlge_plot_configuration import (

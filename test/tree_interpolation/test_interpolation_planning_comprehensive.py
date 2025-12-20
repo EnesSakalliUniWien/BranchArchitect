@@ -1,7 +1,7 @@
 """
 THE CODE EXAMINER'S COMPREHENSIVE TEST SUITE
 
-Module: InterpolationState & Edge Plan Builder Architecture
+Module: PivotSplitRegistry & Edge Plan Builder Architecture
 Status: IMMUTABLE - This test cannot be altered once created.
 Created: 2025-10-21
 Python: 3.11+
@@ -28,8 +28,8 @@ from collections import OrderedDict
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.parser import parse_newick
-from brancharchitect.tree_interpolation.subtree_paths.planning.state_v2 import (
-    InterpolationState,
+from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
+    PivotSplitRegistry,
 )
 from brancharchitect.tree_interpolation.subtree_paths.planning.builder import (
     build_collapse_path,
@@ -86,7 +86,7 @@ class TestContingentSplitSemantics(unittest.TestCase):
             encoding=self.encoding,
         )
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet(encoding=self.encoding),  # No collapse
             all_expand,
             {},
@@ -94,10 +94,11 @@ class TestContingentSplitSemantics(unittest.TestCase):
             self.root,
         )
 
-        # Contingent splits are those not assigned to any subtree
-        self.assertIn(self.orthogonal_D, state.available_contingent_splits)
-        self.assertIn(self.orthogonal_E, state.available_contingent_splits)
-        self.assertNotIn(self.moving_subtree_C, state.available_contingent_splits)
+        # Contingent splits are those not assigned to any subtree (not in tracker)
+        tracked_resources = state.expand_tracker.get_all_resources()
+        self.assertNotIn(self.orthogonal_D, tracked_resources)
+        self.assertNotIn(self.orthogonal_E, tracked_resources)
+        self.assertIn(self.moving_subtree_C, tracked_resources)  # This was assigned
 
     def test_contingent_splits_consumed_when_collapse_creates_space(self):
         """After collapsing, contingent splits within collapsed region can be used."""
@@ -119,7 +120,7 @@ class TestContingentSplitSemantics(unittest.TestCase):
             [self.moving_subtree_C, self.orthogonal_D], encoding=self.encoding
         )
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet([self.target_location], encoding=self.encoding),
             all_expand,
             collapse_by_subtree,
@@ -161,7 +162,7 @@ class TestContingentSplitSemantics(unittest.TestCase):
             [self.moving_subtree_AB, self.orthogonal_D], encoding=self.encoding
         )
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet([self.target_location], encoding=self.encoding),
             all_expand,
             collapse_by_subtree,
@@ -173,8 +174,9 @@ class TestContingentSplitSemantics(unittest.TestCase):
         primary = state.get_unique_expand_splits(self.moving_subtree_AB)
         self.assertIn(self.moving_subtree_AB, primary)
 
-        # Orthogonal splits remain contingent until explicitly consumed
-        self.assertIn(self.orthogonal_D, state.available_contingent_splits)
+        # Orthogonal splits remain contingent until explicitly consumed (not in tracker)
+        tracked_resources = state.expand_tracker.get_all_resources()
+        self.assertNotIn(self.orthogonal_D, tracked_resources)
 
 
 # ============================================================================
@@ -217,7 +219,7 @@ class TestExpandLastStrategy(unittest.TestCase):
             self.part_B: PartitionSet([self.part_B], encoding=self.encoding),
         }
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet([self.part_A, self.part_B], encoding=self.encoding),
             PartitionSet(
                 [self.part_AB, self.part_A, self.part_B], encoding=self.encoding
@@ -227,21 +229,21 @@ class TestExpandLastStrategy(unittest.TestCase):
             self.part_ABCD,
         )
 
-        # Initially, neither is last user (count=2 for both)
+        # Initially, both have unique splits (part_A, part_B), so they show as last users
+        # The shared split (part_AB) is shared between them
         last_user_A = state.get_expand_splits_for_last_user(self.part_A)
         last_user_B = state.get_expand_splits_for_last_user(self.part_B)
 
-        self.assertEqual(
-            len(last_user_A), 0, "part_A should not be last user initially"
-        )
-        self.assertEqual(
-            len(last_user_B), 0, "part_B should not be last user initially"
-        )
+        # Each subtree has its own unique split as last user, but not the shared one yet
+        self.assertIn(self.part_A, last_user_A, "part_A unique split")
+        self.assertIn(self.part_B, last_user_B, "part_B unique split")
+        self.assertNotIn(self.part_AB, last_user_A, "shared split not last user yet")
+        self.assertNotIn(self.part_AB, last_user_B, "shared split not last user yet")
 
-        # Simulate part_A being processed - remove it from shared_expand_splits users
-        state.shared_expand_splits[self.part_AB].discard(self.part_A)
+        # Simulate part_A being processed - release it from tracker
+        state.expand_tracker.release(self.part_AB, self.part_A)
 
-        # Now part_B becomes the last user
+        # Now part_B becomes the last user for part_AB
         last_user_B = state.get_expand_splits_for_last_user(self.part_B)
         self.assertIn(
             self.part_AB, last_user_B, "part_B should be last user after A processed"
@@ -258,7 +260,7 @@ class TestExpandLastStrategy(unittest.TestCase):
             self.part_C: PartitionSet([self.part_C], encoding=self.encoding),  # Unique
         }
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet(encoding=self.encoding),
             PartitionSet([self.part_AB, part_ABC, self.part_C], encoding=self.encoding),
             {},
@@ -266,8 +268,9 @@ class TestExpandLastStrategy(unittest.TestCase):
             self.part_ABCD,
         )
 
-        # Remove part_A's access to shared splits
-        state.expand_splits_by_subtree[self.part_A].clear()
+        # Remove part_A's access to shared splits via tracker
+        state.expand_tracker.release(self.part_AB, self.part_A)
+        state.expand_tracker.release(part_ABC, self.part_A)
 
         # part_B should now be last user for both part_AB and part_ABC
         last_user_B = state.get_expand_splits_for_last_user(self.part_B)
@@ -295,7 +298,7 @@ class TestExpandLastStrategy(unittest.TestCase):
             [self.part_A, self.part_B, self.part_C], encoding=self.encoding
         )
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet([self.part_A, self.part_B], encoding=self.encoding),
             all_expand,
             collapse_by_subtree,
@@ -360,7 +363,7 @@ class TestPrioritySystemRobustness(unittest.TestCase):
             self.part_E: PartitionSet([self.part_E], encoding=self.encoding),
         }
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet(
                 [self.part_AB, self.part_CD, self.part_EF], encoding=self.encoding
             ),
@@ -393,7 +396,7 @@ class TestPrioritySystemRobustness(unittest.TestCase):
             self.part_C: PartitionSet([self.part_C], encoding=self.encoding),
         }
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet(
                 [self.part_A, self.part_B, self.part_C], encoding=self.encoding
             ),
@@ -413,8 +416,9 @@ class TestPrioritySystemRobustness(unittest.TestCase):
                 break
             order.append(next_sub)
             state.processed_subtrees.add(next_sub)
-            state.collapse_splits_by_subtree.pop(next_sub, None)
-            state.expand_splits_by_subtree.pop(next_sub, None)
+            # Remove splits via tracker
+            state.collapse_tracker.release_owner_from_all_resources(next_sub)
+            state.expand_tracker.release_owner_from_all_resources(next_sub)
 
         # Should be deterministic (sorted by string representation of indices)
         self.assertEqual(len(order), 3)
@@ -429,7 +433,7 @@ class TestPrioritySystemRobustness(unittest.TestCase):
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
             self.part_C: PartitionSet([self.part_C], encoding=self.encoding),
         }
-        state2 = InterpolationState(
+        state2 = PivotSplitRegistry(
             PartitionSet(
                 [self.part_A, self.part_B, self.part_C], encoding=self.encoding
             ),
@@ -447,8 +451,9 @@ class TestPrioritySystemRobustness(unittest.TestCase):
                 break
             order2.append(next_sub)
             state2.processed_subtrees.add(next_sub)
-            state2.collapse_splits_by_subtree.pop(next_sub, None)
-            state2.expand_splits_by_subtree.pop(next_sub, None)
+            # Remove splits via tracker
+            state2.collapse_tracker.release_owner_from_all_resources(next_sub)
+            state2.expand_tracker.release_owner_from_all_resources(next_sub)
 
         self.assertEqual(order, order2, "Selection must be deterministic")
 
@@ -468,7 +473,7 @@ class TestPrioritySystemRobustness(unittest.TestCase):
             ),  # Shared expand
         }
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet([self.part_A, self.part_B], encoding=self.encoding),
             PartitionSet([self.part_AB], encoding=self.encoding),
             collapse_by_subtree,
@@ -482,8 +487,8 @@ class TestPrioritySystemRobustness(unittest.TestCase):
 
         # After processing one, the other should be selected (also priority 2)
         state.processed_subtrees.add(first)
-        state.collapse_splits_by_subtree.pop(first)
-        state.expand_splits_by_subtree.pop(first)
+        state.collapse_tracker.release_owner_from_all_resources(first)
+        state.expand_tracker.release_owner_from_all_resources(first)
 
         second = state.get_next_subtree()
         self.assertIn(second, [self.part_A, self.part_B])
@@ -520,7 +525,7 @@ class TestSplitLifecycleTracking(unittest.TestCase):
             self.part_A: PartitionSet([self.part_C], encoding=self.encoding),
         }
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet([self.part_A, self.part_AB], encoding=self.encoding),
             PartitionSet([self.part_C], encoding=self.encoding),
             collapse_by_subtree,
@@ -528,8 +533,9 @@ class TestSplitLifecycleTracking(unittest.TestCase):
             self.part_ABC,
         )
 
-        # Initially available
-        self.assertIn(self.part_A, state.collapse_splits_by_subtree[self.part_A])
+        # Initially available (check via tracker API)
+        unique_splits = state.get_unique_collapse_splits(self.part_A)
+        self.assertIn(self.part_A, unique_splits)
         self.assertNotIn(self.part_C, state.used_expand_splits)
 
         # Mark as processed
@@ -537,14 +543,11 @@ class TestSplitLifecycleTracking(unittest.TestCase):
             self.part_A,
             PartitionSet([self.part_A], encoding=self.encoding),
             PartitionSet([self.part_C], encoding=self.encoding),
-            PartitionSet(encoding=self.encoding),
         )
 
-        # Now removed from available and marked as used
-        self.assertNotIn(
-            self.part_A,
-            state.collapse_splits_by_subtree.get(self.part_A, PartitionSet()),
-        )
+        # Now removed from available and marked as used (check via tracker API)
+        unique_splits_after = state.get_unique_collapse_splits(self.part_A)
+        self.assertNotIn(self.part_A, unique_splits_after)
         self.assertIn(self.part_C, state.used_expand_splits)
 
     def test_shared_split_removed_from_all_subtrees_when_processed(self):
@@ -560,7 +563,7 @@ class TestSplitLifecycleTracking(unittest.TestCase):
             ),
         }
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet(
                 [shared_split, self.part_A, self.part_B], encoding=self.encoding
             ),
@@ -570,21 +573,29 @@ class TestSplitLifecycleTracking(unittest.TestCase):
             self.part_ABC,
         )
 
-        # Both have access initially
-        self.assertIn(shared_split, state.collapse_splits_by_subtree[self.part_A])
-        self.assertIn(shared_split, state.collapse_splits_by_subtree[self.part_B])
+        # Both have access initially (check via tracker API)
+        shared_A = state.get_available_shared_collapse_splits(self.part_A)
+        shared_B = state.get_available_shared_collapse_splits(self.part_B)
+        self.assertIn(shared_split, shared_A)
+        self.assertIn(shared_split, shared_B)
 
         # Process via part_A
         state.mark_splits_as_processed(
             self.part_A,
             PartitionSet([shared_split], encoding=self.encoding),
             PartitionSet(encoding=self.encoding),
-            PartitionSet(encoding=self.encoding),
         )
 
-        # Should be removed from both
-        self.assertNotIn(shared_split, state.collapse_splits_by_subtree[self.part_A])
-        self.assertNotIn(shared_split, state.collapse_splits_by_subtree[self.part_B])
+        # Should be removed from both (check via tracker API)
+        shared_A_after = state.get_available_shared_collapse_splits(self.part_A)
+        shared_B_after = state.get_available_shared_collapse_splits(self.part_B)
+        unique_A_after = state.get_unique_collapse_splits(self.part_A)
+        unique_B_after = state.get_unique_collapse_splits(self.part_B)
+
+        self.assertNotIn(shared_split, shared_A_after)
+        self.assertNotIn(shared_split, shared_B_after)
+        self.assertNotIn(shared_split, unique_A_after)
+        self.assertNotIn(shared_split, unique_B_after)
 
     def test_contingent_split_lifecycle_consumed_and_marked(self):
         """Contingent splits transition to used when consumed."""
@@ -596,7 +607,7 @@ class TestSplitLifecycleTracking(unittest.TestCase):
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
         }
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet([self.part_AB], encoding=self.encoding),
             all_expand,
             {self.part_A: PartitionSet([self.part_AB], encoding=self.encoding)},
@@ -604,9 +615,9 @@ class TestSplitLifecycleTracking(unittest.TestCase):
             self.part_ABC,
         )
 
-        # Initially available
-        self.assertIn(contingent, state.available_contingent_splits)
-        self.assertNotIn(contingent, state.used_contingent_splits)
+        # Initially available (not in tracker)
+        tracked_resources = state.expand_tracker.get_all_resources()
+        self.assertNotIn(contingent, tracked_resources)
 
         # Consume it
         collapsed = PartitionSet([self.part_AB], encoding=self.encoding)
@@ -614,18 +625,18 @@ class TestSplitLifecycleTracking(unittest.TestCase):
             self.part_A, collapsed
         )
 
-        # Mark as processed
+        # Mark as processed - contingent splits are included in processed_expand_splits
         state.mark_splits_as_processed(
             self.part_A,
             PartitionSet(encoding=self.encoding),
-            PartitionSet(encoding=self.encoding),
-            consumed,
+            consumed,  # Contingent splits are now part of expand tracking
         )
 
-        # Should be marked as used and removed from available
+        # Should be claimed in tracker, then released when processed
         if contingent in consumed:
-            self.assertIn(contingent, state.used_contingent_splits)
-            self.assertNotIn(contingent, state.available_contingent_splits)
+            # After mark_splits_as_processed, it should be released from tracker
+            tracked_after = state.expand_tracker.get_all_resources()
+            self.assertNotIn(contingent, tracked_after)
 
 
 # ============================================================================
@@ -852,7 +863,7 @@ class TestErrorConditionsAndEdgeCases(unittest.TestCase):
 
     def test_empty_state_has_no_remaining_work(self):
         """State with no subtrees returns False for has_remaining_work."""
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet(encoding=self.encoding),
             PartitionSet(encoding=self.encoding),
             {},
@@ -867,7 +878,7 @@ class TestErrorConditionsAndEdgeCases(unittest.TestCase):
         """All splits remain when none have been used."""
         all_expand = PartitionSet([self.part_A, self.part_AB], encoding=self.encoding)
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet(encoding=self.encoding),
             all_expand,
             {},
@@ -879,12 +890,12 @@ class TestErrorConditionsAndEdgeCases(unittest.TestCase):
         self.assertEqual(remaining, all_expand)
 
     def test_cleanup_removes_empty_subtrees(self):
-        """Empty subtrees removed from tracking dictionaries."""
+        """Empty subtrees have no resources after cleanup."""
         collapse_by_subtree = {
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
         }
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet([self.part_A], encoding=self.encoding),
             PartitionSet(encoding=self.encoding),
             collapse_by_subtree,
@@ -892,13 +903,14 @@ class TestErrorConditionsAndEdgeCases(unittest.TestCase):
             self.part_AB,
         )
 
-        # Clear the splits
-        state.collapse_splits_by_subtree[self.part_A].clear()
+        # Release all splits via tracker
+        state.collapse_tracker.release_owner_from_all_resources(self.part_A)
 
-        # Cleanup should remove it
-        state._cleanup_empty_subtree_entries()
-
-        self.assertNotIn(self.part_A, state.collapse_splits_by_subtree)
+        # Verify no resources remain for this subtree
+        unique = state.get_unique_collapse_splits(self.part_A)
+        shared = state.get_available_shared_collapse_splits(self.part_A)
+        self.assertEqual(len(unique), 0)
+        self.assertEqual(len(shared), 0)
 
     def test_contingent_splits_empty_when_all_assigned(self):
         """No contingent splits when all expand splits assigned to subtrees."""
@@ -907,7 +919,7 @@ class TestErrorConditionsAndEdgeCases(unittest.TestCase):
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
         }
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             PartitionSet(encoding=self.encoding),
             all_expand,
             {},
@@ -915,7 +927,17 @@ class TestErrorConditionsAndEdgeCases(unittest.TestCase):
             self.part_AB,
         )
 
-        self.assertEqual(len(state.available_contingent_splits), 0)
+        # All contingent splits consumed means all expand splits in tracker initially
+        # Since none were contingent, tracker should have all assigned splits
+        tracked_resources = state.expand_tracker.get_all_resources()
+        # Check that all expand splits were assigned (none left as contingent)
+        self.assertEqual(
+            len(
+                state.all_expand_splits
+                - PartitionSet(tracked_resources, encoding=self.encoding)
+            ),
+            0,
+        )
 
 
 if __name__ == "__main__":

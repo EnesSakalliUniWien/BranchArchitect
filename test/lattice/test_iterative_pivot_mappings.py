@@ -19,7 +19,9 @@ from brancharchitect.elements.partition import Partition
 from brancharchitect.jumping_taxa.lattice.mapping.iterative_pivot_mappings import (
     map_iterative_pivot_edges_to_original,
 )
-from brancharchitect.jumping_taxa.lattice.pivot_edge_solver import lattice_algorithm
+from brancharchitect.jumping_taxa.lattice.solvers.pivot_edge_solver import (
+    lattice_algorithm,
+)
 
 
 def _build_identical_small_tree():
@@ -44,10 +46,11 @@ def test_direct_pivot_maps_to_maximum_nonroot_split():
     pivot = _p(("A", "B"), enc)
 
     # No jumping taxa -> direct pivot
-    mapped = map_iterative_pivot_edges_to_original([pivot], t1, t2, t1, t2, [[]])
+    mapped = map_iterative_pivot_edges_to_original([pivot], t1, t2, [[]])
 
-    # Expect the largest non-root containing split: (A,B,C)
-    expected = _p(("A", "B", "C"), enc)
+    # Expect the split that strictly matches the pivot in the pruned context: (A,B)
+    # (A,B,C) is rejected because it contains C which is present in the tree but not in the pivot.
+    expected = _p(("A", "B"), enc)
     assert len(mapped) == 1
     assert mapped[0] == expected
 
@@ -60,9 +63,7 @@ def test_pivot_with_jumping_maps_to_minimum_containing_split():
     # Jumping taxa include C
     jumping = _p(("C",), enc)
 
-    mapped = map_iterative_pivot_edges_to_original(
-        [pivot], t1, t2, t1, t2, [[jumping]]
-    )
+    mapped = map_iterative_pivot_edges_to_original([pivot], t1, t2, [[jumping]])
 
     # Minimal containing split for {A,B} ∪ {C} is (A,B,C)
     expected = _p(("A", "B", "C"), enc)
@@ -77,9 +78,7 @@ def test_pivot_with_jumping_falls_back_to_root_if_needed():
     pivot = _p(("A", "B"), enc)
     jumping = _p(("D",), enc)
 
-    mapped = map_iterative_pivot_edges_to_original(
-        [pivot], t1, t2, t1, t2, [[jumping]]
-    )
+    mapped = map_iterative_pivot_edges_to_original([pivot], t1, t2, [[jumping]])
 
     # No non-root split contains {A,B} ∪ {D}, so expect root split
     root = t1.split_indices  # full set
@@ -105,7 +104,7 @@ def test_bootstrap_52_mapping_produces_valid_common_splits():
 
     # Map to original trees
     mapped = map_iterative_pivot_edges_to_original(
-        pivot_edges, orig_t1, orig_t2, orig_t1, orig_t2, solutions_list
+        pivot_edges, orig_t1, orig_t2, solutions_list
     )
 
     # All mapped splits must be in the original common splits

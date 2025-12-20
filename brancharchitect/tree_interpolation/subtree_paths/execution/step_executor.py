@@ -18,7 +18,7 @@ def apply_stepwise_plan_for_edge(
     current_pivot_edge: Partition,
     expand_paths_for_pivot_edge: Dict[Partition, PartitionSet[Partition]],
     collapse_paths_for_pivot_edge: Dict[Partition, PartitionSet[Partition]],
-) -> Tuple[List[Node], List[Optional[Partition]], Node]:
+) -> Tuple[List[Node], List[Optional[Partition]], Node, List[Partition]]:
     """
     Executes the stepwise plan for one pivot edge (active-changing split) across all selections.
     Returns the generated trees/edges and the updated interpolation state.
@@ -31,10 +31,11 @@ def apply_stepwise_plan_for_edge(
         collapse_paths_for_pivot_edge: Paths for partitions that will be collapsed
 
     Returns:
-        Tuple of (trees, edges, interpolation_state)
+        Tuple of (trees, edges, interpolation_state, subtree_tracker)
     """
     trees: List[Node] = []
     edges: List[Optional[Partition]] = []
+    subtree_tracker: List[Partition] = []
     interpolation_state: Node = current_base_tree.deep_copy()
 
     selections: Dict[Partition, Dict[str, Any]] = build_edge_plan(
@@ -65,13 +66,16 @@ def apply_stepwise_plan_for_edge(
     for _, (subtree, selection) in enumerate(selections.items(), start=1):
         # Add the subtree back to the selection for compatibility
         selection_with_subtree: Dict[str, Any] = {**selection, "subtree": subtree}
-        step_trees, step_edges, interpolation_state = build_microsteps_for_selection(
-            interpolation_state=interpolation_state,
-            destination_tree=destination_tree,
-            current_pivot_edge=current_pivot_edge,
-            selection=selection_with_subtree,
+        step_trees, step_edges, interpolation_state, step_subtree_tracker = (
+            build_microsteps_for_selection(
+                interpolation_state=interpolation_state,
+                destination_tree=destination_tree,
+                current_pivot_edge=current_pivot_edge,
+                selection=selection_with_subtree,
+            )
         )
         trees.extend(step_trees)
         edges.extend(step_edges)
+        subtree_tracker.extend(step_subtree_tracker)
 
-    return trees, edges, interpolation_state
+    return trees, edges, interpolation_state, subtree_tracker

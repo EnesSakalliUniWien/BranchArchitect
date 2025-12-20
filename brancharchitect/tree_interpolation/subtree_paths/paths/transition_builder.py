@@ -9,6 +9,9 @@ from typing import Dict, List
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree import Node
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_subtree_paths(
@@ -75,5 +78,12 @@ def calculate_subtree_paths(
             )
 
             target_subtree_paths[current_pivot_edge][subtree] = target_partitions
+
+            logger.debug(
+                "[paths] pivot=%s subtree=%s target_partitions=%s",
+                current_pivot_edge.bipartition(),
+                subtree.bipartition(),
+                [list(p.indices) for p in target_partitions],
+            )
 
     return reference_subtree_paths, target_subtree_paths

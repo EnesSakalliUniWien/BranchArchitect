@@ -21,3 +21,5 @@ backend.log
 backend_startup.log
 reports
 misc
+package-lock.json
+.DS_Store

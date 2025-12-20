@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.metrics import silhouette_score
 from typing import List, Tuple, Any
 from numpy.typing import NDArray
+from brancharchitect.distances.analysis.clustering import perform_clustering
 
 
 def objective_function(

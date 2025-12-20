@@ -11,21 +11,18 @@ from typing import List, Dict, Any
 BENCHMARK_COMBINATIONS: List[Dict[str, Any]] = [
     {
         "label": "Original Order",
-        "fiedler": False,   # ignored; Fiedler ordering deprecated
         "optimizer": False,
         "bidirectional": False,
         "explanation": "No reordering or optimization; baseline.",
     },
     {
         "label": "TreeOrderOptimizer Local (forward)",
-        "fiedler": False,   # ignored; Fiedler ordering deprecated
         "optimizer": True,
         "bidirectional": False,
         "explanation": "Runs the local optimizer in forward mode only (left-to-right).",
     },
     {
         "label": "TreeOrderOptimizer Local (bidirectional)",
-        "fiedler": False,   # ignored; Fiedler ordering deprecated
         "optimizer": True,
         "bidirectional": True,
         "explanation": "Runs the local optimizer in both directions (left-to-right and right-to-left).",

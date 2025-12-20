@@ -1,5 +1,5 @@
 """
-Test suite for incompatibility detection in state_v2.py
+Test suite for incompatibility detection in state.py
 
 This module tests the enhanced incompatibility detection that uses
 Partition.is_compatible_with() to identify splits that must be collapsed
@@ -16,8 +16,11 @@ Key test scenarios:
 import pytest
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.subtree_paths.planning.state_v2 import (
-    InterpolationState,
+from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
+    PivotSplitRegistry,
+)
+from brancharchitect.tree_interpolation.subtree_paths.analysis.split_analysis import (
+    find_incompatible_splits,
 )
 
 
@@ -103,7 +106,7 @@ class TestIncompatibilityDetection:
 
     def test_find_single_incompatible_split(self, encoding):
         """
-        Test finding a single incompatible split in state_v2.
+        Test finding a single incompatible split in state.
 
         Setup:
             - Expand split: (A, B, C)
@@ -124,7 +127,7 @@ class TestIncompatibilityDetection:
         )
 
         # Create state (minimal setup)
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -133,9 +136,7 @@ class TestIncompatibilityDetection:
         )
 
         # Find incompatible splits
-        incompatible = state.find_all_incompatible_splits_for_expand(
-            expand_splits, collapse_splits
-        )
+        incompatible = find_incompatible_splits(expand_splits, collapse_splits)
 
         # Should find exactly one incompatible split
         assert len(incompatible) == 1
@@ -170,7 +171,7 @@ class TestIncompatibilityDetection:
             [collapse_split_1, collapse_split_2, collapse_split_3], encoding=encoding
         )
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -178,9 +179,7 @@ class TestIncompatibilityDetection:
             active_changing_edge=Partition((0,), encoding),
         )
 
-        incompatible = state.find_all_incompatible_splits_for_expand(
-            expand_splits, collapse_splits
-        )
+        incompatible = find_incompatible_splits(expand_splits, collapse_splits)
 
         # Should find two incompatible splits
         assert len(incompatible) == 2
@@ -190,7 +189,7 @@ class TestIncompatibilityDetection:
 
     def test_empty_sets(self, encoding):
         """Test that empty sets return empty results"""
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             all_collapse_splits=PartitionSet(encoding=encoding),
             all_expand_splits=PartitionSet(encoding=encoding),
             collapse_splits_by_subtree={},
@@ -199,14 +198,14 @@ class TestIncompatibilityDetection:
         )
 
         # Empty expand splits
-        result = state.find_all_incompatible_splits_for_expand(
+        result = find_incompatible_splits(
             PartitionSet(encoding=encoding),
             PartitionSet([Partition((0, 1), encoding)], encoding=encoding),
         )
         assert len(result) == 0
 
         # Empty collapse splits
-        result = state.find_all_incompatible_splits_for_expand(
+        result = find_incompatible_splits(
             PartitionSet([Partition((0, 1), encoding)], encoding=encoding),
             PartitionSet(encoding=encoding),
         )
@@ -223,7 +222,7 @@ class TestIncompatibilityDetection:
         expand_splits = PartitionSet([split], encoding=encoding)
         collapse_splits = PartitionSet([split], encoding=encoding)
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -231,9 +230,7 @@ class TestIncompatibilityDetection:
             active_changing_edge=Partition((0,), encoding),
         )
 
-        incompatible = state.find_all_incompatible_splits_for_expand(
-            expand_splits, collapse_splits
-        )
+        incompatible = find_incompatible_splits(expand_splits, collapse_splits)
 
         # Should be empty - a split is not incompatible with itself
         assert len(incompatible) == 0
@@ -279,7 +276,7 @@ class TestRealTreeScenarios:
             [collapse_a1_a2, collapse_b_c1, collapse_c1_c2], encoding=encoding
         )
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -287,9 +284,7 @@ class TestRealTreeScenarios:
             active_changing_edge=Partition((0,), encoding),
         )
 
-        incompatible = state.find_all_incompatible_splits_for_expand(
-            expand_splits, collapse_splits
-        )
+        incompatible = find_incompatible_splits(expand_splits, collapse_splits)
 
         # Should find two incompatible splits
         assert len(incompatible) == 2
@@ -314,7 +309,7 @@ class TestRealTreeScenarios:
         expand_splits = PartitionSet([expand_a1_a2], encoding=encoding)
         collapse_splits = PartitionSet([collapse_a1_a2_b], encoding=encoding)
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -322,9 +317,7 @@ class TestRealTreeScenarios:
             active_changing_edge=Partition((0,), encoding),
         )
 
-        incompatible = state.find_all_incompatible_splits_for_expand(
-            expand_splits, collapse_splits
-        )
+        incompatible = find_incompatible_splits(expand_splits, collapse_splits)
 
         # Should be empty - nested splits are compatible
         assert len(incompatible) == 0
@@ -351,7 +344,7 @@ class TestRealTreeScenarios:
             [collapse_1, collapse_2, collapse_3], encoding=encoding
         )
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -359,9 +352,7 @@ class TestRealTreeScenarios:
             active_changing_edge=Partition((0,), encoding),
         )
 
-        incompatible = state.find_all_incompatible_splits_for_expand(
-            expand_splits, collapse_splits
-        )
+        incompatible = find_incompatible_splits(expand_splits, collapse_splits)
 
         # All three should be incompatible
         assert len(incompatible) == 3
@@ -396,7 +387,7 @@ class TestCollapseBeforeExpand:
             [incompatible_split, other_collapse], encoding=encoding
         )
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -405,9 +396,7 @@ class TestCollapseBeforeExpand:
         )
 
         # Find what must be collapsed
-        must_collapse = state.find_all_incompatible_splits_for_expand(
-            expand_splits, collapse_splits
-        )
+        must_collapse = find_incompatible_splits(expand_splits, collapse_splits)
 
         # Verify only the incompatible split is identified
         assert len(must_collapse) == 1
@@ -442,7 +431,7 @@ class TestCollapseBeforeExpand:
             [collapse_1, collapse_2, collapse_3], encoding=encoding
         )
 
-        state = InterpolationState(
+        state = PivotSplitRegistry(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -451,9 +440,7 @@ class TestCollapseBeforeExpand:
         )
 
         # Find all incompatibilities
-        must_collapse = state.find_all_incompatible_splits_for_expand(
-            expand_splits, collapse_splits
-        )
+        must_collapse = find_incompatible_splits(expand_splits, collapse_splits)
 
         # Should find both incompatible splits
         assert len(must_collapse) == 2

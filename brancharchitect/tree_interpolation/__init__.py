@@ -14,12 +14,8 @@ The module is organized into several submodules:
 Main functions:
 - interpolate_tree: Basic interpolation between two trees
 - interpolate_adjacent_tree_pairs: Interpolate sequential tree pairs
-- build_sequential_lattice_interpolations: Advanced lattice-based interpolation
 """
 
-from brancharchitect.tree_interpolation.sequential_interpolation import (
-    build_sequential_lattice_interpolations,
-)
 from brancharchitect.tree_interpolation.classical_interpolation import (
     interpolate_adjacent_tree_pairs,
     interpolate_tree,
@@ -28,5 +24,4 @@ from brancharchitect.tree_interpolation.classical_interpolation import (
 __all__: list[str] = [
     "interpolate_tree",
     "interpolate_adjacent_tree_pairs",
-    "build_sequential_lattice_interpolations",
 ]

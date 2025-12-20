@@ -13,6 +13,11 @@ from brancharchitect.io import UUIDEncoder
 from webapp.routes.helpers import parse_tree_data_request
 from webapp.services.tree_processing_service import handle_uploaded_file
 from typing import Union, Tuple
+import tempfile
+import os
+from werkzeug.datastructures import FileStorage
+import shutil  # Added for temporary directory cleanup
+from msa_to_trees.pipeline import run_pipeline
 
 bp = Blueprint("main", __name__)
 
@@ -35,6 +40,61 @@ def favicon():
     )
 
 
+def _run_msa_analysis_and_interpolate(
+    msa_content: str,
+    window_size: int,
+    window_step: int,
+    enable_rooting: bool,
+) -> Dict[str, Any]:
+    """Run the MSA → tree pipeline and return the normal response structure."""
+
+    log: Logger = current_app.logger
+    temp_dir = tempfile.mkdtemp(prefix="msa-analysis-")
+
+    try:
+        log.info("[msa_analysis] Starting MSA analysis...")
+        msa_path = os.path.join(temp_dir, "input.msa")
+        analysis_output_dir = os.path.join(temp_dir, "output")
+
+        with open(msa_path, "w") as f:
+            f.write(msa_content)
+
+        log.info("[msa_analysis] Running analysis pipeline...")
+        tree_file_path = run_pipeline(
+            input_file=msa_path,
+            output_directory=analysis_output_dir,
+            window_size=window_size,
+            step_size=window_step,
+        )
+
+        if not os.path.exists(tree_file_path):
+            raise FileNotFoundError(
+                "Analysis script finished but did not produce the expected tree file."
+            )
+
+        with open(tree_file_path, "rb") as tree_file_stream:
+            mock_tree_file = FileStorage(
+                stream=tree_file_stream,
+                filename=os.path.basename(tree_file_path),
+                content_type="application/octet-stream",
+            )
+
+            log.info(
+                "[msa_analysis] Generated tree file from MSA. Running interpolation service."
+            )
+
+            return handle_uploaded_file(
+                mock_tree_file,
+                msa_content=msa_content,
+                enable_rooting=enable_rooting,
+                window_size=window_size,
+                window_step=window_step,
+            )
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        log.info(f"[msa_analysis] Cleaned up temporary directory: {temp_dir}")
+
+
 # ----------------------------------------------------------------------
 # Main business endpoint – tree upload & analysis
 # ----------------------------------------------------------------------
@@ -48,6 +108,32 @@ def treedata() -> Union[Response, Tuple[dict[str, Any], int]]:
     try:
         req_data = parse_tree_data_request(request)
 
+        # --- Handle MSA-only input synchronously so response shape matches tree uploads ---
+        if req_data.tree_file is None:
+            if not req_data.msa_content:
+                raise ValueError("Uploaded file 'msaFile' is empty.")
+
+            log.info(
+                "[treedata] MSA file provided without a tree file. Running analysis inline for consistent response."
+            )
+
+            response_data = _run_msa_analysis_and_interpolate(
+                msa_content=req_data.msa_content,
+                window_size=req_data.window_size,
+                window_step=req_data.window_step,
+                enable_rooting=req_data.enable_rooting,
+            )
+
+            log.info(
+                f"[treedata] Processed {len(response_data.get('interpolated_trees', []))} trees from MSA-only request"
+            )
+
+            return Response(
+                json.dumps(response_data, cls=UUIDEncoder),
+                mimetype="application/json",
+            )
+
+        # --- Existing logic for tree file upload ---
         log.info(
             f"[treedata] Processing file: {req_data.tree_file.filename}, "
             f"Rooting: {req_data.enable_rooting}, "

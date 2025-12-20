@@ -1,4 +1,4 @@
-from typing import Dict, List, FrozenSet
+from typing import Dict, List, FrozenSet, Tuple
 
 # Assuming these imports point to valid modules in your project structure
 from brancharchitect.tree import Node
@@ -16,38 +16,52 @@ def _ensure_split_indices(tree: Node) -> None:
     tree.initialize_split_indices(tree.taxa_encoding)
 
 
-def _collect_subtree_splits(
-    node: Node, subtree_splits_map: Dict[Node, PartitionSet[Partition]]
-) -> PartitionSet[Partition]:
-    """Recursively collect all splits in the subtree rooted at node."""
-    subs: PartitionSet[Partition] = PartitionSet()
-    for ch in node.children:
-        subs |= _collect_subtree_splits(ch, subtree_splits_map)
-    if node.children:
-        subs.add(node.split_indices)
-    subtree_splits_map[node] = subs
-    return subs
-
-
-def _classify_node(
+def _classify_node_optimized(
     node: Node,
-    splits: PartitionSet[Partition],
-    s_ref: PartitionSet[Partition],
     s_common: PartitionSet[Partition],
-) -> str:
-    """Classify a node based on its split membership and subtree splits."""
-    node_in_ref: bool = node.split_indices in s_ref
-    fully_in_ref: bool = splits.issubset(s_common)
-    fully_out_ref: bool = splits.isdisjoint(s_common)
+    classification_map: Dict[Node, str],
+) -> Tuple[bool, bool]:
+    """
+    Recursively classify nodes and return (is_subtree_fully_common, is_subtree_fully_unique).
 
-    if node_in_ref and fully_in_ref:
-        return "full-common"
-    elif node_in_ref and not fully_in_ref:
-        return "common-changed"
-    elif (not node_in_ref) and fully_out_ref:
-        return "full-unique"
+    is_subtree_fully_common: All splits in subtree (including self) are in s_common.
+    is_subtree_fully_unique: No splits in subtree (including self) are in s_common.
+    """
+    if not node.children:
+        # Leaves do not have splits in the internal node sense,
+        # but for the recursion logic, they are neutral.
+        # They don't violate "fully common" (no bad splits)
+        # and don't violate "fully unique" (no common splits).
+        return True, True
+
+    all_children_common = True
+    all_children_unique = True
+
+    for ch in node.children:
+        c_common, c_unique = _classify_node_optimized(ch, s_common, classification_map)
+        if not c_common:
+            all_children_common = False
+        if not c_unique:
+            all_children_unique = False
+
+    # Check current node's split
+    # Note: split_indices must be initialized
+    is_in_common = node.split_indices in s_common
+
+    is_fully_common = is_in_common and all_children_common
+    is_fully_unique = (not is_in_common) and all_children_unique
+
+    # Determine classification
+    if is_fully_common:
+        classification_map[node] = "full-common"
+    elif is_fully_unique:
+        classification_map[node] = "full-unique"
+    elif is_in_common:
+        classification_map[node] = "common-changed"
     else:
-        return "unique-changed"
+        classification_map[node] = "unique-changed"
+
+    return is_fully_common, is_fully_unique
 
 
 def classify_subtrees_using_set_ops(
@@ -61,6 +75,8 @@ def classify_subtrees_using_set_ops(
       - 'common-changed': The node's split exists in tree_ref, but its descendant topology differs.
       - 'full-unique'   : The node's split and its descendant topology are entirely absent from tree_ref.
       - 'unique-changed': A mix of unique and common splits in the descendants.
+
+    Optimized implementation: O(N) instead of O(N^2).
     """
     _ensure_split_indices(tree_ref)
     _ensure_split_indices(tree_target)
@@ -69,13 +85,10 @@ def classify_subtrees_using_set_ops(
     s_tgt: PartitionSet[Partition] = tree_target.to_splits()
     s_common: PartitionSet[Partition] = s_ref & s_tgt
 
-    subtree_splits_map: Dict[Node, PartitionSet[Partition]] = {}
-    _collect_subtree_splits(tree_target, subtree_splits_map)
-
     classification_map: Dict[Node, str] = {}
-    for node, splits in subtree_splits_map.items():
-        if node.children:  # Only classify internal nodes
-            classification_map[node] = _classify_node(node, splits, s_ref, s_common)
+
+    # Run optimized recursive classification
+    _classify_node_optimized(tree_target, s_common, classification_map)
 
     return classification_map
 
