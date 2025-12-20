@@ -51,10 +51,11 @@ def handle_uploaded_file(
     parsed_trees: Node | List[Node] = parse_newick(content, treat_zero_as_epsilon=True)
 
     # Ensure trees is always a list
+    trees: List[Node]
     if isinstance(parsed_trees, Node):
-        trees: List[Node] = [parsed_trees]
+        trees = [parsed_trees]
     else:
-        trees: List[Node] = parsed_trees
+        trees = parsed_trees
 
     if not trees:
         logger.debug("No trees parsed - returning empty response")

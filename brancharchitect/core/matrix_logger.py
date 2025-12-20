@@ -1,14 +1,16 @@
 """Matrix display functionality for logs."""
 
 import re
-from typing import Any, List, Callable, Optional
+from typing import Any, List, Callable, Optional, TYPE_CHECKING
 
 from brancharchitect.core.base_logger import AlgorithmLogger
 from brancharchitect.core.formatting import (
     format_partition_set,
     beautify_frozenset,
 )
-from brancharchitect.jumping_taxa.lattice.types import PMatrix
+
+if TYPE_CHECKING:
+    from brancharchitect.jumping_taxa.lattice.types.types import PMatrix
 
 
 def to_latex_matrix(
@@ -39,15 +41,12 @@ def to_latex_matrix(
     return latex_code
 
 
-    
-
-
 class MatrixLogger(AlgorithmLogger):
     """Extension of AlgorithmLogger with matrix display support."""
 
     def matrix(
         self,
-        matrix: PMatrix,
+        matrix: "PMatrix",
         format_func: Optional[Callable[[object], str]] = None,
         title: str = "",
     ) -> None:

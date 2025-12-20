@@ -72,6 +72,17 @@ def reorder_tree_toward_destination(
     )
     insertion_index = len(anchors_before_in_src_order)
 
+    # If movers are already contiguous and at the intended slot, do nothing
+    mover_indices = [i for i, t in enumerate(source_order) if t in mover_leaves]
+    if mover_indices:
+        current_start = min(mover_indices)
+        contiguous = max(mover_indices) - current_start + 1 == len(mover_indices)
+        if contiguous and current_start == insertion_index:
+            mover_block_src = [taxon for taxon in source_order if taxon in mover_leaves]
+            mover_block_dst = [taxon for taxon in destination_order if taxon in mover_leaves]
+            if mover_block_src == mover_block_dst:
+                return source_tree.deep_copy()
+
     # 3. Build the new order: anchors remain in SOURCE order, movers inserted en bloc
     new_order: List[str] = list(source_anchors)
     mover_block_src = [taxon for taxon in source_order if taxon in mover_leaves]
@@ -80,7 +91,7 @@ def reorder_tree_toward_destination(
     # Preserve movers' internal order; only move the block relative to anchors.
     # If destination has the same ordering, this is identical; otherwise we keep
     # the source mover order while placing it at the destination anchor slot.
-    mover_block_ordered = mover_block_src
+    mover_block_ordered = mover_block_dst or mover_block_src
 
     if insertion_index > len(new_order):
         insertion_index = len(new_order)

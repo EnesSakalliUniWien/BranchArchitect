@@ -20,7 +20,7 @@ from brancharchitect.tree_interpolation.edge_sorting_utils import (
 )
 
 # Import here to avoid circular import
-from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
     compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.tree_interpolation.types import (
@@ -93,14 +93,17 @@ def process_tree_pair_interpolation(
         ascending=True,  # Leaves to root: subsets before supersets
     )
 
-    sequence_trees, failed_active_split, current_pivot_edge_tracking = (
-        create_interpolation_for_active_split_sequence(
-            source_tree=source_tree,
-            destination_tree=destination_tree,
-            target_pivot_edges=ordered_edges,
-            jumping_subtree_solutions=jumping_subtree_solutions,
-            pair_index=pair_index,
-        )
+    (
+        sequence_trees,
+        failed_active_split,
+        current_pivot_edge_tracking,
+        current_subtree_tracking,
+    ) = create_interpolation_for_active_split_sequence(
+        source_tree=source_tree,
+        destination_tree=destination_tree,
+        target_pivot_edges=ordered_edges,
+        jumping_subtree_solutions=jumping_subtree_solutions,
+        pair_index=pair_index,
     )
 
     # Final topology check: ensure last interpolated tree matches destination
@@ -118,6 +121,7 @@ def process_tree_pair_interpolation(
             )
             sequence_trees.append(destination_tree.deep_copy())
             current_pivot_edge_tracking.append(None)
+            current_subtree_tracking.append(None)
 
     # For identical trees (no active edges), ensure destination tree has same ordering as source
     if not ordered_edges:
@@ -138,4 +142,5 @@ def process_tree_pair_interpolation(
         trees=sequence_trees,
         current_pivot_edge_tracking=current_pivot_edge_tracking,
         jumping_subtree_solutions=jumping_subtree_solutions,
+        current_subtree_tracking=current_subtree_tracking,
     )

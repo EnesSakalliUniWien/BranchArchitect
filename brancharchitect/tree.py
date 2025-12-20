@@ -487,7 +487,10 @@ class Node:
                     strategy_fn(child.get_leaves()),
                     tuple(
                         sorted(
-                            (_visual_order_indices[leaf.name] for leaf in child.get_leaves())
+                            (
+                                _visual_order_indices[leaf.name]
+                                for leaf in child.get_leaves()
+                            )
                         )
                     ),
                 ),

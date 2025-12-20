@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import List, Dict
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
-from brancharchitect.jumping_taxa.lattice.edge_depth_ordering import (
+from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
     compute_pivot_edge_depths,
 )
 
@@ -18,18 +18,19 @@ def sort_edges_by_depth(
     edges: List[Partition], tree: Node, ascending: bool = True
 ) -> List[Partition]:
     """
-    Sort edges by their depth in the tree with deterministic tie-breaking.
+    Sort edges by their hierarchical depth in the tree with deterministic tie-breaking.
 
     Sorting criteria (in priority order):
-    1. Depth in tree (primary)
-    2. Partition size (secondary)
-    3. Sorted indices (deterministic tiebreaker)
+    1. Topological Rank (primary): Rank from topological sort where subsets < supersets.
+       (Ensures strict subset-before-superset ordering).
+    2. Partition size (secondary): Smaller partitions first.
+    3. Sorted indices (deterministic tiebreaker): Lexicographical order of indices.
 
     Args:
         edges: List of partitions to sort
         tree: Tree to compute depths from
-        ascending: If True, sort shallow to deep (leaves first, subsets before supersets)
-                  If False, sort deep to shallow (root first, supersets before subsets)
+        ascending: If True, sort by increasing rank (Subsets -> Supersets / Leaves -> Root).
+                  If False, sort by decreasing rank (Supersets -> Subsets / Root -> Leaves).
 
     Returns:
         Sorted list of edges

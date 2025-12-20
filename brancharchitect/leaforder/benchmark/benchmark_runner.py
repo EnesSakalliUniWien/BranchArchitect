@@ -62,7 +62,6 @@ def run_benchmark_combinations(
         trees = [t.deep_copy() for t in original_trees]
         optimizer = TreeOrderOptimizer(trees)
 
-        # Fiedler ordering deprecated: ignore 'fiedler' flag
         if combo["optimizer"]:
             optimizer.optimize(
                 n_iterations=n_iterations, bidirectional=combo["bidirectional"]

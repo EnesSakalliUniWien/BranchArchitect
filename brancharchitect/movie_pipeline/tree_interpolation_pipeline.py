@@ -1,8 +1,10 @@
 """Tree processing pipeline."""
 
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 import logging
 import time
+import concurrent.futures
+import os
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.movie_pipeline.types import (
@@ -22,12 +24,27 @@ from brancharchitect.distances.distances import (
 from brancharchitect.tree_interpolation.sequential_interpolation import (
     SequentialInterpolationBuilder,
 )
-from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
     compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.tree_interpolation.types import TreeInterpolationSequence
 from brancharchitect.tree import Node
 from .tree_rooting import root_trees
+
+
+def _parallel_solve_pair(
+    source: Node, destination: Node
+) -> Tuple[Optional[Dict[Partition, List[Partition]]], Optional[str]]:
+    """
+    Helper function to run lattice computation in a separate process.
+    Returns (solution_dict, error_message).
+    """
+    try:
+        # Note: source and destination are already copies due to multiprocessing pickling
+        solution_dict, _ = compute_pivot_solutions_with_deletions(source, destination)
+        return solution_dict, None
+    except Exception as e:
+        return None, str(e)
 
 
 class TreeInterpolationPipeline:
@@ -72,6 +89,7 @@ class TreeInterpolationPipeline:
             processed_trees = [processed_trees]
         if not processed_trees:
             return create_empty_result()
+        self._ensure_shared_taxa_encoding(processed_trees)
         if len(processed_trees) == 1:
             processed_trees = self._apply_rooting_if_enabled(processed_trees)
             return create_single_tree_result(processed_trees)
@@ -85,6 +103,7 @@ class TreeInterpolationPipeline:
             precomputed_pair_pivot_split_sets=self._extract_current_pivot_split_sets(
                 precomputed_pair_solutions, processed_trees
             ),
+            precomputed_pair_solutions=precomputed_pair_solutions,
         )
         self.logger.info(
             f"Leaf order optimization took {time.perf_counter() - t_opt_start:.3f}s"
@@ -115,6 +134,30 @@ class TreeInterpolationPipeline:
             processing_time=processing_time,
             pair_interpolation_ranges=seq_result.pair_interpolation_ranges,
         )
+
+    def _ensure_shared_taxa_encoding(self, trees: List[Node]) -> None:
+        """Force all trees to share the same taxa encoding to avoid split lookup errors."""
+        if not trees:
+            return
+
+        base_encoding = trees[0].taxa_encoding
+        base_names = set(base_encoding.keys())
+
+        for idx, tree in enumerate(trees[1:], start=1):
+            names = set(tree.taxa_encoding.keys())
+            if names != base_names:
+                missing = base_names - names
+                extra = names - base_names
+                raise ValueError(
+                    "Tree taxa mismatch between inputs: "
+                    f"tree0 missing={sorted(missing)} extra={sorted(extra)}"
+                )
+
+            if tree.taxa_encoding != base_encoding:
+                self.logger.info(
+                    f"Aligning taxa encoding for tree {idx} to match first tree"
+                )
+                tree.initialize_split_indices(base_encoding)
 
     # --- Private helpers ---
 
@@ -154,6 +197,9 @@ class TreeInterpolationPipeline:
         precomputed_pair_pivot_split_sets: Optional[
             List[Optional[PartitionSet[Partition]]]
         ] = None,
+        precomputed_pair_solutions: Optional[
+            List[Optional[Dict[Partition, List[Partition]]]]
+        ] = None,
     ) -> List[Node]:
         """
         Optimizes the leaf node order to minimize visual crossings.
@@ -164,6 +210,7 @@ class TreeInterpolationPipeline:
         optimizer = TreeOrderOptimizer(
             trees,
             precomputed_active_changing_splits=precomputed_pair_pivot_split_sets,
+            precomputed_pair_solutions=precomputed_pair_solutions,
         )
 
         if self.config.use_anchor_ordering:
@@ -186,26 +233,48 @@ class TreeInterpolationPipeline:
         self, trees: List[Node]
     ) -> List[Optional[Dict[Partition, List[Partition]]]]:
         """
-        Runs the lattice algorithm once for each adjacent pair of trees.
+        Runs the lattice algorithm for each adjacent pair of trees in parallel.
         """
         if len(trees) < 2:
             return []
+
         sols: List[Optional[Dict[Partition, List[Partition]]]] = []
-        for i in range(len(trees) - 1):
-            source_tree = trees[i]
-            destination_tree = trees[i + 1]
-            try:
-                self.logger.info(f"Precomputing solution for pair {i}-{i + 1}...")
-                solution_dict, _ = compute_pivot_solutions_with_deletions(
-                    source_tree.deep_copy(), destination_tree.deep_copy()
-                )
-                sols.append(solution_dict)
-            except Exception as e:
-                self.logger.error(
-                    f"Failed to compute lattice solution for pair {i}-{i + 1}. Error: {e}",
-                    exc_info=True,
-                )
-                sols.append(None)
+
+        # Determine number of workers
+        max_workers = os.cpu_count()
+        self.logger.info(
+            f"Precomputing solutions for {len(trees) - 1} pairs using {max_workers} workers..."
+        )
+
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=max_workers
+        ) as executor:
+            # Submit all tasks
+            # We pass the tree objects directly. Multiprocessing will pickle them,
+            # effectively creating the isolated copies needed for the worker.
+            futures = [
+                executor.submit(_parallel_solve_pair, trees[i], trees[i + 1])
+                for i in range(len(trees) - 1)
+            ]
+
+            # Collect results in order
+            for i, future in enumerate(futures):
+                try:
+                    solution_dict, error_msg = future.result()
+                    if error_msg:
+                        self.logger.error(
+                            f"Failed to compute lattice solution for pair {i}-{i + 1}. Error: {error_msg}"
+                        )
+                        sols.append(None)
+                    else:
+                        sols.append(solution_dict)
+                except Exception as e:
+                    self.logger.error(
+                        f"Unexpected error retrieving result for pair {i}-{i + 1}: {e}",
+                        exc_info=True,
+                    )
+                    sols.append(None)
+
         return sols
 
     def _extract_current_pivot_split_sets(
@@ -256,49 +325,37 @@ class TreeInterpolationPipeline:
         """
         Generate global metadata for each tree in the sequence.
         """
-        tree_metadata: List[TreeMetadata] = []
-        original_index_iter = iter(original_tree_global_indices)
-        next_original_idx = next(original_index_iter, None)
-        current_pair_index = 0
-        source_global_idx = 0
-        interpolation_step = 0
+        total = len(current_pivot_edge_tracking)
+        tree_metadata: List[TreeMetadata] = [
+            TreeMetadata(
+                tree_pair_key=None, step_in_pair=None, source_tree_global_index=None
+            )
+            for _ in range(total)
+        ]
 
-        for idx, pivot_edge in enumerate(current_pivot_edge_tracking):
-            is_original = pivot_edge is None
+        originals = sorted(original_tree_global_indices)
+        if not originals:
+            return tree_metadata
 
-            if is_original and next_original_idx == idx:
-                # This is an original tree
-                source_global_idx = idx
-                next_original_idx = next(original_index_iter, None)
-                tree_metadata.append(
-                    TreeMetadata(
-                        tree_pair_key=None,
-                        step_in_pair=None,
-                        source_tree_global_index=None,
-                    )
-                )
-                interpolation_step = 0
-                continue
-
-            # This is an interpolated tree
-            interpolation_step += 1
-            tree_pair_key = f"pair_{current_pair_index}_{current_pair_index + 1}"
-
-            tree_metadata.append(
-                TreeMetadata(
-                    tree_pair_key=tree_pair_key,
-                    step_in_pair=interpolation_step,
-                    source_tree_global_index=source_global_idx,
-                )
+        # Mark originals explicitly
+        for orig_idx in originals:
+            tree_metadata[orig_idx] = TreeMetadata(
+                tree_pair_key=None,
+                step_in_pair=None,
+                source_tree_global_index=None,
             )
 
-            # Check if we've completed this pair (next tree is original)
-            if (
-                idx + 1 < len(current_pivot_edge_tracking)
-                and current_pivot_edge_tracking[idx + 1] is None
-            ):
-                current_pair_index += 1
-                interpolation_step = 0
+        # Fill interpolated steps between each consecutive pair of originals
+        for pair_idx in range(len(originals) - 1):
+            start = originals[pair_idx]
+            end = originals[pair_idx + 1]
+            tree_pair_key = f"pair_{pair_idx}_{pair_idx + 1}"
+            for idx in range(start + 1, end):
+                tree_metadata[idx] = TreeMetadata(
+                    tree_pair_key=tree_pair_key,
+                    step_in_pair=idx - start,
+                    source_tree_global_index=start,
+                )
 
         return tree_metadata
 

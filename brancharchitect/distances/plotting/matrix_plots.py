@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.axes._axes import Axes
 import seaborn as sns
 from numpy.typing import NDArray
-from typing import Optional, Union, cast
+from typing import Optional, Union
 
 
 def plot_distance_matrix(
@@ -66,7 +66,7 @@ def plot_consecutive_distances(
     >>> plot_consecutive_distances(df, "RF_Distance", ax)
     >>> plt.show()
     """
-    df_consecutive = cast(pd.DataFrame, df[df["Tree2"] == df["Tree1"] + 1])
+    df_consecutive = df[df["Tree2"] == df["Tree1"] + 1]
     df_consecutive = df_consecutive.sort_values(by="Tree1")
 
     ax.plot(
@@ -137,9 +137,7 @@ def plot_component_consecutive_distances(
     if ax is None:
         _, ax = plt.subplots(figsize=(8, 4))
         created_axes = True
-    df_consecutive = cast(
-        pd.DataFrame, df_distances[df_distances["Tree2"] == df_distances["Tree1"] + 1]
-    )
+    df_consecutive = df_distances[df_distances["Tree2"] == df_distances["Tree1"] + 1]
     df_consecutive = df_consecutive.sort_values(by="Tree1")
     ax.plot(
         df_consecutive["Tree1"],

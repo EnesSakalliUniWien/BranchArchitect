@@ -6,10 +6,12 @@ embeddings and UMAP results with optional graph structures.
 """
 
 import numpy as np
-import umap
 import plotly.graph_objs as go
 from numpy.typing import NDArray
-from typing import List, Optional, cast, Tuple
+from typing import List, Optional, cast, Tuple, TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import umap
 
 
 def create_3d_scatter_plot(
@@ -84,7 +86,7 @@ def plot_component_umap_3d(
     embedding: NDArray[np.float64],
     cluster_labels: NDArray[np.int64],
     title: str = "UMAP Embedding (Component Distance)",
-    umap_model: Optional[umap.UMAP] = None,
+    umap_model: Optional[Any] = None,
     show_graph: bool = False,
     graph_opacity: float = 0.1,
 ) -> None:
@@ -244,6 +246,8 @@ def plot_component_umap_3d_with_graph(
     )
 
     # Type guard: when return_model=True, result is always a tuple
+    import umap
+
     embedding, umap_model = cast(Tuple[NDArray[np.float64], umap.UMAP], result)
 
     # Plot with graph structure

@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "msa_to_trees"
+version = "0.1.0"
+description = "A pipeline to generate phylogenetic trees from multiple sequence alignment (MSA) windows."
+authors = ["Your Name <you@example.com>"]
+packages = [
+    {include = "msa_to_trees"},
+    {include = "split_alignment"}
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+biopython = "^1.81"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

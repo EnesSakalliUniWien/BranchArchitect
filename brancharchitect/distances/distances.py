@@ -89,7 +89,7 @@ def compute_tree_pair_component_paths(
         return None  # Skip diagonal
 
     # Get s-edge solutions from lattice algorithm
-    from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
         compute_pivot_solutions_with_deletions,
     )
 
@@ -139,7 +139,7 @@ def compute_tree_pair_component_paths(
     return (i, j, components, pivot_edges_for_components, paths_i, paths_j)
 
 
-def compute_tree_pairs_component_paths(
+def compute_pairwise_pivot_edge_paths(
     trees: List[Node],
 ) -> List[Tuple[int, int, Any, Any, List[List[Node]], List[List[Node]]]]:
     """Compute pivot-edge solutions and component paths for every unique tree pair.
@@ -167,18 +167,6 @@ def compute_tree_pairs_component_paths(
                 )
             results.append(res)
     return results
-
-
-# Backward compatible aliases
-compute_pair = compute_tree_pair_component_paths
-compute_pairwise_pivot_edge_paths = compute_tree_pairs_component_paths
-
-
-def compute_all_pairs(
-    trees: List[Node],
-) -> List[Tuple[int, int, Any, Any, List[List[Node]], List[List[Node]]]]:
-    """Backward-compatible wrapper. Prefer `compute_pairwise_pivot_edge_paths`."""
-    return compute_pairwise_pivot_edge_paths(trees)
 
 
 def calculate_normalised_matrix(

@@ -32,6 +32,9 @@ class TreeOrderOptimizer:
         precomputed_active_changing_splits: Optional[
             List[Optional[PartitionSet[Partition]]]
         ] = None,
+        precomputed_pair_solutions: Optional[
+            List[Optional[Dict[Partition, List[Partition]]]]
+        ] = None,
     ):
         """
         Initialize the optimizer with a list of trees.
@@ -43,6 +46,7 @@ class TreeOrderOptimizer:
         self.precomputed_active_changing_splits = (
             precomputed_active_changing_splits or []
         )
+        self.precomputed_pair_solutions = precomputed_pair_solutions or []
         self.split_rotation_history: Dict[Tuple[int, int], Dict[str, Any]] = {}
         self._history_counter = 0
         self.logger = logging.getLogger(__name__)
@@ -218,6 +222,13 @@ class TreeOrderOptimizer:
         for i in range(n - 1):
             self.logger.info(f"Processing tree pair ({i}, {i + 1})")
 
+            # Retrieve precomputed solution if available
+            precomputed_solution = None
+            if self.precomputed_pair_solutions and i < len(
+                self.precomputed_pair_solutions
+            ):
+                precomputed_solution = self.precomputed_pair_solutions[i]
+
             # Default to destination-anchored ordering so only jumping taxa move
             derive_order_for_pair(
                 self.trees[i],
@@ -225,6 +236,7 @@ class TreeOrderOptimizer:
                 anchor_weight_policy=anchor_weight_policy,
                 circular=circular,
                 circular_boundary_policy=circular_boundary_policy,
+                precomputed_solution=precomputed_solution,
             )
 
             # After ordering pair (i, i+1), their common splits are now aligned.

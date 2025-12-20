@@ -4,7 +4,7 @@ import json
 from typing import Any, List, Tuple
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.jumping_taxa.lattice.build_pivot_lattices import (
+from brancharchitect.jumping_taxa.lattice.construction.build_pivot_lattices import (
     construct_sublattices,
 )
 

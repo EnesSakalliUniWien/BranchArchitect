@@ -5,7 +5,7 @@ from functools import lru_cache
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
-from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
     compute_pivot_solutions_with_deletions,
 )
 

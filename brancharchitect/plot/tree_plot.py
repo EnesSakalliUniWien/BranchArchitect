@@ -152,13 +152,7 @@ def plot_rectangular_trees_in_a_row(
     )
 
 
-def plot_trees_side_by_side(
-    tree1: Node, tree2: Node, width: int = 800, height: int = 400
-) -> str:
-    """Generate SVG visualization of two circular trees side by side."""
-    return generate_circular_two_trees_svg(
-        tree1, tree2, size=width // 2, margin=30, label_offset=2
-    )
+
 
 
 def plot_rectangular_tree(

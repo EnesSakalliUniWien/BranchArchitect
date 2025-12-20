@@ -12,7 +12,7 @@ def call_jumping_taxa(
     # 2) Import the modules that contain your algorithms.
     #    (You only need to do this once at the top of the file, but here’s an example inline)
     import brancharchitect.jumping_taxa.bruteforce.bruteforce_algorithm
-    from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
         adapter_compute_pivot_solutions_with_deletions,
     )
 

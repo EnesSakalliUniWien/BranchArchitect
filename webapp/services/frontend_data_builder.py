@@ -249,19 +249,8 @@ def _serialize_tree_pair_solutions(
         ]  # Dict[Partition, List[Partition]]
         wrapped_js = {pivot: [parts] for pivot, parts in raw_js.items()}
 
-        # Support both legacy and new mapping field names.
-        dest_map = (
-            solution.get("solution_to_destination_map")
-            or solution.get("mapping_one")
-            or solution.get("solution_to_target_map")
-            or {}
-        )
-        src_map = (
-            solution.get("solution_to_source_map")
-            or solution.get("mapping_two")
-            or solution.get("solution_to_reference_map")
-            or {}
-        )
+        dest_map = solution.get("solution_to_destination_map", {})
+        src_map = solution.get("solution_to_source_map", {})
         item: Dict[str, Any] = {
             "jumping_subtree_solutions": serialize_partition_dict_to_indices(
                 wrapped_js

@@ -16,7 +16,7 @@ from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.subtree_paths.execution.reordering import (
     reorder_tree_toward_destination,
 )
-from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
     compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.tree_interpolation.pair_interpolation import (

@@ -34,6 +34,7 @@ def create_interpolation_for_active_split_sequence(
     List[Node],
     List[Partition],
     List[Optional[Partition]],
+    List[Optional[Partition]],
 ]:
     """
     Create an interpolation sequence from source to destination tree for pivot edges (active-changing splits).
@@ -50,7 +51,7 @@ def create_interpolation_for_active_split_sequence(
     interpolation_sequence: List[Node] = []
     failed_pivot_edges: List[Partition] = []
     processed_pivot_edge_tracking: List[Optional[Partition]] = []
-    # subtree tracking removed
+    processed_subtree_tracking: List[Optional[Partition]] = []
 
     interpolation_state: Node = source_tree.deep_copy()
 
@@ -86,7 +87,7 @@ def create_interpolation_for_active_split_sequence(
             current_base_tree, destination_tree, current_pivot_edge
         )
 
-        step_trees, step_edges, new_state = apply_stepwise_plan_for_edge(
+        step_trees, step_edges, new_state, step_subtrees = apply_stepwise_plan_for_edge(
             current_base_tree=current_base_tree,
             destination_tree=destination_tree,
             current_pivot_edge=current_pivot_edge,
@@ -97,6 +98,7 @@ def create_interpolation_for_active_split_sequence(
         if step_trees:
             interpolation_sequence.extend(step_trees)
             processed_pivot_edge_tracking.extend(step_edges)
+            processed_subtree_tracking.extend(step_subtrees)
 
             interpolation_state = new_state
 
@@ -104,6 +106,7 @@ def create_interpolation_for_active_split_sequence(
         interpolation_sequence,
         failed_pivot_edges,
         processed_pivot_edge_tracking,
+        processed_subtree_tracking,
     )
 
 

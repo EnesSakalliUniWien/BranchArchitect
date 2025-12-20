@@ -13,7 +13,7 @@ from brancharchitect.tree import Node, ReorderStrategy
 from brancharchitect.jumping_taxa.lattice.mapping import (
     map_solution_elements_to_minimal_frontiers,
 )
-from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
     compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.jumping_taxa.debug import jt_logger
@@ -22,6 +22,13 @@ __all__ = [
     "derive_order_for_pair",
     "blocked_order_and_apply",
 ]
+
+
+# Per-edge caches to keep rotations and mover ranks stable across repeated calls
+_rotation_cut_cache: Dict[Tuple[int, ...], Tuple[int, int, Tuple[str, ...]]] = {}
+_mover_rank_cache: Dict[
+    Tuple[int, ...], Dict[Tuple[int, ...], Tuple[int, int, int]]
+] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -122,8 +129,52 @@ def _boundary_largest_mover_at_zero(
     return 0
 
 
+def _cached_mover_assignments(
+    edge: Partition,
+    mover_blocks: List[Partition],
+    mover_weight_policy: str,
+) -> Dict[Tuple[int, ...], Tuple[int, int, int]]:
+    """Return stable band/rank assignments for mover blocks.
+
+    Band assignment uses deterministic alternation (i % 2):
+    - Even-indexed movers: band 0 in source, band 2 in destination (left→right)
+    - Odd-indexed movers: band 2 in source, band 0 in destination (right→left)
+
+    This ping-pong pattern ensures movers cross each other visually during
+    the interpolation, making the movement more apparent.
+    """
+    edge_key = tuple(edge.indices)
+    composition = {tuple(p.indices) for p in mover_blocks}
+    cached = _mover_rank_cache.get(edge_key)
+    if cached and set(cached.keys()) == composition:
+        return cached
+
+    assignments: Dict[Tuple[int, ...], Tuple[int, int, int]] = {}
+    jumping_count = len(mover_blocks)
+
+    for i, jumping_partition in enumerate(mover_blocks):
+        if mover_weight_policy not in ("increasing", "decreasing"):
+            mover_weight_policy = "increasing"
+        rank = i if mover_weight_policy == "increasing" else (jumping_count - i)
+
+        # Deterministic alternation: even movers go left→right, odd go right→left
+        if i % 2 == 0:
+            src_band = 0  # left in source
+            dst_band = 2  # right in destination
+        else:
+            src_band = 2  # right in source
+            dst_band = 0  # left in destination
+
+        assignments[tuple(jumping_partition.indices)] = (src_band, dst_band, rank)
+
+    _mover_rank_cache[edge_key] = assignments
+    return assignments
+
+
 def _get_solution_mappings(
-    t1: Node, t2: Node
+    t1: Node,
+    t2: Node,
+    precomputed_solution: Optional[Dict[Partition, List[Partition]]] = None,
 ) -> Tuple[
     Dict[Partition, Dict[Partition, Partition]],
     Dict[Partition, Dict[Partition, Partition]],
@@ -135,7 +186,12 @@ def _get_solution_mappings(
     take their minimal elements (the unique frontiers), and map the pivot's
     jumping-taxa solution partitions onto these minimal frontiers for t1 and t2.
     """
-    solutions_by_edge, _ = compute_pivot_solutions_with_deletions(input_tree1=t1, input_tree2=t2)
+    if precomputed_solution is not None:
+        solutions_by_edge = precomputed_solution
+    else:
+        solutions_by_edge, _ = compute_pivot_solutions_with_deletions(
+            input_tree1=t1, input_tree2=t2
+        )
 
     mapped_t1: Dict[Partition, Dict[Partition, Partition]] = {}
     mapped_t2: Dict[Partition, Dict[Partition, Partition]] = {}
@@ -176,6 +232,7 @@ def derive_order_for_pair(
     anchor_weight_policy: str = "preserve_source",
     circular: bool = False,
     circular_boundary_policy: str = "between_anchor_blocks",
+    precomputed_solution: Optional[Dict[Partition, List[Partition]]] = None,
 ):
     """
     Derives and applies leaf orderings for all differing edges between two trees.
@@ -185,7 +242,9 @@ def derive_order_for_pair(
     For identical trees (no mappings), still applies ordering to ensure alignment.
     """
     if mappings_t1 is None or mappings_t2 is None:
-        mappings_t1, mappings_t2 = _get_solution_mappings(t1, t2)
+        mappings_t1, mappings_t2 = _get_solution_mappings(
+            t1, t2, precomputed_solution=precomputed_solution
+        )
 
     jt_logger.info("Source maps + derived jumping taxa per edge:")
 
@@ -315,6 +374,18 @@ def blocked_order_and_apply(
     # Exclude jumping taxa from free_taxa - jumping taxa get their own extreme weights
     free_taxa = set(edge.taxa) - taxa_in_stable_blocks - jumping_taxa
 
+    # If no anchors exist (star-like case), seed a deterministic synthetic anchor
+    if not stable_common_splits and free_taxa:
+        sentinel_taxon = min(
+            free_taxa, key=lambda t: (source_index.get(t, float("inf")), t)
+        )
+        sentinel_index = t1.taxa_encoding.get(sentinel_taxon)
+        if sentinel_index is not None:
+            stable_common_splits = PartitionSet(
+                [Partition((sentinel_index,), t1.taxa_encoding)]
+            )
+            free_taxa.remove(sentinel_taxon)
+
     # Build blocks: stable common splits preserve their current order; free taxa are singletons
     source_blocked: List[Tuple[str, ...]] = []
     for cs in stable_common_splits:
@@ -351,15 +422,15 @@ def blocked_order_and_apply(
         for pos, taxon in enumerate(ordered_dst_block):
             dst_taxon_sort_key[taxon] = (1, dst_anchor_pos, pos)
 
-    # Assign banded tuple keys to jumping partitions with ping-pong semantics
-    jumping_count = len(jumping_taxa_partitions)
+    # Collect all anchor taxa for position-aware mover assignment
+    anchor_taxa = {taxon for block in source_blocked for taxon in block}
+
+    # Assign banded tuple keys to jumping partitions using deterministic alternation
+    mover_assignments = _cached_mover_assignments(
+        edge, jumping_taxa_partitions, mover_weight_policy
+    )
     for i, jumping_partition in enumerate(jumping_taxa_partitions):
-        if mover_weight_policy not in ("increasing", "decreasing"):
-            mover_weight_policy = "increasing"
-        # Rank within band
-        rank = i if mover_weight_policy == "increasing" else (jumping_count - i)
-        # Bands for source/destination: ping-pong
-        src_band, dst_band = (0, 2) if (i % 2 == 0) else (2, 0)
+        src_band, dst_band, rank = mover_assignments[tuple(jumping_partition.indices)]
         # Within-block order : tree-local
         ordered_src_block = sorted(
             jumping_partition.taxa, key=lambda t: source_index[t]
@@ -382,20 +453,37 @@ def blocked_order_and_apply(
 
     # Optional circular rotation of the final permutations for circular rendering
     if circular:
+        edge_key = tuple(edge.indices)
         if circular_boundary_policy == "largest_mover_at_zero":
-            src_cut = _boundary_largest_mover_at_zero(
+            src_cut_candidate = _boundary_largest_mover_at_zero(
                 sorted_src_taxa, jumping_taxa_partitions
             )
-            dst_cut = _boundary_largest_mover_at_zero(
+            dst_cut_candidate = _boundary_largest_mover_at_zero(
                 sorted_dest_taxa, jumping_taxa_partitions
             )
         else:
-            src_cut = _boundary_between_anchor_blocks(
+            src_cut_candidate = _boundary_between_anchor_blocks(
                 sorted_src_taxa, src_taxon_sort_key
             )
-            dst_cut = _boundary_between_anchor_blocks(
+            dst_cut_candidate = _boundary_between_anchor_blocks(
                 sorted_dest_taxa, dst_taxon_sort_key
             )
+
+        cached_cuts = _rotation_cut_cache.get(edge_key)
+        if cached_cuts and cached_cuts[2] == tuple(sorted_src_taxa):
+            cached_src_cut, cached_dst_cut, _ = cached_cuts
+            if src_cut_candidate == 0 and cached_src_cut:
+                src_cut_candidate = cached_src_cut
+            if dst_cut_candidate == 0 and cached_dst_cut:
+                dst_cut_candidate = cached_dst_cut
+
+        src_cut = src_cut_candidate
+        dst_cut = dst_cut_candidate
+        _rotation_cut_cache[edge_key] = (
+            src_cut,
+            dst_cut,
+            tuple(sorted_src_taxa),
+        )
 
         sorted_src_taxa = _rotate_list(sorted_src_taxa, src_cut)
         sorted_dest_taxa = _rotate_list(sorted_dest_taxa, dst_cut)

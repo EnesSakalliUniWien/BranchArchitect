@@ -8,7 +8,7 @@ This function is responsible for:
 """
 
 import pytest
-from brancharchitect.jumping_taxa.lattice.delete_taxa import (
+from brancharchitect.jumping_taxa.lattice.orchestration.delete_taxa import (
     identify_and_delete_jumping_taxa,
 )
 from brancharchitect.parser.newick_parser import parse_newick

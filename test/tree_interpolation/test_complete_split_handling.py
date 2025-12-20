@@ -20,7 +20,7 @@ from brancharchitect.tree_interpolation.consensus_tree.consensus_tree import (
     collapse_zero_length_branches_for_node,
 )
 from brancharchitect.consensus.consensus_tree import apply_split_in_tree
-from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
     compute_pivot_solutions_with_deletions,
 )
 from brancharchitect.tree_interpolation.subtree_paths.planning.builder import (
@@ -396,7 +396,9 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
         # Should find solutions
         self.assertGreater(
-            len(jumping_subtrees), 0, "compute_pivot_solutions_with_deletions found no solutions"
+            len(jumping_subtrees),
+            0,
+            "compute_pivot_solutions_with_deletions found no solutions",
         )
 
         # Each edge should have valid subtree partitions
@@ -416,47 +418,46 @@ class TestCompleteSplitHandling(unittest.TestCase):
         if not jumping_subtrees:
             self.skipTest("No jumping subtrees needed")
 
-        active_edge = next(iter(jumping_subtrees.keys()))
-
-        # Step 1: Prepare subtree paths
-        subtree_paths = prepare_simple_subtree_paths(
-            self.tree1, self.tree2, active_edge, jumping_subtrees
-        )
-
-        # Step 2: Build plan
-        plan = build_edge_plan(
-            subtree_paths["expand_splits_by_subtree"],
-            subtree_paths["collapse_splits_by_subtree"],
-            self.tree1,
-            self.tree2,
-            active_edge,
-        )
-
         # Step 3: Execute plan
         current_tree = self.tree1.deep_copy()
 
-        for subtree, subtree_plan in plan.items():
-            # Collapse phase
-            collapse_splits = subtree_plan["collapse"]["path_segment"]
-            split_dict = {s: 0.0 for s in collapse_splits}
-            current_tree = calculate_intermediate_tree(current_tree, split_dict)
+        for active_edge in jumping_subtrees.keys():
+            # Step 1: Prepare subtree paths
+            subtree_paths = prepare_simple_subtree_paths(
+                current_tree, self.tree2, active_edge, jumping_subtrees
+            )
 
-            # Collapse zero-length branches
-            active_node = current_tree.find_node_by_split(active_edge)
-            if active_node:
-                collapse_zero_length_branches_for_node(active_node)
+            # Step 2: Build plan
+            plan = build_edge_plan(
+                subtree_paths["expand_splits_by_subtree"],
+                subtree_paths["collapse_splits_by_subtree"],
+                current_tree,
+                self.tree2,
+                active_edge,
+            )
 
-            # Expand phase
-            expand_splits = subtree_plan["expand"]["path_segment"]
-            for expand_split in expand_splits:
-                if expand_split not in current_tree.to_splits():
-                    try:
-                        apply_split_in_tree(expand_split, current_tree)
-                    except Exception as e:
-                        self.fail(
-                            f"Failed to apply expand split {list(expand_split.indices)} "
-                            f"in subtree {list(subtree.indices)}: {e}"
-                        )
+            for subtree, subtree_plan in plan.items():
+                # Collapse phase
+                collapse_splits = subtree_plan["collapse"]["path_segment"]
+                split_dict = {s: 0.0 for s in collapse_splits}
+                current_tree = calculate_intermediate_tree(current_tree, split_dict)
+
+                # Collapse zero-length branches
+                active_node = current_tree.find_node_by_split(active_edge)
+                if active_node:
+                    collapse_zero_length_branches_for_node(active_node)
+
+                # Expand phase
+                expand_splits = subtree_plan["expand"]["path_segment"]
+                for expand_split in expand_splits:
+                    if expand_split not in current_tree.to_splits():
+                        try:
+                            apply_split_in_tree(expand_split, current_tree)
+                        except Exception as e:
+                            self.fail(
+                                f"Failed to apply expand split {list(expand_split.indices)} "
+                                f"in subtree {list(subtree.indices)}: {e}"
+                            )
 
         # Step 4: Verify final tree has expected topology
         final_splits = current_tree.to_splits()
@@ -567,7 +568,9 @@ class TestLargerDatasetSplitHandling(unittest.TestCase):
         tree1, tree2 = self.trees[0], self.trees[2]
 
         # Run compute_pivot_solutions_with_deletions
-        jumping_subtrees, _ = compute_pivot_solutions_with_deletions(tree1, tree2, self.taxa_order)
+        jumping_subtrees, _ = compute_pivot_solutions_with_deletions(
+            tree1, tree2, self.taxa_order
+        )
 
         if not jumping_subtrees:
             # Trees might be identical or very similar
