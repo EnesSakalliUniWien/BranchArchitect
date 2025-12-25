@@ -7,7 +7,7 @@ human‑readable labels and partition names.
 
 from typing import Any, List, Optional, Sequence
 from tabulate import tabulate
-from brancharchitect.core.base_logger import AlgorithmLogger
+from brancharchitect.logger.base_logger import AlgorithmLogger
 
 
 class TableLogger(AlgorithmLogger):

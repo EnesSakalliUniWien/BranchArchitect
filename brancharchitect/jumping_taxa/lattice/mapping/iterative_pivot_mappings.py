@@ -42,7 +42,7 @@ from typing import List, Optional, Set
 
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import Partition, PartitionSet
-from brancharchitect.jumping_taxa.debug import jt_logger
+from brancharchitect.logger.debug import jt_logger
 
 
 def map_iterative_pivot_edges_to_original(

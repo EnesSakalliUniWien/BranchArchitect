@@ -1,6 +1,6 @@
 import os
 from . import jt_logger, format_set
-from brancharchitect.core.html_content import DEBUG_PAGE_CSS
+from brancharchitect.logger.html_content import DEBUG_PAGE_CSS
 from typing import Optional
 from brancharchitect.tree import Node
 from datetime import datetime

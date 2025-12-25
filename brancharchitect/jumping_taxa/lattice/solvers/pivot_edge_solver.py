@@ -9,8 +9,8 @@ from brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem import (
     PivotEdgeSubproblem,
 )
 
-from brancharchitect.jumping_taxa.debug import jt_logger
-from brancharchitect.jumping_taxa.lattice.types.registry import (
+from brancharchitect.logger.debug import jt_logger
+from brancharchitect.jumping_taxa.lattice.registry import (
     SolutionRegistry,
     compute_solution_rank_key,
 )
@@ -35,47 +35,50 @@ from brancharchitect.jumping_taxa.lattice.mapping.iterative_pivot_mappings impor
 )
 
 
-def solve_pivot_edges(
-    sub_lattices: List[PivotEdgeSubproblem],
-    solution_registry: SolutionRegistry,
-    t1: Node,
-    t2: Node,
-    stop_after_first_solution: bool = True,
-) -> None:
+class LatticeSolver:
     """
-    Process a set of pivot edge subproblems to find solutions.
+    Stateful solver for phylogenetic lattice subproblems.
 
-    For each edge, builds a conflict matrix, solves it using meet products,
-    and stores solutions. Edges can be re-processed after solution removal
-    to find nested solutions.
-
-    Args:
-        sub_lattices: List of pivot subproblems to process
-        solution_registry: SolutionRegistry for storing solutions
-        t1: First tree
-        t2: Second tree
-        stop_after_first_solution: If True, stops processing a pivot after finding
-            its first solution. This prevents spurious "nesting solutions" that arise
-            from incremental removal artifacts rather than actual jumping taxa.
+    Encapsulates the processing stack and solution registry, allowing for
+    step-wise execution and better state observability.
     """
-    # Initialize stack with reversed list so that popping from the end
-    # yields the first elements (Subsets) of the sorted list.
-    processing_stack: List[PivotEdgeSubproblem] = list(reversed(sub_lattices))
 
-    while processing_stack:
-        current_pivot_edge: PivotEdgeSubproblem = processing_stack.pop()
+    def __init__(
+        self,
+        sub_lattices: List[PivotEdgeSubproblem],
+        solution_registry: SolutionRegistry,
+    ):
+        self.processing_stack: List[PivotEdgeSubproblem] = sub_lattices.copy()
+        self.registry = solution_registry
+
+    def solve(self, stop_after_first_solution: bool = True) -> None:
+        """
+        Process all pivot edge subproblems until the stack is empty.
+
+        Args:
+            stop_after_first_solution: If True, stops processing a pivot after finding
+                its first solution.
+        """
+        while self.processing_stack:
+            self._process_next_pivot(stop_after_first_solution)
+
+    def _process_next_pivot(self, stop_after_first_solution: bool) -> None:
+        """Process a single pivot edge subproblem from the stack."""
+        current_pivot_edge: PivotEdgeSubproblem = self.processing_stack.pop()
         current_pivot_edge.visits += 1
 
-        jt_logger.info(
-            f"Processing edge: {current_pivot_edge.pivot_split} at visit {current_pivot_edge.visits}"
-        )
+        if not jt_logger.disabled:
+            jt_logger.info(
+                f"Processing edge: {current_pivot_edge.pivot_split} at visit {current_pivot_edge.visits}"
+            )
 
         # Build conflict matrix (decision logic inside build_conflict_matrix)
         candidate_matrix = build_conflict_matrix(current_pivot_edge)
 
         # Determine which solver to use based on matrix type
         matrices = split_matrix(candidate_matrix)
-        jt_logger.section("Meet Result Computation")
+        if not jt_logger.disabled:
+            jt_logger.section("Meet Result Computation")
 
         # Run the appropriate solver based on number of matrices
         if len(matrices) > 1:
@@ -84,13 +87,15 @@ def solve_pivot_edges(
             solutions = generalized_meet_product(matrices[0])
 
         # Store solutions for this edge and visit
-        jt_logger.info(
-            f"Adding solutions for {current_pivot_edge.pivot_split} at visit {current_pivot_edge.visits}"
-        )
+        if not jt_logger.disabled:
+            jt_logger.info(
+                f"Adding solutions for {current_pivot_edge.pivot_split} at visit {current_pivot_edge.visits}"
+            )
 
-        jt_logger.info(f"Solutions: {solutions}")
+        if not jt_logger.disabled:
+            jt_logger.info(f"Solutions: {solutions}")
 
-        solution_registry.add_solutions(
+        self.registry.add_solutions(
             current_pivot_edge.pivot_split,
             solutions,
             category="solution",
@@ -99,7 +104,7 @@ def solve_pivot_edges(
 
         # Retrieve solutions for this visit to potentially re-process
         solutions_for_visit: List[PartitionSet[Partition]] = (
-            solution_registry.get_solutions_for_edge_visit(
+            self.registry.get_solutions_for_edge_visit(
                 current_pivot_edge.pivot_split, current_pivot_edge.visits
             )
         )
@@ -109,12 +114,13 @@ def solve_pivot_edges(
 
             # Only re-add to stack if we want to continue processing this pivot
             if not stop_after_first_solution:
-                processing_stack.append(current_pivot_edge)
+                self.processing_stack.append(current_pivot_edge)
             else:
-                jt_logger.info(
-                    f"[solve_pivot_edges] Stopping after first solution for pivot "
-                    f"{current_pivot_edge.pivot_split.bipartition()} (visit {current_pivot_edge.visits})"
-                )
+                if not jt_logger.disabled:
+                    jt_logger.info(
+                        f"[LatticeSolver] Stopping after first solution for pivot "
+                        f"{current_pivot_edge.pivot_split.bipartition()} (visit {current_pivot_edge.visits})"
+                    )
 
 
 @jt_logger.log_execution
@@ -141,8 +147,11 @@ def lattice_algorithm(
     Raises:
         ValueError: If sublattices cannot be constructed from input trees
     """
-    jt_logger.section("Lattice Algorithm Execution")
-    jt_logger.log_newick_strings(input_tree1, input_tree2)
+    if not jt_logger.disabled:
+        jt_logger.section("Lattice Algorithm Execution")
+    if not jt_logger.disabled:
+        jt_logger.log_newick_strings(input_tree1, input_tree2)
+        jt_logger.subsection("Initial Sub-Lattices")
 
     # Default to input trees if original trees not provided
     if original_tree1 is None:
@@ -166,8 +175,31 @@ def lattice_algorithm(
         current_pivot_edges, input_tree1, input_tree2
     )
 
-    solve_pivot_edges(current_pivot_edges, solution_registry, input_tree1, input_tree2)
-    # Build dictionary mapping pivot edges to their solution partitions (flattened)
+    # Solve pivot edges (mutates solution_registry)
+    solver = LatticeSolver(current_pivot_edges, solution_registry)
+    solver.solve()
+
+    # 2. Extract best solutions from registry
+    solutions_dict = _select_best_solutions(solution_registry)
+
+    # 3. Map pivot edges to original trees
+    return _map_solutions_to_original_trees(
+        solutions_dict, original_tree1, original_tree2, input_tree1, input_tree2
+    )
+
+
+def _select_best_solutions(
+    solution_registry: SolutionRegistry,
+) -> Dict[Partition, List[Partition]]:
+    """
+    Select the best (most parsimonious) solutions for each pivot edge from the registry.
+
+    Args:
+        solution_registry: Registry containing raw solutions from the solver.
+
+    Returns:
+        Dictionary mapping pivot edges to their flattened, sorted solution partitions.
+    """
     solutions_dict: Dict[Partition, List[Partition]] = {}
 
     # Group solutions by pivot_edge (ignoring visit) to find all minimal solutions
@@ -217,10 +249,7 @@ def lattice_algorithm(
 
         solutions_dict[pivot_edge_partition] = flat_partitions
 
-    # 3. Map pivot edges to original trees
-    return _map_solutions_to_original_trees(
-        solutions_dict, original_tree1, original_tree2
-    )
+    return solutions_dict
 
 
 def _map_solutions_to_original_trees(
@@ -238,7 +267,8 @@ def _map_solutions_to_original_trees(
     Returns:
         Flat solution partitions keyed by pivot edges mapped to original trees
     """
-    jt_logger.info("[lattice] Mapping pivot edges to original trees...")
+    if not jt_logger.disabled:
+        jt_logger.info("[lattice] Mapping pivot edges to original trees...")
 
     pivot_edges_list = list(solutions_dict.keys())
     solutions_list = [solutions_dict[pivot] for pivot in pivot_edges_list]
@@ -257,8 +287,9 @@ def _map_solutions_to_original_trees(
         for pivot_edge, mapped_pivot in zip(pivot_edges_list, mapped_pivot_edges)
     }
 
-    jt_logger.info(
-        f"[lattice] Mapped {len(pivot_edges_list)} pivot edges to original trees"
-    )
+    if not jt_logger.disabled:
+        jt_logger.info(
+            f"[lattice] Mapped {len(pivot_edges_list)} pivot edges to original trees"
+        )
 
     return mapped_solutions_dict

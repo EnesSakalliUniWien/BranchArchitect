@@ -3,8 +3,8 @@
 import re
 from typing import Any, List, Callable, Optional, TYPE_CHECKING
 
-from brancharchitect.core.base_logger import AlgorithmLogger
-from brancharchitect.core.formatting import (
+from brancharchitect.logger.base_logger import AlgorithmLogger
+from brancharchitect.logger.formatting import (
     format_partition_set,
     beautify_frozenset,
 )
@@ -177,7 +177,7 @@ class MatrixLogger(AlgorithmLogger):
     ) -> str:
         """Create an HTML table representation of the matrix."""
         # Import here to avoid circular imports
-        from brancharchitect.core.table_logger import TableLogger
+        from brancharchitect.logger.table_logger import TableLogger
 
         # Create headers
         headers = [""] + [f"Column {i}" for i in range(len(matrix[0]))]

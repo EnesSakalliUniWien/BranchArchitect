@@ -5,7 +5,7 @@ from brancharchitect.tree import Node
 from brancharchitect.jumping_taxa.lattice.types.types import TopToBottom
 
 
-@dataclass
+@dataclass(slots=True)
 class PivotEdgeSubproblem:
     """
     Represents a pivot edge subproblem in the phylogenetic lattice structure.

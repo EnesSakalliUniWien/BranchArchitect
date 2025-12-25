@@ -5,7 +5,7 @@ import base64
 from typing import Any, cast, Callable, TypeVar
 from functools import wraps
 
-from brancharchitect.core.html_content import CSS_LOG, MATH_JAX_HEADER
+from brancharchitect.logger.html_content import CSS_LOG, MATH_JAX_HEADER
 
 F = TypeVar("F", bound=Callable[..., Any])
 

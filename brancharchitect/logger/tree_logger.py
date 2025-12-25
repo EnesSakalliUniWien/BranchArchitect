@@ -2,10 +2,10 @@
 
 from typing import Any, List, Optional
 
-from brancharchitect.core.base_logger import AlgorithmLogger
+from brancharchitect.logger.base_logger import AlgorithmLogger
 from brancharchitect.tree import Node
 from brancharchitect.plot.tree_plot import plot_rectangular_tree_pair
-from brancharchitect.core.html_content import (
+from brancharchitect.logger.html_content import (
     COMPARE_TREE_SPLIT_CSS,
     TABLE_SPLIT_JS,
     NEWICK_COMBINED_CSS,
@@ -151,7 +151,7 @@ class TreeLogger(AlgorithmLogger):
             all_data.sort(key=lambda x: (x["common"], x["size"]))
 
         # Import here to avoid circular imports
-        from brancharchitect.core.formatting import format_set
+        from brancharchitect.logger.formatting import format_set
 
         # Generate the HTML table
         # Determine initial active sort button
@@ -268,7 +268,7 @@ class TreeLogger(AlgorithmLogger):
         if self.disabled:
             return
 
-        from brancharchitect.core.formatting import format_set as _fmt
+        from brancharchitect.logger.formatting import format_set as _fmt
 
         self.section("Lattice Edge Tables")
         # Edge header

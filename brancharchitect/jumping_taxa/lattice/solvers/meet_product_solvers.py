@@ -9,8 +9,8 @@ from typing import List
 
 # Use FrozenPartitionSet for hashable, immutable keys
 from brancharchitect.elements.frozen_partition_set import FrozenPartitionSet
-from brancharchitect.jumping_taxa.debug import jt_logger
-from brancharchitect.core.formatting import format_partition_set
+from brancharchitect.logger.debug import jt_logger
+from brancharchitect.logger.formatting import format_partition_set
 
 
 def _vector_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
@@ -20,14 +20,17 @@ def _vector_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
         raise ValueError("Expected a 1x2 matrix for vector meet product.")
 
     # Include the input matrix in logs for readability
-    jt_logger.matrix(matrix, title="Vector Meet Product: Input Matrix")
+    if not jt_logger.disabled:
+        jt_logger.matrix(matrix, title="Vector Meet Product: Input Matrix")
 
     a, b = matrix[0]
     result: PartitionSet[Partition] = a & b
     if result:
-        jt_logger.info(f"[diag] meet/vector raw = {format_partition_set(result)}")
+        if not jt_logger.disabled:
+            jt_logger.info(f"[diag] meet/vector raw = {format_partition_set(result)}")
         maxima = result.maximal_elements()
-        jt_logger.info(f"[diag] meet/vector maxima = {format_partition_set(maxima)}")
+        if not jt_logger.disabled:
+            jt_logger.info(f"[diag] meet/vector maxima = {format_partition_set(maxima)}")
         return [maxima]
     return []
 
@@ -45,7 +48,8 @@ def _rectangular_row_wise_meet_product(
         raise ValueError(f"Rectangular row-wise method requires 2 columns, got {cols}")
 
     # Include the input matrix in logs for readability
-    jt_logger.matrix(matrix, title="Rectangular Row-Wise Meet Product: Input Matrix")
+    if not jt_logger.disabled:
+        jt_logger.matrix(matrix, title="Rectangular Row-Wise Meet Product: Input Matrix")
 
     row_results: list[PartitionSet[Partition]] = []
 
@@ -54,9 +58,11 @@ def _rectangular_row_wise_meet_product(
         result: PartitionSet[Partition] = left & right
 
         if result:
-            jt_logger.info(f"[diag] meet/row raw = {format_partition_set(result)}")
+            if not jt_logger.disabled:
+                jt_logger.info(f"[diag] meet/row raw = {format_partition_set(result)}")
             maxima = result.maximal_elements()
-            jt_logger.info(f"[diag] meet/row maxima = {format_partition_set(maxima)}")
+            if not jt_logger.disabled:
+                jt_logger.info(f"[diag] meet/row maxima = {format_partition_set(maxima)}")
             row_results.append(maxima)
 
     return row_results
@@ -111,7 +117,8 @@ def _square_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
 
     if rows == 1:
         # Include the input matrix in logs for readability
-        jt_logger.matrix(matrix, title="Square Meet Product (1×1): Input Matrix")
+        if not jt_logger.disabled:
+            jt_logger.matrix(matrix, title="Square Meet Product (1×1): Input Matrix")
         result = matrix[0][0]
         return [result] if result else []
 
@@ -127,21 +134,26 @@ def _square_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
         # Collect non-empty results
         results: list[PartitionSet[Partition]] = []
 
-        jt_logger.section("Square Meet Product Diagonal Results")
-        # Include the input matrix in this section for context
-        jt_logger.matrix(matrix, title="Input Matrix")
+        if not jt_logger.disabled:
+            jt_logger.section("Square Meet Product Diagonal Results")
+            # Include the input matrix in this section for context
+            jt_logger.matrix(matrix, title="Input Matrix")
 
         if main_diag:
-            jt_logger.info(f"[diag] meet/diag raw = {format_partition_set(main_diag)}")
+            if not jt_logger.disabled:
+                jt_logger.info(f"[diag] meet/diag raw = {format_partition_set(main_diag)}")
             maxima = main_diag.maximal_elements()
-            jt_logger.info(f"[diag] meet/diag maxima = {format_partition_set(maxima)}")
+            if not jt_logger.disabled:
+                jt_logger.info(f"[diag] meet/diag maxima = {format_partition_set(maxima)}")
             results.append(maxima)
         if counter_diag:
-            jt_logger.info(
-                f"[diag] meet/cdiag raw = {format_partition_set(counter_diag)}"
-            )
+            if not jt_logger.disabled:
+                jt_logger.info(
+                    f"[diag] meet/cdiag raw = {format_partition_set(counter_diag)}"
+                )
             maxima = counter_diag.maximal_elements()
-            jt_logger.info(f"[diag] meet/cdiag maxima = {format_partition_set(maxima)}")
+            if not jt_logger.disabled:
+                jt_logger.info(f"[diag] meet/cdiag maxima = {format_partition_set(maxima)}")
             results.append(maxima)
 
         return results
@@ -290,18 +302,21 @@ def split_matrix(matrix: PMatrix) -> list[PMatrix]:
     # Fewer groups = fewer split matrices = more efficient
     if len(left_groups) < len(right_groups):
         chosen_groups = left_groups
-        jt_logger.info(
-            f"Splitting by left column: {len(left_groups)} groups (fewer than right: {len(right_groups)})"
-        )
+        if not jt_logger.disabled:
+            jt_logger.info(
+                f"Splitting by left column: {len(left_groups)} groups (fewer than right: {len(right_groups)})"
+            )
     elif len(right_groups) < len(left_groups):
         chosen_groups = right_groups
-        jt_logger.info(
-            f"Splitting by right column: {len(right_groups)} groups (fewer than left: {len(left_groups)})"
-        )
+        if not jt_logger.disabled:
+            jt_logger.info(
+                f"Splitting by right column: {len(right_groups)} groups (fewer than left: {len(left_groups)})"
+            )
     else:
         # Equal number of groups - prefer left column for consistency
         chosen_groups = left_groups
-        jt_logger.info(f"Equal groups ({len(left_groups)}), using left column")
+        if not jt_logger.disabled:
+            jt_logger.info(f"Equal groups ({len(left_groups)}), using left column")
 
     # If no effective grouping is found (only one group or each row is a group), don't split
     if len(chosen_groups) <= 1 or len(chosen_groups) == len(base_rows):
@@ -355,7 +370,17 @@ def _pair_two_matrix_results(
     matrix1: PMatrix, matrix2: PMatrix
 ) -> list[PartitionSet[Partition]]:
     """
-    Handle the specific case of two matrices with reverse mapping pairing logic.
+    Handle the specific case of two matrices using a Structure-Preserving Pairing Strategy.
+
+    This strategy pairs solutions from disjoint sub-problems in a complementary manner using
+    reverse index mapping (Index i <-> Index n-1-i).
+
+    **Rationale:**
+    In the context of the meet product, solutions are typically ordered from "Most Conservative" (Main)
+    to "Least Conservative" (Counter/Deletion). By pairing the most conservative option of one side
+    with the least conservative option of the other, we enforce a "Trade-off" heuristic.
+    This prevents "Aggressive Deletion" scenarios (Counter-Counter) where structure is destroyed
+    on both sides, guiding the solver towards solutions that preserve at least one side's structure.
     """
     # Get results from each matrix
     result1 = generalized_meet_product(matrix1)
@@ -386,6 +411,7 @@ def _pair_two_matrix_results(
 
     else:
         return _union_results([result1, result2])
+
 
 
 def _union_results(

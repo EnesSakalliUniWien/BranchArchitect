@@ -1,5 +1,5 @@
 from brancharchitect.tree import Node
-from brancharchitect.jumping_taxa.debug import (
+from brancharchitect.logger.debug import (
     jt_logger,
 )
 from typing import List, Set, Tuple  # Added TypingSet, TypeVar, cast

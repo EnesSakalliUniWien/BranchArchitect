@@ -54,6 +54,7 @@ pytest-html = "^3.2.0"
 # --- Add these two lines to enable static type checks in tests ---
 mypy = "^1.5.1"
 pytest-mypy = "^0.10.3"
+notebook = "^7.5.1"
 
 [build-system]
 requires = ["poetry-core"]

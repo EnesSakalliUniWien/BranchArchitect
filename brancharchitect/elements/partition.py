@@ -6,7 +6,37 @@ from functools import total_ordering
 
 @total_ordering
 class Partition:
-    __slots__ = ("indices", "encoding", "bitmask", "_cached_reverse_encoding")
+    __slots__ = ("_indices", "encoding", "bitmask", "_cached_reverse_encoding", "_cached_size")
+
+    @classmethod
+    def from_bitmask(cls, bitmask: int, encoding: Dict[str, int]) -> Partition:
+        """
+        Create a Partition directly from a bitmask and encoding.
+        This is significantly faster than the standard constructor as it avoids
+        sorting and set operations by delaying index derivation.
+        """
+        obj = cls.__new__(cls)
+        obj._indices = None  # Lazily computed
+        obj.encoding = encoding
+        obj.bitmask = bitmask
+        obj._cached_size = bitmask.bit_count()
+        obj._cached_reverse_encoding = None
+        return obj
+
+    @property
+    def indices(self) -> Tuple[int, ...]:
+        """Lazy derivation of sorted indices from bitmask."""
+        if self._indices is None:
+            indices_list = []
+            temp_mask = self.bitmask
+            idx = 0
+            while temp_mask:
+                if temp_mask & 1:
+                    indices_list.append(idx)
+                temp_mask >>= 1
+                idx += 1
+            self._indices = tuple(indices_list)
+        return self._indices
 
     def __init__(
         self, indices: Tuple[int, ...], encoding: Optional[Dict[str, int]] = None
@@ -20,17 +50,17 @@ class Partition:
         - If encoding is provided and non-empty, all indices must be present in encoding.values()
         """
         # Ensure input is iterable, then get unique elements, then sort.
-        # This makes self.indices always represent a set of unique, sorted indices.
+        # This makes self._indices always represent a set of unique, sorted indices.
         _unique_indices_set = set(indices)
-        self.indices: Tuple[int, ...] = tuple(sorted(list(_unique_indices_set)))
+        self._indices: Tuple[int, ...] = tuple(sorted(list(_unique_indices_set)))
 
         self.encoding: Dict[str, int] = encoding or {}
 
         # Validate indices
-        for idx in self.indices:
+        for idx in self._indices:
             if idx < 0:
                 raise ValueError(
-                    f"Partition indices must be non-negative integers; got {self.indices}"
+                    f"Partition indices must be non-negative integers; got {self._indices}"
                 )
 
         # Note: We intentionally do NOT require all indices to appear in the
@@ -43,19 +73,29 @@ class Partition:
         for idx in self.indices:
             bitmask |= 1 << idx
         self.bitmask: int = bitmask
+        self._cached_size: int = bitmask.bit_count()
         self._cached_reverse_encoding: Optional[Dict[int, str]] = None
 
     def __iter__(self) -> Iterator[int]:
         return iter(self.indices)
 
     def __len__(self) -> int:
-        # Accurately reflects the number of unique indices in the partition
-        return len(self.indices)
+        # Avoid triggering lazy indices derivation if only count is needed
+        return self._cached_size
+
+    def __bool__(self) -> bool:
+        # Efficient truthiness check without length or indices
+        return self.bitmask != 0
+
+    @property
+    def size(self) -> int:
+        """Return the number of taxa in this partition (cached for performance)."""
+        return self._cached_size
 
     @property
     def is_singleton(self) -> bool:
         """Return True if this partition contains exactly one index (atom)."""
-        return len(self.indices) == 1
+        return self._cached_size == 1
 
     def _tuple_to_indices(self, other: Any) -> Tuple[int, ...] | None:
         """

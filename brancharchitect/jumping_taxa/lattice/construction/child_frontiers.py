@@ -152,13 +152,14 @@ def compute_child_frontiers(
                     bottom_to_frontiers={child.split_indices: frontier_set},
                 )
 
-                jt_logger.info("---------------------------------------")
-                jt_logger.info(
-                    f"Added shared direct pivot child: {child.split_indices}"
-                )
-                jt_logger.info(
-                    f"  Self-covering: frontier = bottom = {child.split_indices}"
-                )
+                if not jt_logger.disabled:
+                    jt_logger.info("---------------------------------------")
+                    jt_logger.info(
+                        f"Added shared direct pivot child: {child.split_indices}"
+                    )
+                    jt_logger.info(
+                        f"  Self-covering: frontier = bottom = {child.split_indices}"
+                    )
 
     # ========================================================================
     # Process unique children (existing algorithm)
@@ -173,24 +174,26 @@ def compute_child_frontiers(
                 f"{tuple(sorted(parent.get_current_order()))}"
             )
 
-        # Get shared splits in this child's subtree
-        child_all_splits: PartitionSet[Partition] = top_child.to_splits(
-            with_leaves=True
+        # MATHEMATICAL OPTIMIZATION: Instead of full to_splits() and intersection,
+        # we know any shared split in this child's subtree must be a subset of the child's split.
+        child_mask = unique_maximal_child_splits.bitmask
+        child_splits_across_trees: PartitionSet[Partition] = PartitionSet(
+            encoding=shared_splits.encoding
+        )
+        child_splits_across_trees.update(
+            s for s in shared_splits.fast_partitions if (s.bitmask & child_mask) == s.bitmask
         )
 
-        # Across-trees shared splits within this child's subtree
-        child_splits_across_trees: PartitionSet[Partition] = (
-            child_all_splits & shared_splits
-        )
         # Per-child frontier (maximal shared elements)
         child_frontier_splits: PartitionSet[Partition] = (
             child_splits_across_trees.maximal_elements()
         )
 
-        jt_logger.info("---------------------------------------")
-        jt_logger.info(f"Processing child split {unique_maximal_child_splits}")
-        jt_logger.info(f"Child Splits Across Trees: {child_splits_across_trees}")
-        jt_logger.info(f"Child Frontier Splits: {child_frontier_splits}")
+        if not jt_logger.disabled:
+            jt_logger.info("---------------------------------------")
+            jt_logger.info(f"Processing child split {unique_maximal_child_splits}")
+            jt_logger.info(f"Child Splits Across Trees: {child_splits_across_trees}")
+            jt_logger.info(f"Child Frontier Splits: {child_frontier_splits}")
 
         # Get candidate bottoms from tree topology differences (min_size=2)
         candidate_bottoms: PartitionSet[Partition] = children_to_process.bottoms_under(

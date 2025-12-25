@@ -79,11 +79,12 @@ def calculate_subtree_paths(
 
             target_subtree_paths[current_pivot_edge][subtree] = target_partitions
 
-            logger.debug(
-                "[paths] pivot=%s subtree=%s target_partitions=%s",
-                current_pivot_edge.bipartition(),
-                subtree.bipartition(),
-                [list(p.indices) for p in target_partitions],
-            )
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "[paths] pivot=%s subtree=%s target_partitions=%s",
+                    current_pivot_edge.bipartition(),
+                    subtree.bipartition(),
+                    [list(p.indices) for p in target_partitions],
+                )
 
     return reference_subtree_paths, target_subtree_paths

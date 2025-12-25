@@ -16,7 +16,7 @@ from brancharchitect.jumping_taxa.lattice.mapping import (
 from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
     compute_pivot_solutions_with_deletions,
 )
-from brancharchitect.jumping_taxa.debug import jt_logger
+from brancharchitect.logger.debug import jt_logger
 
 __all__ = [
     "derive_order_for_pair",
@@ -246,25 +246,26 @@ def derive_order_for_pair(
             t1, t2, precomputed_solution=precomputed_solution
         )
 
-    jt_logger.info("Source maps + derived jumping taxa per edge:")
+    if not jt_logger.disabled:
+        jt_logger.info("Source maps + derived jumping taxa per edge:")
 
     # Apply ordering for differing edges
     for edge, mapping in mappings_t1.items():
-        # Debug: print mapping sizes and a small sample of pairs
-        try:
-            dst_map = mappings_t2.get(edge, {})
-            jt_logger.info(
-                f"\n[anchor_order] edge={list(edge.indices)} src_map={len(mapping)} dst_map={len(dst_map)}"
-            )
+        if not jt_logger.disabled:
+             try:
+                dst_map = mappings_t2.get(edge, {})
+                jt_logger.info(
+                    f"\n[anchor_order] edge={list(edge.indices)} src_map={len(mapping)} dst_map={len(dst_map)}"
+                )
 
-            jt_logger.info(
-                f"  src pairs (solution -> mapped) sample: {_sample_pairs(mapping)}"
-            )
-            jt_logger.info(
-                f"  dst pairs (solution -> mapped) sample: {_sample_pairs(dst_map)}"
-            )
-        except Exception:
-            pass
+                jt_logger.info(
+                    f"  src pairs (solution -> mapped) sample: {_sample_pairs(mapping)}"
+                )
+                jt_logger.info(
+                    f"  dst pairs (solution -> mapped) sample: {_sample_pairs(dst_map)}"
+                )
+             except Exception:
+                pass
         blocked_order_and_apply(
             edge,
             mapping,
@@ -279,9 +280,10 @@ def derive_order_for_pair(
 
     # For identical trees (no mappings), still apply ordering to ensure alignment
     if not mappings_t1:
-        jt_logger.info(
-            "No differing edges found - trees may be identical. Applying root-level alignment."
-        )
+        if not jt_logger.disabled:
+            jt_logger.info(
+                "No differing edges found - trees may be identical. Applying root-level alignment."
+            )
         # Create a root partition for the entire tree (all taxa)
         all_taxa_indices = tuple(sorted(t1.taxa_encoding.values()))
         root_partition = Partition(all_taxa_indices, t1.taxa_encoding)
@@ -393,9 +395,10 @@ def blocked_order_and_apply(
         if node is not None:
             source_blocked.append(tuple(node.get_current_order()))
         else:
-            jt_logger.warning(
-                f"Warning: Could not find node for common split {cs} in tree 1"
-            )
+            if not jt_logger.disabled:
+                jt_logger.warning(
+                    f"Warning: Could not find node for common split {cs} in tree 1"
+                )
     source_blocked.extend([(taxon,) for taxon in sorted(list(free_taxa))])
 
     # Tuple-based sort keys per taxon to avoid large numeric weights and floats.

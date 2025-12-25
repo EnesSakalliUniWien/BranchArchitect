@@ -25,7 +25,7 @@ from brancharchitect.tree import Node
 from brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem import (
     PivotEdgeSubproblem,
 )
-from brancharchitect.jumping_taxa.debug import jt_logger
+from brancharchitect.logger.debug import jt_logger
 
 
 def topological_sort_edges(edges: List[Partition], tree: Node) -> List[Partition]:
@@ -180,11 +180,12 @@ def sort_pivot_edges_by_subset_hierarchy(
         key=lambda edge: avg_depths[edge.pivot_split],
     )
 
-    jt_logger.debug(
-        f"Sorted {len(pivot_edges)} pivot edges by subset hierarchy and depth"
-    )
-    for i, edge in enumerate(sorted_edges):
-        depth = avg_depths[edge.pivot_split]
-        jt_logger.debug(f"  {i + 1}. {edge.pivot_split} (avg_depth={depth})")
+    if not jt_logger.disabled:
+        jt_logger.debug(
+            f"Sorted {len(pivot_edges)} pivot edges by subset hierarchy and depth"
+        )
+        for i, edge in enumerate(sorted_edges):
+            depth = avg_depths[edge.pivot_split]
+            jt_logger.debug(f"  {i + 1}. {edge.pivot_split} (avg_depth={depth})")
 
     return sorted_edges

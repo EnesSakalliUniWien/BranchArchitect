@@ -234,7 +234,8 @@ def collect_nesting_conflicts(
         left_top_to_bottom.bottom_to_frontiers.values(),
         right_top_to_bottom.bottom_to_frontiers.values(),
     ):
-        jt_logger.info(f"------Bottoms: {left_bottoms} <-> {right_bottoms}")
+        if not jt_logger.disabled:
+            jt_logger.info(f"------Bottoms: {left_bottoms} <-> {right_bottoms}")
 
         # Skip empty sets: ∅ ⊆ X is vacuously true but phylogenetically meaningless
         if not left_bottoms or not right_bottoms:
@@ -250,9 +251,10 @@ def collect_nesting_conflicts(
             nesting_solutions.append(solution)
             bottom_matrix.append([left_bottoms, right_bottoms])
 
-    jt_logger.matrix(
-        bottom_matrix, title="Bottoms Conflict Matrix (Nesting Relationships)"
-    )
+    if not jt_logger.disabled:
+        jt_logger.matrix(
+            bottom_matrix, title="Bottoms Conflict Matrix (Nesting Relationships)"
+        )
 
 
 def collect_all_conflicts(

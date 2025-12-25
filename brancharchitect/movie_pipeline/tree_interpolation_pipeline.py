@@ -70,6 +70,11 @@ class TreeInterpolationPipeline:
         self.config: PipelineConfig = config or PipelineConfig()
         self.logger = logger or logging.getLogger(self.config.logger_name)
 
+        # Configure unified debug visualization based on pipeline settings
+        from brancharchitect.logger import jt_logger
+
+        jt_logger.disabled = not self.config.enable_debug_visualization
+
     def process_trees(self, trees: Node | List[Node]) -> InterpolationResult:
         """
         Executes the complete tree interpolation pipeline.

@@ -45,7 +45,7 @@ PMatrix: TypeAlias = list[MatrixRow]
 # ]
 
 
-@dataclass
+@dataclass(slots=True)
 class TopToBottom:
     """
     A data structure to link top-level shared splits (frontiers) to their

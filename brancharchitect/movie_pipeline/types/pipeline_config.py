@@ -18,3 +18,4 @@ class PipelineConfig:
     circular: bool = True
     circular_boundary_policy: str = "between_anchor_blocks"  # or "largest_mover_at_zero"
     logger_name: str = "brancharchitect.movie_pipeline"
+    enable_debug_visualization: bool = False

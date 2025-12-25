@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Dict, List, Tuple, Union, Sequence
 from brancharchitect.elements.partition_set import Partition, PartitionSet
-from brancharchitect.jumping_taxa.debug import jt_logger
+from brancharchitect.logger.debug import jt_logger
 
 """
 Solution registry for the lattice algorithm.
@@ -18,33 +18,35 @@ solutions organized by pivot edge and iteration number.
 
 def compute_solution_rank_key(
     solution: PartitionSet[Partition],
-) -> Tuple[int, Tuple[int, ...], Tuple[int, ...]]:
+) -> Tuple[int, int, Tuple[int, ...], Tuple[int, ...]]:
     """
     Compute ranking key for solution comparison.
 
-    Solutions are ranked by:
-    1. Fewest partitions (simpler = fewer jumping taxa groups)
-    2. Smallest partition sizes (smaller = fewer taxa per group)
-    3. Deterministic bitmask ordering (reproducibility)
+    Solutions are ranked by (in order of priority):
+    1. Smallest total taxa count (sum of partition sizes) - Maximum Parsimony
+    2. Fewest partitions (simpler = fewer jumping taxa groups)
+    3. Smallest individual partition sizes (tie-breaker)
+    4. Deterministic bitmask ordering (reproducibility)
 
     Args:
         solution: PartitionSet to rank
 
     Returns:
-        Tuple of (num_partitions, sorted_sizes, sorted_bitmasks)
-        Lower values indicate "better" (simpler) solutions
+        Tuple of (total_taxa, num_partitions, sorted_sizes, sorted_bitmasks)
+        Lower values indicate "better" (more parsimonious) solutions
 
     Example:
         >>> sol1 = PartitionSet([Partition({A}), Partition({B}), Partition({C})])
         >>> sol2 = PartitionSet([Partition({A,B,C})])
-        >>> compute_solution_rank_key(sol1)  # (3, (1,1,1), (...))
-        >>> compute_solution_rank_key(sol2)  # (1, (3,), (...))
-        >>> # sol2 ranks better: fewer partitions
+        >>> compute_solution_rank_key(sol1)  # (3, 3, (1,1,1), (...))
+        >>> compute_solution_rank_key(sol2)  # (3, 1, (3,), (...))
+        >>> # Both have total_taxa=3, but sol2 has fewer partitions, so sol2 ranks better
     """
     num_parts = len(solution)
-    sizes_tuple = tuple(sorted((p.bitmask.bit_count() for p in solution)))
+    sizes_tuple = tuple(sorted(p.size for p in solution))
+    total_taxa = sum(sizes_tuple)
     mask_tuple = tuple(sorted((p.bitmask for p in solution)))
-    return (num_parts, sizes_tuple, mask_tuple)
+    return (total_taxa, num_parts, sizes_tuple, mask_tuple)
 
 
 class SolutionRegistry:
@@ -151,23 +153,26 @@ class SolutionRegistry:
         solutions: Dict[str, List[PartitionSet[Partition]]] = (
             self.solutions_by_pivot_and_iteration.get((pivot_edge, visit), {})
         )
-        jt_logger.info(
-            f"[get_solutions_for_edge_visit] pivot_edge={pivot_edge}, visit={visit}"
-        )
-        jt_logger.info(f"[get_solutions_for_edge_visit] solutions dict: {solutions}")
-        jt_logger.info(
-            f"[get_solutions_for_edge_visit] dict keys: {list(solutions.keys())}"
-        )
+        if not jt_logger.disabled:
+            jt_logger.info(
+                f"[get_solutions_for_edge_visit] pivot_edge={pivot_edge}, visit={visit}"
+            )
+            jt_logger.info(f"[get_solutions_for_edge_visit] solutions dict: {solutions}")
+            jt_logger.info(
+                f"[get_solutions_for_edge_visit] dict keys: {list(solutions.keys())}"
+            )
         result: List[PartitionSet[Partition]] = []
         for sols in solutions.values():
-            jt_logger.info(
-                f"[get_solutions_for_edge_visit] Extending with sols: {sols}, type: {type(sols)}"
-            )
+            if not jt_logger.disabled:
+                jt_logger.info(
+                    f"[get_solutions_for_edge_visit] Extending with sols: {sols}, type: {type(sols)}"
+                )
             result.extend(sols)
-        jt_logger.info(
-            f"[get_solutions_for_edge_visit] Final result length: {len(result)}"
-        )
-        jt_logger.info(f"[get_solutions_for_edge_visit] Final result: {result}")
+        if not jt_logger.disabled:
+            jt_logger.info(
+                f"[get_solutions_for_edge_visit] Final result length: {len(result)}"
+            )
+            jt_logger.info(f"[get_solutions_for_edge_visit] Final result: {result}")
         return result
 
     def get_single_smallest_solution(

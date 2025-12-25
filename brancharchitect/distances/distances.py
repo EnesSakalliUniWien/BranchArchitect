@@ -148,6 +148,10 @@ def compute_pairwise_pivot_edge_paths(
     each successful pair (i > j), leveraging `compute_tree_pair_component_paths`
     in parallel.
     """
+    for tree in tqdm(trees, desc="Preparing trees for parallel processing"):
+        tree.to_splits()
+        tree.build_split_index()
+
     pair_args = [
         (i, j, trees[i], trees[j]) for i in range(len(trees)) for j in range(i)
     ]

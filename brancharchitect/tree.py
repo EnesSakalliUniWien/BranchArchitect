@@ -28,6 +28,7 @@ class Node:
     _cache_valid: bool
     _traverse_cache: Optional[List[Self]]
     _splits_cache: Optional[PartitionSet[Partition]]
+    _splits_with_leaves_cache: Optional[PartitionSet[Partition]]
     list_index: Optional[int]
     s_edge_block: Partition
 
@@ -50,15 +51,20 @@ class Node:
         self.name = name
         self.length = length
         self.values = dict(values) if values is not None else {}
-        self.split_indices = (
-            split_indices if split_indices is not None else Partition((), {})
-        )
+        # Ensure split_indices is a Partition object
+        if split_indices is None:
+            self.split_indices = Partition((), taxa_encoding or {})
+        elif isinstance(split_indices, tuple):
+            self.split_indices = Partition(split_indices, taxa_encoding or {})
+        else:
+            self.split_indices = split_indices
         self._split_index = None
         self._cached_subtree_order = None
         self._cached_subtree_cost = None
         self._cache_valid = False
         self._traverse_cache = None
         self._splits_cache = None
+        self._splits_with_leaves_cache = None
         self.list_index = None
         self.depth = depth
         self.s_edge_block = Partition(
@@ -160,44 +166,39 @@ class Node:
     def to_splits(self, with_leaves: bool = False) -> PartitionSet[Partition]:
         """
         Return the set of splits (PartitionSet) for the subtree rooted at this node.
-        Uses a cache to avoid redundant computation. The cache is always used unless
-        `with_leaves=True`, in which case splits for all nodes (including leaves) are recomputed.
-
-        Args:
-            with_leaves (bool): If True, include splits for leaves and recompute (bypassing cache).
-        Returns:
-            PartitionSet: The set of splits for this subtree.
-
-        Caching strategy:
-            - If `with_leaves` is False, the result is cached in `_splits_cache` and reused on subsequent calls.
-            - If `with_leaves` is True, the cache is bypassed and splits are recomputed (not cached).
-            - The cache is invalidated by any tree-modifying operation (see methods that call `invalidate_caches`).
+        Uses a recursive accumulation strategy for O(N) performance.
         """
         if not with_leaves and self._splits_cache is not None:
             return self._splits_cache
+        if with_leaves and self._splits_with_leaves_cache is not None:
+            return self._splits_with_leaves_cache
 
         splits: PartitionSet[Partition] = PartitionSet(encoding=self.taxa_encoding)
 
         # All splits in a subtree must be subsets of the root's split.
-        current_node_indices = set(self.split_indices.indices)
+        root_bitmask = self.split_indices.bitmask
+        to_add: List[Partition] = []
 
         for nd in self.traverse():
             # An internal node always defines a split. A leaf node only does if with_leaves is True.
             if nd.children:
                 # Ensure the split is not empty before adding
                 if nd.split_indices:
-                    # Validate that the node's split is a subset of the current subtree's root split
-                    if set(nd.split_indices.indices).issubset(current_node_indices):
-                        splits.add(nd.split_indices)
-                    # Skip splits with indices outside the current subtree
+                    # Validate that the node's split is a subset of the current subtree's root split using bitmasks
+                    if (nd.split_indices.bitmask & root_bitmask) == nd.split_indices.bitmask:
+                        to_add.append(nd.split_indices)
             elif with_leaves:
                 if nd.split_indices:
-                    # Also validate leaf splits
-                    if set(nd.split_indices.indices).issubset(current_node_indices):
-                        splits.add(nd.split_indices)
+                    # Also validate leaf splits using bitmasks
+                    if (nd.split_indices.bitmask & root_bitmask) == nd.split_indices.bitmask:
+                        to_add.append(nd.split_indices)
+
+        splits.update(to_add)
 
         if not with_leaves:
             self._splits_cache = splits
+        else:
+            self._splits_with_leaves_cache = splits
         return splits
 
     def build_split_index(self):
@@ -310,12 +311,12 @@ class Node:
                     # but doesn't have a proper leaf name. Create an empty partition.
                     self.split_indices = Partition((), encoding)
             else:
-                # For internal nodes, collect child indices
-                idxs: list[int] = []
+                # For internal nodes, collect child indices using bitmasks for speed
+                combined_mask = 0
                 for ch in self.children:
-                    idxs.extend(tuple(sorted(ch.split_indices)))
+                    combined_mask |= ch.split_indices.bitmask
 
-                self.split_indices = Partition(tuple(sorted(idxs)), encoding)
+                self.split_indices = Partition.from_bitmask(combined_mask, encoding)
 
             # Rebuild split index after modification
             self.build_split_index()
@@ -344,11 +345,23 @@ class Node:
     # ------------------------------------------------------------------------
 
     def traverse(self) -> List[Self]:
+        """
+        Return a list of all nodes in the subtree rooted at this node (Pre-order).
+        Uses an iterative stack approach to avoid O(N^2) list extensions and recursion depth issues.
+        """
         if self._traverse_cache is not None:
             return self._traverse_cache
-        nodes = [self]
-        for child in self.children:
-            nodes.extend(child.traverse())
+
+        nodes: List[Self] = []
+        stack: List[Self] = [self]
+
+        while stack:
+            current = stack.pop()
+            nodes.append(current)
+            # Add children in reverse to maintain left-to-right visit order (pre-order)
+            for child in reversed(current.children):
+                stack.append(child)
+
         self._traverse_cache = nodes
         return nodes
 
@@ -595,8 +608,13 @@ class Node:
         Delete taxa and update indices/caches.
         This will invalidate all caches, including the splits cache, to ensure correctness.
         """
+        # Create deletion mask once for efficiency
+        deletion_mask = 0
+        for idx in indices_to_delete:
+            deletion_mask |= (1 << idx)
+
         # First delete the taxa
-        self._delete_taxa_internal(indices_to_delete)
+        self._delete_taxa_internal(deletion_mask)
 
         self._prune_single_child_nodes()
 
@@ -605,17 +623,17 @@ class Node:
 
         # Debug: Log the leaves after deletion
         try:
-            from brancharchitect.jumping_taxa.debug import jt_logger
-
-            remaining_leaves = [leaf.name for leaf in self.get_leaves()]
-            taxa_to_delete_names = [
-                name
-                for name, idx in self.taxa_encoding.items()
-                if idx in indices_to_delete
-            ]
-            jt_logger.info(
-                f"After deleting indices {taxa_to_delete_names}, remaining leaves: {remaining_leaves}"
-            )
+            from brancharchitect.logger.debug import jt_logger
+            if not jt_logger.disabled:
+                remaining_leaves = [leaf.name for leaf in self.get_leaves()]
+                taxa_to_delete_names = [
+                    name
+                    for name, idx in self.taxa_encoding.items()
+                    if idx in indices_to_delete
+                ]
+                jt_logger.info(
+                    f"After deleting indices {taxa_to_delete_names}, remaining leaves: {remaining_leaves}"
+                )
         except Exception:
             pass
 
@@ -626,29 +644,25 @@ class Node:
         self.invalidate_caches(propagate_up=True)
         return self
 
-    def _delete_taxa_internal(self, indices_to_delete: list[int]) -> Self:
+    def _delete_taxa_internal(self, deletion_mask: int) -> Self:
         """
-        Internal method for taxa deletion. Optimized for performance by using a set for lookups.
+        Internal method for taxa deletion. Optimized for performance by using bitmasks.
         """
-        indices_to_delete_set = set(indices_to_delete)
         # Keep only children whose split indices contain elements not in indices_to_delete
         self.children = [
             child
             for child in self.children
-            if any(idx not in indices_to_delete_set for idx in child.split_indices)
+            if (child.split_indices.bitmask & ~deletion_mask) != 0
         ]
 
-        # Update split indices for this node
-        self.split_indices = Partition(
-            tuple(
-                idx for idx in self.split_indices if idx not in indices_to_delete_set
-            ),
-            self.taxa_encoding,
-        )
+        # Update split indices for this node using bitmask
+        new_mask = self.split_indices.bitmask & ~deletion_mask
+        self.split_indices = Partition.from_bitmask(new_mask, self.taxa_encoding)
 
         # Recursively process children
         for child in self.children:
-            child._delete_taxa_internal(indices_to_delete)
+            child._delete_taxa_internal(deletion_mask)
+        return self
 
         return self
 
@@ -686,6 +700,7 @@ class Node:
         self._cache_valid = False
         self._traverse_cache = None
         self._splits_cache = None
+        self._splits_with_leaves_cache = None
 
         # Propagate down to children
         if propagate_down:
@@ -805,21 +820,18 @@ class Node:
         if self is descendant:
             return []
 
-        # Use depth-first search to find path to descendant
-        def _find_path_dfs(
-            current: "Node", target: "Node", path: List["Node"]
-        ) -> List["Node"]:
-            if current is target:
-                return path
+        path: List["Node"] = []
+        current = descendant
+        while current is not None and current is not self:
+            path.append(current)
+            current = current.parent
 
-            for child in current.children:
-                child_path = _find_path_dfs(child, target, path + [child])
-                if child_path:
-                    return child_path
-
+        # If we reached None, self is not an ancestor of descendant
+        if current is None:
             return []
 
-        return _find_path_dfs(self, descendant, [])
+        # path is currently [descendant, ..., child_of_self]. Reverse it.
+        return path[::-1]
 
     def find_path_between_splits(
         self, split1: Partition, split2: Partition

@@ -3,7 +3,7 @@
 from brancharchitect.tree import Node
 from typing import List, Tuple, Dict, Set
 from brancharchitect.elements.partition import Partition
-from brancharchitect.jumping_taxa.debug import jt_logger
+from brancharchitect.logger.debug import jt_logger
 import logging
 from brancharchitect.jumping_taxa.lattice.solvers.pivot_edge_solver import (
     lattice_algorithm,
@@ -28,7 +28,8 @@ def compute_pivot_solutions_with_deletions(
     Note: Only returns splits mapped to the original input trees to ensure
     usability in interpolation.
     """
-    jt_logger.section("Iterative Lattice Algorithm")
+    if not jt_logger.disabled:
+        jt_logger.section("Iterative Lattice Algorithm")
 
     # Initialize iteration variables
     jumping_subtree_solutions_dict: Dict[Partition, List[Partition]] = {}
@@ -39,11 +40,13 @@ def compute_pivot_solutions_with_deletions(
 
     while True:
         iteration_count += 1
-        jt_logger.subsection(f"Iteration {iteration_count}")
+        if not jt_logger.disabled:
+            jt_logger.subsection(f"Iteration {iteration_count}")
 
         # Check if trees are now identical (using Node.__eq__ which compares full topology)
         if current_t1 == current_t2:
-            jt_logger.info("Trees are now identical - terminating iterations")
+            if not jt_logger.disabled:
+                jt_logger.info("Trees are now identical - terminating iterations")
             break
 
         # Run lattice algorithm - it now returns a dictionary with mapped pivot edges
@@ -53,7 +56,8 @@ def compute_pivot_solutions_with_deletions(
 
         # Accumulate solutions (flat partitions) from this iteration into the global dictionary
         for split, partitions in solutions_dict_this_iter.items():
-            jt_logger.info(f"[LATTICE]   Mapped split: {split.bipartition()}")
+            if not jt_logger.disabled:
+                jt_logger.info(f"[LATTICE]   Mapped split: {split.bipartition()}")
             jumping_subtree_solutions_dict.setdefault(split, []).extend(partitions)
 
         # For deletion, we need a flat list of partitions for this iteration
@@ -75,9 +79,10 @@ def compute_pivot_solutions_with_deletions(
 
         # Summary for this iteration
         total_solutions = len(partitions_this_iter)
-        jt_logger.info(
-            f"  Total: {total_solutions} jumping subtree solution(s) in this iteration"
-        )
+        if not jt_logger.disabled:
+            jt_logger.info(
+                f"  Total: {total_solutions} jumping subtree solution(s) in this iteration"
+            )
 
     # Splits have already been mapped to original common splits during accumulation
     return jumping_subtree_solutions_dict, deleted_taxa_per_iteration

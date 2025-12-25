@@ -70,7 +70,8 @@ def construct_sublattices(t1: Node, t2: Node) -> List[PivotEdgeSubproblem]:
     # Get common splits and verify they exist in both trees
     intersection: PartitionSet[Partition] = t1_splits.intersection(t2_splits)
 
-    log_lattice_construction_start(t1, t2, intersection)
+    if not jt_logger.disabled:
+        log_lattice_construction_start(t1, t2, intersection)
     lattice_edges: List[PivotEdgeSubproblem] = []
 
     # Sort splits deterministically by bitmask for reproducible processing
@@ -111,7 +112,8 @@ def construct_sublattices(t1: Node, t2: Node) -> List[PivotEdgeSubproblem]:
         if has_unique_child_splits:
             across_trees_splits_under_pivot_with_leaves.discard(pivot_split)
 
-            log_pivot_processing(pivot_split)
+            if not jt_logger.disabled:
+                log_pivot_processing(pivot_split)
 
             # Compute unique splits for each tree (topological differences)
             t1_unique_subtree_splits, t2_unique_subtree_splits = _compute_unique_splits(
@@ -143,7 +145,8 @@ def construct_sublattices(t1: Node, t2: Node) -> List[PivotEdgeSubproblem]:
 
             lattice_edges.append(edge)
 
-            log_lattice_edge_details(edge)
+            if not jt_logger.disabled:
+                log_lattice_edge_details(edge)
 
     return lattice_edges
 
@@ -308,7 +311,8 @@ def build_conflict_matrix(
         left_covers, right_covers
     )
 
-    log_conflict_matrices(bottom_matrix, conflicting_cover_pairs)
+    if not jt_logger.disabled:
+        log_conflict_matrices(bottom_matrix, conflicting_cover_pairs)
 
     # DECISION LOGIC: Choose between nesting solutions and conflict matrix
     # Compare the size of solutions to select the most parsimonious approach
@@ -341,15 +345,18 @@ def build_conflict_matrix(
         # Use consistent metric: count taxa (not partitions) for fair comparison
         conflict_size_estimate = _compute_conflict_taxa_size(conflicting_cover_pairs)
 
-        log_solution_comparison(nesting_size, min_row_size, conflict_size_estimate)
+        if not jt_logger.disabled:
+            log_solution_comparison(nesting_size, min_row_size, conflict_size_estimate)
 
         # If conflict matrix would yield smaller solution, use it
         # In case of tie (equal sizes), prefer nesting solution (simpler logic)
         if conflict_size_estimate < nesting_size:
-            log_solution_selection("conflict", nesting_size, conflict_size_estimate)
+            if not jt_logger.disabled:
+                log_solution_selection("conflict", nesting_size, conflict_size_estimate)
             return conflicting_cover_pairs
         else:
-            log_solution_selection("nesting", nesting_size, conflict_size_estimate)
+            if not jt_logger.disabled:
+                log_solution_selection("nesting", nesting_size, conflict_size_estimate)
             return [[smallest_nesting_solution]]
 
     # Only nesting solutions exist - return solution from smallest row
@@ -369,9 +376,11 @@ def build_conflict_matrix(
             candidates_with_smallest_rows, key=lambda x: solution_size(x[0])
         )[0]
 
-        log_nesting_only_solution(
-            len(nesting_solutions), min_row_size, smallest_nesting
-        )
+        if not jt_logger.disabled:
+            log_nesting_only_solution(
+                len(nesting_solutions), min_row_size, smallest_nesting
+            )
+
 
         # ============================================================
         # BUGFIX #2: Remove unreachable dead code
@@ -386,5 +395,6 @@ def build_conflict_matrix(
         return [[smallest_nesting]]
 
     # Only conflict matrix exists - return it
-    log_conflict_only_matrix(conflicting_cover_pairs)
+    if not jt_logger.disabled:
+        log_conflict_only_matrix(conflicting_cover_pairs)
     return conflicting_cover_pairs

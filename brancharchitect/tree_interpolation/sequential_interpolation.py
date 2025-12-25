@@ -14,7 +14,7 @@ from typing import List, Optional, Dict
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
-from brancharchitect.core.tree_pairs import iter_consecutive_pairs
+from brancharchitect.logger.tree_pairs import iter_consecutive_pairs
 from brancharchitect.tree_interpolation.types import (
     TreeInterpolationSequence,
     TreePairInterpolation,

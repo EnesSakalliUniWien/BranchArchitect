@@ -2,7 +2,7 @@ import os
 import logging
 from pathlib import Path
 
-from brancharchitect.jumping_taxa.debug import jt_logger
+from brancharchitect.logger.debug import jt_logger
 
 
 def pytest_configure(config):
