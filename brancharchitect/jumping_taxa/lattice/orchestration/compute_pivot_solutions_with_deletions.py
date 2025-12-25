@@ -3,7 +3,7 @@
 from brancharchitect.tree import Node
 from typing import List, Tuple, Dict, Set
 from brancharchitect.elements.partition import Partition
-from brancharchitect.logger.debug import jt_logger
+from brancharchitect.logger import jt_logger
 import logging
 from brancharchitect.jumping_taxa.lattice.solvers.pivot_edge_solver import (
     lattice_algorithm,
@@ -54,10 +54,11 @@ def compute_pivot_solutions_with_deletions(
             current_t1, current_t2, input_tree1, input_tree2
         )
 
+        if not jt_logger.disabled and solutions_dict_this_iter:
+            jt_logger.info(f"[LATTICE]   Accumulated {len(solutions_dict_this_iter)} mapped split(s)")
+
         # Accumulate solutions (flat partitions) from this iteration into the global dictionary
         for split, partitions in solutions_dict_this_iter.items():
-            if not jt_logger.disabled:
-                jt_logger.info(f"[LATTICE]   Mapped split: {split.bipartition()}")
             jumping_subtree_solutions_dict.setdefault(split, []).extend(partitions)
 
         # For deletion, we need a flat list of partitions for this iteration

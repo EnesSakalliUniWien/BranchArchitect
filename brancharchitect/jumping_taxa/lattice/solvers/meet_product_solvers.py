@@ -9,7 +9,7 @@ from typing import List
 
 # Use FrozenPartitionSet for hashable, immutable keys
 from brancharchitect.elements.frozen_partition_set import FrozenPartitionSet
-from brancharchitect.logger.debug import jt_logger
+from brancharchitect.logger import jt_logger
 from brancharchitect.logger.formatting import format_partition_set
 
 

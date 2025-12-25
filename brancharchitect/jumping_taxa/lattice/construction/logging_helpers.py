@@ -15,7 +15,7 @@ from brancharchitect.jumping_taxa.lattice.types.types import PMatrix
 from brancharchitect.jumping_taxa.lattice.solvers.meet_product_solvers import (
     solution_size,
 )
-from brancharchitect.jumping_taxa.debug import jt_logger
+from brancharchitect.logger import jt_logger
 
 
 def log_lattice_construction_start(

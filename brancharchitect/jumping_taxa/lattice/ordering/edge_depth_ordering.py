@@ -25,7 +25,7 @@ from brancharchitect.tree import Node
 from brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem import (
     PivotEdgeSubproblem,
 )
-from brancharchitect.logger.debug import jt_logger
+from brancharchitect.logger import jt_logger
 
 
 def topological_sort_edges(edges: List[Partition], tree: Node) -> List[Partition]:

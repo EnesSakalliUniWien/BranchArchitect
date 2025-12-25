@@ -49,7 +49,6 @@ def test_direct_pivot_maps_to_maximum_nonroot_split():
     mapped = map_iterative_pivot_edges_to_original([pivot], t1, t2, [[]])
 
     # Expect the split that strictly matches the pivot in the pruned context: (A,B)
-    # (A,B,C) is rejected because it contains C which is present in the tree but not in the pivot.
     expected = _p(("A", "B"), enc)
     assert len(mapped) == 1
     assert mapped[0] == expected

@@ -50,7 +50,7 @@ def _is_contiguous_block(order: List[str], block: Set[str]) -> bool:
 
 def test_reordering_small_example_stepwise():
     """Stepwise reordering on small_example.newick preserves anchors and blocks movers."""
-    lines = _read_newick_lines("current_testfiles/small_example.newick")
+    lines = _read_newick_lines("test-data/current_testfiles/small_example.newick")
     assert len(lines) >= 2, "Expected at least two trees in small_example.newick"
 
     src = parse_newick(lines[0])
@@ -84,7 +84,7 @@ def test_reordering_small_example_stepwise():
 
 def test_pair_interpolation_matches_destination_order_small_example():
     """Full pair interpolation should end exactly on the destination ordering."""
-    lines = _read_newick_lines("current_testfiles/small_example.newick")
+    lines = _read_newick_lines("test-data/current_testfiles/small_example.newick")
     assert len(lines) >= 2, "Expected at least two trees in small_example.newick"
 
     src = parse_newick(lines[0])

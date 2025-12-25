@@ -33,6 +33,7 @@ from brancharchitect.jumping_taxa.lattice.construction.logging_helpers import (
     log_nesting_only_solution,
     log_conflict_only_matrix,
 )
+from brancharchitect.logger import jt_logger
 
 
 """

@@ -3,7 +3,10 @@ import json
 from enum import Enum
 from statistics import mean
 from typing import Optional, Any, Tuple, Dict, List
-from typing_extensions import Self
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 from brancharchitect.elements.partition_set import PartitionSet, Partition
 
 

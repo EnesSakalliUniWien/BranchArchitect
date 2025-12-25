@@ -50,28 +50,19 @@ class Partition:
         - If encoding is provided and non-empty, all indices must be present in encoding.values()
         """
         # Ensure input is iterable, then get unique elements, then sort.
-        # This makes self._indices always represent a set of unique, sorted indices.
         _unique_indices_set = set(indices)
-        self._indices: Tuple[int, ...] = tuple(sorted(list(_unique_indices_set)))
-
+        self._indices: Tuple[int, ...] = tuple(sorted(_unique_indices_set))
         self.encoding: Dict[str, int] = encoding or {}
 
-        # Validate indices
+        # Compute bitmask and validate in single pass
+        bitmask = 0
         for idx in self._indices:
             if idx < 0:
                 raise ValueError(
                     f"Partition indices must be non-negative integers; got {self._indices}"
                 )
-
-        # Note: We intentionally do NOT require all indices to appear in the
-        # provided encoding because trees/sets may be mutated (e.g., deletions)
-        # before encodings are fully reconciled. Bitmask-based equality ensures
-        # correctness regardless of encoding completeness.
-        # Compute bitmask for fast hashing/comparison
-        bitmask = 0
-        # Iterate over the unique, sorted indices
-        for idx in self.indices:
             bitmask |= 1 << idx
+
         self.bitmask: int = bitmask
         self._cached_size: int = bitmask.bit_count()
         self._cached_reverse_encoding: Optional[Dict[int, str]] = None
@@ -244,8 +235,9 @@ class Partition:
 
     def __and__(self, other: Any) -> "Partition":
         if isinstance(other, Partition):
-            common_indices: set[int] = set(self.indices) & set(other.indices)
-            return Partition(tuple(sorted(common_indices)), self.encoding)
+            # Fast path: use bitmask intersection directly
+            new_bitmask = self.bitmask & other.bitmask
+            return Partition.from_bitmask(new_bitmask, self.encoding)
         return NotImplemented
 
     def intersection(self, *others: Any) -> "Partition":
@@ -280,19 +272,23 @@ class Partition:
         Returns a new Partition consisting of elements in self not in other.
         Accepts another Partition or a tuple of names/indices.
         """
-        # Determine the indices to subtract
         if isinstance(other, Partition):
-            if self.encoding and other.encoding and self.encoding != other.encoding:
-                raise ValueError("Cannot subtract partitions with different encodings")
-            other_indices = set(other.indices)
+            if self.encoding and other.encoding and self.encoding is not other.encoding:
+                if self.encoding != other.encoding:
+                    raise ValueError("Cannot subtract partitions with different encodings")
+            # Fast path: use bitmask difference directly
+            new_bitmask = self.bitmask & ~other.bitmask
+            return Partition.from_bitmask(new_bitmask, self.encoding)
         else:
             other_indices_tuple = self._tuple_to_indices(other)
             if other_indices_tuple is None:
                 return NotImplemented
-            other_indices = set(other_indices_tuple)
-
-        result_indices = tuple(sorted(set(self.indices) - other_indices))
-        return Partition(result_indices, self.encoding)
+            # Build bitmask for other indices
+            other_bitmask = 0
+            for idx in other_indices_tuple:
+                other_bitmask |= 1 << idx
+            new_bitmask = self.bitmask & ~other_bitmask
+            return Partition.from_bitmask(new_bitmask, self.encoding)
 
     def resolve_to_indices(self) -> Tuple[int, ...]:
         """

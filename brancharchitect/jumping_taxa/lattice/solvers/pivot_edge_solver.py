@@ -9,8 +9,8 @@ from brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem import (
     PivotEdgeSubproblem,
 )
 
-from brancharchitect.logger.debug import jt_logger
-from brancharchitect.jumping_taxa.lattice.registry import (
+from brancharchitect.logger import jt_logger
+from brancharchitect.jumping_taxa.lattice.types.registry import (
     SolutionRegistry,
     compute_solution_rank_key,
 )
@@ -88,12 +88,8 @@ class LatticeSolver:
 
         # Store solutions for this edge and visit
         if not jt_logger.disabled:
-            jt_logger.info(
-                f"Adding solutions for {current_pivot_edge.pivot_split} at visit {current_pivot_edge.visits}"
-            )
-
-        if not jt_logger.disabled:
-            jt_logger.info(f"Solutions: {solutions}")
+            jt_logger.debug(f"Solutions for {current_pivot_edge.pivot_split} (visit {current_pivot_edge.visits}): {solutions}")
+            jt_logger.info(f"  ✓ Added {len(solutions)} solution(s) for pivot {current_pivot_edge.pivot_split.bipartition()}")
 
         self.registry.add_solutions(
             current_pivot_edge.pivot_split,
@@ -184,7 +180,7 @@ def lattice_algorithm(
 
     # 3. Map pivot edges to original trees
     return _map_solutions_to_original_trees(
-        solutions_dict, original_tree1, original_tree2, input_tree1, input_tree2
+        solutions_dict, original_tree1, original_tree2
     )
 
 

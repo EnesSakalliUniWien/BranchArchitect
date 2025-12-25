@@ -19,7 +19,7 @@ def run_test():
 
     t1, t2 = build_trees_from_data(data)
 
-    from brancharchitect.jumping_taxa.lattice.compute_pivot_solutions_with_deletions import (
+    from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
         compute_pivot_solutions_with_deletions,
     )
     compute_pivot_solutions_with_deletions(t1, t2)

@@ -17,7 +17,7 @@ from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
 from brancharchitect.jumping_taxa.lattice.types.types import TopToBottom
 from brancharchitect.jumping_taxa.lattice.types.types import PMatrix
-from brancharchitect.jumping_taxa.debug import jt_logger
+from brancharchitect.logger import jt_logger
 
 
 def are_covers_incomparable(

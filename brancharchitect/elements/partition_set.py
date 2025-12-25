@@ -32,7 +32,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
         "_bitmask_set",
         "_bitmask_to_partition",
         "encoding",
-        "reversed_encoding",
+        "_reversed_encoding",
         "order",
         "name",
     )
@@ -47,30 +47,17 @@ class PartitionSet(Generic[T], MutableSet[T]):
         _bitmask_set: The underlying set of bitmasks
         _bitmask_to_partition: Mapping from bitmask to Partition objects
         encoding: Mapping from string names to indices
-        reversed_encoding: Mapping from indices to string names
+        _reversed_encoding: Lazily computed mapping from indices to string names
         order: Optional ordering for the indices
         name: Name of this partition set
     """
 
-    def _add_bitmask_partition(
-        self,
-        bitmask: int,
-        partition: Partition,
-        bitmask_set: set[int],
-        bitmask_to_partition: dict[int, Partition],
-    ) -> None:
-        """
-        Helper method to add a bitmask and partition to the given collections if not already present.
-
-        Args:
-            bitmask: The bitmask to add
-            partition: The partition object to associate with the bitmask
-            bitmask_set: The set of bitmasks to add to
-            bitmask_to_partition: The mapping from bitmask to partition to update
-        """
-        if bitmask not in bitmask_set:
-            bitmask_set.add(bitmask)
-            bitmask_to_partition[bitmask] = partition
+    @property
+    def reversed_encoding(self) -> Dict[int, str]:
+        """Lazily compute and cache the reversed encoding."""
+        if self._reversed_encoding is None:
+            self._reversed_encoding = {v: k for k, v in self.encoding.items()}
+        return self._reversed_encoding
 
     @classmethod
     def _from_iterable(cls, it):
@@ -87,9 +74,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
         self._bitmask_set: set[int] = set()
         self._bitmask_to_partition: dict[int, Partition] = {}
         self.encoding: Dict[str, int] = encoding or {}
-        self.reversed_encoding: Dict[int, str] = {
-            v: k for k, v in self.encoding.items()
-        }
+        self._reversed_encoding: Optional[Dict[int, str]] = None  # Lazily computed
         self.order: Optional[tuple[str, ...]] = (
             order
             if order is not None
@@ -117,18 +102,19 @@ class PartitionSet(Generic[T], MutableSet[T]):
             TypeError: If element is not a supported type
         """
         if isinstance(element, Partition):
-            # Enforce strict encoding equality to prevent silent mismatches.
-            if self.encoding and element.encoding and self.encoding != element.encoding:
-                # Provide detailed error message with actual encodings
-                self_keys = sorted(self.encoding.keys()) if self.encoding else []
-                elem_keys = sorted(element.encoding.keys()) if element.encoding else []
-                raise ValueError(
-                    f"Cannot add Partition with different encoding to PartitionSet.\n"
-                    f"PartitionSet encoding keys: {self_keys}\n"
-                    f"Partition encoding keys: {elem_keys}\n"
-                    f"PartitionSet encoding: {self.encoding}\n"
-                    f"Partition encoding: {element.encoding}"
-                )
+            # Fast path: skip encoding check if same object or both empty
+            if self.encoding is not element.encoding and self.encoding and element.encoding:
+                # Only do expensive dict comparison if identity check fails
+                if self.encoding != element.encoding:
+                    self_keys = sorted(self.encoding.keys())
+                    elem_keys = sorted(element.encoding.keys())
+                    raise ValueError(
+                        f"Cannot add Partition with different encoding to PartitionSet.\n"
+                        f"PartitionSet encoding keys: {self_keys}\n"
+                        f"Partition encoding keys: {elem_keys}\n"
+                        f"PartitionSet encoding: {self.encoding}\n"
+                        f"Partition encoding: {element.encoding}"
+                    )
             return element.bitmask, element
         elif isinstance(element, tuple):
             p = Partition(element, self.encoding)
@@ -168,29 +154,31 @@ class PartitionSet(Generic[T], MutableSet[T]):
         # If we have no encoding yet and value is a Partition with encoding, inherit it
         if not self.encoding and isinstance(value, Partition) and value.encoding:
             self.encoding = value.encoding
-            self.reversed_encoding = {v: k for k, v in self.encoding.items()}
+            self._reversed_encoding = None  # Invalidate cache
             self.order = tuple(self.encoding.keys())
 
         bitmask, partition = self._element_to_bitmask_and_partition(value)
         if bitmask not in self._bitmask_set:
-            self._add_bitmask_partition(
-                bitmask, partition, self._bitmask_set, self._bitmask_to_partition
-            )
+            self._bitmask_set.add(bitmask)
+            self._bitmask_to_partition[bitmask] = partition
 
     def update(self, others: Iterable[Union[T, Tuple[int, ...], int, Partition]]) -> None:
         """Add multiple elements at once."""
+        # Local references for speed
+        bitmask_set = self._bitmask_set
+        bitmask_to_partition = self._bitmask_to_partition
+
         for value in others:
             # Inherit encoding if empty
             if not self.encoding and isinstance(value, Partition) and value.encoding:
                 self.encoding = value.encoding
-                self.reversed_encoding = {v: k for k, v in self.encoding.items()}
+                self._reversed_encoding = None  # Invalidate cache
                 self.order = tuple(self.encoding.keys())
 
             bitmask, partition = self._element_to_bitmask_and_partition(value)
-            if bitmask not in self._bitmask_set:
-                self._add_bitmask_partition(
-                    bitmask, partition, self._bitmask_set, self._bitmask_to_partition
-                )
+            if bitmask not in bitmask_set:
+                bitmask_set.add(bitmask)
+                bitmask_to_partition[bitmask] = partition
 
     def discard(self, value: T) -> None:
         bitmask, _ = self._element_to_bitmask_and_partition(value)
@@ -261,8 +249,8 @@ class PartitionSet(Generic[T], MutableSet[T]):
         Return minimal elements under subset order (no element is a superset of another).
         """
         parts = list(self.fast_partitions)
-        # Sort ascending by set size (number of indices), then by bitmask for determinism
-        parts.sort(key=lambda p: (len(p.indices), p.bitmask))
+        # Sort ascending by set size (cached), then by bitmask for determinism
+        parts.sort(key=lambda p: (p._cached_size, p.bitmask))
         kept: list[Partition] = []
         kept_masks: list[int] = []
         for s in parts:
@@ -288,8 +276,8 @@ class PartitionSet(Generic[T], MutableSet[T]):
         Return maximal elements under subset order (no element is a subset of another).
         """
         parts = list(self.fast_partitions)
-        # Sort descending by set size (number of indices), then by bitmask for determinism
-        parts.sort(key=lambda p: (-len(p.indices), p.bitmask))
+        # Sort descending by set size (cached), then by bitmask for determinism
+        parts.sort(key=lambda p: (-p._cached_size, p.bitmask))
         kept: list[Partition] = []
         kept_masks: list[int] = []
         for s in parts:
@@ -429,7 +417,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
         new_set._bitmask_set = result_bitmask_set
         new_set._bitmask_to_partition = result_bitmask_to_partition
         new_set.encoding = self.encoding
-        new_set.reversed_encoding = self.reversed_encoding
+        new_set._reversed_encoding = self._reversed_encoding
         new_set.order = self.order
         new_set.name = self.name + "_union"
         return new_set
@@ -454,7 +442,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
             b: self._bitmask_to_partition[b] for b in result_bitmask_set
         }
         new_set.encoding = self.encoding
-        new_set.reversed_encoding = self.reversed_encoding
+        new_set._reversed_encoding = self._reversed_encoding
         new_set.order = self.order
         new_set.name = self.name + "_intersection"
         return new_set
@@ -479,7 +467,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
             b: self._bitmask_to_partition[b] for b in result_bitmask_set
         }
         new_set.encoding = self.encoding
-        new_set.reversed_encoding = self.reversed_encoding
+        new_set._reversed_encoding = self._reversed_encoding
         new_set.order = self.order
         new_set.name = self.name + "_difference"
         return new_set
@@ -520,7 +508,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
         new_set._bitmask_set = result_bitmask_set
         new_set._bitmask_to_partition = result_bitmask_to_partition
         new_set.encoding = self.encoding
-        new_set.reversed_encoding = self.reversed_encoding
+        new_set._reversed_encoding = self._reversed_encoding
         new_set.order = self.order
         new_set.name = self.name + "_symdiff"
         return new_set

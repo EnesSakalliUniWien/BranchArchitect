@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Dict, List, Tuple, Union, Sequence
 from brancharchitect.elements.partition_set import Partition, PartitionSet
-from brancharchitect.logger.debug import jt_logger
+from brancharchitect.logger import jt_logger
 
 """
 Solution registry for the lattice algorithm.

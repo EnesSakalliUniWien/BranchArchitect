@@ -15,8 +15,8 @@ such that p ⊆ s when both are viewed as subsets of L.
 The mapping function Φ: Σ(T₁⁽ⁱ⁾) ∩ Σ(T₂⁽ⁱ⁾) → Σ(T₁) ∩ Σ(T₂) is defined as:
 
 For direct pivot edges (no jumping taxa, J = ∅):
-    Φ(p) = argmax_{s ∈ Σ(T₁) ∩ Σ(T₂), p ⊆ s} |s|
-    (Maps to the MAXIMUM/largest containing split)
+    Φ(p) = argmin_{s ∈ Σ(T₁) ∩ Σ(T₂), p ⊆ s} |s|
+    (Maps to the MINIMUM/smallest containing split)
 
 For pivot edges with jumping taxa (J ≠ ∅):
     Φ(p, J) = argmin_{s ∈ Σ(T₁) ∩ Σ(T₂), (p ∪ J) ⊆ s} |s|
@@ -58,8 +58,8 @@ def map_iterative_pivot_edges_to_original(
     has associated jumping taxa:
 
     For direct pivot edges (no jumping taxa):
-        Find the MAXIMUM (largest) common split s in the original trees such that p ⊆ s.
-        This allows direct pivots to map to broader, higher-level splits.
+        Find the MINIMUM (smallest) common split s in the original trees such that p ⊆ s.
+        This ensures topological precision and deep common ancestor mapping.
 
     For pivot edges with jumping taxa:
         Find the MINIMUM (smallest) common split s in the original trees such that
@@ -71,8 +71,7 @@ def map_iterative_pivot_edges_to_original(
         1. Calculate the expected original taxa set: E = p ∪ J.
         2. Find all common splits C in the original trees (T₁ ∩ T₂).
         3. Find all candidate splits s ∈ C such that E is a subset of s.
-        4. If J = ∅ (direct pivot): select the split with MAXIMUM cardinality.
-           If J ≠ ∅ (jumping taxa): select the split with MINIMUM cardinality.
+        4. Select the split with MINIMUM cardinality.
 
     Args:
         pivot_edges_from_iteration: Pivot edges p from the current iteration.
@@ -107,143 +106,73 @@ def map_iterative_pivot_edges_to_original(
         else:
             non_root_common_splits.append(split)
 
-    jt_logger.info(f"\n{'=' * 80}")
-    jt_logger.info(f"Number of pivot edges to map: {len(pivot_edges_from_iteration)}")
-    jt_logger.info(f"Total taxa in original trees: {total_taxa}")
-    jt_logger.info(
-        f"Number of common splits in original trees: {len(original_common_splits)}"
-    )
-    jt_logger.info(f"Number of non-root common splits: {len(non_root_common_splits)}")
-    if root_split:
-        jt_logger.info(f"Root split (all {total_taxa} taxa) available as fallback")
-    jt_logger.info(f"{'=' * 80}\n")
+    if not jt_logger.disabled:
+        jt_logger.info(
+            f"Mapping {len(pivot_edges_from_iteration)} pivot edges "
+            f"({len(original_common_splits)} common splits available, "
+            f"{len(non_root_common_splits)} non-root)"
+        )
+
+    success_count = 0
+    fallback_count = 0
 
     for i, pivot_edge in enumerate(pivot_edges_from_iteration):
-        jt_logger.info(f"\n[MAPPING DEBUG] Processing pivot edge {i}")
-        jt_logger.info(f"[MAPPING DEBUG]   Pivot edge: {pivot_edge}")
-        jt_logger.info(f"[MAPPING DEBUG]   Pivot indices: {sorted(pivot_edge.indices)}")
-        jt_logger.info(f"[MAPPING DEBUG]   Pivot size: {len(pivot_edge.indices)} taxa")
-
         # Get the jumping taxa solution J for this pivot edge as a flat list of partitions.
         jumping_taxa_indices: Set[int] = set()
         if jumping_taxa_solutions and i < len(jumping_taxa_solutions):
             partitions_for_this_pivot = jumping_taxa_solutions[i]
-            jt_logger.info(
-                f"[MAPPING DEBUG]   Number of solution partitions for this pivot: {len(partitions_for_this_pivot)}"
-            )
             if partitions_for_this_pivot:
-                for j, partition in enumerate(partitions_for_this_pivot):
-                    jt_logger.info(
-                        f"[MAPPING DEBUG]     Solution partition {j}: {sorted(partition.indices)}"
-                    )
+                for partition in partitions_for_this_pivot:
                     jumping_taxa_indices.update(partition.indices)
-
-        jt_logger.info(
-            f"[MAPPING DEBUG]   Jumping taxa indices: {sorted(jumping_taxa_indices)}"
-        )
-        jt_logger.info(
-            f"[MAPPING DEBUG]   Jumping taxa count: {len(jumping_taxa_indices)}"
-        )
 
         # Step 1: Calculate the expected original taxa set (E = p ∪ J).
         pivot_indices: Set[int] = set(pivot_edge.indices)
         expected_original_indices: Set[int] = pivot_indices | jumping_taxa_indices
-
-        jt_logger.info(
-            f"[MAPPING DEBUG]   Expected original indices (pivot ∪ jumping): {sorted(expected_original_indices)}"
-        )
-        jt_logger.info(
-            f"[MAPPING DEBUG]   Expected original size: {len(expected_original_indices)} taxa"
-        )
 
         # Create a bitmask for the expected taxa set for efficient subset checking.
         expected_bitmask: int = 0
         for index in expected_original_indices:
             expected_bitmask |= 1 << index
 
-        jt_logger.info(
-            f"[MAPPING DEBUG]   Expected bitmask popcount: {expected_bitmask.bit_count()}"
-        )
-
         # Step 2: Find all common splits that are supersets of the expected taxa set.
-        # IMPORTANT: First try to find containing splits from non-root splits only.
-        # Pivot edges should map to meaningful internal splits, not the trivial root.
         containing_splits: List[Partition] = [
             split
             for split in non_root_common_splits
             if (expected_bitmask & split.bitmask) == expected_bitmask
         ]
 
-        jt_logger.info(
-            f"[MAPPING DEBUG]   Found {len(containing_splits)} non-root containing splits"
-        )
-
         # If no non-root splits found, check if root split can contain it (fallback)
+        is_fallback = False
         if not containing_splits and root_split:
             if (expected_bitmask & root_split.bitmask) == expected_bitmask:
                 containing_splits = [root_split]
-                jt_logger.warning(
-                    "⚠️  Only root split contains required taxa - using as fallback"
-                )
+                is_fallback = True
 
+        # Step 3: From the valid candidates, select the MINIMUM (smallest) split.
         if containing_splits:
-            jt_logger.info(
-                f"[MAPPING DEBUG]   Containing split sizes: {[len(s.indices) for s in containing_splits]}"
-            )
-            # Show the smallest 3
-            smallest = sorted(
+            selected_split: Partition = min(
                 containing_splits, key=lambda s: (s.bitmask.bit_count(), s.bitmask)
-            )[:3]
-            for j, split in enumerate(smallest):
-                jt_logger.info(
-                    f"[MAPPING DEBUG]     Candidate {j}: size={len(split.indices)}, indices={sorted(split.indices)}"
-                )
-
-        # Step 3: From the valid candidates, select the appropriate one.
-        # For direct pivot edges (no jumping taxa), use the MAXIMUM (largest) split.
-        # For pivot edges with jumping taxa, use the MINIMUM (smallest) split.
-        if containing_splits:
-            # Check if this is a direct pivot edge (no jumping taxa)
-            is_direct_pivot = len(jumping_taxa_indices) == 0
-
-            if is_direct_pivot:
-                # Direct pivot edge: map to the LARGEST containing split
-                selected_split: Partition = max(
-                    containing_splits, key=lambda s: (s.bitmask.bit_count(), s.bitmask)
-                )
-                jt_logger.info("✓ Direct pivot edge - mapping to MAXIMUM split")
-            else:
-                # Pivot with jumping taxa: map to the SMALLEST containing split
-                selected_split: Partition = min(
-                    containing_splits, key=lambda s: (s.bitmask.bit_count(), s.bitmask)
-                )
-                jt_logger.info("✓ Pivot with jumping taxa - mapping to MINIMUM split")
-
-            jt_logger.info(f"[MAPPING DEBUG]   ✓ Mapped to split: {selected_split}")
-            jt_logger.info(
-                f"[MAPPING DEBUG]   ✓ Mapped split indices: {sorted(selected_split.indices)}"
-            )
-            jt_logger.info(
-                f"[MAPPING DEBUG]   ✓ Mapped split size: {len(selected_split.indices)} taxa"
             )
             mapped_splits.append(selected_split)
+            if is_fallback:
+                fallback_count += 1
+            else:
+                success_count += 1
         else:
             # If no common split contains the expected taxa, fall back to root split.
-            # This ensures we always return a valid split for every pivot edge.
             if root_split:
-                jt_logger.warning(
-                    "[MAPPING DEBUG]   ⚠️  No containing split found - falling back to root split"
-                )
                 mapped_splits.append(root_split)
+                fallback_count += 1
             else:
-                # This should never happen if the trees are valid
-                jt_logger.error(
-                    "[MAPPING DEBUG]   ✗ CRITICAL: No root split available! Using first common split as fallback"
-                )
                 mapped_splits.append(
-                    list(original_common_splits)[0]
-                    if original_common_splits
-                    else pivot_edge
+                    list(original_common_splits)[0] if original_common_splits else pivot_edge
                 )
+                fallback_count += 1
+
+    if not jt_logger.disabled:
+        jt_logger.info(
+            f"✓ Mapped {len(mapped_splits)} pivots: "
+            f"{success_count} internal, {fallback_count} root fallbacks"
+        )
 
     return mapped_splits

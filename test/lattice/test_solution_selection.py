@@ -2,8 +2,8 @@
 import pytest
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.jumping_taxa.lattice.registry import SolutionRegistry
-from brancharchitect.jumping_taxa.lattice.pivot_edge_solver import _select_best_solutions
+from brancharchitect.jumping_taxa.lattice.types.registry import SolutionRegistry
+from brancharchitect.jumping_taxa.lattice.solvers.pivot_edge_solver import _select_best_solutions
 
 class TestSolutionSelection:
     def test_select_best_solutions_parsimony(self):

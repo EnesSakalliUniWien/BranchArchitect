@@ -16,7 +16,7 @@ from brancharchitect.jumping_taxa.lattice.mapping import (
 from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
     compute_pivot_solutions_with_deletions,
 )
-from brancharchitect.logger.debug import jt_logger
+from brancharchitect.logger import jt_logger
 
 __all__ = [
     "derive_order_for_pair",
@@ -143,7 +143,7 @@ def _cached_mover_assignments(
     This ping-pong pattern ensures movers cross each other visually during
     the interpolation, making the movement more apparent.
     """
-    edge_key = tuple(edge.indices)
+    edge_key = (tuple(edge.indices), mover_weight_policy)
     composition = {tuple(p.indices) for p in mover_blocks}
     cached = _mover_rank_cache.get(edge_key)
     if cached and set(cached.keys()) == composition:
