@@ -76,6 +76,7 @@ class SequentialInterpolationBuilder:
         self.source_mappings: List[Dict[Partition, Dict[Partition, Partition]]] = []
         self.target_mappings: List[Dict[Partition, Dict[Partition, Partition]]] = []
         self.current_pivot_edge_tracking: List[Optional[Partition]] = []
+        self.current_subtree_tracking: List[Optional[Partition]] = []
         self.pair_tree_counts: List[int] = []
         self.jumping_subtree_solutions: List[Dict[Partition, List[Partition]]] = []
 
@@ -115,6 +116,9 @@ class SequentialInterpolationBuilder:
         self.current_pivot_edge_tracking.extend(
             interpolation_result.current_pivot_edge_tracking
         )
+        self.current_subtree_tracking.extend(
+            interpolation_result.current_subtree_tracking
+        )
 
         self.pair_tree_counts.append(interpolated_tree_count)
 
@@ -153,6 +157,7 @@ class SequentialInterpolationBuilder:
         # Deep copy to create an independent snapshot
         self.interpolated_trees.append(tree.deep_copy())
         self.current_pivot_edge_tracking.append(None)
+        self.current_subtree_tracking.append(None)
 
     def _finalize_sequence(self, original_tree_count: int) -> TreeInterpolationSequence:
         """Construct the final sequence object and log a summary."""
@@ -165,6 +170,7 @@ class SequentialInterpolationBuilder:
             mapping_one=self.source_mappings,
             mapping_two=self.target_mappings,
             current_pivot_edge_tracking=self.current_pivot_edge_tracking,
+            current_subtree_tracking=self.current_subtree_tracking,
             pair_interpolated_tree_counts=self.pair_tree_counts,
             jumping_subtree_solutions_list=self.jumping_subtree_solutions,
         )

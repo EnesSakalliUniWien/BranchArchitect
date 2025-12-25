@@ -33,7 +33,7 @@ class Node:
     _splits_cache: Optional[PartitionSet[Partition]]
     _splits_with_leaves_cache: Optional[PartitionSet[Partition]]
     list_index: Optional[int]
-    s_edge_block: Partition
+
 
     def __init__(
         self,
@@ -265,13 +265,6 @@ class Node:
             split_indices=self.split_indices,
             taxa_encoding=self.taxa_encoding,  # Reuse immutable encoding reference
         )
-
-        # Copy s_edge_block attribute if it exists
-        if hasattr(self, "s_edge_block"):
-            new_node.s_edge_block = self.s_edge_block
-        else:
-            # Initialize with default empty partition if not present
-            new_node.s_edge_block = Partition((), self.taxa_encoding)
 
         # Recursively copy children and set their parent references
         new_node.children = [child.deep_copy() for child in self.children]

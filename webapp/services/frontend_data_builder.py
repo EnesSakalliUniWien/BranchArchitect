@@ -8,7 +8,7 @@ data class.
 
 Key Responsibilities:
 - Serialize rich Python objects (like Partitions) into simple JSON types.
-- Derive UI-specific data structures like `split_change_tracking` and `split_change_timeline`.
+- Derive UI-specific data structures like `pivot_edge_tracking` and `split_change_timeline`.
 - Assemble the final, flat dictionary that will be sent as the API response.
 """
 
@@ -49,7 +49,7 @@ def build_movie_data_from_result(
     events_by_pair = _extract_split_change_events_from_solutions(
         result["tree_pair_solutions"]
     )
-    split_change_tracking = _derive_split_change_tracking_from_events(
+    pivot_edge_tracking = _derive_pivot_edge_tracking_from_events(
         tree_metadata, events_by_pair
     )
 
@@ -60,7 +60,8 @@ def build_movie_data_from_result(
         weighted_robinson_foulds_distance_list=result.get("wrfd_list", []),
         sorted_leaves=sorted_leaves,
         tree_pair_solutions=result["tree_pair_solutions"],
-        split_change_tracking=split_change_tracking,
+        pivot_edge_tracking=pivot_edge_tracking,
+        subtree_tracking=result.get("subtree_tracking", []),
         file_name=filename,
         window_size=msa_data.get("inferred_window_size", 1),
         window_step_size=msa_data.get("inferred_step_size", 1),
@@ -89,7 +90,8 @@ def assemble_frontend_dict(movie_data: MovieData) -> Dict[str, Any]:
         ),
         "split_change_timeline": timeline,
         "sorted_leaves": movie_data.sorted_leaves,
-        "split_change_tracking": movie_data.split_change_tracking,
+        "pivot_edge_tracking": movie_data.pivot_edge_tracking,
+        "subtree_tracking": movie_data.subtree_tracking,
         "pair_interpolation_ranges": movie_data.pair_interpolation_ranges,
         "msa": {
             "sequences": movie_data.msa_dict,
@@ -104,11 +106,11 @@ def assemble_frontend_dict(movie_data: MovieData) -> Dict[str, Any]:
     }
 
 
-def _derive_split_change_tracking_from_events(
+def _derive_pivot_edge_tracking_from_events(
     processed_tree_metadata: List[TreeMetadataType],
     events_by_pair: Dict[str, List[Dict[str, Any]]],
 ) -> List[Optional[List[int]]]:
-    """Derive per-tree split tracking aligned to metadata indices."""
+    """Derive per-tree pivot edge tracking aligned to metadata indices."""
     tracking: List[Optional[List[int]]] = [None for _ in processed_tree_metadata]
     first_global_for_pair: Dict[str, int] = {}
     for idx, meta in enumerate(processed_tree_metadata):
@@ -283,7 +285,8 @@ def create_empty_movie_data(filename: str) -> MovieData:
         weighted_robinson_foulds_distance_list=[],
         sorted_leaves=[],
         tree_pair_solutions={},
-        split_change_tracking=[],
+        pivot_edge_tracking=[],
+        subtree_tracking=[],
         file_name=filename,
         window_size=1,
         window_step_size=1,

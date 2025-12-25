@@ -63,11 +63,11 @@ class TreeInterpolationSequence:
     format that groups related data logically and provides convenient access methods.
 
     Core Structure:
-    - For N input trees, generates N + sum(s_edges_per_pair * 5) interpolated trees
-    - Each tree pair (Ti, Ti+1) produces 0 to many interpolation trees depending on s-edges found
-    - If Ti and Ti+1 are identical: 0 s-edges found → 0 interpolation trees generated
-    - If Ti and Ti+1 differ: k s-edges found → k*5 interpolation trees generated
-    - Classical interpolation fallback produces exactly 5 trees when s-edge processing fails
+    - For N input trees, generates N + sum(pivot_edges_per_pair * 5) interpolated trees
+    - Each tree pair (Ti, Ti+1) produces 0 to many interpolation trees depending on pivot edges found
+    - If Ti and Ti+1 are identical: 0 pivot edges found → 0 interpolation trees generated
+    - If Ti and Ti+1 differ: k pivot edges found → k*5 interpolation trees generated
+    - Classical interpolation fallback produces exactly 5 trees when pivot edge processing fails
 
     Active Changing Split Tracking:
     - Original trees: None (no active changing split applied)
@@ -102,6 +102,11 @@ class TreeInterpolationSequence:
     mapping_one: list[MappingDict] = field(default_factory=_empty_mapping_list)
     mapping_two: list[MappingDict] = field(default_factory=_empty_mapping_list)
     current_pivot_edge_tracking: list[Optional[Partition]] = field(
+        default_factory=_empty_partition_list
+    )
+    # Tracks which subtree is being moved for each tree in the sequence
+    # Parallel to current_pivot_edge_tracking: None for original trees, Partition for interpolated
+    current_subtree_tracking: list[Optional[Partition]] = field(
         default_factory=_empty_partition_list
     )
     pair_interpolated_tree_counts: list[int] = field(default_factory=_empty_int_list)
@@ -255,8 +260,8 @@ class TreeInterpolationSequence:
         """
         return [
             i
-            for i, s_edge in enumerate(self.current_pivot_edge_tracking)
-            if s_edge is None
+            for i, pivot_edge in enumerate(self.current_pivot_edge_tracking)
+            if pivot_edge is None
         ]
 
     def get_interpolated_tree_indices(self) -> list[int]:
@@ -268,8 +273,8 @@ class TreeInterpolationSequence:
         """
         return [
             i
-            for i, s_edge in enumerate(self.current_pivot_edge_tracking)
-            if s_edge is not None
+            for i, pivot_edge in enumerate(self.current_pivot_edge_tracking)
+            if pivot_edge is not None
         ]
 
     def get_classical_interpolation_indices(self) -> list[int]:

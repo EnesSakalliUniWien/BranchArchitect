@@ -29,7 +29,8 @@ class MovieData:
     # Visualization data
     sorted_leaves: List[str]
     tree_pair_solutions: Dict[str, TreePairSolution]
-    split_change_tracking: List[Optional[List[int]]]
+    pivot_edge_tracking: List[Optional[List[int]]]
+    subtree_tracking: List[Optional[List[int]]]
 
     # File and processing metadata
     file_name: str

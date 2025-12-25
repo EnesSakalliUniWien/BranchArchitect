@@ -107,19 +107,14 @@ def compute_tree_pair_component_paths(
             unique_solutions.append(sol)
         pivot_edge_solutions[pivot_edge] = unique_solutions
 
-    # Collect components and paths while de-duplicating across all pivot edges
+    # Collect components and paths, preserving multiplicity across pivot edges
     components: List[Partition] = []
     pivot_edges_for_components: List[Partition] = []
     paths_i: List[List[Node]] = []
     paths_j: List[List[Node]] = []
-    seen_components: set[int] = set()
 
     for pivot_edge, solutions in pivot_edge_solutions.items():
         for component in solutions:
-            if component.bitmask in seen_components:
-                continue
-            seen_components.add(component.bitmask)
-
             # Jump path component to pivot edge
             path_i: List[Node] = jump_path_component_to_pivot_edge(
                 tree=tree_i,

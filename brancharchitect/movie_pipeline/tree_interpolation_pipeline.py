@@ -106,7 +106,7 @@ class TreeInterpolationPipeline:
         processed_trees = self._optimize_tree_order(
             processed_trees,
             precomputed_pair_pivot_split_sets=self._extract_current_pivot_split_sets(
-                precomputed_pair_solutions, processed_trees
+                precomputed_pair_solutions
             ),
             precomputed_pair_solutions=precomputed_pair_solutions,
         )
@@ -138,6 +138,9 @@ class TreeInterpolationPipeline:
             wrfd_list=distances.wrfd_list,
             processing_time=processing_time,
             pair_interpolation_ranges=seq_result.pair_interpolation_ranges,
+            subtree_tracking=self._serialize_subtree_tracking(
+                seq_result.current_subtree_tracking
+            ),
         )
 
     def _ensure_shared_taxa_encoding(self, trees: List[Node]) -> None:
@@ -284,8 +287,7 @@ class TreeInterpolationPipeline:
 
     def _extract_current_pivot_split_sets(
         self,
-        precomputed_pair_solutions: List[Optional[Dict[Partition, List[Partition]]]],
-        trees: List[Node],
+        precomputed_pair_solutions: List[Optional[Dict[Partition, List[Partition]]]]
     ) -> List[Optional[PartitionSet[Partition]]]:
         """
         Extracts current pivot split sets from precomputed lattice solutions.
@@ -382,3 +384,22 @@ class TreeInterpolationPipeline:
         except Exception as e:
             self.logger.error(f"Rooting failed: {e}")
             return trees
+
+    def _serialize_subtree_tracking(
+        self, tracking: List[Optional[Partition]]
+    ) -> List[Optional[List[int]]]:
+        """
+        Serialize partition tracking to index arrays for JSON serialization.
+
+        Converts each Partition to a sorted list of integer indices.
+        None values remain None.
+
+        Args:
+            tracking: List of Optional[Partition] from the interpolation sequence
+
+        Returns:
+            List of Optional[List[int]] suitable for JSON serialization
+        """
+        return [
+            sorted(list(p.indices)) if p is not None else None for p in tracking
+        ]
