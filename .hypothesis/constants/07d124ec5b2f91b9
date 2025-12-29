@@ -1,0 +1,4 @@
+# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/planning/diagnostics.py
+# hypothesis_version: 6.148.8
+
+['  Collapse path:', '  Expand path:', 'collapse', 'expand', 'path_segment']

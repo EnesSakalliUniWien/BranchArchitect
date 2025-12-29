@@ -21,8 +21,7 @@ __all__ = [
     "RowClassifier",
     "RowType",
     # Pivot edge solving
-    "solve_pivot_edges",
-    "lattice_algorithm",
+    "LatticeSolver",
 ]
 
 
@@ -45,8 +44,8 @@ def __getattr__(name: str):
 
         return getattr(matrix_shape_classifier, name)
     # Pivot edge solving
-    elif name in ("solve_pivot_edges", "lattice_algorithm"):
-        from brancharchitect.jumping_taxa.lattice.solvers import pivot_edge_solver
+    elif name == "LatticeSolver":
+        from brancharchitect.jumping_taxa.lattice.solvers import lattice_solver
 
-        return getattr(pivot_edge_solver, name)
+        return getattr(lattice_solver, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

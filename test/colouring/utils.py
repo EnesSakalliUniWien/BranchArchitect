@@ -8,12 +8,12 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
 from brancharchitect.jumping_taxa import call_jumping_taxa
-from brancharchitect.jumping_taxa.debug import jt_logger
-from brancharchitect.jumping_taxa.debug.error_handling import (
+from brancharchitect.logger.debug import jt_logger
+from brancharchitect.logger.debug.error_handling import (
     debug_algorithm_execution,
     log_detailed_error,
 )
-from brancharchitect.jumping_taxa.debug.output import write_debug_output
+from brancharchitect.logger.debug.output import write_debug_output
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.tree import Node
 

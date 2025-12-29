@@ -6,16 +6,6 @@
             [
                 "X"
             ]
-        ],
-        [
-            [
-                "A1"
-            ]
-        ],
-        [
-            [
-                "A2"
-            ]
         ]
     ],
     "comment": "Single taxa jumps over partial S-edge"

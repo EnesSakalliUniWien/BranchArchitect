@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from brancharchitect.jumping_taxa.debug import jt_logger
+from brancharchitect.logger.debug import jt_logger
 from .utils import (
     discover_test_cases,
     ensure_output_dir,

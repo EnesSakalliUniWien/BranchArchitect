@@ -6,7 +6,52 @@ from functools import total_ordering
 
 @total_ordering
 class Partition:
-    __slots__ = ("indices", "encoding", "bitmask", "_cached_reverse_encoding")
+    __slots__ = (
+        "_indices",
+        "encoding",
+        "bitmask",
+        "_cached_reverse_encoding",
+        "_cached_size",
+        "_cached_hash",
+    )
+
+    @classmethod
+    def from_bitmask(cls, bitmask: int, encoding: Dict[str, int]) -> Partition:
+        """
+        Create a Partition directly from a bitmask and encoding.
+        This is significantly faster than the standard constructor as it avoids
+        sorting and set operations by delaying index derivation.
+        """
+        obj = cls.__new__(cls)
+        obj._indices = None  # Lazily computed
+        obj.encoding = encoding
+        obj.bitmask = bitmask
+        obj._cached_size = bitmask.bit_count()
+        obj._cached_hash = hash(bitmask)
+        obj._cached_reverse_encoding = None
+        return obj
+
+    @property
+    def indices(self) -> Tuple[int, ...]:
+        """Lazy derivation of sorted indices from bitmask.
+
+        Uses an optimized algorithm that extracts set bits directly,
+        which is much faster for sparse bitmasks (typical in phylogenetics).
+        """
+        if self._indices is None:
+            indices_list = []
+            temp_mask = self.bitmask
+            # Use bit manipulation to extract set bits directly
+            # This is O(k) where k is the number of set bits, not O(n) where n is bit_length
+            while temp_mask:
+                # Find the lowest set bit position using bit_length
+                lowest_bit = temp_mask & -temp_mask
+                idx = lowest_bit.bit_length() - 1
+                indices_list.append(idx)
+                # Clear the lowest set bit
+                temp_mask &= temp_mask - 1
+            self._indices = tuple(indices_list)
+        return self._indices
 
     def __init__(
         self, indices: Tuple[int, ...], encoding: Optional[Dict[str, int]] = None
@@ -20,42 +65,44 @@ class Partition:
         - If encoding is provided and non-empty, all indices must be present in encoding.values()
         """
         # Ensure input is iterable, then get unique elements, then sort.
-        # This makes self.indices always represent a set of unique, sorted indices.
         _unique_indices_set = set(indices)
-        self.indices: Tuple[int, ...] = tuple(sorted(list(_unique_indices_set)))
-
+        self._indices: Tuple[int, ...] = tuple(sorted(_unique_indices_set))
         self.encoding: Dict[str, int] = encoding or {}
 
-        # Validate indices
-        for idx in self.indices:
+        # Compute bitmask and validate in single pass
+        bitmask = 0
+        for idx in self._indices:
             if idx < 0:
                 raise ValueError(
-                    f"Partition indices must be non-negative integers; got {self.indices}"
+                    f"Partition indices must be non-negative integers; got {self._indices}"
                 )
-
-        # Note: We intentionally do NOT require all indices to appear in the
-        # provided encoding because trees/sets may be mutated (e.g., deletions)
-        # before encodings are fully reconciled. Bitmask-based equality ensures
-        # correctness regardless of encoding completeness.
-        # Compute bitmask for fast hashing/comparison
-        bitmask = 0
-        # Iterate over the unique, sorted indices
-        for idx in self.indices:
             bitmask |= 1 << idx
+
         self.bitmask: int = bitmask
+        self._cached_size: int = bitmask.bit_count()
+        self._cached_hash: int = hash(bitmask)
         self._cached_reverse_encoding: Optional[Dict[int, str]] = None
 
     def __iter__(self) -> Iterator[int]:
         return iter(self.indices)
 
     def __len__(self) -> int:
-        # Accurately reflects the number of unique indices in the partition
-        return len(self.indices)
+        # Avoid triggering lazy indices derivation if only count is needed
+        return self._cached_size
+
+    def __bool__(self) -> bool:
+        # Efficient truthiness check without length or indices
+        return self.bitmask != 0
+
+    @property
+    def size(self) -> int:
+        """Return the number of taxa in this partition (cached for performance)."""
+        return self._cached_size
 
     @property
     def is_singleton(self) -> bool:
         """Return True if this partition contains exactly one index (atom)."""
-        return len(self.indices) == 1
+        return self._cached_size == 1
 
     def _tuple_to_indices(self, other: Any) -> Tuple[int, ...] | None:
         """
@@ -167,7 +214,7 @@ class Partition:
         return f"({self})"
 
     def __hash__(self) -> int:
-        return hash(self.bitmask)
+        return self._cached_hash
 
     @property
     def reverse_encoding(self) -> Dict[int, str]:
@@ -204,8 +251,9 @@ class Partition:
 
     def __and__(self, other: Any) -> "Partition":
         if isinstance(other, Partition):
-            common_indices: set[int] = set(self.indices) & set(other.indices)
-            return Partition(tuple(sorted(common_indices)), self.encoding)
+            # Fast path: use bitmask intersection directly
+            new_bitmask = self.bitmask & other.bitmask
+            return Partition.from_bitmask(new_bitmask, self.encoding)
         return NotImplemented
 
     def intersection(self, *others: Any) -> "Partition":
@@ -240,19 +288,25 @@ class Partition:
         Returns a new Partition consisting of elements in self not in other.
         Accepts another Partition or a tuple of names/indices.
         """
-        # Determine the indices to subtract
         if isinstance(other, Partition):
-            if self.encoding and other.encoding and self.encoding != other.encoding:
-                raise ValueError("Cannot subtract partitions with different encodings")
-            other_indices = set(other.indices)
+            if self.encoding and other.encoding and self.encoding is not other.encoding:
+                if self.encoding != other.encoding:
+                    raise ValueError(
+                        "Cannot subtract partitions with different encodings"
+                    )
+            # Fast path: use bitmask difference directly
+            new_bitmask = self.bitmask & ~other.bitmask
+            return Partition.from_bitmask(new_bitmask, self.encoding)
         else:
             other_indices_tuple = self._tuple_to_indices(other)
             if other_indices_tuple is None:
                 return NotImplemented
-            other_indices = set(other_indices_tuple)
-
-        result_indices = tuple(sorted(set(self.indices) - other_indices))
-        return Partition(result_indices, self.encoding)
+            # Build bitmask for other indices
+            other_bitmask = 0
+            for idx in other_indices_tuple:
+                other_bitmask |= 1 << idx
+            new_bitmask = self.bitmask & ~other_bitmask
+            return Partition.from_bitmask(new_bitmask, self.encoding)
 
     def resolve_to_indices(self) -> Tuple[int, ...]:
         """

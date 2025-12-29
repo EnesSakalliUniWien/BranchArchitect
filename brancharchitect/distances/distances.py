@@ -89,11 +89,11 @@ def compute_tree_pair_component_paths(
         return None  # Skip diagonal
 
     # Get s-edge solutions from lattice algorithm
-    from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
-        compute_pivot_solutions_with_deletions,
+    from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+        LatticeSolver,
     )
 
-    raw_pivot_edge_solutions, _ = compute_pivot_solutions_with_deletions(tree_i, tree_j)
+    raw_pivot_edge_solutions, _ = LatticeSolver(tree_i, tree_j).solve_iteratively()
 
     # Deduplicate solutions per pivot edge to avoid double-counting identical components
     pivot_edge_solutions = {}
@@ -107,19 +107,14 @@ def compute_tree_pair_component_paths(
             unique_solutions.append(sol)
         pivot_edge_solutions[pivot_edge] = unique_solutions
 
-    # Collect components and paths while de-duplicating across all pivot edges
+    # Collect components and paths, preserving multiplicity across pivot edges
     components: List[Partition] = []
     pivot_edges_for_components: List[Partition] = []
     paths_i: List[List[Node]] = []
     paths_j: List[List[Node]] = []
-    seen_components: set[int] = set()
 
     for pivot_edge, solutions in pivot_edge_solutions.items():
         for component in solutions:
-            if component.bitmask in seen_components:
-                continue
-            seen_components.add(component.bitmask)
-
             # Jump path component to pivot edge
             path_i: List[Node] = jump_path_component_to_pivot_edge(
                 tree=tree_i,
@@ -148,6 +143,10 @@ def compute_pairwise_pivot_edge_paths(
     each successful pair (i > j), leveraging `compute_tree_pair_component_paths`
     in parallel.
     """
+    for tree in tqdm(trees, desc="Preparing trees for parallel processing"):
+        tree.to_splits()
+        tree.build_split_index()
+
     pair_args = [
         (i, j, trees[i], trees[j]) for i in range(len(trees)) for j in range(i)
     ]

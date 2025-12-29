@@ -29,7 +29,7 @@ def test_anchor_order_small_example_contiguous_outgroup():
     On the small example trees, O1 and O2 are an outgroup in both.
     After derive_order_for_pair, O1 and O2 should remain contiguous in t1.
     """
-    t1, t2 = _parse_two_trees_from_file("current_testfiles/small_example.newick")
+    t1, t2 = _parse_two_trees_from_file("test-data/current_testfiles/small_example.newick")
 
     # Run ordering
     derive_order_for_pair(t1, t2)

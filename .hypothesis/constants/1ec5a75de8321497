@@ -1,0 +1,4 @@
+# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/leaforder/tree_order_utils.py
+# hypothesis_version: 6.148.8
+
+['common-changed', 'full-common', 'full-unique', 'unique-changed']

@@ -1,6 +1,12 @@
 {
   "tree1": "(((((((Chicken,BrushTurkey),(magpiegoose,duck)),((LBPenguin,GaviaStellata),(turnstone,oystercatcher))),((Caiman,Alligator),Ostrich)),(((Dinornis,(lbmoa,EasternMoa)),(ECtinamou,(Crypturellus,Gtinamou))),(LesserRhea,GreatRhea))),(BrownKiwi,(gskiwi,LSKiwi))),Emu,Cassowary);",
   "tree2": "((((((((Chicken,BrushTurkey),(magpiegoose,duck)),((LBPenguin,GaviaStellata),(turnstone,oystercatcher))),(LesserRhea,GreatRhea)),((Dinornis,(lbmoa,EasternMoa)),((ECtinamou,(Crypturellus,Gtinamou)),(Caiman,Alligator)))),Ostrich),(BrownKiwi,(gskiwi,LSKiwi))),Emu,Cassowary);",
-  "solutions": [],
+  "solutions": [
+    [
+      ["Alligator", "Caiman"],
+      ["GreatRhea", "LesserRhea"],
+      ["Ostrich"]
+    ]
+  ],
   "comment": "Tree pair (26, 27) from small_example_cli.newick that causes 'Generalized meet product not implemented for 3x2 matrices' error in the lattice algorithm during anchor-based tree ordering."
 }

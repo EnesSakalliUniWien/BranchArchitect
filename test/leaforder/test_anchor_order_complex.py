@@ -28,8 +28,8 @@ def _edge_full(tree):
     return Partition(tuple(sorted(enc.values())), enc)
 
 
-def test_ping_pong_three_movers_extremes():
-    """Three movers alternate extremes correctly in both trees."""
+def test_three_movers_same_side():
+    """All movers go to the same side to minimize anchor displacement."""
     t1, t2 = _pair(
         "(A:1,B:1,C:1,D:1,E:1,F:1,G:1);",
         "(A:1,B:1,C:1,D:1,E:1,F:1,G:1);",
@@ -37,15 +37,13 @@ def test_ping_pong_three_movers_extremes():
     enc = t1.taxa_encoding
     edge = _edge_full(t1)
 
-    mover1 = Partition((enc["B"],), enc)  # i=0 -> left in t1, right in t2
-    mover2 = Partition((enc["E"], enc["F"]), enc)  # i=1 -> right in t1, left in t2
-    mover3 = Partition((enc["G"],), enc)  # i=2 -> left in t1, right in t2 (more extreme than i=0)
+    mover1 = Partition((enc["B"],), enc)  # 1 taxon
+    mover2 = Partition((enc["E"], enc["F"]), enc)  # 2 taxa -> largest, i=0
+    mover3 = Partition((enc["G"],), enc)  # 1 taxon
 
     sources = {mover1: mover1, mover2: mover2, mover3: mover3}
     destinations = sources.copy()
 
-    # Use 'increasing' magnitude so the last mover (E,F) is most extreme on the left,
-    # matching the original expectation of this test.
     blocked_order_and_apply(
         edge,
         sources,
@@ -59,14 +57,18 @@ def test_ping_pong_three_movers_extremes():
     o1 = list(t1.get_current_order())
     o2 = list(t2.get_current_order())
 
-    # Movers sorted by (size, indices): (B) -> i=0, (G) -> i=1, (E,F) -> i=2
-    # t1: i even => left, odd => right; i=2 (E,F) most-left, i=1 (G) most-right
-    assert set(o1[:2]) == {"E", "F"}
-    assert o1[-1] == "G"
+    # All movers go to the same side: left in t1, right in t2
+    mover_taxa = {"B", "E", "F", "G"}
+    anchor_taxa = {"A", "C", "D"}
 
-    # t2: i even => right, odd => left; i=1 (G) most-left, i=2 (E,F) most-right
-    assert o2[0] == "G"
-    assert set(o2[-2:]) == {"E", "F"}
+    # In t1: all movers should be on the left side (first 4 positions)
+    assert set(o1[:4]) == mover_taxa
+    # In t2: all movers should be on the right side (last 4 positions)
+    assert set(o2[-4:]) == mover_taxa
+
+    # Anchors stay stable in the middle/opposite side
+    assert set(o1[-3:]) == anchor_taxa
+    assert set(o2[:3]) == anchor_taxa
 
 
 def test_subtree_edge_application():

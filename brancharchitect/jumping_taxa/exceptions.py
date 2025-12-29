@@ -33,14 +33,15 @@ class LatticeConstructionError(JumpingTaxaError):
         Raises:
             LatticeConstructionError: Always raised with detailed error information
         """
-        from brancharchitect.jumping_taxa.debug import jt_logger
+        from brancharchitect.logger.debug import jt_logger
 
         missing_node_error_message = (
             f"Failed to find node for common split {split.bipartition()}. "
             f"Missing in tree 1: {is_missing_in_tree1}, Missing in tree 2: {is_missing_in_tree2}. "
             f"This indicates an inconsistency between split enumeration and node indexing."
         )
-        jt_logger.error(missing_node_error_message)
+        if not jt_logger.disabled:
+             jt_logger.error(missing_node_error_message)
         raise LatticeConstructionError(missing_node_error_message)
 
 

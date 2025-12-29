@@ -303,14 +303,12 @@ def get_lattice_solution_sizes(
     Run the iterative lattice algorithm and return the sizes of all minimal reconciliation solutions.
     Returns an empty list if no solutions are found.
     """
-    from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
-        compute_pivot_solutions_with_deletions,
+    from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+        LatticeSolver,
     )
 
     # compute_pivot_solutions_with_deletions returns a tuple: (dict, list)
-    s_edge_solutions, _ = compute_pivot_solutions_with_deletions(
-        tree1, tree2, leaf_order
-    )
+    s_edge_solutions, _ = LatticeSolver(tree1, tree2).solve_iteratively()
     if not s_edge_solutions:
         return []
     # Return count of partitions per pivot edge

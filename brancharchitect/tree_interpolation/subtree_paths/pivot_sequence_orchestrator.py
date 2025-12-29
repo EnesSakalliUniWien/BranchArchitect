@@ -60,12 +60,12 @@ def create_interpolation_for_active_split_sequence(
         jumping_subtree_solutions, destination_tree, source_tree
     )
 
-    current_base_tree = interpolation_state.deep_copy()
-
     for current_pivot_edge in target_pivot_edges:
         current_base_tree: Node = interpolation_state.deep_copy()
 
-        current_base_tree.initialize_split_indices(current_base_tree.taxa_encoding)
+        # Ensure split indices are initialized for the copied tree
+        # deep_copy preserves split_indices per node, but _split_index cache needs rebuild
+        current_base_tree.build_split_index()
 
         # Paths for this current_pivot_edge (kept separate for destination/source)
         # Keep as PartitionSet[Partition] - no conversion needed
@@ -77,11 +77,6 @@ def create_interpolation_for_active_split_sequence(
             destination_subtree_paths.get(current_pivot_edge, {})
         )
 
-        logger.info(
-            "[ORCHESTRATOR] Pair %s pivot %s",
-            pair_index if pair_index is not None else "?",
-            current_pivot_edge.bipartition(),
-        )
         # Guard: verify the pivot edge exists in both trees before planning
         _ = _find_and_validate_pivot_nodes(
             current_base_tree, destination_tree, current_pivot_edge

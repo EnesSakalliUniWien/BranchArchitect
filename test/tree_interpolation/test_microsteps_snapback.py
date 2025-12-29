@@ -27,6 +27,7 @@ def test_microsteps_snapback_consistency():
         Node(name="C", length=0.1),
         Node(name="B", length=0.1),
     ]
+    reordered.initialize_split_indices(reordered.taxa_encoding)
 
     # Verify initial order is A, C, B
     assert list(reordered.get_current_order()) == ["A", "C", "B"]

@@ -14,6 +14,7 @@ from typing import (
     Any,
     Union,
 )
+
 try:
     from typing import Self  # Python 3.11+
 except Exception:  # pragma: no cover - fallback for Python < 3.11
@@ -32,7 +33,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
         "_bitmask_set",
         "_bitmask_to_partition",
         "encoding",
-        "reversed_encoding",
+        "_reversed_encoding",
         "order",
         "name",
     )
@@ -47,30 +48,22 @@ class PartitionSet(Generic[T], MutableSet[T]):
         _bitmask_set: The underlying set of bitmasks
         _bitmask_to_partition: Mapping from bitmask to Partition objects
         encoding: Mapping from string names to indices
-        reversed_encoding: Mapping from indices to string names
+        _reversed_encoding: Lazily computed mapping from indices to string names
         order: Optional ordering for the indices
         name: Name of this partition set
     """
 
-    def _add_bitmask_partition(
-        self,
-        bitmask: int,
-        partition: Partition,
-        bitmask_set: set[int],
-        bitmask_to_partition: dict[int, Partition],
-    ) -> None:
-        """
-        Helper method to add a bitmask and partition to the given collections if not already present.
+    @property
+    def reversed_encoding(self) -> Dict[int, str]:
+        """Lazily compute and cache the reversed encoding."""
+        if self._reversed_encoding is None:
+            self._reversed_encoding = {v: k for k, v in self.encoding.items()}
+        return self._reversed_encoding
 
-        Args:
-            bitmask: The bitmask to add
-            partition: The partition object to associate with the bitmask
-            bitmask_set: The set of bitmasks to add to
-            bitmask_to_partition: The mapping from bitmask to partition to update
-        """
-        if bitmask not in bitmask_set:
-            bitmask_set.add(bitmask)
-            bitmask_to_partition[bitmask] = partition
+    @classmethod
+    def _from_iterable(cls, it):
+        """Create a new PartitionSet from an iterable. Used by ABC set operations."""
+        return cls(splits=set(it))
 
     def __init__(
         self,
@@ -82,9 +75,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
         self._bitmask_set: set[int] = set()
         self._bitmask_to_partition: dict[int, Partition] = {}
         self.encoding: Dict[str, int] = encoding or {}
-        self.reversed_encoding: Dict[int, str] = {
-            v: k for k, v in self.encoding.items()
-        }
+        self._reversed_encoding: Optional[Dict[int, str]] = None  # Lazily computed
         self.order: Optional[tuple[str, ...]] = (
             order
             if order is not None
@@ -112,18 +103,23 @@ class PartitionSet(Generic[T], MutableSet[T]):
             TypeError: If element is not a supported type
         """
         if isinstance(element, Partition):
-            # Enforce strict encoding equality to prevent silent mismatches.
-            if self.encoding and element.encoding and self.encoding != element.encoding:
-                # Provide detailed error message with actual encodings
-                self_keys = sorted(self.encoding.keys()) if self.encoding else []
-                elem_keys = sorted(element.encoding.keys()) if element.encoding else []
-                raise ValueError(
-                    f"Cannot add Partition with different encoding to PartitionSet.\n"
-                    f"PartitionSet encoding keys: {self_keys}\n"
-                    f"Partition encoding keys: {elem_keys}\n"
-                    f"PartitionSet encoding: {self.encoding}\n"
-                    f"Partition encoding: {element.encoding}"
-                )
+            # Fast path: skip encoding check if same object or both empty
+            if (
+                self.encoding is not element.encoding
+                and self.encoding
+                and element.encoding
+            ):
+                # Only do expensive dict comparison if identity check fails
+                if self.encoding != element.encoding:
+                    self_keys = sorted(self.encoding.keys())
+                    elem_keys = sorted(element.encoding.keys())
+                    raise ValueError(
+                        f"Cannot add Partition with different encoding to PartitionSet.\n"
+                        f"PartitionSet encoding keys: {self_keys}\n"
+                        f"Partition encoding keys: {elem_keys}\n"
+                        f"PartitionSet encoding: {self.encoding}\n"
+                        f"Partition encoding: {element.encoding}"
+                    )
             return element.bitmask, element
         elif isinstance(element, tuple):
             p = Partition(element, self.encoding)
@@ -132,8 +128,16 @@ class PartitionSet(Generic[T], MutableSet[T]):
             p = Partition((element,), self.encoding)
             return p.bitmask, p
 
+    @property
+    def fast_partitions(self) -> Iterable[T]:
+        """Return the partitions in this set without sorting. Useful for performance-sensitive loops."""
+        return self._bitmask_to_partition.values()
+
     def __contains__(self, x: object) -> bool:
-        if isinstance(x, (Partition, tuple, int)):
+        # Fast path for Partition (most common case) - direct bitmask lookup
+        if isinstance(x, Partition):
+            return x.bitmask in self._bitmask_set
+        elif isinstance(x, (tuple, int)):
             try:
                 bitmask, _ = self._element_to_bitmask_and_partition(
                     cast(Union[Partition, Tuple[int, ...], int], x)
@@ -158,15 +162,33 @@ class PartitionSet(Generic[T], MutableSet[T]):
         # If we have no encoding yet and value is a Partition with encoding, inherit it
         if not self.encoding and isinstance(value, Partition) and value.encoding:
             self.encoding = value.encoding
-            self.reversed_encoding = {v: k for k, v in self.encoding.items()}
+            self._reversed_encoding = None  # Invalidate cache
             self.order = tuple(self.encoding.keys())
 
         bitmask, partition = self._element_to_bitmask_and_partition(value)
-        self._add_bitmask_partition(
-            bitmask, partition, self._bitmask_set, self._bitmask_to_partition
-        )
+        if bitmask not in self._bitmask_set:
+            self._bitmask_set.add(bitmask)
+            self._bitmask_to_partition[bitmask] = partition
 
-    # batch_add was unused and removed for simplicity
+    def update(
+        self, others: Iterable[Union[T, Tuple[int, ...], int, Partition]]
+    ) -> None:
+        """Add multiple elements at once."""
+        # Local references for speed
+        bitmask_set = self._bitmask_set
+        bitmask_to_partition = self._bitmask_to_partition
+
+        for value in others:
+            # Inherit encoding if empty
+            if not self.encoding and isinstance(value, Partition) and value.encoding:
+                self.encoding = value.encoding
+                self._reversed_encoding = None  # Invalidate cache
+                self.order = tuple(self.encoding.keys())
+
+            bitmask, partition = self._element_to_bitmask_and_partition(value)
+            if bitmask not in bitmask_set:
+                bitmask_set.add(bitmask)
+                bitmask_to_partition[bitmask] = partition
 
     def discard(self, value: T) -> None:
         bitmask, _ = self._element_to_bitmask_and_partition(value)
@@ -182,15 +204,71 @@ class PartitionSet(Generic[T], MutableSet[T]):
         """
         return hash(frozenset(self._bitmask_set))
 
+    # set operation overrides to avoid sorting via __iter__
+    def __or__(self, other: Iterable[T]) -> "PartitionSet[T]":
+        new_set = type(self)(
+            encoding=self.encoding, name=f"{self.name}_or", order=self.order
+        )
+        new_set.update(self.fast_partitions)
+        if hasattr(other, "fast_partitions"):
+            new_set.update(other.fast_partitions)
+        else:
+            new_set.update(other)
+        return new_set
+
+    def __and__(self, other: Iterable[T]) -> "PartitionSet[T]":
+        new_set = type(self)(
+            encoding=self.encoding, name=f"{self.name}_and", order=self.order
+        )
+        if isinstance(other, PartitionSet):
+            # Intersect bitmask sets first (fast)
+            common_masks = self._bitmask_set & other._bitmask_set
+            # Add partitions corresponding to the common masks
+            new_set.update(self._bitmask_to_partition[m] for m in common_masks)
+        else:
+            # Fallback for generic iterables
+            new_set.update(p for p in self.fast_partitions if p in other)
+        return new_set
+
+    def __sub__(self, other: Iterable[T]) -> "PartitionSet[T]":
+        new_set = type(self)(
+            encoding=self.encoding, name=f"{self.name}_sub", order=self.order
+        )
+        if isinstance(other, PartitionSet):
+            diff_masks = self._bitmask_set - other._bitmask_set
+            new_set.update(self._bitmask_to_partition[m] for m in diff_masks)
+        else:
+            new_set.update(p for p in self.fast_partitions if p not in other)
+        return new_set
+
+    def __xor__(self, other: Iterable[T]) -> "PartitionSet[T]":
+        new_set = type(self)(
+            encoding=self.encoding, name=f"{self.name}_xor", order=self.order
+        )
+        if isinstance(other, PartitionSet):
+            xor_masks = self._bitmask_set ^ other._bitmask_set
+            # Need to pick partition from whichever set contains the mask
+            for m in xor_masks:
+                if m in self._bitmask_to_partition:
+                    new_set.add(self._bitmask_to_partition[m])
+                else:
+                    new_set.add(other._bitmask_to_partition[m])
+        else:
+            # Fallback logic
+            s_other = set(other)
+            new_set.update(p for p in self.fast_partitions if p not in s_other)
+            new_set.update(p for p in s_other if p not in self)
+        return new_set
+
     # Note: Legacy aliases atom()/cover() have been removed.
 
     def minimal_elements(self) -> Self:
         """
         Return minimal elements under subset order (no element is a superset of another).
         """
-        parts = list(self)
-        # Sort ascending by set size (number of indices), then by bitmask for determinism
-        parts.sort(key=lambda p: (len(p.indices), p.bitmask))
+        parts = list(self.fast_partitions)
+        # Sort ascending by set size (cached), then by bitmask for determinism
+        parts.sort(key=lambda p: (p._cached_size, p.bitmask))
         kept: list[Partition] = []
         kept_masks: list[int] = []
         for s in parts:
@@ -215,9 +293,9 @@ class PartitionSet(Generic[T], MutableSet[T]):
         """
         Return maximal elements under subset order (no element is a subset of another).
         """
-        parts = list(self)
-        # Sort descending by set size (number of indices), then by bitmask for determinism
-        parts.sort(key=lambda p: (-len(p.indices), p.bitmask))
+        parts = list(self.fast_partitions)
+        # Sort descending by set size (cached), then by bitmask for determinism
+        parts.sort(key=lambda p: (-p._cached_size, p.bitmask))
         kept: list[Partition] = []
         kept_masks: list[int] = []
         for s in parts:
@@ -280,7 +358,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
         """
         upper_mask, _ = self._element_to_bitmask_and_partition(upper)
         # Downset under upper: all elements s with s ⊆ upper
-        elems = {p for p in self if (p.bitmask & ~upper_mask) == 0}
+        elems = {p for p in self.fast_partitions if (p.bitmask & ~upper_mask) == 0}
         down = type(self)(
             splits=elems,
             encoding=self.encoding,
@@ -328,9 +406,10 @@ class PartitionSet(Generic[T], MutableSet[T]):
             partition_set.covers((0, 2))  # False, not subset of any element
         """
         partition_mask, _ = self._element_to_bitmask_and_partition(partition)
-        # Check if partition is subset of any element in self
+        # Check if partition is subset of any element - iterate over bitmasks directly
+        # This avoids attribute access overhead compared to iterating over Partition objects
         return any(
-            (partition_mask & element.bitmask) == partition_mask for element in self
+            (partition_mask & mask) == partition_mask for mask in self._bitmask_set
         )
 
     def union(self, *others: Iterable[T]) -> Self:
@@ -357,7 +436,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
         new_set._bitmask_set = result_bitmask_set
         new_set._bitmask_to_partition = result_bitmask_to_partition
         new_set.encoding = self.encoding
-        new_set.reversed_encoding = self.reversed_encoding
+        new_set._reversed_encoding = self._reversed_encoding
         new_set.order = self.order
         new_set.name = self.name + "_union"
         return new_set
@@ -382,7 +461,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
             b: self._bitmask_to_partition[b] for b in result_bitmask_set
         }
         new_set.encoding = self.encoding
-        new_set.reversed_encoding = self.reversed_encoding
+        new_set._reversed_encoding = self._reversed_encoding
         new_set.order = self.order
         new_set.name = self.name + "_intersection"
         return new_set
@@ -407,7 +486,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
             b: self._bitmask_to_partition[b] for b in result_bitmask_set
         }
         new_set.encoding = self.encoding
-        new_set.reversed_encoding = self.reversed_encoding
+        new_set._reversed_encoding = self._reversed_encoding
         new_set.order = self.order
         new_set.name = self.name + "_difference"
         return new_set
@@ -448,7 +527,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
         new_set._bitmask_set = result_bitmask_set
         new_set._bitmask_to_partition = result_bitmask_to_partition
         new_set.encoding = self.encoding
-        new_set.reversed_encoding = self.reversed_encoding
+        new_set._reversed_encoding = self._reversed_encoding
         new_set.order = self.order
         new_set.name = self.name + "_symdiff"
         return new_set
@@ -560,18 +639,15 @@ class PartitionSet(Generic[T], MutableSet[T]):
         )
 
     def copy(self, name: Optional[str] = None) -> Self:
-        try:
-            return type(self).from_existing(self, name=name)
-        except Exception as e:
-            print(f"Warning: Error in PartitionSet.copy: {e}", file=sys.stderr)
-        from typing import cast
-
-        return type(self)(
-            splits=cast(set[T], set(self._bitmask_to_partition.values())),
-            encoding=self.encoding,
-            name=(name or self.name) + "_copy_error",
-            order=self.order,
-        )
+        """Fast copy using direct assignment of internal structures."""
+        new_set = type(self).__new__(type(self))
+        new_set._bitmask_set = set(self._bitmask_set)
+        new_set._bitmask_to_partition = dict(self._bitmask_to_partition)
+        new_set.encoding = self.encoding
+        new_set._reversed_encoding = self._reversed_encoding
+        new_set.order = self.order
+        new_set.name = name or self.name
+        return new_set
 
     # Irredundant cover utilities were unused and removed to simplify API
 
@@ -729,5 +805,6 @@ class PartitionSet(Generic[T], MutableSet[T]):
 def is_full_overlap(target: Partition, reference: Partition) -> bool:
     """
     Return True if the target partition is fully contained in the reference partition (i.e., all indices of target are in reference).
+    Uses bitmask operations for O(1) performance.
     """
-    return set(target.indices).issubset(set(reference.indices))
+    return (target.bitmask & reference.bitmask) == target.bitmask

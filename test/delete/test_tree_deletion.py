@@ -12,16 +12,25 @@ from brancharchitect.elements.partition import Partition
 
 
 def build_test_tree():
-    leaf_D = Node(children=[], name="D", split_indices=(0,))
-    leaf_E = Node(children=[], name="E", split_indices=(1,))
-    leaf_F = Node(children=[], name="F", split_indices=(2,))
-    node_B = Node(children=[leaf_D, leaf_E], name="B", split_indices=(0, 1))
-    node_C = Node(children=[leaf_F], name="C", split_indices=(2,))
-    root = Node(children=[node_B, node_C], name="A", split_indices=(0, 1, 2))
-    # Set encoding for all
     encoding = {"D": 0, "E": 1, "F": 2}
-    for n in [leaf_D, leaf_E, leaf_F, node_B, node_C, root]:
-        n._encoding = encoding
+    leaf_d = Node(children=[], name="D", split_indices=(0,), taxa_encoding=encoding)
+    leaf_e = Node(children=[], name="E", split_indices=(1,), taxa_encoding=encoding)
+    leaf_f = Node(children=[], name="F", split_indices=(2,), taxa_encoding=encoding)
+    node_b = Node(
+        children=[leaf_d, leaf_e],
+        name="B",
+        split_indices=(0, 1),
+        taxa_encoding=encoding,
+    )
+    node_c = Node(
+        children=[leaf_f], name="C", split_indices=(2,), taxa_encoding=encoding
+    )
+    root = Node(
+        children=[node_b, node_c],
+        name="A",
+        split_indices=(0, 1, 2),
+        taxa_encoding=encoding,
+    )
     return root
 
 
@@ -64,11 +73,11 @@ def test_split_indices_consistency():
     tree = build_test_tree()
     tree.delete_taxa([2])  # Remove F
     # After deletion, check that split indices match the leaves
-    leaf_names = set(leaf.name for leaf in tree.leaves)
+    leaf_names = {leaf.name for leaf in tree.leaves}
     for node in tree.traverse():
         for idx in node.split_indices:
             # Each index should correspond to a leaf name in encoding
-            name = [k for k, v in node._encoding.items() if v == idx][0]
+            name = [k for k, v in node.taxa_encoding.items() if v == idx][0]
             assert name in leaf_names
 
 

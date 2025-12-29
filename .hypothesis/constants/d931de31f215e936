@@ -1,0 +1,4 @@
+# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/elements/partition.py
+# hypothesis_version: 6.148.8
+
+['Partition', '_cached_hash', '_cached_size', '_indices', 'bitmask', 'encoding', 'indices']

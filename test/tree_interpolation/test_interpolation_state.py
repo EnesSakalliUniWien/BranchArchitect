@@ -311,7 +311,12 @@ class TestSubtreeSelection(unittest.TestCase):
         self.assertIn(next_subtree, [self.part_A, self.part_B])
 
     def test_priority_1_unique_splits_selected_second(self):
-        """Test subtree selection when no shared collapse exists."""
+        """Test subtree selection when no shared collapse exists.
+
+        With no shared collapse, the algorithm selects the subtree with the
+        smallest expand path first (fewest expand splits). This ensures
+        elements with smaller expand paths move first.
+        """
         collapse_by_subtree = {
             self.part_A: PartitionSet(
                 [self.part_A], encoding=self.encoding
@@ -342,9 +347,10 @@ class TestSubtreeSelection(unittest.TestCase):
 
         next_subtree = state.get_next_subtree()
 
-        # With no shared collapse, algorithm uses longest expand path
-        # part_B has 2 expand splits (part_D shared + part_C), so it should win
-        self.assertEqual(next_subtree, self.part_B)
+        # With no shared collapse, algorithm uses smallest expand path first
+        # part_A and part_C both have 1 expand split, part_B has 2
+        # part_A should be selected (smallest expand path, lexicographically first)
+        self.assertEqual(next_subtree, self.part_A)
 
     def test_returns_none_when_no_work_remaining(self):
         """Test that get_next_subtree returns None when all work is done."""

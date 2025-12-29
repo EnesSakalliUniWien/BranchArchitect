@@ -5,9 +5,7 @@ from functools import lru_cache
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
-from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
-    compute_pivot_solutions_with_deletions,
-)
+
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +41,14 @@ def get_active_changing_splits(tree1: Node, tree2: Node) -> PartitionSet[Partiti
     tree1_copy = tree1.deep_copy()
     tree2_copy = tree2.deep_copy()
     # Use deep copies to prevent the lattice algorithm from modifying the original trees
-    # compute_pivot_solutions_with_deletions returns a tuple: (dict, list)
-    active_changing_split_solutions, _ = compute_pivot_solutions_with_deletions(
-        tree1_copy, tree2_copy
+    # LatticeSolver.solve_iteratively returns a tuple: (dict, list)
+    from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+        LatticeSolver,
     )
+
+    active_changing_split_solutions, _ = LatticeSolver(
+        tree1_copy, tree2_copy
+    ).solve_iteratively()
     active_changing_splits_list = list(active_changing_split_solutions.keys())
     # Convert to PartitionSet for consistency with function signature
     active_changing_splits_set: PartitionSet[Partition] = PartitionSet(

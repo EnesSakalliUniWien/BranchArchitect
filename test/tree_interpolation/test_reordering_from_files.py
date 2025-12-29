@@ -16,8 +16,8 @@ from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.subtree_paths.execution.reordering import (
     reorder_tree_toward_destination,
 )
-from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
-    compute_pivot_solutions_with_deletions,
+from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+    LatticeSolver,
 )
 from brancharchitect.tree_interpolation.pair_interpolation import (
     process_tree_pair_interpolation,
@@ -35,6 +35,7 @@ def _shares_encoding(src: Node, dst: Node) -> None:
     dst.taxa_encoding = enc
     # Re-initialize split indices and caches for the destination
     dst._initialize_split_indices(enc)
+    dst.build_split_index()  # Must rebuild index after _initialize_split_indices
 
 
 def _subsequence(seq: List[str], subset: Set[str]) -> List[str]:
@@ -50,7 +51,7 @@ def _is_contiguous_block(order: List[str], block: Set[str]) -> bool:
 
 def test_reordering_small_example_stepwise():
     """Stepwise reordering on small_example.newick preserves anchors and blocks movers."""
-    lines = _read_newick_lines("current_testfiles/small_example.newick")
+    lines = _read_newick_lines("test-data/current_testfiles/small_example.newick")
     assert len(lines) >= 2, "Expected at least two trees in small_example.newick"
 
     src = parse_newick(lines[0])
@@ -58,7 +59,7 @@ def test_reordering_small_example_stepwise():
     _shares_encoding(src, dst)
 
     # Use first changing edge and its first solution set
-    jumping, _ = compute_pivot_solutions_with_deletions(src, dst, list(src.taxa_encoding.keys()))
+    jumping, _ = LatticeSolver(src, dst).solve_iteratively()
     assert jumping, "No changing edges detected in small_example"
     active_edge = next(iter(jumping.keys()))
     first_solution_set = jumping[active_edge]
@@ -84,7 +85,7 @@ def test_reordering_small_example_stepwise():
 
 def test_pair_interpolation_matches_destination_order_small_example():
     """Full pair interpolation should end exactly on the destination ordering."""
-    lines = _read_newick_lines("current_testfiles/small_example.newick")
+    lines = _read_newick_lines("test-data/current_testfiles/small_example.newick")
     assert len(lines) >= 2, "Expected at least two trees in small_example.newick"
 
     src = parse_newick(lines[0])
@@ -96,8 +97,7 @@ def test_pair_interpolation_matches_destination_order_small_example():
 
     final_order = result.trees[-1].get_current_order()
     assert final_order == dst.get_current_order(), (
-        "Interpolation did not end on the destination ordering, got "
-        f"{final_order}"
+        f"Interpolation did not end on the destination ordering, got {final_order}"
     )
 
 
@@ -114,7 +114,7 @@ def test_reordering_reverse_upwards_from_file():
     _shares_encoding(src, dst)
 
     # Compute changing edges and use the first with its first solution set
-    jumping, _ = compute_pivot_solutions_with_deletions(src, dst, list(src.taxa_encoding.keys()))
+    jumping, _ = LatticeSolver(src, dst).solve_iteratively()
     assert jumping, "Expected at least one changing edge"
     active_edge = next(iter(jumping.keys()))
     solution_set = jumping[active_edge]

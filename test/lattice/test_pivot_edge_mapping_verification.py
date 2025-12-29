@@ -9,11 +9,8 @@ This test specifically checks:
 
 import unittest
 from brancharchitect.parser.newick_parser import parse_newick
-from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
-    compute_pivot_solutions_with_deletions,
-)
-from brancharchitect.jumping_taxa.lattice.solvers.pivot_edge_solver import (
-    lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+    LatticeSolver,
 )
 from brancharchitect.elements.partition import Partition
 
@@ -45,9 +42,9 @@ class TestPivotEdgeMappingVerification(unittest.TestCase):
 
     def test_pivot_edge_keys_are_valid_partitions(self):
         """Verify that all pivot edge keys are valid Partition objects."""
-        result = compute_pivot_solutions_with_deletions(
+        result = LatticeSolver(
             self.tree1_complex, self.tree2_complex
-        )
+        ).solve_iteratively()
         jumping_subtree_solutions, _ = result
 
         print("\n=== Pivot Edge Keys in Dictionary ===")
@@ -74,9 +71,9 @@ class TestPivotEdgeMappingVerification(unittest.TestCase):
 
     def test_pivot_edges_match_original_trees(self):
         """Verify that pivot edges exist in at least one of the original trees."""
-        result = compute_pivot_solutions_with_deletions(
+        result = LatticeSolver(
             self.tree1_complex, self.tree2_complex
-        )
+        ).solve_iteratively()
         jumping_subtree_solutions, _ = result
 
         # Get all splits from both trees
@@ -108,12 +105,14 @@ class TestPivotEdgeMappingVerification(unittest.TestCase):
         This verifies the mapping is working correctly.
         """
         # Call lattice_algorithm directly (single iteration) - now returns a dictionary
-        direct_solutions_dict = lattice_algorithm(self.tree1_simple, self.tree2_simple)
+        direct_solutions_dict = LatticeSolver(
+            self.tree1_simple, self.tree2_simple
+        ).solve()
 
         # Call compute_pivot_solutions_with_deletions
-        iterate_result = compute_pivot_solutions_with_deletions(
+        iterate_result = LatticeSolver(
             self.tree1_simple, self.tree2_simple
-        )
+        ).solve_iteratively()
         iterate_solutions_dict, _ = iterate_result
 
         print("\n=== Comparing Direct vs Iterate Results ===")
@@ -148,9 +147,9 @@ class TestPivotEdgeMappingVerification(unittest.TestCase):
 
     def test_no_none_keys_or_values(self):
         """Verify no None values appear in the dictionary (indicates mapping failure)."""
-        result = compute_pivot_solutions_with_deletions(
+        result = LatticeSolver(
             self.tree1_complex, self.tree2_complex
-        )
+        ).solve_iteratively()
         jumping_subtree_solutions, _ = result
 
         print("\n=== Checking for None Values ===")
@@ -190,9 +189,9 @@ class TestPivotEdgeMappingVerification(unittest.TestCase):
         Verify that the number of solutions is consistent across iterations.
         This catches issues where solutions might be lost or duplicated during mapping.
         """
-        result = compute_pivot_solutions_with_deletions(
+        result = LatticeSolver(
             self.tree1_complex, self.tree2_complex
-        )
+        ).solve_iteratively()
         jumping_subtree_solutions, deleted_taxa_per_iteration = result
 
         print("\n=== Solution Count Consistency ===")
@@ -227,13 +226,13 @@ class TestPivotEdgeMappingVerification(unittest.TestCase):
         This verifies the refactored return type works correctly.
         """
         # Get results from compute_pivot_solutions_with_deletions
-        result = compute_pivot_solutions_with_deletions(
-            self.tree1_simple, self.tree2_simple
-        )
+        result = LatticeSolver(self.tree1_simple, self.tree2_simple).solve_iteratively()
         jumping_subtree_solutions, _ = result
 
         # Also call lattice_algorithm directly to compare - now returns dictionary
-        direct_solutions_dict = lattice_algorithm(self.tree1_simple, self.tree2_simple)
+        direct_solutions_dict = LatticeSolver(
+            self.tree1_simple, self.tree2_simple
+        ).solve()
 
         print("\n=== Testing Dictionary Return Type ===")
         print("Direct lattice_algorithm returned:")

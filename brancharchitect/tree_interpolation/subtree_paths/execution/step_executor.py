@@ -36,7 +36,8 @@ def apply_stepwise_plan_for_edge(
     trees: List[Node] = []
     edges: List[Optional[Partition]] = []
     subtree_tracker: List[Partition] = []
-    interpolation_state: Node = current_base_tree.deep_copy()
+    # Use current_base_tree directly - caller already provided a copy
+    interpolation_state: Node = current_base_tree
 
     selections: Dict[Partition, Dict[str, Any]] = build_edge_plan(
         expand_paths_for_pivot_edge,

@@ -1,0 +1,4 @@
+# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/execution/step_executor.py
+# hypothesis_version: 6.148.8
+
+['collapse', 'expand', 'path_segment', 'subtree']

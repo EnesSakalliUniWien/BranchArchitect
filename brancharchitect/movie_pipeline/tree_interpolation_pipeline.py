@@ -3,8 +3,7 @@
 from typing import List, Optional, Dict, Tuple
 import logging
 import time
-import concurrent.futures
-import os
+from joblib import Parallel, delayed
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.movie_pipeline.types import (
@@ -24,8 +23,8 @@ from brancharchitect.distances.distances import (
 from brancharchitect.tree_interpolation.sequential_interpolation import (
     SequentialInterpolationBuilder,
 )
-from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
-    compute_pivot_solutions_with_deletions,
+from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+    LatticeSolver,
 )
 from brancharchitect.tree_interpolation.types import TreeInterpolationSequence
 from brancharchitect.tree import Node
@@ -40,8 +39,7 @@ def _parallel_solve_pair(
     Returns (solution_dict, error_message).
     """
     try:
-        # Note: source and destination are already copies due to multiprocessing pickling
-        solution_dict, _ = compute_pivot_solutions_with_deletions(source, destination)
+        solution_dict, _ = LatticeSolver(source, destination).solve_iteratively()
         return solution_dict, None
     except Exception as e:
         return None, str(e)
@@ -69,6 +67,11 @@ class TreeInterpolationPipeline:
         """
         self.config: PipelineConfig = config or PipelineConfig()
         self.logger = logger or logging.getLogger(self.config.logger_name)
+
+        # Configure unified debug visualization based on pipeline settings
+        from brancharchitect.logger import jt_logger
+
+        jt_logger.disabled = not self.config.enable_debug_visualization
 
     def process_trees(self, trees: Node | List[Node]) -> InterpolationResult:
         """
@@ -101,7 +104,7 @@ class TreeInterpolationPipeline:
         processed_trees = self._optimize_tree_order(
             processed_trees,
             precomputed_pair_pivot_split_sets=self._extract_current_pivot_split_sets(
-                precomputed_pair_solutions, processed_trees
+                precomputed_pair_solutions
             ),
             precomputed_pair_solutions=precomputed_pair_solutions,
         )
@@ -133,6 +136,9 @@ class TreeInterpolationPipeline:
             wrfd_list=distances.wrfd_list,
             processing_time=processing_time,
             pair_interpolation_ranges=seq_result.pair_interpolation_ranges,
+            subtree_tracking=self._serialize_subtree_tracking(
+                seq_result.current_subtree_tracking
+            ),
         )
 
     def _ensure_shared_taxa_encoding(self, trees: List[Node]) -> None:
@@ -234,53 +240,37 @@ class TreeInterpolationPipeline:
     ) -> List[Optional[Dict[Partition, List[Partition]]]]:
         """
         Runs the lattice algorithm for each adjacent pair of trees in parallel.
+        Uses joblib for efficient parallelization with lower overhead than ProcessPoolExecutor.
         """
         if len(trees) < 2:
             return []
 
-        sols: List[Optional[Dict[Partition, List[Partition]]]] = []
+        n_pairs = len(trees) - 1
+        self.logger.info(f"Precomputing solutions for {n_pairs} pairs using joblib...")
 
-        # Determine number of workers
-        max_workers = os.cpu_count()
-        self.logger.info(
-            f"Precomputing solutions for {len(trees) - 1} pairs using {max_workers} workers..."
+        # Use joblib.Parallel with loky backend (default) for efficient parallelization
+        # n_jobs=-1 uses all available cores
+        results = Parallel(n_jobs=-1)(
+            delayed(_parallel_solve_pair)(trees[i], trees[i + 1])
+            for i in range(n_pairs)
         )
 
-        with concurrent.futures.ProcessPoolExecutor(
-            max_workers=max_workers
-        ) as executor:
-            # Submit all tasks
-            # We pass the tree objects directly. Multiprocessing will pickle them,
-            # effectively creating the isolated copies needed for the worker.
-            futures = [
-                executor.submit(_parallel_solve_pair, trees[i], trees[i + 1])
-                for i in range(len(trees) - 1)
-            ]
-
-            # Collect results in order
-            for i, future in enumerate(futures):
-                try:
-                    solution_dict, error_msg = future.result()
-                    if error_msg:
-                        self.logger.error(
-                            f"Failed to compute lattice solution for pair {i}-{i + 1}. Error: {error_msg}"
-                        )
-                        sols.append(None)
-                    else:
-                        sols.append(solution_dict)
-                except Exception as e:
-                    self.logger.error(
-                        f"Unexpected error retrieving result for pair {i}-{i + 1}: {e}",
-                        exc_info=True,
-                    )
-                    sols.append(None)
+        # Process results and log any errors
+        sols: List[Optional[Dict[Partition, List[Partition]]]] = []
+        for i, (solution_dict, error_msg) in enumerate(results):
+            if error_msg:
+                self.logger.error(
+                    f"Failed to compute lattice solution for pair {i}-{i + 1}. Error: {error_msg}"
+                )
+                sols.append(None)
+            else:
+                sols.append(solution_dict)
 
         return sols
 
     def _extract_current_pivot_split_sets(
         self,
         precomputed_pair_solutions: List[Optional[Dict[Partition, List[Partition]]]],
-        trees: List[Node],
     ) -> List[Optional[PartitionSet[Partition]]]:
         """
         Extracts current pivot split sets from precomputed lattice solutions.
@@ -377,3 +367,20 @@ class TreeInterpolationPipeline:
         except Exception as e:
             self.logger.error(f"Rooting failed: {e}")
             return trees
+
+    def _serialize_subtree_tracking(
+        self, tracking: List[Optional[Partition]]
+    ) -> List[Optional[List[int]]]:
+        """
+        Serialize partition tracking to index arrays for JSON serialization.
+
+        Converts each Partition to a sorted list of integer indices.
+        None values remain None.
+
+        Args:
+            tracking: List of Optional[Partition] from the interpolation sequence
+
+        Returns:
+            List of Optional[List[int]] suitable for JSON serialization
+        """
+        return [sorted(list(p.indices)) if p is not None else None for p in tracking]

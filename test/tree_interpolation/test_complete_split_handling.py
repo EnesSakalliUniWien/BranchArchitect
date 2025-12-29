@@ -13,15 +13,17 @@ from typing import Dict
 from brancharchitect.parser import parse_newick
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.consensus_tree.intermediate_tree import (
+from brancharchitect.tree_interpolation.topology_ops.weights import (
     calculate_intermediate_tree,
 )
-from brancharchitect.tree_interpolation.consensus_tree.consensus_tree import (
+from brancharchitect.tree_interpolation.topology_ops.collapse import (
     collapse_zero_length_branches_for_node,
 )
-from brancharchitect.consensus.consensus_tree import apply_split_in_tree
-from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
-    compute_pivot_solutions_with_deletions,
+from brancharchitect.tree_interpolation.topology_ops.expand import (
+    apply_split_simple,
+)
+from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+    LatticeSolver,
 )
 from brancharchitect.tree_interpolation.subtree_paths.planning.builder import (
     build_edge_plan,
@@ -195,7 +197,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
             # Apply split should succeed now that conflicts are removed
             try:
-                apply_split_in_tree(expand_split, intermediate_tree)
+                apply_split_simple(expand_split, intermediate_tree)
                 print("✓ Successfully applied split")
             except Exception as e:
                 print(f"✗ FAILED to apply split: {e}")
@@ -229,9 +231,9 @@ class TestCompleteSplitHandling(unittest.TestCase):
     def test_all_subtrees_processed_in_plan(self):
         """Verify ALL subtrees in plan are processed."""
         # Use compute_pivot_solutions_with_deletions to get jumping subtrees
-        jumping_subtrees, deleted_taxa = compute_pivot_solutions_with_deletions(
-            self.tree1, self.tree2, self.taxa_order
-        )
+        jumping_subtrees, deleted_taxa = LatticeSolver(
+            self.tree1, self.tree2
+        ).solve_iteratively()
 
         if not jumping_subtrees:
             self.skipTest("No jumping subtrees found between these trees")
@@ -269,9 +271,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
     def test_plan_covers_all_collapse_splits(self):
         """Verify plan includes ALL collapse splits across all subtrees."""
         # Use compute_pivot_solutions_with_deletions
-        jumping_subtrees, _ = compute_pivot_solutions_with_deletions(
-            self.tree1, self.tree2, self.taxa_order
-        )
+        jumping_subtrees, _ = LatticeSolver(self.tree1, self.tree2).solve_iteratively()
 
         if not jumping_subtrees:
             self.skipTest("No jumping subtrees found")
@@ -312,9 +312,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
     def test_plan_covers_all_expand_splits(self):
         """Verify plan includes ALL expand splits across all subtrees."""
-        jumping_subtrees, _ = compute_pivot_solutions_with_deletions(
-            self.tree1, self.tree2, self.taxa_order
-        )
+        jumping_subtrees, _ = LatticeSolver(self.tree1, self.tree2).solve_iteratively()
 
         if not jumping_subtrees:
             self.skipTest("No jumping subtrees found")
@@ -355,6 +353,10 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
     def test_split_application_error_handling(self):
         """Verify error is thrown when split cannot be applied."""
+        from brancharchitect.tree_interpolation.topology_ops.expand import (
+            SplitApplicationError,
+        )
+
         # Create a split that is incompatible with tree structure
         # Example: try to apply a split that would create a contradiction
 
@@ -369,30 +371,30 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
         # Only test if this split is not already in the tree
         if impossible_split not in original_splits:
-            # Attempting to apply should either succeed (if compatible) or raise error
+            # Attempting to apply should either succeed (if compatible) or raise SplitApplicationError
             # The key is: it should NOT silently fail
             try:
-                apply_split_in_tree(impossible_split, tree)
+                apply_split_simple(impossible_split, tree)
                 # If it succeeded, verify it's actually in the tree
                 self.assertIn(
                     impossible_split,
                     tree.to_splits(),
                     "Split application claimed success but split not in tree",
                 )
-            except (ValueError, RuntimeError) as e:
-                # Expected behavior: incompatible splits raise errors
+            except SplitApplicationError as e:
+                # Expected behavior: incompatible splits raise SplitApplicationError
                 self.assertIn(
-                    "compatible",
+                    "incompatible",
                     str(e).lower(),
-                    f"Error message should mention compatibility: {e}",
+                    f"Error message should mention incompatibility: {e}",
                 )
 
     def test_iterate_lattice_algorithm_integration(self):
         """Test complete workflow with compute_pivot_solutions_with_deletions."""
         # Run compute_pivot_solutions_with_deletions
-        jumping_subtrees, deleted_taxa = compute_pivot_solutions_with_deletions(
-            self.tree1, self.tree2, self.taxa_order
-        )
+        jumping_subtrees, deleted_taxa = LatticeSolver(
+            self.tree1, self.tree2
+        ).solve_iteratively()
 
         # Should find solutions
         self.assertGreater(
@@ -411,9 +413,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
     def test_complete_interpolation_workflow(self):
         """Test complete interpolation: collapse → expand → verify."""
         # Use compute_pivot_solutions_with_deletions
-        jumping_subtrees, _ = compute_pivot_solutions_with_deletions(
-            self.tree1, self.tree2, self.taxa_order
-        )
+        jumping_subtrees, _ = LatticeSolver(self.tree1, self.tree2).solve_iteratively()
 
         if not jumping_subtrees:
             self.skipTest("No jumping subtrees needed")
@@ -452,7 +452,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
                 for expand_split in expand_splits:
                     if expand_split not in current_tree.to_splits():
                         try:
-                            apply_split_in_tree(expand_split, current_tree)
+                            apply_split_simple(expand_split, current_tree)
                         except Exception as e:
                             self.fail(
                                 f"Failed to apply expand split {list(expand_split.indices)} "
@@ -477,9 +477,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
     def test_no_duplicate_splits_in_plan(self):
         """Verify no split appears multiple times in same subtree plan."""
-        jumping_subtrees, _ = compute_pivot_solutions_with_deletions(
-            self.tree1, self.tree2, self.taxa_order
-        )
+        jumping_subtrees, _ = LatticeSolver(self.tree1, self.tree2).solve_iteratively()
 
         if not jumping_subtrees:
             self.skipTest("No jumping subtrees")
@@ -568,9 +566,7 @@ class TestLargerDatasetSplitHandling(unittest.TestCase):
         tree1, tree2 = self.trees[0], self.trees[2]
 
         # Run compute_pivot_solutions_with_deletions
-        jumping_subtrees, _ = compute_pivot_solutions_with_deletions(
-            tree1, tree2, self.taxa_order
-        )
+        jumping_subtrees, _ = LatticeSolver(tree1, tree2).solve_iteratively()
 
         if not jumping_subtrees:
             # Trees might be identical or very similar

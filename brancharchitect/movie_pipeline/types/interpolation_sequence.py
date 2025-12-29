@@ -1,4 +1,4 @@
-from typing import List, Dict, TypedDict
+from typing import List, Dict, TypedDict, Optional
 from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.types import (
     TreePairSolution,
@@ -204,6 +204,25 @@ class InterpolationResult(TypedDict):
     - Pair 1->2: interpolated trees at global indices 5, 6, 7
     """
 
+    subtree_tracking: List[Optional[List[int]]]
+    """
+    Serialized subtree partition for each tree in the sequence.
+
+    Parallel to interpolated_trees and tree_metadata. For each tree at index i:
+    - None: Original tree (no subtree being moved)
+    - List[int]: Sorted list of taxa indices representing the subtree being moved
+
+    This tracks which subtree is being relocated during each interpolation step,
+    enabling visualization of the specific taxa movement.
+
+    Example: [None, [0, 1], [0, 1], None, [2, 3], None]
+    - Index 0: Original tree
+    - Index 1-2: Subtree containing taxa 0,1 is being moved
+    - Index 3: Original tree
+    - Index 4: Subtree containing taxa 2,3 is being moved
+    - Index 5: Original tree
+    """
+
 
 def create_single_tree_result(
     trees: List[Node],
@@ -227,6 +246,7 @@ def create_single_tree_result(
         wrfd_list=[0.0],
         processing_time=0.0,
         pair_interpolation_ranges=[],
+        subtree_tracking=[None],  # Single tree has no subtree movement
     )
 
 
@@ -240,4 +260,5 @@ def create_empty_result() -> InterpolationResult:
         wrfd_list=[0.0],
         processing_time=0.0,
         pair_interpolation_ranges=[],
+        subtree_tracking=[],
     )
