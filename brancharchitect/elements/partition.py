@@ -6,7 +6,14 @@ from functools import total_ordering
 
 @total_ordering
 class Partition:
-    __slots__ = ("_indices", "encoding", "bitmask", "_cached_reverse_encoding", "_cached_size")
+    __slots__ = (
+        "_indices",
+        "encoding",
+        "bitmask",
+        "_cached_reverse_encoding",
+        "_cached_size",
+        "_cached_hash",
+    )
 
     @classmethod
     def from_bitmask(cls, bitmask: int, encoding: Dict[str, int]) -> Partition:
@@ -20,21 +27,29 @@ class Partition:
         obj.encoding = encoding
         obj.bitmask = bitmask
         obj._cached_size = bitmask.bit_count()
+        obj._cached_hash = hash(bitmask)
         obj._cached_reverse_encoding = None
         return obj
 
     @property
     def indices(self) -> Tuple[int, ...]:
-        """Lazy derivation of sorted indices from bitmask."""
+        """Lazy derivation of sorted indices from bitmask.
+
+        Uses an optimized algorithm that extracts set bits directly,
+        which is much faster for sparse bitmasks (typical in phylogenetics).
+        """
         if self._indices is None:
             indices_list = []
             temp_mask = self.bitmask
-            idx = 0
+            # Use bit manipulation to extract set bits directly
+            # This is O(k) where k is the number of set bits, not O(n) where n is bit_length
             while temp_mask:
-                if temp_mask & 1:
-                    indices_list.append(idx)
-                temp_mask >>= 1
-                idx += 1
+                # Find the lowest set bit position using bit_length
+                lowest_bit = temp_mask & -temp_mask
+                idx = lowest_bit.bit_length() - 1
+                indices_list.append(idx)
+                # Clear the lowest set bit
+                temp_mask &= temp_mask - 1
             self._indices = tuple(indices_list)
         return self._indices
 
@@ -65,6 +80,7 @@ class Partition:
 
         self.bitmask: int = bitmask
         self._cached_size: int = bitmask.bit_count()
+        self._cached_hash: int = hash(bitmask)
         self._cached_reverse_encoding: Optional[Dict[int, str]] = None
 
     def __iter__(self) -> Iterator[int]:
@@ -198,7 +214,7 @@ class Partition:
         return f"({self})"
 
     def __hash__(self) -> int:
-        return hash(self.bitmask)
+        return self._cached_hash
 
     @property
     def reverse_encoding(self) -> Dict[int, str]:
@@ -275,7 +291,9 @@ class Partition:
         if isinstance(other, Partition):
             if self.encoding and other.encoding and self.encoding is not other.encoding:
                 if self.encoding != other.encoding:
-                    raise ValueError("Cannot subtract partitions with different encodings")
+                    raise ValueError(
+                        "Cannot subtract partitions with different encodings"
+                    )
             # Fast path: use bitmask difference directly
             new_bitmask = self.bitmask & ~other.bitmask
             return Partition.from_bitmask(new_bitmask, self.encoding)
