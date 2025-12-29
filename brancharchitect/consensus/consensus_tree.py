@@ -1,9 +1,13 @@
-from typing import List, Dict
+from typing import List, Dict, Tuple
+from collections import Counter
+import logging
+
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import Partition, PartitionSet
-from collections import Counter
-from typing import Tuple
-import logging
+from brancharchitect.tree_interpolation.topology_ops.expand import (
+    apply_split_simple,
+    SplitApplicationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -181,16 +185,16 @@ def check_split_compatibility(
     U = set(tree_order)
     A = set(split_1)
     B = set(split_2)
-    A_complement = U - A
-    B_complement = U - B
+    a_complement = U - A
+    b_complement = U - B
 
     if not (A & B):
         return True
-    if not (A & B_complement):
+    if not (A & b_complement):
         return True
-    if not (A_complement & B):
+    if not (a_complement & B):
         return True
-    if not (A_complement & B_complement):
+    if not (a_complement & b_complement):
         return True
     return False
 
@@ -221,149 +225,6 @@ def filter_incompatible_splits(
     return compatible_split_memory
 
 
-def apply_split_in_tree(split: Partition, node: Node, validate: bool = True):
-    """
-    Apply a split to a tree by creating a new internal node grouping the appropriate children.
-
-    Args:
-        split: The partition to apply to the tree
-        node: The root node of the tree
-        validate: If True, verifies the split was successfully applied (default: True)
-
-    Raises:
-        ValueError: If encoding cannot be converted
-        RuntimeError: If validate=True and split was not successfully applied
-    """
-    # Store original split for validation
-    original_split = split
-
-    # Re-encode split to the target tree's encoding if needed
-    if split.encoding != node.taxa_encoding:
-        try:
-            names = [split.reverse_encoding[i] for i in split.indices]
-            new_indices = tuple(sorted(node.taxa_encoding[name] for name in names))
-            split = Partition(new_indices, node.taxa_encoding)
-        except Exception as e:
-            raise ValueError(f"Cannot re-encode split to target tree encoding: {e}")
-
-    split_set = set(split)  # Convert split to set
-
-    # Check if split_set is a proper subset of node.split_indices
-    if split_set < set(node.split_indices):
-        remaining_children: list[Node] = []  # Children not in the split
-        reassigned_children: list[Node] = []  # Children in the split
-
-        # Reassign children based on whether they belong to the split
-        for child in node.children:
-            child_split_set = set(child.split_indices)
-
-            # If child's split indices are entirely within the split, reassign it
-            if child_split_set.issubset(split_set):
-                reassigned_children.append(child)
-            else:
-                remaining_children.append(child)
-
-        # Only create a new node if we have children to reassign
-        if reassigned_children and len(reassigned_children) > 1:
-            new_node = Node(
-                name="",
-                split_indices=split,
-                children=reassigned_children,
-                length=0,
-                taxa_encoding=node.taxa_encoding,
-            )
-            # Update original node's children and append new node
-            node.children = remaining_children
-            node.children.append(new_node)
-
-    # Recursively apply to children
-    for child in node.children:
-        if child.children:
-            apply_split_in_tree(
-                split, child, validate=False
-            )  # Don't validate recursively
-
-    # Validate split was applied (only at top level)
-    if validate:
-        # Get root and refresh splits
-        root = node.get_root()
-        root.initialize_split_indices(root.taxa_encoding)
-
-        # Force cache invalidation to get fresh splits
-        root.invalidate_caches()
-
-        # Check if split is now in tree
-        tree_splits = root.to_splits()
-        if split not in tree_splits:
-            # Find incompatible splits that prevented application
-            all_indices = set(split.encoding.values())
-            incompatible_splits_to_collapse: List[Partition] = []
-
-            for tree_split in tree_splits:
-                if not split.is_compatible_with(tree_split, all_indices):
-                    incompatible_splits_to_collapse.append(tree_split)
-
-            # Collapse incompatible splits if found
-            if incompatible_splits_to_collapse:
-                logger.debug(
-                    f"[CONSENSUS] Collapsing {len(incompatible_splits_to_collapse)} "
-                    f"incompatible split(s) to apply split {list(original_split.indices)}"
-                )
-
-                # Collapse each incompatible split by finding its node and setting length to 0
-                for incompatible_split in incompatible_splits_to_collapse:
-                    _collapse_split_in_tree(root, incompatible_split)
-
-                # Refresh tree structure
-                root.initialize_split_indices(root.taxa_encoding)
-                root.invalidate_caches()
-
-                # Retry applying the split
-                apply_split_in_tree(split, root, validate=True)
-            else:
-                # No incompatible splits found - different issue
-                split_indices_list = [list(s.indices) for s in tree_splits]
-                raise RuntimeError(
-                    f"Failed to apply split {list(original_split.indices)} to tree. "
-                    f"No incompatible splits detected. Tree has {len(tree_splits)} splits: "
-                    f"{split_indices_list[:10]}... Target split not present."
-                )
-
-
-def _collapse_split_in_tree(node: Node, split_to_collapse: Partition) -> None:
-    """
-    Find and collapse a specific split in the tree by removing the internal node.
-
-    Args:
-        node: The root or current node to search from
-        split_to_collapse: The partition representing the split to collapse
-    """
-    if not node.children:
-        return
-
-    # Check if any child has the split we want to collapse
-    for child in node.children:
-        if child.split_indices == split_to_collapse and child.children:
-            # Found the node to collapse - splice its children up to parent
-            logger.debug(
-                f"[CONSENSUS] Collapsing split {list(split_to_collapse.indices)}"
-            )
-
-            # Remove this child from parent's children
-            node.children.remove(child)
-
-            # Add all grandchildren to parent
-            for grandchild in child.children:
-                grandchild.parent = node
-                node.children.append(grandchild)
-
-            return
-
-        # Recursively search in child's subtree
-        if child.children:
-            _collapse_split_in_tree(child, split_to_collapse)
-
-
 def sort_splits(splits: Dict[Partition, float]) -> list[Tuple[Partition, float]]:
     return sorted(splits.items(), key=lambda x: (x[1], len(x[0]), x[0]), reverse=True)
 
@@ -376,7 +237,12 @@ def create_consensus_tree(trees: list[Node]) -> Node:
     ):
         if frequency < 1.0:
             break
-        apply_split_in_tree(split, tree)
+        try:
+            apply_split_simple(split, tree)
+        except SplitApplicationError:
+            # Skip incompatible splits - they can't be applied to this topology
+            logger.debug(f"Skipping incompatible split {list(split.indices)}")
+            continue
     return tree
 
 
@@ -386,7 +252,12 @@ def create_majority_consensus_tree(trees: list[Node], threshold: float = 0.50) -
     for split, frequency in sort_splits(splits):
         if frequency <= threshold:
             break
-        apply_split_in_tree(split, tree)
+        try:
+            apply_split_simple(split, tree)
+        except SplitApplicationError:
+            # Skip incompatible splits - they can't be applied to this topology
+            logger.debug(f"Skipping incompatible split {list(split.indices)}")
+            continue
     return tree
 
 
@@ -400,7 +271,7 @@ def create_majority_consensus_tree_extended(trees: list[Node]) -> Node:
     sorted in descending order based on a tuple of criteria: frequency, the size of the split,
     and the lexicographical order of the split. For each split, the function checks if it is
     mutually compatible with all splits already applied to the tree (using ``compatible()``). If
-    it is, then the split is applied to the tree (via ``apply_split_in_tree()``) and added to
+    it is, then the split is applied to the tree (via ``apply_split_simple()``) and added to
     the list of applied splits.
 
     Args:
@@ -418,8 +289,13 @@ def create_majority_consensus_tree_extended(trees: list[Node]) -> Node:
         splits.items(), key=lambda x: (x[1], len(x[0]), x[0]), reverse=True
     ):
         if all(compatible(split, existing_split) for existing_split in applied_splits):
-            apply_split_in_tree(split, tree)
-            applied_splits.append(split)
+            try:
+                apply_split_simple(split, tree)
+                applied_splits.append(split)
+            except SplitApplicationError:
+                # Skip incompatible splits - they can't be applied to this topology
+                logger.debug(f"Skipping incompatible split {list(split.indices)}")
+                continue
     return tree
 
 

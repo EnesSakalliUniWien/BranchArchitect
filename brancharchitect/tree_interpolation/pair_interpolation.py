@@ -15,13 +15,16 @@ from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.subtree_paths import (
     create_interpolation_for_active_split_sequence,
 )
-from brancharchitect.tree_interpolation.edge_sorting_utils import (
-    sort_edges_by_depth,
+from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+    LatticeSolver,
+)
+from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
+    topological_sort_edges,
 )
 
-# Import here to avoid circular import
-from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
-    compute_pivot_solutions_with_deletions,
+# Final topology check: ensure last interpolated tree matches destination
+from brancharchitect.tree_interpolation.subtree_paths.pivot_sequence_orchestrator import (
+    assert_final_topology_matches,
 )
 from brancharchitect.tree_interpolation.types import (
     TreePairInterpolation,
@@ -71,27 +74,20 @@ def process_tree_pair_interpolation(
     # The caller (SequentialInterpolationBuilder) already passes deep-copied trees
     # for each pair, so we can call the lattice algorithm directly without
     # performing additional copies here.
+
     if precomputed_solutions is not None:
         jumping_subtree_solutions: Dict[Partition, List[Partition]] = (
             precomputed_solutions
         )
     else:
-        # compute_pivot_solutions_with_deletions returns (solutions_dict, deleted_taxa_list)
-        jumping_subtree_solutions, _ = compute_pivot_solutions_with_deletions(
+        jumping_subtree_solutions, _ = LatticeSolver(
             source_tree, destination_tree
-        )
+        ).solve_iteratively()
 
+    # Sort pivot edges topologically (subsets before supersets)
+    # This ensures correct processing order for interpolation
     pivot_edges: List[Partition] = list(jumping_subtree_solutions.keys())
-
-    # Step 2: Order splits by depth for optimal interpolation progression
-    # Process from leaves to root (ascending=True means smaller depths first)
-    # This ensures child-level reordering happens before parent-level reordering,
-    # preventing parent edges from overriding child reordering decisions (snapback).
-    ordered_edges = sort_edges_by_depth(
-        edges=pivot_edges,
-        tree=source_tree,
-        ascending=True,  # Leaves to root: subsets before supersets
-    )
+    ordered_edges: List[Partition] = topological_sort_edges(pivot_edges, source_tree)
 
     (
         sequence_trees,
@@ -104,11 +100,6 @@ def process_tree_pair_interpolation(
         target_pivot_edges=ordered_edges,
         jumping_subtree_solutions=jumping_subtree_solutions,
         pair_index=pair_index,
-    )
-
-    # Final topology check: ensure last interpolated tree matches destination
-    from brancharchitect.tree_interpolation.subtree_paths.pivot_sequence_orchestrator import (
-        assert_final_topology_matches,
     )
 
     if sequence_trees:

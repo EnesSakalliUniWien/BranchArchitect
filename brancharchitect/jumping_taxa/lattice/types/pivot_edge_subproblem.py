@@ -32,14 +32,9 @@ class PivotEdgeSubproblem:
 
     encoding: dict[str, int]
 
-    # Track excluded partitions (solutions that have been removed)
-    # These are filtered out when building conflict matrices
     excluded_partitions: PartitionSet[Partition] = field(
         default_factory=lambda: PartitionSet()
     )
-
-    # Deprecated single-side helpers removed: is_divergent/is_intermediate/is_collapsed
-    # Edge type computation is inlined in `relationship` to avoid unused helpers.
 
     def remove_solutions_from_covers(self, solutions: List[PartitionSet[Partition]]):
         """
@@ -61,31 +56,11 @@ class PivotEdgeSubproblem:
 
                 # Process tree1 child frontiers
                 for top_to_bottom in self.tree1_child_frontiers.values():
-                    # Remove from covers (tops)
-                    if partition in top_to_bottom.shared_top_splits:
-                        top_to_bottom.shared_top_splits.discard(partition)
-
-                    # Remove from frontier sets (values)
-                    for frontier_set in top_to_bottom.bottom_to_frontiers.values():
-                        frontier_set.discard(partition)
-
-                    # Remove from bottom keys if partition is a bottom
-                    if partition in top_to_bottom.bottom_to_frontiers:
-                        del top_to_bottom.bottom_to_frontiers[partition]
+                    top_to_bottom.remove_partition(partition)
 
                 # Process tree2 child frontiers
                 for top_to_bottom in self.tree2_child_frontiers.values():
-                    # Remove from covers (tops)
-                    if partition in top_to_bottom.shared_top_splits:
-                        top_to_bottom.shared_top_splits.discard(partition)
-
-                    # Remove from frontier sets (values)
-                    for frontier_set in top_to_bottom.bottom_to_frontiers.values():
-                        frontier_set.discard(partition)
-
-                    # Remove from bottom keys if partition is a bottom
-                    if partition in top_to_bottom.bottom_to_frontiers:
-                        del top_to_bottom.bottom_to_frontiers[partition]
+                    top_to_bottom.remove_partition(partition)
 
     def has_remaining_conflicts(self) -> bool:
         """

@@ -23,7 +23,7 @@ class TreeLogger(AlgorithmLogger):
         node_one: Node,
         node_two: Node,
         title: str = "Tree Comparison",
-        show_internal_names=False,
+        show_internal_names: bool = False,
         vertical_taxon_labels: bool = False,
     ):
         """Log visual comparison of two trees - rectangular layout only."""
@@ -78,10 +78,12 @@ class TreeLogger(AlgorithmLogger):
             right_taxa.append(taxa)
 
         # Create composite data for sorting
-        all_data = []
+        from typing import Dict, Any
+
+        all_data: List[Dict[str, Any]] = []
 
         # First, add all splits from left tree
-        for i, (lidx, ltaxa) in enumerate(zip(left_indices, left_taxa)):
+        for lidx, ltaxa in zip(left_indices, left_taxa):
             # Check if this split exists in the right tree
             if lidx in right_indices:
                 r_idx = right_indices.index(lidx)
@@ -92,7 +94,7 @@ class TreeLogger(AlgorithmLogger):
                         "right_indices": right_indices[r_idx],
                         "right_taxa": right_taxa[r_idx],
                         "common": True,
-                        "size": len(lidx),
+                        "size": int(len(lidx)),
                     }
                 )
             else:
@@ -104,12 +106,12 @@ class TreeLogger(AlgorithmLogger):
                         "right_indices": set(),
                         "right_taxa": set(),
                         "common": False,
-                        "size": len(lidx),
+                        "size": int(len(lidx)),
                     }
                 )
 
         # Now add any splits from right tree that aren't already covered
-        for i, (ridx, rtaxa) in enumerate(zip(right_indices, right_taxa)):
+        for ridx, rtaxa in zip(right_indices, right_taxa):
             if ridx not in left_indices:
                 all_data.append(
                     {
@@ -118,7 +120,7 @@ class TreeLogger(AlgorithmLogger):
                         "right_indices": ridx,
                         "right_taxa": rtaxa,
                         "common": False,
-                        "size": len(ridx),
+                        "size": int(len(ridx)),
                     }
                 )
 
@@ -128,10 +130,10 @@ class TreeLogger(AlgorithmLogger):
                 key=lambda x: (
                     x["size"],
                     tuple(
-                        sorted(list(x["left_indices"]))
-                        if isinstance(x["left_indices"], (set, frozenset))
-                        else ()
-                    ),
+                        sorted(str(i) for i in x["left_indices"])
+                    )  # always returns a tuple of strings
+                    if isinstance(x["left_indices"], (set, frozenset))
+                    else tuple(),
                 )
             )
         elif sort_by == "taxa":
@@ -146,9 +148,9 @@ class TreeLogger(AlgorithmLogger):
                 )
             )
         elif sort_by == "common_first":
-            all_data.sort(key=lambda x: (not x["common"], x["size"]))
+            all_data.sort(key=lambda x: (not x["common"], int(x["size"])))
         elif sort_by == "diff_first":
-            all_data.sort(key=lambda x: (x["common"], x["size"]))
+            all_data.sort(key=lambda x: (bool(x["common"]), int(x["size"])))
 
         # Import here to avoid circular imports
         from brancharchitect.logger.formatting import format_set
@@ -200,11 +202,11 @@ class TreeLogger(AlgorithmLogger):
         # Add data rows
         for item in all_data:
             left_indices_str = format_set(item["left_indices"]) if show_indices else ""
-            left_taxa_str = format_set(item["left_taxa"])
+            left_taxa_str = format_set(set(item["left_taxa"]))
             right_indices_str = (
                 format_set(item["right_indices"]) if show_indices else ""
             )
-            right_taxa_str = format_set(item["right_taxa"])
+            right_taxa_str = format_set(set(item["right_taxa"]))
 
             # Determine row class based on match status
             row_class = "common" if item["common"] else "different"
@@ -315,24 +317,34 @@ class TreeLogger(AlgorithmLogger):
             tree1_node = getattr(edge, "tree1_node", getattr(edge, "t1_node", None))
             tree2_node = getattr(edge, "tree2_node", getattr(edge, "t2_node", None))
 
-            t1_min, t1_uniq = _min_cover_unique(tree1_node, tree2_node)
-            t2_min, t2_uniq = _min_cover_unique(tree2_node, tree1_node)
+            if tree1_node is not None and tree2_node is not None:
+                t1_min, t1_uniq = _min_cover_unique(tree1_node, tree2_node)
+            else:
+                t1_min, t1_uniq = None, None
+            if tree2_node is not None and tree1_node is not None:
+                t2_min, t2_uniq = _min_cover_unique(tree2_node, tree1_node)
+            else:
+                t2_min, t2_uniq = None, None
 
             if show_unique_min_covers:
                 if t1_min:
-                    left_min = [_fmt(p.taxa) for p in t1_min]
+                    left_min = [_fmt(set(p.taxa)) for p in t1_min]
                 if t2_min:
-                    right_min = [_fmt(p.taxa) for p in t2_min]
+                    right_min = [_fmt(set(p.taxa)) for p in t2_min]
 
             if show_atoms:
                 if t1_uniq:
                     try:
-                        left_atoms = [_fmt(p.taxa) for p in t1_uniq.minimal_elements()]
+                        left_atoms = [
+                            _fmt(set(p.taxa)) for p in t1_uniq.minimal_elements()
+                        ]
                     except Exception:
                         left_atoms = []
                 if t2_uniq:
                     try:
-                        right_atoms = [_fmt(p.taxa) for p in t2_uniq.minimal_elements()]
+                        right_atoms = [
+                            _fmt(set(p.taxa)) for p in t2_uniq.minimal_elements()
+                        ]
                     except Exception:
                         right_atoms = []
 
@@ -425,3 +437,46 @@ class TreeLogger(AlgorithmLogger):
             html_content = NEWICK_TEMPLATE_SINGLE_COMBINED.format(newick1.strip())
             self.raw_html(html_content)
             self.raw_html(NEWICK_HIGHLIGHT_JS)
+
+    def table(
+        self,
+        rows: List[List[str]],
+        headers: Optional[List[str]] = None,
+        tablefmt: str = "simple",
+    ) -> None:
+        """Log a table in the specified format."""
+        if tablefmt == "html":
+            # Generate HTML table
+            html = "<table>\n"
+            if headers:
+                html += "<thead><tr>\n"
+                for header in headers:
+                    html += f"<th>{header}</th>\n"
+                html += "</tr></thead>\n"
+            html += "<tbody>\n"
+            for row in rows:
+                html += "<tr>\n"
+                for cell in row:
+                    html += f"<td>{cell}</td>\n"
+                html += "</tr>\n"
+            html += "</tbody>\n</table>\n"
+            self.raw_html(html)
+        else:
+            # Use tabulate for other formats
+            try:
+                import tabulate
+
+                if headers is not None:
+                    table_str = tabulate.tabulate(
+                        rows, headers=headers, tablefmt=tablefmt
+                    )
+                else:
+                    table_str = tabulate.tabulate(rows, tablefmt=tablefmt)
+                self.info(table_str)
+            except ImportError:
+                # Fallback to simple text table
+                if headers:
+                    self.info(" | ".join(headers))
+                    self.info("-" * len(" | ".join(headers)))
+                for row in rows:
+                    self.info(" | ".join(str(cell) for cell in row))

@@ -13,8 +13,8 @@ from brancharchitect.tree import Node, ReorderStrategy
 from brancharchitect.jumping_taxa.lattice.mapping import (
     map_solution_elements_to_minimal_frontiers,
 )
-from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
-    compute_pivot_solutions_with_deletions,
+from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+    LatticeSolver,
 )
 from brancharchitect.logger import jt_logger
 
@@ -136,12 +136,11 @@ def _cached_mover_assignments(
 ) -> Dict[Tuple[int, ...], Tuple[int, int, int]]:
     """Return stable band/rank assignments for mover blocks.
 
-    Band assignment uses deterministic alternation (i % 2):
-    - Even-indexed movers: band 0 in source, band 2 in destination (left→right)
-    - Odd-indexed movers: band 2 in source, band 0 in destination (right→left)
+    All movers go to the same side to minimize anchor displacement:
+    - All movers: band 0 in source (left), band 2 in destination (right)
 
-    This ping-pong pattern ensures movers cross each other visually during
-    the interpolation, making the movement more apparent.
+    This ensures anchors stay stable in the middle and movers move
+    independently without crossing each other.
     """
     edge_key = (tuple(edge.indices), mover_weight_policy)
     composition = {tuple(p.indices) for p in mover_blocks}
@@ -157,13 +156,10 @@ def _cached_mover_assignments(
             mover_weight_policy = "increasing"
         rank = i if mover_weight_policy == "increasing" else (jumping_count - i)
 
-        # Deterministic alternation: even movers go left→right, odd go right→left
-        if i % 2 == 0:
-            src_band = 0  # left in source
-            dst_band = 2  # right in destination
-        else:
-            src_band = 2  # right in source
-            dst_band = 0  # left in destination
+        # All movers go to the same side: left in source, right in destination
+        # This minimizes anchor displacement
+        src_band = 0  # left in source
+        dst_band = 2  # right in destination
 
         assignments[tuple(jumping_partition.indices)] = (src_band, dst_band, rank)
 
@@ -189,9 +185,7 @@ def _get_solution_mappings(
     if precomputed_solution is not None:
         solutions_by_edge = precomputed_solution
     else:
-        solutions_by_edge, _ = compute_pivot_solutions_with_deletions(
-            input_tree1=t1, input_tree2=t2
-        )
+        solutions_by_edge, _ = LatticeSolver(t1, t2).solve_iteratively()
 
     mapped_t1: Dict[Partition, Dict[Partition, Partition]] = {}
     mapped_t2: Dict[Partition, Dict[Partition, Partition]] = {}
@@ -252,7 +246,7 @@ def derive_order_for_pair(
     # Apply ordering for differing edges
     for edge, mapping in mappings_t1.items():
         if not jt_logger.disabled:
-             try:
+            try:
                 dst_map = mappings_t2.get(edge, {})
                 jt_logger.info(
                     f"\n[anchor_order] edge={list(edge.indices)} src_map={len(mapping)} dst_map={len(dst_map)}"
@@ -264,7 +258,7 @@ def derive_order_for_pair(
                 jt_logger.info(
                     f"  dst pairs (solution -> mapped) sample: {_sample_pairs(dst_map)}"
                 )
-             except Exception:
+            except Exception:
                 pass
         blocked_order_and_apply(
             edge,
@@ -353,8 +347,9 @@ def blocked_order_and_apply(
     jumping_taxa_partitions_set = set(sources.keys()) | set(destinations.keys())
     jumping_taxa_partitions_set = {p for p in jumping_taxa_partitions_set if p != edge}
     # Convert to sorted list for deterministic iteration order
+    # Sort by DESCENDING size so larger groups move first (they typically have smaller expand paths)
     jumping_taxa_partitions = sorted(
-        jumping_taxa_partitions_set, key=lambda p: (len(p.indices), p.indices)
+        jumping_taxa_partitions_set, key=lambda p: (-len(p.indices), p.indices)
     )
 
     # CRITICAL: Remove jumping partitions from common_splits to get only STABLE common clades

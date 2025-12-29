@@ -20,29 +20,8 @@ Mathematical Operations:
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TypeAlias
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-
-# ============================================================================
-# Core Matrix Types
-# ============================================================================
-
-# A matrix element is a set of partitions
-MatrixCell: TypeAlias = PartitionSet[Partition]
-
-# A matrix row contains cells (typically 2 for conflict pairs)
-MatrixRow: TypeAlias = list[MatrixCell]
-
-# The partition matrix: rows of partition set pairs
-# Used to represent conflicting cover pairs between two trees
-PMatrix: TypeAlias = list[MatrixRow]
-
-# Example PMatrix structure:
-# [
-#   [PartitionSet({p1, p2}), PartitionSet({p3, p4})],  # Row 1: conflict pair
-#   [PartitionSet({p1, p5}), PartitionSet({p3, p6})],  # Row 2: conflict pair
-# ]
 
 
 @dataclass(slots=True)
@@ -54,3 +33,24 @@ class TopToBottom:
 
     shared_top_splits: PartitionSet[Partition]
     bottom_to_frontiers: dict[Partition, PartitionSet[Partition]]
+
+    def remove_partition(self, partition: Partition) -> None:
+        """
+        Safely remove a partition from both shared covers (frontiers) and internal mappings.
+
+        This handles:
+        1. Removing from the top-level shared splits set (covers).
+        2. Removing from all frontier sets contained in the bottom-to-frontier mapping.
+        3. Removing the partition itself if it acts as a bottom-level key.
+
+        Using .pop() for key removal prevents Race/KeyErrors if checked separately.
+        """
+        # 1. Remove from covers (tops)
+        self.shared_top_splits.discard(partition)
+
+        # 2. Remove from frontier sets (values)
+        for frontier_set in self.bottom_to_frontiers.values():
+            frontier_set.discard(partition)
+
+        # 3. Remove from bottom keys safely
+        self.bottom_to_frontiers.pop(partition, None)

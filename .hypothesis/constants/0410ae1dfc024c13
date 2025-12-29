@@ -1,0 +1,4 @@
+# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/logger/base_logger.py
+# hypothesis_version: 6.148.8
+
+[1.0, '%(message)s', '</div>', '</section>', 'F', 'ascii', 'utf-8', 'white']

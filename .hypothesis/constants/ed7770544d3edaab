@@ -1,0 +1,4 @@
+# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/leaforder/anchor_order.py
+# hypothesis_version: 6.148.8
+
+['decreasing', 'increasing', 'inf', 'preserve_source']

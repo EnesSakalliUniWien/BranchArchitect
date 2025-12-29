@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-def generate_debug_html(title="Branch Architect Debug Output"):
+def generate_debug_html(title: str = "Branch Architect Debug Output"):
     """Generate HTML content for debug output."""
     # Get the actual debug content and any accumulated CSS from the logger
     debug_content = jt_logger.get_html_content()
@@ -112,8 +112,8 @@ def log_tree_splits(
     for split1, split2 in zip(splits1_padded, splits2_padded):
         # Check if the taxa match their indices
         if split1 and split2:
-            expected_taxa1 = {order_map[i] for i in split1.indices}
-            expected_taxa2 = {order_map[i] for i in split2.indices}
+            expected_taxa1 = frozenset(order_map[i] for i in split1.indices)
+            expected_taxa2 = frozenset(order_map[i] for i in split2.indices)
 
             if expected_taxa1 != split1.taxa or expected_taxa2 != split2.taxa:
                 mismatches.append(
@@ -135,10 +135,10 @@ def log_tree_splits(
         )
 
         row = [
-            format_set(split1.indices) if split1 else "—",
-            format_set(split1.taxa) if split1 else "—",
-            format_set(split2.indices) if split2 else "—",
-            format_set(split2.taxa) if split2 else "—",
+            format_set(set(split1.indices)) if split1 else "—",
+            format_set(set(split1.taxa)) if split1 else "—",
+            format_set(set(split2.indices)) if split2 else "—",
+            format_set(set(split2.taxa)) if split2 else "—",
             "✓" if is_common else "✗",
         ]
         table_data.append(row)

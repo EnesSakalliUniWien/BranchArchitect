@@ -124,7 +124,7 @@ class TestInterpolationStateV2(unittest.TestCase):
         )
 
     def test_subtree_selection_based_on_expand_length(self):
-        """Subtree selection prioritizes longest expand paths."""
+        """Subtree selection prioritizes smallest expand paths (fewest splits first)."""
         expand_by_subtree = {
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),  # 1 split
             self.part_B: PartitionSet(
@@ -146,9 +146,9 @@ class TestInterpolationStateV2(unittest.TestCase):
             self.part_ABCD,
         )
 
-        # Should select part_C (3 expand splits)
+        # Should select part_A (1 expand split - smallest path)
         next_subtree = state.get_next_subtree()
-        self.assertEqual(next_subtree, self.part_C)
+        self.assertEqual(next_subtree, self.part_A)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,4 @@
+# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/logger/debug/error_handling.py
+# hypothesis_version: 6.148.8
+
+['%Y-%m-%d %H:%M:%S', 'ERROR DETAILS', 'Error Context', 'F', 'args_count', 'function', 'kwargs', 'tree1', 'tree2']

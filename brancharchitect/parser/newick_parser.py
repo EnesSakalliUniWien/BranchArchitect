@@ -429,6 +429,10 @@ def parse_newick(
         # Restore previous behavior to avoid leaking state across calls
         _TREAT_ZERO_AS_EPSILON.reset(token)
 
+    # Invalidate caches before getting order - tree construction may have set stale caches
+    for tree in trees:
+        tree.invalidate_caches(propagate_up=False, propagate_down=True)
+
     if order is None:
         # If user didn't supply an order, gather from first tree
         order = list(trees[0].get_current_order())

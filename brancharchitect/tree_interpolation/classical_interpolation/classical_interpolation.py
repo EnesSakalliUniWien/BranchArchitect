@@ -9,10 +9,10 @@ intermediate states that allow continuous morphing from one tree topology to ano
 from __future__ import annotations
 from typing import Dict, List, Tuple
 from brancharchitect.elements.partition import Partition
-from brancharchitect.tree_interpolation.consensus_tree.consensus_tree import (
+from brancharchitect.tree_interpolation.topology_ops.collapse import (
     calculate_consensus_tree,
 )
-from brancharchitect.tree_interpolation.consensus_tree.intermediate_tree import (
+from brancharchitect.tree_interpolation.topology_ops.weights import (
     calculate_intermediate_tree,
 )
 from brancharchitect.tree import Node

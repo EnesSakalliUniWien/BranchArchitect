@@ -5,7 +5,7 @@ This module contains functionality for analyzing tree splits, distances,
 and other tree-related metrics used in benchmarking.
 """
 
-from typing import List, Set, Tuple, Dict
+from typing import List, Set, Tuple, Dict, Any, Callable, Sequence
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import Partition
 from brancharchitect.distances.distances import (
@@ -16,7 +16,7 @@ from brancharchitect.distances.distances import (
 
 def collect_splits_for_tree_pair_trajectories(
     trees: List[Node],
-) -> Tuple[Dict, Dict[str, List[float]]]:
+) -> Tuple[Dict[str, Set[Partition]], Dict[str, List[float]]]:
     """
     Collect per-pair trajectory distances for unique and common splits.
 
@@ -27,7 +27,7 @@ def collect_splits_for_tree_pair_trajectories(
 
     Returns
     -------
-    Tuple[Dict, Dict[str, List[float]]]
+    Tuple[Dict[str, Set[Partition]], Dict[str, List[float]]]
         Tuple containing splits container and distance split container
     """
     ratio_unique_splits1: List[float] = []
@@ -85,14 +85,16 @@ def collect_splits_for_tree_pair_trajectories(
     }
 
     # Empty splits container for compatibility
-    splits_container: Dict = {}
+    splits_container: Dict[str, Set[Partition]] = {}
 
     return (splits_container, distance_split_container)
 
 
 def process_benchmark_method(
-    trees: List[Node], label: str, collect_distances_func
-) -> Tuple[float, List[float], Dict[str, List[float]]]:
+    trees: List[Node],
+    label: str,
+    collect_distances_func: Callable[[List[Node]], Tuple[Sequence[float], Any]],
+) -> Tuple[float, Sequence[float], Dict[str, List[float]]]:
     """
     Process a single benchmark method and return results.
 
@@ -107,13 +109,15 @@ def process_benchmark_method(
 
     Returns
     -------
-    Tuple[float, List[float], Dict[str, List[float]]]
+    Tuple[float, Sequence[float], Dict[str, List[float]]]
         Tuple containing total distance, distance list, and split distance container
     """
     # Collect distances for trajectory
     dist_list, _ = collect_distances_func(trees)
     if isinstance(dist_list, float):
         dist_list = [dist_list]
+    else:
+        dist_list = list(dist_list)
 
     sum_dist = sum(dist_list)
 
@@ -143,7 +147,7 @@ def calculate_robinson_foulds_distances(trees: List[Node]) -> List[float]:
     return calculate_along_trajectory(trees, relative_robinson_foulds_distance)
 
 
-def calculate_split_statistics(trees: List[Node]) -> Dict[str, any]:
+def calculate_split_statistics(trees: List[Node]) -> Dict[str, Any]:
     """
     Calculate various statistics about splits in the tree collection.
 

@@ -19,8 +19,8 @@ from brancharchitect.elements.partition import Partition
 from brancharchitect.jumping_taxa.lattice.mapping.iterative_pivot_mappings import (
     map_iterative_pivot_edges_to_original,
 )
-from brancharchitect.jumping_taxa.lattice.solvers.pivot_edge_solver import (
-    lattice_algorithm,
+from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+    LatticeSolver,
 )
 
 
@@ -97,7 +97,7 @@ def test_bootstrap_52_mapping_produces_valid_common_splits():
     orig_t1, orig_t2 = trees[0], trees[1]
 
     # Get pivots and solutions from lattice
-    sols_dict = lattice_algorithm(orig_t1, orig_t2, orig_t1, orig_t2)
+    sols_dict = LatticeSolver(orig_t1, orig_t2).solve()
     pivot_edges = list(sols_dict.keys())
     solutions_list: List[List[Partition]] = list(sols_dict.values())
 

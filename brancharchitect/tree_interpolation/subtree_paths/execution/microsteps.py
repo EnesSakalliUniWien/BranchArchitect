@@ -11,13 +11,15 @@ from typing import Any, Dict, List, Optional, Tuple
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.consensus_tree.consensus_tree import (
+from brancharchitect.tree_interpolation.topology_ops.collapse import (
     create_collapsed_consensus_tree,
 )
-from brancharchitect.tree_interpolation.consensus_tree.intermediate_tree import (
-    create_subtree_grafted_tree,
-    calculate_intermediate_implicit,
+from brancharchitect.tree_interpolation.topology_ops.weights import (
+    apply_zero_branch_lengths,
     apply_reference_weights_to_path,
+)
+from brancharchitect.tree_interpolation.topology_ops.expand import (
+    create_subtree_grafted_tree,
 )
 from .reordering import reorder_tree_toward_destination
 
@@ -27,11 +29,15 @@ def extract_filtered_paths(
     current_pivot_edge: Partition,
 ) -> Tuple[List[Partition], List[Partition]]:
     """
-    Extract expand/collapse paths from a selection and filter out structural boundaries.
+    Extract expand/zeroing paths from a selection and filter out structural boundaries.
 
-    This function ensures that the active pivot edge and the subtree root are never
-    included in the modification paths, preventing accidental deletion of the
-    interpolation scope's boundaries.
+    This function ensures that the active pivot edge is never included in the
+    modification paths, preventing accidental deletion of the interpolation scope's
+    boundary.
+
+    Note: The subtree partition is only excluded from the EXPAND path (to prevent
+    creating a split that already exists), but NOT from the COLLAPSE path (because
+    the subtree might be a collapse split that needs to be removed).
 
     Args:
         selection: Dictionary containing 'expand' and 'collapse' path segments from the planner.
@@ -40,26 +46,32 @@ def extract_filtered_paths(
     Returns:
         Tuple[List[Partition], List[Partition]]: A tuple containing:
             - expand_path: List of partitions to be created/expanded (filtered).
-            - collapse_path: List of partitions to be collapsed (filtered).
+            - zeroing_path: List of partitions to be set to zero length (filtered).
     """
     subtree_partition = selection["subtree"]
-    exclusions = {current_pivot_edge, subtree_partition}
+
+    # Pivot edge is always excluded from both paths (it's the boundary)
+    # Subtree partition is only excluded from expand path (not collapse)
+    expand_exclusions = {current_pivot_edge, subtree_partition}
+    collapse_exclusions = {current_pivot_edge}  # Don't exclude subtree from collapse!
 
     # Extract path segments - now guaranteed to be lists from builder
     expand_segments: List[Partition] = selection.get("expand", {}).get(
         "path_segment", []
     )
-    collapse_segments: List[Partition] = selection.get("collapse", {}).get(
+    zeroing_segments: List[Partition] = selection.get("collapse", {}).get(
         "path_segment", []
     )
 
-    expand_path: List[Partition] = [p for p in expand_segments if p not in exclusions]
-
-    collapse_path: List[Partition] = [
-        p for p in collapse_segments if p not in exclusions
+    expand_path: List[Partition] = [
+        p for p in expand_segments if p not in expand_exclusions
     ]
 
-    return expand_path, collapse_path
+    zeroing_path: List[Partition] = [
+        p for p in zeroing_segments if p not in collapse_exclusions
+    ]
+
+    return expand_path, zeroing_path
 
 
 def add_step(
@@ -96,8 +108,8 @@ def build_microsteps_for_selection(
     Build the 5 microsteps for a single selection under an active-changing edge.
 
     Steps:
-    - IT_down: collapse zeros inside the subtree selection
-    - C: collapse zero-length branches to consensus
+    - IT_down: set branch lengths to zero inside the subtree selection
+    - C: collapse zero-length branches to consensus topology
     - C_reorder: partially reorder to match the destination
     - IT_up: graft the reference path while preserving order
     - IT_ref: apply final reference weights on the grafted path
@@ -121,11 +133,11 @@ def build_microsteps_for_selection(
     # Extract and filter path segments using the modularized function
     subtree_partition = selection["subtree"]
 
-    expand_path, collapse_path = extract_filtered_paths(selection, current_pivot_edge)
+    expand_path, zeroing_path = extract_filtered_paths(selection, current_pivot_edge)
 
-    # Guard: ensure we do not collapse splits that must exist in destination
-    it_down: Node = calculate_intermediate_implicit(
-        interpolation_state, PartitionSet(set(collapse_path))
+    # Guard: ensure we do not zero splits that must exist in destination
+    it_down: Node = apply_zero_branch_lengths(
+        interpolation_state, PartitionSet(set(zeroing_path))
     )
 
     subtree_tracker: List[Partition] = []
@@ -140,8 +152,9 @@ def build_microsteps_for_selection(
     )
 
     # FIX: Pass destination tree so we only collapse splits that DON'T exist in destination
+    # Use copy=False since it_down is only used here and we need a fresh tree for collapsed
     collapsed: Node = create_collapsed_consensus_tree(
-        it_down, current_pivot_edge, destination_tree=destination_tree
+        it_down, current_pivot_edge, destination_tree=destination_tree, copy=True
     )
 
     add_step(
@@ -154,11 +167,13 @@ def build_microsteps_for_selection(
     )
 
     # Apply partial reordering based on the interpolation context
+    # Use copy=True since collapsed is stored in trees list
     reordered: Node = reorder_tree_toward_destination(
         source_tree=collapsed,
         destination_tree=destination_tree,
         current_pivot_edge=current_pivot_edge,
         moving_subtree_partition=subtree_partition,
+        copy=True,
     )
 
     add_step(
@@ -171,13 +186,16 @@ def build_microsteps_for_selection(
     )
 
     # Graft with order preservation to eliminate second reordering step
+    # Use copy=True since reordered is stored in trees list
     pre_snap_reordered: Node = create_subtree_grafted_tree(
         base_tree=reordered,
         ref_path_to_build=expand_path,
+        copy=True,
     )
 
     # Align ordering once after graft so both microsteps share identical layout
     pre_snap_reordered.reorder_taxa(list(reordered.get_current_order()))
+    # Use deep_copy for snapped_tree since pre_snap_reordered will be modified
     snapped_tree: Node = pre_snap_reordered.deep_copy()
 
     # Normalize earlier steps to the final snapped ordering to prevent churn

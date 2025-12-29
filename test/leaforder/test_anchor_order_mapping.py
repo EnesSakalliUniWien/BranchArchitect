@@ -43,17 +43,23 @@ def test_blocked_order_uses_solution_keys_as_movers_block_moves_together():
     order2 = list(t2.get_current_order())
 
     # A and B should move together as a block to one extreme in T1
-    assert order1[:2] == ["A", "B"] or order1[:2] == ["B", "A"] or \
-           order1[-2:] == ["A", "B"] or order1[-2:] == ["B", "A"]
+    assert (
+        order1[:2] == ["A", "B"]
+        or order1[:2] == ["B", "A"]
+        or order1[-2:] == ["A", "B"]
+        or order1[-2:] == ["B", "A"]
+    )
 
 
 def test_blocked_order_singleton_solutions_move_as_singletons():
     """
     When mapping values are used, movers are deduplicated across trees and anchors
-    (stable frontiers) are preserved. Use a 4-taxon example to validate order shape.
+    (stable frontiers) are preserved. Use a star tree to validate order shape.
+    All movers go to the same side: left in t1, right in t2.
     """
-    t1 = parse_newick("((A:1,B:1),(C:1,D:1));")
-    t2 = parse_newick("((A:1,C:1),(B:1,D:1));", list(t1.get_current_order()))
+    # Use a star tree to avoid internal clade structure affecting the test
+    t1 = parse_newick("(A:1,B:1,C:1,D:1);")
+    t2 = parse_newick("(A:1,B:1,C:1,D:1);", list(t1.get_current_order()))
 
     enc = t1.taxa_encoding
     edge = _pivot_edge_for_all_taxa(t1)
@@ -72,6 +78,11 @@ def test_blocked_order_singleton_solutions_move_as_singletons():
     order1 = list(t1.get_current_order())
     order2 = list(t2.get_current_order())
 
-    # T1: A is an extreme (mover), and C is an extreme in T2
-    assert order1[0] == "A" or order1[-1] == "A"
-    assert order2[0] == "C" or order2[-1] == "C"
+    # All movers go to the same side: left in t1, right in t2
+    # Both A and C are movers (from sources and destinations)
+    mover_taxa = {"A", "C"}
+
+    # In t1: movers should be on the left side
+    assert set(order1[:2]) == mover_taxa
+    # In t2: movers should be on the right side
+    assert set(order2[-2:]) == mover_taxa

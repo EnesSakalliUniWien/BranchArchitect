@@ -1,10 +1,9 @@
 import unittest
 from brancharchitect.io import parse_newick
-from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
-    compute_pivot_solutions_with_deletions,
+from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+    LatticeSolver,
 )
 from brancharchitect.leaforder.anchor_order import derive_order_for_pair
-from brancharchitect.elements.partition import Partition
 
 
 class TestSmallExampleCaiman(unittest.TestCase):
@@ -42,7 +41,7 @@ class TestSmallExampleCaiman(unittest.TestCase):
             tree3 = tree3[0]
 
         # 1. Check Lattice Algorithm Output
-        solutions, _ = compute_pivot_solutions_with_deletions(tree2, tree3)
+        solutions, _ = LatticeSolver(tree2, tree3).solve_iteratively()
 
         print("\n--- Lattice Solutions ---")
         found_caiman_alligator = False

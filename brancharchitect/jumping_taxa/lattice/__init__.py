@@ -5,7 +5,8 @@ Provides the lattice algorithm for computing jumping taxa between phylogenetic t
 Package Structure:
 - types/: Core data types (PMatrix, TopToBottom, PivotEdgeSubproblem)
 - solvers/: Matrix solving algorithms (meet products, pivot edge solving)
-- construction/: Lattice building (child frontiers, cover relations)
+- frontiers/: Frontier computation (child frontiers, poset relations, pivot building)
+- matrices/: Conflict matrix construction and collection
 - orchestration/: High-level drivers (iterative algorithm, taxa deletion)
 - ordering/: Edge ordering algorithms (topological sort, depth ordering)
 - mapping/: Solution mapping utilities
@@ -19,7 +20,7 @@ Import submodules directly where needed.
 
 __all__ = [
     # Primary entry point (import directly from orchestration)
-    "compute_pivot_solutions_with_deletions",
+    "LatticeSolver",
     # Types (import directly from types)
     "PMatrix",
     "TopToBottom",
@@ -34,12 +35,12 @@ __all__ = [
 
 def __getattr__(name: str):
     """Lazy import to avoid circular dependencies."""
-    if name == "compute_pivot_solutions_with_deletions":
-        from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
-            compute_pivot_solutions_with_deletions,
+    if name == "LatticeSolver":
+        from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+            LatticeSolver,
         )
 
-        return compute_pivot_solutions_with_deletions
+        return LatticeSolver
     elif name == "PMatrix":
         from brancharchitect.jumping_taxa.lattice.types.types import PMatrix
 

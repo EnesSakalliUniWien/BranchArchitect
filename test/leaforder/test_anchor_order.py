@@ -52,9 +52,11 @@ def test_blocked_order_extremes_single_mover_left_right():
     assert order2[-2:] == ["C", "D"] or order2[-2:] == ["D", "C"]
 
 
-def test_blocked_order_extremes_two_movers_ping_pong():
+def test_blocked_order_extremes_two_movers_same_side():
     """
-    Two movers alternate: first goes left in t1/right in t2; second goes right in t1/left in t2.
+    All movers go to the same side to minimize anchor displacement:
+    - All movers: left in t1 (band 0), right in t2 (band 2)
+    - Larger groups (with smaller expand paths) are placed more extreme
     """
     t1, t2 = _pair(
         "(A:1,B:1,C:1,D:1,E:1,F:1);",
@@ -64,8 +66,8 @@ def test_blocked_order_extremes_two_movers_ping_pong():
     enc = t1.taxa_encoding
     edge = Partition(tuple(sorted(enc.values())), enc)
 
-    mover1 = Partition((enc["B"],), enc)  # i=0
-    mover2 = Partition((enc["E"], enc["F"]), enc)  # i=1
+    mover1 = Partition((enc["B"],), enc)  # smaller (1 taxon) -> i=1 after sort
+    mover2 = Partition((enc["E"], enc["F"]), enc)  # larger (2 taxa) -> i=0 after sort
     sources = {mover1: mover1, mover2: mover2}
     destinations = {mover1: mover1, mover2: mover2}
 
@@ -74,13 +76,19 @@ def test_blocked_order_extremes_two_movers_ping_pong():
     o1 = list(t1.get_current_order())
     o2 = list(t2.get_current_order())
 
-    # mover1 left in t1, right in t2
-    assert o1[0] == "B"
-    assert o2[-1] == "B"
+    # All movers go to left in t1, right in t2
+    # Larger mover (E,F) is more extreme (leftmost in t1, rightmost in t2)
+    mover_taxa = {"B", "E", "F"}
+    anchor_taxa = {"A", "C", "D"}
 
-    # mover2 right in t1, left in t2 (block EF contiguous, order can be EF or FE)
-    assert set(o1[-2:]) == {"E", "F"}
-    assert set(o2[:2]) == {"E", "F"}
+    # In t1: all movers should be on the left side
+    assert set(o1[:3]) == mover_taxa
+    # In t2: all movers should be on the right side
+    assert set(o2[-3:]) == mover_taxa
+
+    # Anchors stay in the middle/opposite side
+    assert set(o1[-3:]) == anchor_taxa
+    assert set(o2[:3]) == anchor_taxa
 
 
 def test_derive_order_for_pair_no_differences_root_alignment():

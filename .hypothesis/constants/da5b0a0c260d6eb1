@@ -1,0 +1,4 @@
+# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/parser/newick_parser.py
+# hypothesis_version: 6.148.8
+
+[0.0, 5e-06, 1.0, '&&NHX:', '(', ')', ',', '.', ':', ';', '=', 'NULL', 'None', '[', ']', 'character_reader', 'length_reader', 'metadata_reader', 'none', 'null', 'values']

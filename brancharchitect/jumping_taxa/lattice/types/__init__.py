@@ -5,12 +5,12 @@ Lattice Type Definitions
 Core types and data structures for the lattice algorithm.
 """
 
-from brancharchitect.jumping_taxa.lattice.types.types import (
+from brancharchitect.jumping_taxa.lattice.matrices.types import (
     MatrixCell,
     MatrixRow,
     PMatrix,
-    TopToBottom,
 )
+from brancharchitect.jumping_taxa.lattice.types.types import TopToBottom
 from brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem import (
     PivotEdgeSubproblem,
     get_child_splits,

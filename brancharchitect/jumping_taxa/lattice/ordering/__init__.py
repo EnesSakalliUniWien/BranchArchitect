@@ -8,12 +8,10 @@ Ensures proper processing order (subsets before supersets).
 
 from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
     topological_sort_edges,
-    compute_pivot_edge_depths,
     sort_pivot_edges_by_subset_hierarchy,
 )
 
 __all__ = [
     "topological_sort_edges",
-    "compute_pivot_edge_depths",
     "sort_pivot_edges_by_subset_hierarchy",
 ]

@@ -1,0 +1,4 @@
+# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/logger/formatting.py
+# hypothesis_version: 6.148.8
+
+['(', '()', '(\\1)', ')', ', ', '\\(\\((.+?)\\)\\)', 'frozenset', 'indices', 'reverse_encoding', '{', '{\\1}', '{}', '}', '∅']

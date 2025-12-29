@@ -20,10 +20,18 @@ def reorder_tree_toward_destination(
     destination_tree: Node,
     current_pivot_edge: Partition,
     moving_subtree_partition: Partition,
+    copy: bool = True,  # whether to copy the tree first
 ) -> Node:
     """
     Reorders a subtree by moving a specific jumping-taxa block to its
     correct position relative to stable anchor taxa.
+
+    Args:
+        source_tree: The source tree to reorder
+        destination_tree: The destination tree to match
+        current_pivot_edge: The pivot edge partition
+        moving_subtree_partition: The partition of the moving subtree
+        copy: If True, copy the tree first. If False, modify in place.
     """
     source_subtree = source_tree.find_node_by_split(current_pivot_edge)
     dest_subtree = destination_tree.find_node_by_split(current_pivot_edge)
@@ -32,7 +40,7 @@ def reorder_tree_toward_destination(
         logger.warning(
             "Active split not found in one of the trees; skipping reordering."
         )
-        return source_tree.deep_copy()
+        return source_tree  # No modification needed, return original
 
     source_order = list(source_subtree.get_current_order())
     destination_order = list(dest_subtree.get_current_order())
@@ -40,7 +48,7 @@ def reorder_tree_toward_destination(
 
     # If no movers, keep subtree stable.
     if not mover_leaves:
-        return source_tree.deep_copy()
+        return source_tree  # No modification needed, return original
 
     # Validate leaf-set/encoding compatibility under the active edge
     if set(source_order) != set(destination_order):
@@ -52,7 +60,7 @@ def reorder_tree_toward_destination(
     # If jumping-taxa leaves aren't in the source order, something is wrong.
     if not mover_leaves.issubset(set(source_order)):
         logger.warning("Jumping taxa leaves not in source order; skipping reordering.")
-        return source_tree.deep_copy()
+        return source_tree  # No modification needed, return original
 
     # 1. Isolate anchors (non-moving taxa) from SOURCE and preserve their order
     source_anchors = [taxon for taxon in source_order if taxon not in mover_leaves]
@@ -84,7 +92,7 @@ def reorder_tree_toward_destination(
         contiguous = max(mover_indices) - current_start + 1 == len(mover_indices)
         if contiguous and current_start == insertion_index:
             if mover_block_src == mover_block_dst:
-                return source_tree.deep_copy()
+                return source_tree  # Already in correct position, return original
 
     # Preserve movers' internal order; only move the block relative to anchors.
     # We maintain the source mover order while placing it at the destination anchor slot.
@@ -97,10 +105,10 @@ def reorder_tree_toward_destination(
 
     # If reordering does nothing, keep original tree
     if new_order == source_order:
-        return source_tree.deep_copy()
+        return source_tree  # No change needed, return original
 
-    # 4. Apply the new order to a copy of the tree.
-    new_tree = source_tree.deep_copy()
+    # 4. Apply the new order to the tree (copy if requested).
+    new_tree = source_tree.deep_copy() if copy else source_tree
     subtree_node_to_reorder = new_tree.find_node_by_split(current_pivot_edge)
 
     if subtree_node_to_reorder:
@@ -110,5 +118,5 @@ def reorder_tree_toward_destination(
             subtree_node_to_reorder.reorder_taxa(new_order)
         except ValueError as e:
             logger.error(f"Failed to reorder with 'Move the Block' strategy: {e}")
-            return source_tree.deep_copy()  # Return original on failure
+            return source_tree  # Return original on failure
     return new_tree

@@ -1,0 +1,4 @@
+# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/planning/builder.py
+# hypothesis_version: 6.148.8
+
+['collapse', 'contingent_expand', 'expand', 'last_user_expand', 'path_segment', 'shared_collapse', 'unique_collapse', 'unique_expand']

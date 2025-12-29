@@ -145,7 +145,11 @@ def find_minimal_distance_permutation(
         for tree in trees:
             tree.reorder_taxa(perm)
         # Compute total distance
-        total_distance: float = circular_distances_trees(trees)
+        total_distance_result = circular_distances_trees(trees)
+        if isinstance(total_distance_result, list):
+            total_distance: float = sum(total_distance_result)
+        else:
+            total_distance: float = total_distance_result
         if total_distance < min_total_distance:
             min_total_distance = total_distance
             best_perm = perm.copy()

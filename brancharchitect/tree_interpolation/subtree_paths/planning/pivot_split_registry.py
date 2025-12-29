@@ -207,10 +207,10 @@ class PivotSplitRegistry:
 
             return min(candidates)[1]
 
-        # No shared collapse: choose longest expand path
+        # No shared collapse: choose smallest expand path (fewest expand splits first)
         candidates = [
             (
-                -len(self.expand_tracker.get_resources(sub)),
+                len(self.expand_tracker.get_resources(sub)),
                 str(sorted(list(sub.indices))),
                 sub,
             )

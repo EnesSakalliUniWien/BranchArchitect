@@ -45,6 +45,65 @@ from brancharchitect.elements.partition_set import Partition, PartitionSet
 from brancharchitect.logger.debug import jt_logger
 
 
+def map_single_pivot_edge_to_original(
+    pivot_edge: Partition,
+    original_common_splits: PartitionSet[Partition],
+    solutions: List[PartitionSet[Partition]],
+) -> Partition:
+    """
+    Map a single pivot edge from a pruned tree to its corresponding split in original trees.
+
+    This is the incremental version of map_iterative_pivot_edges_to_original,
+    called immediately when solutions are found rather than batched at the end.
+
+    Args:
+        pivot_edge: Pivot edge from the current (possibly pruned) iteration
+        original_common_splits: Pre-computed common splits from original trees (T₁ ∩ T₂)
+        solutions: List of solution PartitionSets for this pivot edge
+
+    Returns:
+        The mapped split from original trees (minimum containing split)
+    """
+    # Collect jumping taxa indices from all solutions
+    jumping_taxa_indices: Set[int] = set()
+    for solution_set in solutions:
+        for partition in solution_set:
+            jumping_taxa_indices.update(partition.indices)
+
+    # Calculate expected original taxa set (E = p ∪ J)
+    pivot_indices: Set[int] = set(pivot_edge.indices)
+    expected_original_indices: Set[int] = pivot_indices | jumping_taxa_indices
+
+    # Create bitmask for efficient subset checking
+    expected_bitmask: int = 0
+    for index in expected_original_indices:
+        expected_bitmask |= 1 << index
+
+    # Determine total taxa count to identify root split
+    total_taxa = len(pivot_edge.encoding)
+
+    # Find containing splits (excluding root for now)
+    root_split: Optional[Partition] = None
+    containing_splits: List[Partition] = []
+
+    for split in original_common_splits:
+        if len(split.indices) == total_taxa:
+            root_split = split
+        elif (expected_bitmask & split.bitmask) == expected_bitmask:
+            containing_splits.append(split)
+
+    # Select minimum (smallest) containing split
+    if containing_splits:
+        return min(containing_splits, key=lambda s: (s.bitmask.bit_count(), s.bitmask))
+
+    # Fallback to root split if no internal split contains the expected taxa
+    if root_split and (expected_bitmask & root_split.bitmask) == expected_bitmask:
+        return root_split
+
+    # Last resort: return the pivot edge itself (shouldn't happen in practice)
+    return pivot_edge
+
+
 def map_iterative_pivot_edges_to_original(
     pivot_edges_from_iteration: List[Partition],
     original_t1: Node,
@@ -165,7 +224,9 @@ def map_iterative_pivot_edges_to_original(
                 fallback_count += 1
             else:
                 mapped_splits.append(
-                    list(original_common_splits)[0] if original_common_splits else pivot_edge
+                    list(original_common_splits)[0]
+                    if original_common_splits
+                    else pivot_edge
                 )
                 fallback_count += 1
 

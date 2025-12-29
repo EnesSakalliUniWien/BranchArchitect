@@ -1,9 +1,14 @@
 """Utility functions for tree pair iterations and interpolation."""
 
-from typing import List, Tuple, Any
+from typing import List, Tuple
 from brancharchitect.tree import Node
 
-def iter_consecutive_pairs(trees: List[Node]) -> List[Tuple[int, Node, Node, bool, bool]]:
+from typing import Iterator
+
+
+def iter_consecutive_pairs(
+    trees: List[Node],
+) -> Iterator[Tuple[int, Node, Node, bool, bool]]:
     """
     Iterate over consecutive pairs of trees with metadata.
 
@@ -17,10 +22,4 @@ def iter_consecutive_pairs(trees: List[Node]) -> List[Tuple[int, Node, Node, boo
         return
 
     for i in range(len(trees) - 1):
-        yield (
-            i,
-            trees[i],
-            trees[i+1],
-            i == 0,
-            i == len(trees) - 2
-        )
+        yield (i, trees[i], trees[i + 1], i == 0, i == len(trees) - 2)

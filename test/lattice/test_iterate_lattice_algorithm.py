@@ -9,8 +9,8 @@ This test verifies that:
 
 import unittest
 from brancharchitect.parser.newick_parser import parse_newick
-from brancharchitect.jumping_taxa.lattice.orchestration.compute_pivot_solutions_with_deletions import (
-    compute_pivot_solutions_with_deletions,
+from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+    LatticeSolver,
 )
 from brancharchitect.elements.partition import Partition
 
@@ -39,9 +39,7 @@ class TestIterateLatticeAlgorithm(unittest.TestCase):
 
     def test_return_type_is_tuple(self):
         """Verify that compute_pivot_solutions_with_deletions returns a tuple, not just a dict."""
-        result = compute_pivot_solutions_with_deletions(
-            self.tree1_simple, self.tree2_simple
-        )
+        result = LatticeSolver(self.tree1_simple, self.tree2_simple).solve_iteratively()
 
         # Should return a tuple
         self.assertIsInstance(result, tuple, "Result should be a tuple")
@@ -66,9 +64,9 @@ class TestIterateLatticeAlgorithm(unittest.TestCase):
         The result structure maps each pivot edge to a flat list of
         solution partitions (jumping taxa groups) selected by parsimony.
         """
-        result = compute_pivot_solutions_with_deletions(
+        result = LatticeSolver(
             self.tree1_complex, self.tree2_complex
-        )
+        ).solve_iteratively()
         jumping_subtree_solutions, _ = result
 
         # Verify structure: dict maps Partition -> List[Partition]
@@ -91,9 +89,7 @@ class TestIterateLatticeAlgorithm(unittest.TestCase):
 
     def test_solutions_are_nonempty(self):
         """Verify that we get at least one solution for differing trees."""
-        result = compute_pivot_solutions_with_deletions(
-            self.tree1_simple, self.tree2_simple
-        )
+        result = LatticeSolver(self.tree1_simple, self.tree2_simple).solve_iteratively()
         jumping_subtree_solutions, _ = result
 
         # Should have at least one pivot edge with solutions
@@ -114,9 +110,7 @@ class TestIterateLatticeAlgorithm(unittest.TestCase):
     def test_identical_trees_return_empty(self):
         """Verify that identical trees return empty solutions."""
         # Use the same tree twice
-        result = compute_pivot_solutions_with_deletions(
-            self.tree1_simple, self.tree1_simple
-        )
+        result = LatticeSolver(self.tree1_simple, self.tree1_simple).solve_iteratively()
         jumping_subtree_solutions, deleted_taxa_per_iteration = result
 
         # Should have no solutions for identical trees
@@ -139,9 +133,9 @@ class TestIterateLatticeAlgorithm(unittest.TestCase):
         (solution_sets, splits), and we map splits to original, we must
         ensure solution_sets[i] still corresponds to mapped_splits[i].
         """
-        result = compute_pivot_solutions_with_deletions(
+        result = LatticeSolver(
             self.tree1_complex, self.tree2_complex
-        )
+        ).solve_iteratively()
         jumping_subtree_solutions, _ = result
 
         # Track total number of partitions returned across all pivots
@@ -165,9 +159,9 @@ class TestIterateLatticeAlgorithm(unittest.TestCase):
 
     def test_deleted_taxa_tracking(self):
         """Verify that deleted taxa are properly tracked."""
-        result = compute_pivot_solutions_with_deletions(
+        result = LatticeSolver(
             self.tree1_complex, self.tree2_complex
-        )
+        ).solve_iteratively()
         _, deleted_taxa_per_iteration = result
 
         # Should be a list of sets
@@ -191,7 +185,7 @@ class TestIterateLatticeAlgorithmEdgeCases(unittest.TestCase):
         tree1 = trees[0]
         tree2 = trees[1]
 
-        result = compute_pivot_solutions_with_deletions(tree1, tree2)
+        result = LatticeSolver(tree1, tree2).solve_iteratively()
         jumping_subtree_solutions, deleted_taxa_per_iteration = result
 
         # Should handle complex case

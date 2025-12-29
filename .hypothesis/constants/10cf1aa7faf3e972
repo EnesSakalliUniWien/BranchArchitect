@@ -1,0 +1,4 @@
+# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/io.py
+# hypothesis_version: 6.148.8
+
+['Node', 'Partition', 'PartitionSet', 'children', 'length', 'name', 'split_indices', 'utf-8', 'values', 'w', 'wb']

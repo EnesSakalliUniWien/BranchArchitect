@@ -45,7 +45,7 @@ class TableLogger(AlgorithmLogger):
             if title:
                 # For HTML tables, render title before the table as a header
                 self._html_content.append(f"<h4>{title}</h4>")
-            html_table = self._create_html_table(data, headers)
+            html_table = self.create_html_table(data, headers)
             self.raw_html(html_table)
         else:
             ascii_table = tabulate(
@@ -61,7 +61,7 @@ class TableLogger(AlgorithmLogger):
         if title and tablefmt != "html":
             self._html_content.append(f"<h4>{title}</h4>")
 
-    def _create_html_table(self, data: List[List[Any]], headers: List[str]) -> str:
+    def create_html_table(self, data: List[List[Any]], headers: List[str]) -> str:
         """Create HTML table string with dynamic column widths based on content."""
 
         # Calculate maximum content width for each column

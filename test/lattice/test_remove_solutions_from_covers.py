@@ -47,8 +47,8 @@ class TestRemoveSolutionsFromCovers:
         t2 = create_simple_tree("((A,C),(B,D));")
 
         # Initialize split_indices for nodes
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         # Create TopToBottom structures for the frontiers
         t1_top_to_bottom = TopToBottom(
@@ -116,8 +116,8 @@ class TestRemoveSolutionsFromCovers:
         t1 = create_simple_tree("(A,(B,C));")
         t2 = create_simple_tree("(B,(A,C));")
 
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         # Create TopToBottom structures for multiple covers
         edge = PivotEdgeSubproblem(
@@ -174,8 +174,8 @@ class TestRemoveSolutionsFromCovers:
         t1 = create_simple_tree("(A,(B,C));")
         t2 = create_simple_tree("(B,(A,C));")
 
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         edge = PivotEdgeSubproblem(
             pivot_split=p1,
@@ -215,8 +215,8 @@ class TestRemoveSolutionsFromCovers:
         t1 = create_simple_tree("((A,B),(C,D));")
         t2 = create_simple_tree("((A,C),(B,D));")
 
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         edge = PivotEdgeSubproblem(
             pivot_split=p1,
@@ -256,8 +256,8 @@ class TestRemoveSolutionsFromCovers:
         t1 = create_simple_tree("(A,B);")
         t2 = create_simple_tree("(A,B);")
 
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         edge = PivotEdgeSubproblem(
             pivot_split=p1,
@@ -293,8 +293,8 @@ class TestRemoveSolutionsFromCovers:
         t1 = create_simple_tree("(A,(B,C));")
         t2 = create_simple_tree("(A,(B,C));")
 
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         edge = PivotEdgeSubproblem(
             pivot_split=p1,
@@ -339,8 +339,8 @@ class TestRemoveSolutionsFromCovers:
         t1 = create_simple_tree("((A,B),(C,D),E);")
         t2 = create_simple_tree("((A,C),(B,D),E);")
 
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         # Create edge with frontier mappings
         edge = PivotEdgeSubproblem(
@@ -393,8 +393,8 @@ class TestRemoveSolutionsFromCovers:
         t1 = create_simple_tree("((A,B),(C,D));")
         t2 = create_simple_tree("((A,C),(B,D));")
 
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         edge = PivotEdgeSubproblem(
             pivot_split=p1,
@@ -441,8 +441,8 @@ class TestRemoveSolutionsFromCovers:
         t1 = create_simple_tree("((A,B),(C,D));")
         t2 = create_simple_tree("((A,C),(B,D));")
 
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         edge = PivotEdgeSubproblem(
             pivot_split=p1,
@@ -482,8 +482,8 @@ class TestRemoveSolutionsFromCovers:
         t1 = create_simple_tree("((A,B),(C,D));")
         t2 = create_simple_tree("((A,C),(B,D));")
 
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         edge = PivotEdgeSubproblem(
             pivot_split=p1,
@@ -526,8 +526,8 @@ class TestRemoveSolutionsFromCovers:
         t1 = create_simple_tree("((A,B),(C,D),(E,F));")
         t2 = create_simple_tree("((A,C),(B,D),(E,F));")
 
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         edge = PivotEdgeSubproblem(
             pivot_split=p1,
@@ -601,8 +601,8 @@ class TestRemoveSolutionsFromCovers:
         t1 = create_simple_tree("((A,B),(C,D),(E,F),G);")
         t2 = create_simple_tree("((A,C),(B,D),(E,F),G);")
 
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         edge = PivotEdgeSubproblem(
             pivot_split=p_ab,
@@ -657,8 +657,8 @@ class TestRemoveSolutionsFromCovers:
         t1 = create_simple_tree("((A,B),(C,D));")
         t2 = create_simple_tree("((A,C),(B,D));")
 
-        t1._initialize_split_indices(encoding)
-        t2._initialize_split_indices(encoding)
+        t1.initialize_split_indices(encoding)
+        t2.initialize_split_indices(encoding)
 
         edge = PivotEdgeSubproblem(
             pivot_split=p1,

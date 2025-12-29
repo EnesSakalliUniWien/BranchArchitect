@@ -87,7 +87,7 @@ def debug_algorithm_execution(func: F) -> F:
     """Decorator to wrap algorithm execution with debugging."""
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: dict[str, Any]):
         try:
             jt_logger.section(f"Running {func.__name__}")
             jt_logger.info(f"Function: {func.__name__}")

@@ -37,6 +37,7 @@ pycairo = {version = "^1.28.0", optional = true}
 biopython = "^1.86"
 flask = "^3.1.2"
 flask-cors = "^6.0.1"
+joblib = "^1.4.0"
 msa_to_trees = {path = "msa_to_trees", develop = true}
 
 [tool.poetry.extras]
@@ -45,6 +46,7 @@ plotting = ["cairosvg", "pycairo"]
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.0"
+hypothesis = "^6.100.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest-timeout = "^2.3.1"

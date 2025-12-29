@@ -157,7 +157,9 @@ class SolutionRegistry:
             jt_logger.info(
                 f"[get_solutions_for_edge_visit] pivot_edge={pivot_edge}, visit={visit}"
             )
-            jt_logger.info(f"[get_solutions_for_edge_visit] solutions dict: {solutions}")
+            jt_logger.info(
+                f"[get_solutions_for_edge_visit] solutions dict: {solutions}"
+            )
             jt_logger.info(
                 f"[get_solutions_for_edge_visit] dict keys: {list(solutions.keys())}"
             )
@@ -202,3 +204,62 @@ class SolutionRegistry:
             return solutions[0]
 
         return min(solutions, key=compute_solution_rank_key)
+
+    def select_best_solutions(self) -> Dict[Partition, List[Partition]]:
+        """
+        Select the best (most parsimonious) solutions for each pivot edge.
+
+        For each pivot edge across all visits, finds the single most parsimonious
+        solution based on ranking criteria (fewest taxa, fewest partitions, etc.)
+
+        Returns:
+            Dictionary mapping pivot edges to their flattened, sorted solution partitions.
+        """
+        from collections import defaultdict
+
+        solutions_dict: Dict[Partition, List[Partition]] = {}
+
+        # Group solutions by pivot_edge (ignoring visit) to find all minimal solutions
+        pivot_edge_to_solutions: defaultdict[
+            Partition,
+            List[
+                Tuple[
+                    PartitionSet[Partition],
+                    Tuple[int, int, Tuple[int, ...], Tuple[int, ...]],
+                    int,
+                ]
+            ],
+        ] = defaultdict(list)
+
+        for (
+            pivot_edge_partition,
+            visit,
+        ), _ in self.solutions_by_pivot_and_iteration.items():
+            smallest_solution = self.get_single_smallest_solution(
+                pivot_edge_partition, visit
+            )
+
+            if smallest_solution is None:
+                raise ValueError(
+                    f"No solution found for pivot edge {pivot_edge_partition} at visit {visit}. "
+                    "This indicates a corrupted solution registry."
+                )
+
+            rank_key = compute_solution_rank_key(smallest_solution)
+            pivot_edge_to_solutions[pivot_edge_partition].append(
+                (smallest_solution, rank_key, visit)
+            )
+
+        # For each pivot_edge, keep only best-ranked solution
+        for pivot_edge_partition, solutions in pivot_edge_to_solutions.items():
+            solutions.sort(key=lambda x: x[1])
+            best_solution_set: PartitionSet[Partition] = solutions[0][0]
+
+            # Flatten into deterministically ordered list
+            flat_partitions: List[Partition] = list(
+                sorted(best_solution_set, key=lambda p: (len(p.indices), p.bitmask))
+            )
+
+            solutions_dict[pivot_edge_partition] = flat_partitions
+
+        return solutions_dict

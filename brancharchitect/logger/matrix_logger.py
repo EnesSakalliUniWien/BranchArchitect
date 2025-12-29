@@ -1,7 +1,6 @@
 """Matrix display functionality for logs."""
 
-import re
-from typing import Any, List, Callable, Optional, TYPE_CHECKING
+from typing import Any, List, Callable, Optional, Iterable, TYPE_CHECKING
 
 from brancharchitect.logger.base_logger import AlgorithmLogger
 from brancharchitect.logger.formatting import (
@@ -10,7 +9,7 @@ from brancharchitect.logger.formatting import (
 )
 
 if TYPE_CHECKING:
-    from brancharchitect.jumping_taxa.lattice.types.types import PMatrix
+    from brancharchitect.jumping_taxa.lattice.matrices.types import PMatrix
 
 
 def to_latex_matrix(
@@ -47,7 +46,7 @@ class MatrixLogger(AlgorithmLogger):
     def matrix(
         self,
         matrix: "PMatrix",
-        format_func: Optional[Callable[[object], str]] = None,
+        format_func: Optional[Callable[[Iterable[Any]], str]] = None,
         title: str = "",
     ) -> None:
         """
@@ -138,7 +137,7 @@ class MatrixLogger(AlgorithmLogger):
         self._html_content.append(matrix_wrapper)
 
     def _create_ascii_matrix(
-        self, matrix: List[List[Any]], format_func: Callable
+        self, matrix: List[List[Any]], format_func: Callable[[Any], str]
     ) -> str:
         """Create an ASCII art representation of the matrix."""
         # Calculate column widths
@@ -173,7 +172,7 @@ class MatrixLogger(AlgorithmLogger):
         return html
 
     def _create_table_matrix(
-        self, matrix: List[List[Any]], format_func: Callable
+        self, matrix: List[List[Any]], format_func: Callable[[Any], str]
     ) -> str:
         """Create an HTML table representation of the matrix."""
         # Import here to avoid circular imports
@@ -189,7 +188,7 @@ class MatrixLogger(AlgorithmLogger):
 
         # Generate HTML table
         table_logger = TableLogger(self.name)
-        return table_logger._create_html_table(table_data, headers)
+        return table_logger.create_html_table(table_data, headers)
 
     def log_strategy_selection(self, rows: int, cols: int, category: str) -> None:
         """Log which meet product strategy was selected."""
@@ -205,10 +204,12 @@ class MatrixLogger(AlgorithmLogger):
                 f"Strategy: Rectangular row-wise meet product for {rows}×{cols} matrix"
             )
 
-    def log_results_collection(self, main_result, counter_result) -> None:
+    def log_results_collection(
+        self, main_result: object, counter_result: object
+    ) -> int:
         """Log collection of non-empty diagonal results."""
         if self.disabled:
-            return
+            return 0
 
         self.info("\n  📋 Collecting Non-Empty Results:")
 

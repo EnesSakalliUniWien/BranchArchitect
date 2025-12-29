@@ -49,9 +49,12 @@ def create_balanced_tree():
     F = Node(name="F")
     G = Node(name="G")
 
-    B.children = [D, E]
-    C.children = [F, G]
-    A.children = [B, C]
+    B.append_child(D)
+    B.append_child(E)
+    C.append_child(F)
+    C.append_child(G)
+    A.append_child(B)
+    A.append_child(C)
     return A
 
 
@@ -122,7 +125,7 @@ def test_initialize_split_indices():
     tree = create_balanced_tree()
     order = ["A", "B", "C", "D", "E", "F", "G"]
     encoding = {name: idx for idx, name in enumerate(order)}
-    tree._initialize_split_indices(encoding)
+    tree.initialize_split_indices(encoding)
     # Check that each leaf got correct index
     leaves = tree.get_leaves()
     leaf_names = [leaf.name for leaf in leaves]
@@ -156,7 +159,7 @@ def test_to_splits():
 
     # Convert list to dictionary mapping names to indices
     encoding = {name: idx for idx, name in enumerate(order)}
-    tree._initialize_split_indices(encoding)
+    tree.initialize_split_indices(encoding)
     splits = tree.to_splits()
     assert isinstance(splits, PartitionSet), "to_splits should return a set"
     # We know A,B,C are internal. So at least A,B,C node splits present
@@ -174,9 +177,9 @@ def test_get_leaves():
 # 14. Test _fix_child_order
 def test_fix_child_order():
     tree = create_balanced_tree()
-    tree._order = ["A", "B", "C", "D", "E", "F", "G"]
-    encoding = {name: idx for idx, name in enumerate(tree._order)}
-    tree._initialize_split_indices(encoding)
+    order = ["A", "B", "C", "D", "E", "F", "G"]
+    encoding = {name: idx for idx, name in enumerate(order)}
+    tree.initialize_split_indices(encoding)
     # Swap children of A
     tree.children.reverse()
     tree.fix_child_order()
@@ -266,8 +269,8 @@ def test_find_node_by_split():
 
     encoding = {name: idx for idx, name in enumerate(order)}
 
-    tree1._initialize_split_indices(encoding)
-    tree2._initialize_split_indices(encoding)
+    tree1.initialize_split_indices(encoding)
+    tree2.initialize_split_indices(encoding)
 
     split = (0, 1)
     node = tree1.find_node_by_split(split)
@@ -284,8 +287,8 @@ def test_find_node_split():
     # Convert list to dictionary mapping names to indices
     encoding = {name: idx for idx, name in enumerate(order)}
 
-    tree1._initialize_split_indices(encoding)
-    tree2._initialize_split_indices(encoding)
+    tree1.initialize_split_indices(encoding)
+    tree2.initialize_split_indices(encoding)
 
     split = (0, 1)
 
@@ -304,8 +307,8 @@ def test_find_node_split_after_deletion():
     # Convert list to dictionary mapping names to indices
     encoding = {name: idx for idx, name in enumerate(order)}
 
-    tree1._initialize_split_indices(encoding=encoding)
-    tree2._initialize_split_indices(encoding=encoding)
+    tree1.initialize_split_indices(encoding=encoding)
+    tree2.initialize_split_indices(encoding=encoding)
 
     split = (0, 1)
 

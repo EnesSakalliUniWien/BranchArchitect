@@ -66,8 +66,9 @@ def handle_uploaded_file(
     # Process trees through the pipeline
     config = PipelineConfig(
         enable_rooting=enable_rooting,
-        optimization_iterations=20,
-        bidirectional_optimization=False,
+        use_anchor_ordering=True,
+        anchor_weight_policy="destination",
+        circular=True,
         logger_name="webapp_pipeline",
     )
 

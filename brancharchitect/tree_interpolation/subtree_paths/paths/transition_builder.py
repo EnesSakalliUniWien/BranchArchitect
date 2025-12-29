@@ -1,90 +1,85 @@
 """Transition path builder (pure data extraction).
 
-Computes per-active-changing-split subtree paths on both the reference and
-target trees. This module is pure: it does not mutate trees and only returns
+Computes per-active-changing-split subtree paths on both the destination and
+source trees. This module is pure: it does not mutate trees and only returns
 path datasets for upstream orchestration.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Set
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree import Node
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 def calculate_subtree_paths(
     jumping_subtree_solutions: Dict[Partition, List[Partition]],
-    reference_tree: Node,
-    target_tree: Node,
+    destination_tree: Node,
+    source_tree: Node,
 ) -> tuple[
     Dict[Partition, Dict[Partition, PartitionSet[Partition]]],
     Dict[Partition, Dict[Partition, PartitionSet[Partition]]],
 ]:
     """
-    Calculates the subtree paths for both reference and target trees for each
+    Calculates the subtree paths for both destination and source trees for each
     current pivot edge.
 
     Args:
         jumping_subtree_solutions: A dictionary mapping current pivot edges
             to their subtree sets.
-        reference_tree: The reference tree.
-        target_tree: The target tree.
+        destination_tree: The destination tree (expand paths - splits to create).
+        source_tree: The source tree (collapse paths - splits to remove).
 
     Returns:
         A tuple containing two dictionaries:
-        - reference_subtree_paths: Paths in the reference tree, keyed by
-          current pivot edge and then subtree.
-        - target_subtree_paths: Paths in the target tree, keyed by
-          current pivot edge and then subtree.
+        - destination_subtree_paths: Paths in the destination tree, keyed by
+          current pivot edge and then subtree. Used as expand paths.
+        - source_subtree_paths: Paths in the source tree, keyed by
+          current pivot edge and then subtree. Used as collapse paths.
     """
-    reference_subtree_paths: Dict[
+    destination_subtree_paths: Dict[
         Partition, Dict[Partition, PartitionSet[Partition]]
     ] = {}
-    target_subtree_paths: Dict[Partition, Dict[Partition, PartitionSet[Partition]]] = {}
+    source_subtree_paths: Dict[Partition, Dict[Partition, PartitionSet[Partition]]] = {}
+
+    # Pre-compute splits in source tree for existence checks
+    source_splits: Set[Partition] = set(source_tree.to_splits())
 
     for current_pivot_edge, subtrees in jumping_subtree_solutions.items():
-        reference_subtree_paths[current_pivot_edge] = {}
-        target_subtree_paths[current_pivot_edge] = {}
+        destination_subtree_paths[current_pivot_edge] = {}
+        source_subtree_paths[current_pivot_edge] = {}
 
         for subtree in subtrees:
-            reference_subtree_node_paths: List[Node] = (
-                reference_tree.find_path_between_splits(subtree, current_pivot_edge)
+            destination_node_paths: List[Node] = (
+                destination_tree.find_path_between_splits(subtree, current_pivot_edge)
             )
 
-            target_subtree_node_paths: List[Node] = (
-                target_tree.find_path_between_splits(subtree, current_pivot_edge)
+            source_node_paths: List[Node] = source_tree.find_path_between_splits(
+                subtree, current_pivot_edge
             )
 
-            # Extract partitions from nodes, excluding endpoints (subtree and split)
-            reference_partitions: PartitionSet[Partition] = PartitionSet(
-                {node.split_indices for node in reference_subtree_node_paths}
+            # Extract partitions from nodes
+            destination_partitions: PartitionSet[Partition] = PartitionSet(
+                {node.split_indices for node in destination_node_paths}
             )
-            target_partitions: PartitionSet[Partition] = PartitionSet(
-                {node.split_indices for node in target_subtree_node_paths}
-            )
-
-            # Remove endpoint partitions that shouldn't be in collapse/expand paths
-            reference_partitions.discard(subtree)  # Remove subtree endpoint
-            reference_partitions.discard(
-                current_pivot_edge
-            )  # Remove split endpoint
-            target_partitions.discard(subtree)  # Remove subtree endpoint
-            target_partitions.discard(current_pivot_edge)  # Remove split endpoint
-
-            reference_subtree_paths[current_pivot_edge][subtree] = (
-                reference_partitions
+            source_partitions: PartitionSet[Partition] = PartitionSet(
+                {node.split_indices for node in source_node_paths}
             )
 
-            target_subtree_paths[current_pivot_edge][subtree] = target_partitions
+            # Always remove pivot edge endpoint from both paths
+            destination_partitions.discard(current_pivot_edge)
+            source_partitions.discard(current_pivot_edge)
 
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(
-                    "[paths] pivot=%s subtree=%s target_partitions=%s",
-                    current_pivot_edge.bipartition(),
-                    subtree.bipartition(),
-                    [list(p.indices) for p in target_partitions],
-                )
+            # Always remove subtree from collapse path (source)
+            source_partitions.discard(subtree)
 
-    return reference_subtree_paths, target_subtree_paths
+            # Only remove subtree from expand path (destination) if it
+            # already exists in source - otherwise it needs to be created
+            if subtree in source_splits:
+                destination_partitions.discard(subtree)
+
+            destination_subtree_paths[current_pivot_edge][subtree] = (
+                destination_partitions
+            )
+            source_subtree_paths[current_pivot_edge][subtree] = source_partitions
+
+    return destination_subtree_paths, source_subtree_paths

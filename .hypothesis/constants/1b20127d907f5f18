@@ -1,0 +1,4 @@
+# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/jumping_taxa/lattice/types/pivot_edge_subproblem.py
+# hypothesis_version: 6.148.8
+
+['Node', 'collapsed', 'divergent', 'intermediate', 'mixed']

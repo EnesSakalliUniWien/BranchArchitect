@@ -32,11 +32,14 @@ def test_anchor_weight_policy_destination_vs_preserve_source():
     destinations = {mover_C: mover_C}
 
     # Destination-guided anchors: anchors in t1 follow t2 among themselves
-    t1_dest = t1.deep_copy(); t2_dest = t2.deep_copy()
+    t1_dest = t1.deep_copy()
+    t2_dest = t2.deep_copy()
     # Force destination pivot order to reflect desired anchor guidance (E,D,C,B,A)
     dst_node = t2_dest.find_node_by_split(edge)
     assert dst_node is not None
-    dst_node.reorder_taxa(["E", "D", "C", "B", "A"])  # Set explicit destination pivot order
+    dst_node.reorder_taxa(
+        ["E", "D", "C", "B", "A"]
+    )  # Set explicit destination pivot order
     blocked_order_and_apply(
         edge,
         sources,
@@ -53,7 +56,8 @@ def test_anchor_weight_policy_destination_vs_preserve_source():
     assert anchors_dest == ["E", "D", "B", "A"]
 
     # Preserve source anchors: anchors retain source order excluding C: A, B, D, E
-    t1_src = t1.deep_copy(); t2_src = t2.deep_copy()
+    t1_src = t1.deep_copy()
+    t2_src = t2.deep_copy()
     # Ensure destination has the same explicit pivot order for a fair comparison
     dst_node2 = t2_src.find_node_by_split(edge)
     assert dst_node2 is not None
@@ -75,22 +79,30 @@ def test_anchor_weight_policy_destination_vs_preserve_source():
 
 def test_mover_weight_policy_increasing_vs_decreasing_affects_leftmost_priority():
     """
-    With multiple movers where two land on the same side (negative weights),
-    'decreasing' policy makes the earliest (smallest) mover most extreme.
-    'increasing' policy makes the latest (largest) mover most extreme.
+    With all movers on the same side (left in t1, right in t2),
+    the weight policy affects which mover is most extreme.
+
+    'increasing' policy: higher index movers are more extreme
+    'decreasing' policy: lower index movers are more extreme
+
+    With descending size sort: EF (2 taxa) -> i=0, B (1 taxon) -> i=1, G (1 taxon) -> i=2
     """
     t1 = parse_newick("(A:1,B:1,C:1,D:1,E:1,F:1,G:1);")
     t2 = parse_newick("(A:1,B:1,C:1,D:1,E:1,F:1,G:1);", list(t1.get_current_order()))
     enc = t1.taxa_encoding
     edge = _edge_full(t1)
 
-    mover_B = Partition((enc["B"],), enc)  # size 1
-    mover_G = Partition((enc["G"],), enc)  # size 1 (parity -> right side)
-    mover_EF = Partition((enc["E"], enc["F"]), enc)  # size 2
+    mover_B = Partition((enc["B"],), enc)  # size 1 -> i=1 after sort
+    mover_G = Partition((enc["G"],), enc)  # size 1 -> i=2 after sort
+    mover_EF = Partition((enc["E"], enc["F"]), enc)  # size 2 -> i=0 after sort
     movers = {mover_B: mover_B, mover_G: mover_G, mover_EF: mover_EF}
 
-    # Increasing: EF (i=2, negative, larger magnitude) goes further left than B (i=0)
-    t1_inc = t1.deep_copy(); t2_inc = t2.deep_copy()
+    mover_taxa = {"B", "E", "F", "G"}
+    anchor_taxa = {"A", "C", "D"}
+
+    # Increasing: G (i=2, higher rank) is most extreme left
+    t1_inc = t1.deep_copy()
+    t2_inc = t2.deep_copy()
     blocked_order_and_apply(
         edge,
         movers,
@@ -101,14 +113,16 @@ def test_mover_weight_policy_increasing_vs_decreasing_affects_leftmost_priority(
         anchor_weight_policy="destination",
     )
     order_inc = list(t1_inc.get_current_order())
-    # Leftmost two should be EF block then B under 'increasing'
-    left_two_inc = order_inc[:2]
-    assert set(left_two_inc).issubset({"E", "F", "B"})
-    # EF block must be contiguous at the very left
-    assert set(order_inc[:2]) == {"E", "F"}
+    # All movers on left in t1
+    assert set(order_inc[:4]) == mover_taxa
+    # Anchors on right
+    assert set(order_inc[-3:]) == anchor_taxa
+    # With increasing policy, G (i=2) should be most extreme (leftmost)
+    assert order_inc[0] == "G"
 
-    # Decreasing: B (i=0, negative, largest magnitude) goes further left than EF (i=2)
-    t1_dec = t1.deep_copy(); t2_dec = t2.deep_copy()
+    # Decreasing: EF (i=0, highest rank with decreasing) is most extreme left
+    t1_dec = t1.deep_copy()
+    t2_dec = t2.deep_copy()
     blocked_order_and_apply(
         edge,
         movers,
@@ -119,10 +133,12 @@ def test_mover_weight_policy_increasing_vs_decreasing_affects_leftmost_priority(
         anchor_weight_policy="destination",
     )
     order_dec = list(t1_dec.get_current_order())
-    # Leftmost should be B under 'decreasing'
-    assert order_dec[0] == "B"
-    # EF block should still be contiguous immediately after B on the left
-    assert set(order_dec[1:3]) == {"E", "F"}
+    # All movers on left in t1
+    assert set(order_dec[:4]) == mover_taxa
+    # Anchors on right
+    assert set(order_dec[-3:]) == anchor_taxa
+    # With decreasing policy, EF (i=0) should be most extreme (leftmost)
+    assert set(order_dec[:2]) == {"E", "F"}
 
 
 def test_blocked_order_and_apply_raises_on_missing_pivot():
