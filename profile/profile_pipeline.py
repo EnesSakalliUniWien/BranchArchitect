@@ -19,7 +19,7 @@ def main():
 
     # Load trees
     trees = read_newick(
-        "./datasets/all_trees copy 5.nwk",
+        "52_bootstrap.newick",
         treat_zero_as_epsilon=True,
     )
 

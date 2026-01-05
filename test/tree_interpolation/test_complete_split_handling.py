@@ -21,11 +21,12 @@ from brancharchitect.tree_interpolation.topology_ops.collapse import (
 )
 from brancharchitect.tree_interpolation.topology_ops.expand import (
     apply_split_simple,
+    execute_expand_path,
 )
 from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
     LatticeSolver,
 )
-from brancharchitect.tree_interpolation.subtree_paths.planning.builder import (
+from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
     build_edge_plan,
 )
 
@@ -80,6 +81,12 @@ def prepare_simple_subtree_paths(tree1, tree2, active_edge, jumping_subtrees):
             # If split overlaps with subtree, assign it
             if set(subtree.indices) & set(split.indices):
                 expand_splits_by_subtree[subtree].add(split)
+                if 11 in subtree.indices:  # Debug for G
+                    print(
+                        f"DEBUG ASSIGN: Assigning {list(split.indices)} to G {list(subtree.indices)}"
+                    )
+            elif 11 in subtree.indices:
+                print(f"DEBUG NO ASSIGN: {list(split.indices)} excludes G")
 
     return {
         "collapse_splits_by_subtree": collapse_splits_by_subtree,
@@ -418,16 +425,15 @@ class TestCompleteSplitHandling(unittest.TestCase):
         if not jumping_subtrees:
             self.skipTest("No jumping subtrees needed")
 
-        # Step 3: Execute plan
+        # Step 3: Execute plan - Global Collapse then Global Expand
         current_tree = self.tree1.deep_copy()
+        subtree_plans = []
 
+        # Planning phase (unchanged)
         for active_edge in jumping_subtrees.keys():
-            # Step 1: Prepare subtree paths
             subtree_paths = prepare_simple_subtree_paths(
                 current_tree, self.tree2, active_edge, jumping_subtrees
             )
-
-            # Step 2: Build plan
             plan = build_edge_plan(
                 subtree_paths["expand_splits_by_subtree"],
                 subtree_paths["collapse_splits_by_subtree"],
@@ -435,29 +441,30 @@ class TestCompleteSplitHandling(unittest.TestCase):
                 self.tree2,
                 active_edge,
             )
+            subtree_plans.extend(plan.items())
 
-            for subtree, subtree_plan in plan.items():
-                # Collapse phase
-                collapse_splits = subtree_plan["collapse"]["path_segment"]
-                split_dict = {s: 0.0 for s in collapse_splits}
-                current_tree = calculate_intermediate_tree(current_tree, split_dict)
+        # Global Phase 1: Collapse ALL
+        for subtree, subtree_plan in subtree_plans:
+            collapse_splits = subtree_plan["collapse"]["path_segment"]
+            split_dict = {s: 0.0 for s in collapse_splits}
+            current_tree = calculate_intermediate_tree(current_tree, split_dict)
 
-                # Collapse zero-length branches
-                active_node = current_tree.find_node_by_split(active_edge)
-                if active_node:
-                    collapse_zero_length_branches_for_node(active_node)
+        # Collapse zero-length branches once after all collapses
+        # (Or ideally per-collapse, but global is fine for testing final state)
+        collapse_zero_length_branches_for_node(current_tree)
 
-                # Expand phase
-                expand_splits = subtree_plan["expand"]["path_segment"]
-                for expand_split in expand_splits:
-                    if expand_split not in current_tree.to_splits():
-                        try:
-                            apply_split_simple(expand_split, current_tree)
-                        except Exception as e:
-                            self.fail(
-                                f"Failed to apply expand split {list(expand_split.indices)} "
-                                f"in subtree {list(subtree.indices)}: {e}"
-                            )
+        # Global Phase 2: Expand ALL
+        for subtree, subtree_plan in subtree_plans:
+            # Expand phase using execute_expand_path for proper sorting and batch application
+            expand_splits = subtree_plan["expand"]["path_segment"]
+            to_expand = [s for s in expand_splits if s not in current_tree.to_splits()]
+            if to_expand:
+                try:
+                    execute_expand_path(current_tree, to_expand)
+                except Exception as e:
+                    self.fail(
+                        f"Failed to execute expand path for subtree {list(subtree.indices)}: {e}"
+                    )
 
         # Step 4: Verify final tree has expected topology
         final_splits = current_tree.to_splits()

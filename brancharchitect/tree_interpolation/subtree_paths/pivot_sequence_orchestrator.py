@@ -18,10 +18,83 @@ from typing import Dict, List, Optional
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
-from .paths import calculate_subtree_paths
 from .execution.step_executor import apply_stepwise_plan_for_edge
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+def calculate_subtree_paths(
+    jumping_subtree_solutions: Dict[Partition, List[Partition]],
+    destination_tree: Node,
+    source_tree: Node,
+) -> tuple[
+    Dict[Partition, Dict[Partition, PartitionSet[Partition]]],
+    Dict[Partition, Dict[Partition, PartitionSet[Partition]]],
+]:
+    """
+    Calculates the subtree paths for both destination and source trees for each
+    current pivot edge.
+
+    Args:
+        jumping_subtree_solutions: A dictionary mapping current pivot edges
+            to their subtree sets.
+        destination_tree: The destination tree (expand paths - splits to create).
+        source_tree: The source tree (collapse paths - splits to remove).
+
+    Returns:
+        A tuple containing two dictionaries:
+        - destination_subtree_paths: Paths in the destination tree, keyed by
+          current pivot edge and then subtree. Used as expand paths.
+        - source_subtree_paths: Paths in the source tree, keyed by
+          current pivot edge and then subtree. Used as collapse paths.
+    """
+    destination_subtree_paths: Dict[
+        Partition, Dict[Partition, PartitionSet[Partition]]
+    ] = {}
+    source_subtree_paths: Dict[Partition, Dict[Partition, PartitionSet[Partition]]] = {}
+
+    # Pre-compute splits in source tree for existence checks
+    source_splits: PartitionSet[Partition] = source_tree.to_splits()
+
+    for current_pivot_edge, subtrees in jumping_subtree_solutions.items():
+        destination_subtree_paths[current_pivot_edge] = {}
+        source_subtree_paths[current_pivot_edge] = {}
+
+        for subtree in subtrees:
+            destination_node_paths: List[Node] = (
+                destination_tree.find_path_between_splits(subtree, current_pivot_edge)
+            )
+
+            source_node_paths: List[Node] = source_tree.find_path_between_splits(
+                subtree, current_pivot_edge
+            )
+
+            # Extract partitions from nodes
+            destination_partitions: PartitionSet[Partition] = PartitionSet(
+                {node.split_indices for node in destination_node_paths}
+            )
+            source_partitions: PartitionSet[Partition] = PartitionSet(
+                {node.split_indices for node in source_node_paths}
+            )
+
+            # Always remove pivot edge endpoint from both paths
+            destination_partitions.discard(current_pivot_edge)
+            source_partitions.discard(current_pivot_edge)
+
+            # Always remove subtree from collapse path (source)
+            source_partitions.discard(subtree)
+
+            # Only remove subtree from expand path (destination) if it
+            # already exists in source - otherwise it needs to be created
+            if subtree in source_splits:
+                destination_partitions.discard(subtree)
+
+            destination_subtree_paths[current_pivot_edge][subtree] = (
+                destination_partitions
+            )
+            source_subtree_paths[current_pivot_edge][subtree] = source_partitions
+
+    return destination_subtree_paths, source_subtree_paths
 
 
 def create_interpolation_for_active_split_sequence(
@@ -32,7 +105,6 @@ def create_interpolation_for_active_split_sequence(
     pair_index: Optional[int] = None,
 ) -> tuple[
     List[Node],
-    List[Partition],
     List[Optional[Partition]],
     List[Optional[Partition]],
 ]:
@@ -46,10 +118,9 @@ def create_interpolation_for_active_split_sequence(
          - Else, try stepwise plan:
              a) Iterate selections (individual/whole per rule).
              b) Apply micro-steps per selection.
-           If no selections are produced, run the simple 5-step fallback for that current_pivot_edge.
+           If no selections are produced, RAISE ERROR (strict validation).
     """
     interpolation_sequence: List[Node] = []
-    failed_pivot_edges: List[Partition] = []
     processed_pivot_edge_tracking: List[Optional[Partition]] = []
     processed_subtree_tracking: List[Optional[Partition]] = []
 
@@ -77,11 +148,6 @@ def create_interpolation_for_active_split_sequence(
             destination_subtree_paths.get(current_pivot_edge, {})
         )
 
-        # Guard: verify the pivot edge exists in both trees before planning
-        _ = _find_and_validate_pivot_nodes(
-            current_base_tree, destination_tree, current_pivot_edge
-        )
-
         step_trees, step_edges, new_state, step_subtrees = apply_stepwise_plan_for_edge(
             current_base_tree=current_base_tree,
             destination_tree=destination_tree,
@@ -96,10 +162,24 @@ def create_interpolation_for_active_split_sequence(
             processed_subtree_tracking.extend(step_subtrees)
 
             interpolation_state = new_state
+        else:
+            # User requested strict error handling: if interpolation produces no steps
+            # for a target pivot edge, it is considered a critical failure.
+            # We identify exactly which pivot edge caused the issue.
+            logger.error(
+                f"[ORCHESTRATOR] Failed to generate interpolation steps for pivot edge: {current_pivot_edge}"
+            )
+            # Log the paths for debugging context
+            logger.debug(f"Source Paths: {source_paths_for_pivot_edge}")
+            logger.debug(f"Destination Paths: {destination_paths_for_pivot_edge}")
+
+            raise ValueError(
+                f"Interpolation failed to produce steps for pivot edge {current_pivot_edge}. "
+                "This indicates the stepwise planner could not solve the transition."
+            )
 
     return (
         interpolation_sequence,
-        failed_pivot_edges,
         processed_pivot_edge_tracking,
         processed_subtree_tracking,
     )
@@ -127,38 +207,3 @@ def assert_final_topology_matches(
         )
         logger.error(msg)
         raise ValueError(msg)
-
-
-def _ensure_pivot_present(
-    current_pivot_edge: Partition,
-    src_node: Optional[Node],
-    dst_node: Optional[Node],
-) -> None:
-    """
-    Validate that the pivot edge exists in both source and destination trees.
-
-    Raises a ValueError with a descriptive message if the edge is missing.
-    """
-    if src_node is None or dst_node is None:
-        missing_in: list[str] = []
-        if src_node is None:
-            missing_in.append("source (current interpolation state)")
-        if dst_node is None:
-            missing_in.append("destination")
-
-        raise ValueError(
-            f"Pivot edge {current_pivot_edge.bipartition()} "
-            f"missing in {' and '.join(missing_in)} tree. "
-            f"This edge was identified by the lattice algorithm but doesn't exist in both trees. "
-            f"See debug logs above for edge comparison."
-        )
-
-
-def _find_and_validate_pivot_nodes(
-    current_base_tree: Node, destination_tree: Node, current_pivot_edge: Partition
-) -> tuple[Optional[Node], Optional[Node]]:
-    """Locate pivot nodes in both trees and validate presence."""
-    src_node = current_base_tree.find_node_by_split(current_pivot_edge)
-    dst_node = destination_tree.find_node_by_split(current_pivot_edge)
-    _ensure_pivot_present(current_pivot_edge, src_node, dst_node)
-    return src_node, dst_node

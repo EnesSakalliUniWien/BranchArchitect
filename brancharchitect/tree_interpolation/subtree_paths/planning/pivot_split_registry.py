@@ -1,7 +1,17 @@
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Tuple, Any
+from collections import OrderedDict
+import logging
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from .ownership_tracker import OwnershipTracker
+from .path_group_manager import PathGroupManager
+from ..analysis.split_analysis import (
+    find_incompatible_splits,
+    get_unique_splits_for_current_pivot_edge_subtree,
+)
+from brancharchitect.tree import Node
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -32,6 +42,7 @@ class PivotSplitRegistry:
         collapse_splits_by_subtree: Dict[Partition, PartitionSet[Partition]],
         expand_splits_by_subtree: Dict[Partition, PartitionSet[Partition]],
         active_changing_edge: Partition,
+        use_path_grouping: bool = True,
     ):
         """
         Initialize the interpolation state.
@@ -42,6 +53,7 @@ class PivotSplitRegistry:
             collapse_splits_by_subtree: Initial collapse splits assigned to each subtree
             expand_splits_by_subtree: Initial expand splits assigned to each subtree
             active_changing_edge: The edge being processed
+            use_path_grouping: Whether to use path-based grouping for subtree ordering
         """
         self.encoding = active_changing_edge.encoding
         self.processed_subtrees: Set[Partition] = set()
@@ -57,6 +69,10 @@ class PivotSplitRegistry:
         for subtree, splits in expand_splits_by_subtree.items():
             self.expand_tracker.claim_batch(splits, subtree)
 
+        # CRITICAL: Claim any expand split that CONTAINS a subtree's taxa (Parent),
+        # AND any split that is a SIBLING (child of a Parent, disjoint from subtree).
+        # self._claim_related_expand_splits(expand_splits_by_subtree, all_expand_splits)
+
         # Store original full sets for incompatibility checks and final cleanup
         self.all_collapsible_splits = all_collapse_splits
         self.all_expand_splits = all_expand_splits
@@ -69,9 +85,68 @@ class PivotSplitRegistry:
         # Track first subtree for tabula rasa strategy
         self.first_subtree_processed: bool = False
 
+        # Initialize path group manager for topological ordering
+        self._path_group_manager: Optional[PathGroupManager] = None
+        if use_path_grouping and expand_splits_by_subtree:
+            self._path_group_manager = PathGroupManager(
+                expand_splits_by_subtree=expand_splits_by_subtree,
+                encoding=self.encoding,
+                enabled=True,
+            )
+
     # ------------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------------
+
+    def _claim_related_expand_splits(
+        self,
+        initial_assignments: Dict[Partition, PartitionSet[Partition]],
+        all_expand_splits: PartitionSet[Partition],
+    ) -> None:
+        """
+        Force subtrees to claim ownership of related structural splits.
+
+        1. Containing Splits (Parents): If a split contains the subtree, the subtree
+           owns it (it's inside).
+        2. Sibling Splits: If a subtree owns a Parent split, and that Parent contains
+           another split (Child) which is disjoint from the subtree, then that Child
+           is a "sibling structure" that the subtree should also own/control.
+        """
+        # Phase 1: Claim Containing Splits (Parents)
+        parents_by_subtree: Dict[Partition, Set[Partition]] = {
+            s: set() for s in initial_assignments
+        }
+
+        for split in all_expand_splits:
+            split_taxa = split.taxa
+            for subtree in initial_assignments:
+                # If subtree is a subset of the split, it's a "Parent" split
+                if subtree.taxa.issubset(split_taxa):
+                    self.expand_tracker.claim(split, subtree)
+                    parents_by_subtree[subtree].add(split)
+
+        # Phase 2: Claim Sibling Splits (Children of Parents, disjoint from Self)
+        for subtree, parents in parents_by_subtree.items():
+            subtree_taxa = subtree.taxa
+            for parent in parents:
+                parent_taxa = parent.taxa
+
+                # Check all other splits -> are they children of this parent?
+                for potential_sibling in all_expand_splits:
+                    if potential_sibling == parent:
+                        continue
+
+                    sibling_taxa = potential_sibling.taxa
+                    # Must be strictly contained in Parent
+                    if not sibling_taxa.issubset(parent_taxa):
+                        continue
+
+                    # Must be disjoint from Subtree (Sibling relationship)
+                    if not sibling_taxa.isdisjoint(subtree_taxa):
+                        continue
+
+                    # It's a sibling! Claim it.
+                    self.expand_tracker.claim(potential_sibling, subtree)
 
     # ============================================================================
     # 3. Shared/Unique Split Queries
@@ -128,6 +203,142 @@ class PivotSplitRegistry:
         return self.expand_tracker.get_unique_resources(subtree)
 
     # ============================================================================
+    # 3.5 Path Computation (encapsulates all path logic)
+    # ============================================================================
+
+    def compute_paths_for_subtree(
+        self, subtree: Partition
+    ) -> Tuple[PartitionSet[Partition], PartitionSet[Partition]]:
+        """
+        Compute collapse and expand paths for a subtree.
+
+        This method encapsulates all path computation logic:
+        1. Gathers split categories (shared/unique collapse, last-user/unique expand)
+        2. Applies tabula rasa strategy for first subtree
+        3. Computes incompatible splits that must be collapsed
+        4. Consumes contingent expand splits that fit in collapsed regions
+        5. Handles last subtree cleanup (remaining splits)
+
+        Args:
+            subtree: The subtree to compute paths for
+
+        Returns:
+            Tuple of (collapse_path, expand_path) as PartitionSets
+        """
+        # Debug: Log subtree being processed
+        logger.info(f"=== Computing paths for subtree: {subtree.taxa} ===")
+
+        # 1. Gather split categories for this subtree
+        shared_collapse = self.get_available_shared_collapse_splits(subtree)
+        unique_collapse = self.get_unique_collapse_splits(subtree)
+        last_user_expand = self.get_expand_splits_for_last_user(subtree)
+        unique_expand = self.get_unique_expand_splits(subtree)
+
+        # Debug: Log expand splits ownership
+        all_subtree_expand = self.expand_tracker.get_resources(subtree)
+        logger.info(
+            f"  Subtree expand splits ({len(all_subtree_expand)}): {[s.taxa for s in all_subtree_expand]}"
+        )
+        logger.info(
+            f"  Unique expand ({len(unique_expand)}): {[s.taxa for s in unique_expand]}"
+        )
+        logger.info(
+            f"  Last-user expand ({len(last_user_expand)}): {[s.taxa for s in last_user_expand]}"
+        )
+
+        # Debug: For each expand split, log all owners
+        for split in all_subtree_expand:
+            owners = self.expand_tracker.get_owners(split)
+            is_last = self.expand_tracker.is_last_owner(split, subtree)
+            logger.info(
+                f"    Split {split.taxa}: owners={[o.taxa for o in owners]}, is_last_owner={is_last}"
+            )
+
+        # 2. Compute collapse path
+        collapse_path = self._compute_collapse_path(
+            shared_collapse, unique_collapse, last_user_expand, unique_expand
+        )
+
+        # 3. Consume contingent expand splits that fit within collapsed regions
+        contingent_expand = self.consume_contingent_expand_splits_for_subtree(
+            subtree=subtree, collapsed_splits=collapse_path
+        )
+
+        # 4. Build expand path
+        expand_path = last_user_expand | unique_expand | contingent_expand
+
+        # Debug: Log final expand path
+        logger.info(
+            f"  Final expand path ({len(expand_path)}): {[s.taxa for s in expand_path]}"
+        )
+
+        # 5. Handle last subtree cleanup
+        if self.is_last_subtree(subtree):
+            expand_path |= self.get_all_remaining_expand_splits()
+            collapse_path |= self.get_all_remaining_collapse_splits()
+
+        return collapse_path, expand_path
+
+    def _compute_collapse_path(
+        self,
+        shared_collapse: PartitionSet[Partition],
+        unique_collapse: PartitionSet[Partition],
+        last_user_expand: PartitionSet[Partition],
+        unique_expand: PartitionSet[Partition],
+    ) -> PartitionSet[Partition]:
+        """
+        Compute the collapse path for a subtree.
+
+        First subtree uses tabula rasa strategy (collapse everything).
+        Subsequent subtrees collapse only their assigned + incompatible splits.
+
+        Args:
+            shared_collapse: Shared collapse splits for this subtree
+            unique_collapse: Unique collapse splits for this subtree
+            last_user_expand: Expand splits where this subtree is last user
+            unique_expand: Unique expand splits for this subtree
+
+        Returns:
+            The collapse path for this subtree
+        """
+        # First subtree: try tabula rasa (collapse everything)
+        # Note: get_tabula_rasa_collapse_splits() marks first_subtree_processed=True
+        tabula_rasa_splits = self.get_tabula_rasa_collapse_splits()
+        if tabula_rasa_splits:
+            return tabula_rasa_splits
+
+        # Compute incompatibilities for this subtree's planned expands
+        # NOTE: Don't include contingent_expand here - they haven't been consumed yet!
+        prospective_expand = last_user_expand | unique_expand
+        incompatible = find_incompatible_splits(
+            prospective_expand, self.all_collapsible_splits
+        )
+
+        return shared_collapse | unique_collapse | incompatible
+
+    def mark_subtree_complete(
+        self,
+        subtree: Partition,
+        collapse_path: PartitionSet[Partition],
+        expand_path: PartitionSet[Partition],
+    ) -> None:
+        """
+        Mark a subtree as complete and update internal state.
+
+        This is a convenience method that wraps mark_splits_as_processed.
+
+        Args:
+            subtree: The subtree that was processed
+            collapse_path: The collapse path that was executed
+            expand_path: The expand path that was executed
+        """
+        self.mark_splits_as_processed(
+            subtree=subtree,
+            processed_collapse_splits=collapse_path,
+            processed_expand_splits=expand_path,
+        )
+
+    # ============================================================================
     # 4. Split Processing
     # ============================================================================
 
@@ -174,10 +385,13 @@ class PivotSplitRegistry:
         Select next subtree to process.
 
         Priority system:
-        - If any subtree has shared collapse work: prioritize by shared collapse count,
-          then unique-only, then shared expand count
-        - Otherwise: select subtree with longest expand path
-        - Tie-breaker: lexicographic ordering of indices
+        1. If any subtree has shared collapse work: prioritize by shared collapse count,
+           then unique-only, then shared expand count
+        2. Otherwise: delegate to PathGroupManager for topological ordering based on
+           expand path relationships
+        3. Fallback: select subtree with smallest expand path
+
+        Tie-breaker: lexicographic ordering of indices
         """
         unprocessed = self.get_remaining_subtrees()
         if not unprocessed:
@@ -190,33 +404,75 @@ class PivotSplitRegistry:
 
         if has_shared_collapse:
             # Priority system: shared collapse > unique-only > shared expand
-            candidates = []
-            for subtree in unprocessed:
-                shared_collapse = self.collapse_tracker.get_shared_resources(subtree)
-                tie_breaker = str(sorted(list(subtree.indices)))
+            return self._select_by_shared_collapse_priority(unprocessed)
 
-                if shared_collapse:
-                    priority = (0, -len(shared_collapse), tie_breaker)
-                elif self.expand_tracker.get_shared_resources(subtree):
-                    shared_expand = self.expand_tracker.get_shared_resources(subtree)
-                    priority = (2, -len(shared_expand), tie_breaker)
-                else:
-                    priority = (1, 0, tie_breaker)
-
-                candidates.append((priority, subtree))
-
-            return min(candidates)[1]
-
-        # No shared collapse: choose smallest expand path (fewest expand splits first)
-        candidates = [
-            (
-                len(self.expand_tracker.get_resources(sub)),
-                str(sorted(list(sub.indices))),
-                sub,
+        # Delegate to path group manager for topological ordering
+        if self._path_group_manager and self._path_group_manager.enabled:
+            next_subtree = self._path_group_manager.get_next_subtree(
+                self.processed_subtrees
             )
-            for sub in unprocessed
-        ]
-        return min(candidates)[2]
+            if next_subtree is not None and next_subtree in unprocessed:
+                return next_subtree
+
+        # Fallback: choose smallest expand path (fewest expand splits first)
+        # This allows shared splits to be deferred to smaller subtrees
+        return self._select_by_smallest_expand_path(unprocessed)
+
+    def _select_by_shared_collapse_priority(
+        self, unprocessed: Set[Partition]
+    ) -> Partition:
+        """
+        Select subtree using shared collapse priority system.
+
+        Priority: shared collapse > unique-only > shared expand
+        """
+        candidates = []
+        for subtree in unprocessed:
+            shared_collapse = self.collapse_tracker.get_shared_resources(subtree)
+            # Use bitmask for deterministic tie-breaking
+            tie_breaker = subtree.bitmask
+
+            if shared_collapse:
+                priority = (0, -len(shared_collapse), tie_breaker)
+            elif self.expand_tracker.get_shared_resources(subtree):
+                shared_expand = self.expand_tracker.get_shared_resources(subtree)
+                priority = (2, -len(shared_expand), tie_breaker)
+            else:
+                priority = (1, 0, tie_breaker)
+
+            candidates.append((priority, subtree))
+
+        return min(candidates)[1]
+
+    def _select_by_smallest_expand_path(self, unprocessed: Set[Partition]) -> Partition:
+        """
+        Select subtree with SMALLEST expand splits first.
+
+        This ensures the expand-last strategy works correctly for shared splits:
+        - Subtrees with FEWER/SMALLER expand splits are processed FIRST
+        - They see the split is shared (because larger subtrees also own it)
+        - They defer/release their claims
+        - Subtrees with MORE/LARGER expand splits are processed LAST
+        - They become the "last owner" and apply the shared splits
+
+        Tie-breaker: total expand path size, then lexicographic ordering.
+        """
+        candidates = []
+        for sub in unprocessed:
+            # We want SMALLEST first.
+            shared_expand_count = len(self.expand_tracker.get_shared_resources(sub))
+            total_expand_count = len(self.expand_tracker.get_resources(sub))
+            # Use bitmask for deterministic tie-breaking
+            tie_breaker = sub.bitmask
+
+            # Primary: shared expand count (smallest first)
+            # Secondary: total expand count (smallest first)
+            # Tertiary: bitmask tie-breaker
+            candidates.append(
+                (shared_expand_count, total_expand_count, tie_breaker, sub)
+            )
+
+        return min(candidates)[3]
 
     # ============================================================================
     # 6. Compatibility/Incompatibility Logic
@@ -234,10 +490,15 @@ class PivotSplitRegistry:
         subtree they were originally assigned to. Subsequent subtrees get none
         (they only handle their assigned splits).
 
+        Note: This method is idempotent - calling it multiple times after the
+        first call returns empty. The first call that returns splits also marks
+        the first subtree as processed.
+
         Returns:
             ALL collapse splits if first subtree not yet processed, empty otherwise.
         """
         if not self.first_subtree_processed:
+            self.first_subtree_processed = True
             # Return ALL collapse splits - complete tabula rasa
             return self.all_collapsible_splits.copy()
         return PartitionSet(encoding=self.encoding)
@@ -248,6 +509,9 @@ class PivotSplitRegistry:
 
         After the first subtree collapses everything (tabula rasa), subsequent
         subtrees only handle their assigned splits.
+
+        Note: This is now called automatically by get_tabula_rasa_collapse_splits(),
+        but kept for explicit marking when tabula rasa returns empty (no collapses).
         """
         self.first_subtree_processed = True
 
@@ -357,3 +621,271 @@ class PivotSplitRegistry:
         remaining = all - used.
         """
         return self.all_expand_splits - self.used_expand_splits
+
+
+# ============================================================================
+# Helper Functions for Path Building
+# ============================================================================
+
+
+def build_collapse_path(
+    shared_splits: PartitionSet[Partition],
+    unique_splits: PartitionSet[Partition],
+    incompatible_splits: PartitionSet[Partition],
+) -> PartitionSet[Partition]:
+    """Build the collapse path from component splits using set operations."""
+    return shared_splits | unique_splits | incompatible_splits
+
+
+def build_expand_path(
+    shared_splits: PartitionSet[Partition],
+    unique_splits: PartitionSet[Partition],
+    contingent_splits: PartitionSet[Partition],
+) -> PartitionSet[Partition]:
+    """Build the expand path from component splits using set operations."""
+    return shared_splits | unique_splits | contingent_splits
+
+
+def _gather_subtree_splits(
+    state: PivotSplitRegistry, subtree: Partition
+) -> Dict[str, PartitionSet[Partition]]:
+    """Gathers all necessary split sets for a subtree from the state."""
+    shared_collapse: PartitionSet[Partition] = (
+        state.get_available_shared_collapse_splits(subtree)
+    )
+    unique_collapse: PartitionSet[Partition] = state.get_unique_collapse_splits(subtree)
+    last_user_expand: PartitionSet[Partition] = state.get_expand_splits_for_last_user(
+        subtree
+    )
+    unique_expand: PartitionSet[Partition] = state.get_unique_expand_splits(subtree)
+
+    return {
+        "shared_collapse": shared_collapse,
+        "unique_collapse": unique_collapse,
+        "last_user_expand": last_user_expand,
+        "unique_expand": unique_expand,
+        "contingent_expand": PartitionSet(encoding=state.encoding),
+    }
+
+
+def _finalize_and_store_plan(
+    plans: OrderedDict[Partition, Dict[str, Any]],
+    state: PivotSplitRegistry,
+    subtree: Partition,
+    collapse_path: PartitionSet[Partition],
+    expand_path: PartitionSet[Partition],
+) -> None:
+    """Handles last subtree logic, sorts paths, and stores the plan."""
+    if state.is_last_subtree(subtree):
+        expand_path |= state.get_all_remaining_expand_splits()
+        collapse_path |= state.get_all_remaining_collapse_splits()
+
+    # Deterministic path ordering (larger partitions first, tie-break by bitmask)
+    # Sort collapse paths Smallest First (Leaves Inward)
+    collapse_path_list = sorted(
+        collapse_path, key=lambda p: (len(p.indices), p.bitmask)
+    )
+    # Sort expand paths Largest First (Root Outward)
+    expand_path_list = sorted(expand_path, key=lambda p: (-len(p.indices), p.bitmask))
+
+    # Store the full paths in the plan
+    plans[subtree] = {
+        "collapse": {"path_segment": collapse_path_list},
+        "expand": {"path_segment": expand_path_list},
+    }
+
+
+def _update_state(
+    state: PivotSplitRegistry,
+    subtree: Partition,
+    splits: Dict[str, PartitionSet[Partition]],
+    incompatible_splits: PartitionSet[Partition],
+    collapse_path: PartitionSet[Partition],
+) -> None:
+    """Marks splits and the subtree as processed in the state.
+
+    Args:
+        state: The interpolation state to update
+        subtree: The subtree being processed
+        splits: Dictionary of split categories for this subtree
+        incompatible_splits: Incompatible splits that were identified
+        collapse_path: The ACTUAL collapse path that will be executed (may be ALL splits for TABULA RASA)
+    """
+    # Use the actual collapse_path that will be executed (covers TABULA RASA first subtree)
+    processed_collapse = collapse_path
+    # Include contingent splits in processed_expand since they're now tracked in expand_tracker
+    processed_expand = (
+        splits["last_user_expand"]
+        | splits["unique_expand"]
+        | splits["contingent_expand"]
+    )
+
+    # Mark splits as processed in the state - this will remove shared splits from all subtrees
+    # Note: This also marks the subtree as processed to prevent reprocessing
+    state.mark_splits_as_processed(
+        subtree=subtree,
+        processed_collapse_splits=processed_collapse,
+        processed_expand_splits=processed_expand,
+    )
+
+
+def build_edge_plan(
+    expand_splits_by_subtree: Dict[Partition, PartitionSet[Partition]],
+    collapse_splits_by_subtree: Dict[Partition, PartitionSet[Partition]],
+    collapse_tree: Node,
+    expand_tree: Node,
+    current_pivot_edge: Partition,
+) -> OrderedDict[Partition, Dict[str, Any]]:
+    """Build execution plan for a pivot edge by assigning splits to subtrees.
+
+    Note: expand_splits_by_subtree contains PATH-based assignments (splits on the path
+    between subtree and pivot). This may not cover ALL splits in the pivot edge subtree,
+    so we ensure completeness below.
+    """
+    plans: OrderedDict[Partition, Dict[str, Any]] = OrderedDict()
+
+    # Get splits within the active changing edge scope only
+    all_collapse_splits, all_expand_splits = (
+        get_unique_splits_for_current_pivot_edge_subtree(
+            collapse_tree,
+            expand_tree,
+            current_pivot_edge,
+        )
+    )
+
+    # COMPLETENESS GUARANTEE: Path-based assignments may miss splits not on any path
+    # (e.g., contingent splits from jumping taxa, cross-branch splits). Assign any
+    # unassigned expands to first subtree as fallback to ensure every split is processed.
+    claimed_expands = PartitionSet(
+        set().union(*expand_splits_by_subtree.values())
+        if expand_splits_by_subtree
+        else set(),
+        encoding=all_expand_splits.encoding,
+    )
+    unassigned_expands = all_expand_splits - claimed_expands
+    if unassigned_expands:
+        first_subtree = (
+            next(iter(expand_splits_by_subtree.keys()))
+            if expand_splits_by_subtree
+            else current_pivot_edge
+        )
+        if first_subtree not in expand_splits_by_subtree:
+            expand_splits_by_subtree[first_subtree] = PartitionSet(
+                encoding=all_expand_splits.encoding
+            )
+        # Reassign with a new PartitionSet to avoid in-place quirks
+        expand_splits_by_subtree[first_subtree] = (
+            expand_splits_by_subtree[first_subtree] | unassigned_expands
+        )
+        logger.debug(
+            "[builder] pivot=%s assigning %d unclaimed expands to subtree=%s",
+            current_pivot_edge.bipartition(),
+            len(unassigned_expands),
+            first_subtree.bipartition(),
+        )
+
+    # Initialize state management for proper shared splits handling
+    state = PivotSplitRegistry(
+        all_collapse_splits,
+        all_expand_splits,
+        collapse_splits_by_subtree,
+        expand_splits_by_subtree,
+        current_pivot_edge,
+    )
+    logger.debug(
+        "[builder] pivot=%s all_expand_splits=%s expand_paths_by_subtree=%s",
+        current_pivot_edge.bipartition(),
+        [list(p.indices) for p in all_expand_splits],
+        {
+            st.bipartition(): [list(p.indices) for p in splits]
+            for st, splits in expand_splits_by_subtree.items()
+        },
+    )
+
+    while state.has_remaining_work():
+        # Get next subtree using priority algorithm
+        subtree: Partition | None = state.get_next_subtree()
+
+        if subtree is None:
+            break
+
+        # 1. Gather all component splits for the current subtree
+        splits = _gather_subtree_splits(state, subtree)
+
+        # ========================================================================
+        # 2. TABULA RASA STRATEGY
+        # ========================================================================
+        # First subtree may collapse everything (tabula rasa) only if there are
+        # actual collapses at this pivot edge. Otherwise, respect per-subtree
+        # assignments even for the first subtree.
+        is_first_subtree = not state.first_subtree_processed
+
+        collapse_path: PartitionSet[Partition]
+        incompatible: PartitionSet[Partition] = PartitionSet(encoding=state.encoding)
+        if is_first_subtree:
+            all_collapse_splits = state.get_tabula_rasa_collapse_splits()
+            if len(all_collapse_splits) > 0:
+                collapse_path = all_collapse_splits
+            else:
+                # Compute incompatibilities for this subtree's planned expands
+                # NOTE: Don't include contingent_expand here - they haven't been consumed yet!
+                prospective_expand = (
+                    splits["last_user_expand"] | splits["unique_expand"]
+                )
+                incompatible = find_incompatible_splits(
+                    prospective_expand, state.all_collapsible_splits
+                )
+
+                collapse_path = build_collapse_path(
+                    splits["shared_collapse"],
+                    splits["unique_collapse"],
+                    incompatible,
+                )
+        else:
+            # Subsequent subtrees: only their assigned splits
+            # Compute incompatibilities for this subtree's planned expands
+            # NOTE: Don't include contingent_expand here - they haven't been consumed yet!
+            prospective_expand = splits["last_user_expand"] | splits["unique_expand"]
+            incompatible = find_incompatible_splits(
+                prospective_expand, state.all_collapsible_splits
+            )
+
+            collapse_path = build_collapse_path(
+                splits["shared_collapse"],
+                splits["unique_collapse"],
+                incompatible,
+            )
+
+        # After determining the actual collapse path (including tabula rasa or
+        # incompatibility collapses), consume contingent splits that fit within
+        # ANY collapsed region.
+        extra_contingent = state.consume_contingent_expand_splits_for_subtree(
+            subtree=subtree, collapsed_splits=collapse_path
+        )
+
+        splits["contingent_expand"] |= extra_contingent
+
+        # Build expand path (all subtrees get their expand work)
+        expand_path: PartitionSet[Partition] = build_expand_path(
+            splits["last_user_expand"],
+            splits["unique_expand"],
+            splits["contingent_expand"],
+        )
+
+        # Mark first subtree as processed
+        if is_first_subtree:
+            state.mark_first_subtree_processed()
+
+        # Finalize the plan for this subtree
+        _finalize_and_store_plan(plans, state, subtree, collapse_path, expand_path)
+
+        # Update the global state - pass the actual collapse_path for TABULA RASA handling
+        _update_state(
+            state,
+            subtree,
+            splits,
+            incompatible,
+            collapse_path,
+        )
+
+    return plans

@@ -2,7 +2,6 @@
 Tests for interpolation plan builder.
 
 Tests cover:
-- Path building (collapse and expand)
 - Edge plan construction
 - Integration with PivotSplitRegistry
 - Handling of shared, unique, and contingent splits
@@ -15,60 +14,9 @@ from collections import OrderedDict
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree import Node
-from brancharchitect.tree_interpolation.subtree_paths.planning.builder import (
-    build_collapse_path,
-    build_expand_path,
+from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
     build_edge_plan,
 )
-
-
-class TestPathBuilding(unittest.TestCase):
-    """Test the basic path building functions."""
-
-    def setUp(self):
-        """Set up common partitions."""
-        self.encoding = {"A": 0, "B": 1, "C": 2, "D": 3}
-
-        self.part_A = Partition((0,), self.encoding)
-        self.part_B = Partition((1,), self.encoding)
-        self.part_C = Partition((2,), self.encoding)
-        self.part_D = Partition((3,), self.encoding)
-
-    def test_build_collapse_path_combines_all_components(self):
-        """Test that collapse path correctly combines shared, unique, and incompatible."""
-        shared = PartitionSet([self.part_A], encoding=self.encoding)
-        unique = PartitionSet([self.part_B], encoding=self.encoding)
-        incompatible = PartitionSet([self.part_C], encoding=self.encoding)
-
-        result = build_collapse_path(shared, unique, incompatible)
-
-        self.assertIn(self.part_A, result)
-        self.assertIn(self.part_B, result)
-        self.assertIn(self.part_C, result)
-        self.assertEqual(len(result), 3)
-
-    def test_build_expand_path_combines_components(self):
-        """Test that expand path correctly combines shared, unique, and contingent."""
-        shared = PartitionSet([self.part_A], encoding=self.encoding)
-        unique = PartitionSet([self.part_B], encoding=self.encoding)
-        contingent = PartitionSet([self.part_D], encoding=self.encoding)
-
-        result = build_expand_path(shared, unique, contingent)
-
-        self.assertIn(self.part_A, result)
-        self.assertIn(self.part_B, result)
-        self.assertIn(self.part_D, result)
-        self.assertEqual(len(result), 3)
-
-    def test_empty_components_handled_correctly(self):
-        """Test that empty partition sets don't cause issues."""
-        empty = PartitionSet(encoding=self.encoding)
-        unique = PartitionSet([self.part_A], encoding=self.encoding)
-
-        result = build_collapse_path(empty, unique, empty)
-
-        self.assertEqual(len(result), 1)
-        self.assertIn(self.part_A, result)
 
 
 class TestEdgePlanBuilder(unittest.TestCase):

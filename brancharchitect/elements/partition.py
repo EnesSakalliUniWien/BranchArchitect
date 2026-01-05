@@ -13,6 +13,7 @@ class Partition:
         "_cached_reverse_encoding",
         "_cached_size",
         "_cached_hash",
+        "_cached_taxa",
     )
 
     @classmethod
@@ -29,6 +30,7 @@ class Partition:
         obj._cached_size = bitmask.bit_count()
         obj._cached_hash = hash(bitmask)
         obj._cached_reverse_encoding = None
+        obj._cached_taxa = None
         return obj
 
     @property
@@ -58,7 +60,18 @@ class Partition:
     ):
         """
         Partition represents a subset of taxa as a tuple of integer indices.
-        encoding: dict mapping taxon names (str) to indices (int).
+
+        **TERMINOLOGY NOTE**:
+        In this codebase, a 'Partition' represents a **Taxon Cluster** (Clade) or a
+        **Phylogenetic Split** (Bipartition). It corresponds to a single vertex in the
+        Cluster Containment Lattice. It is **NOT** a mathematical partition of a set (collection of disjoint subsets).
+
+        Aliases: `Cluster`, `Split`
+
+        Args:
+            indices: Tuple of integer indices.
+            encoding: dict mapping taxon names (str) to indices (int).
+
         Indices are stored sorted and unique.
         Preconditions/validation:
         - All indices must be integers >= 0
@@ -66,7 +79,7 @@ class Partition:
         """
         # Ensure input is iterable, then get unique elements, then sort.
         _unique_indices_set = set(indices)
-        self._indices: Tuple[int, ...] = tuple(sorted(_unique_indices_set))
+        self._indices: Optional[Tuple[int, ...]] = tuple(sorted(_unique_indices_set))
         self.encoding: Dict[str, int] = encoding or {}
 
         # Compute bitmask and validate in single pass
@@ -82,6 +95,7 @@ class Partition:
         self._cached_size: int = bitmask.bit_count()
         self._cached_hash: int = hash(bitmask)
         self._cached_reverse_encoding: Optional[Dict[int, str]] = None
+        self._cached_taxa: Optional[FrozenSet[str]] = None
 
     def __iter__(self) -> Iterator[int]:
         return iter(self.indices)
@@ -170,8 +184,14 @@ class Partition:
     def taxa(self) -> FrozenSet[str]:
         """
         Return the set of taxon names corresponding to the indices in this partition.
+
+        Result is cached for performance (avoids repeated decoding).
         """
-        return frozenset(self.reverse_encoding[i] for i in self.indices)
+        if self._cached_taxa is None:
+            self._cached_taxa = frozenset(
+                self.reverse_encoding[i] for i in self.indices
+            )
+        return self._cached_taxa
 
     def bipartition(self) -> str:
         """
@@ -238,14 +258,17 @@ class Partition:
     def __iand__(self, other: Any) -> "Partition":
         if isinstance(other, Partition):
             common_indices = set(self.indices) & set(other.indices)
-            self.indices = tuple(sorted(common_indices))
+            self._indices = tuple(sorted(common_indices))
             # Update bitmask as well
             bitmask = 0
-            for idx in self.indices:
+            for idx in self._indices:
                 bitmask |= 1 << idx
             self.bitmask = bitmask
-            # Invalidate the cache since indices changed
+            # Update caches
+            self._cached_size = bitmask.bit_count()
+            self._cached_hash = hash(bitmask)
             self._cached_reverse_encoding = None
+            self._cached_taxa = None
             return self
         return NotImplemented
 

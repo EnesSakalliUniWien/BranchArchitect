@@ -1,7 +1,7 @@
 """
 Logging Helpers for Lattice Construction
 -----------------------------------------
-Dedicated logging functions for build_pivot_lattices module.
+Dedicated logging functions for construct_pivot_edge_problems module.
 Extracted to improve code organization and reusability.
 """
 

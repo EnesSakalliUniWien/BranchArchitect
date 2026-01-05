@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
 from brancharchitect.tree import Node
 
 
@@ -60,9 +60,10 @@ def verify_jumping_taxa_solution(
 
         # We implicitly check Tree 2 assuming standard usage where trees share taxa sets,
         # but robustly we should verify against Tree 2's leaves as well if they differ.
-        if taxon not in t1_copy.taxa_encoding: # Check encoding as well for consistency
-             report["warnings"].append(f"Candidate taxon '{taxon}' not found in Tree 1 encoding.")
-
+        if taxon not in t1_copy.taxa_encoding:  # Check encoding as well for consistency
+            report["warnings"].append(
+                f"Candidate taxon '{taxon}' not found in Tree 1 encoding."
+            )
 
     # 2. Pruning
     # Convert taxon names to indices for deletion
@@ -80,7 +81,9 @@ def verify_jumping_taxa_solution(
 
     if not indices_to_delete:
         if candidate_taxa:
-            report["errors"].append("No valid indices found for provided candidate taxa.")
+            report["errors"].append(
+                "No valid indices found for provided candidate taxa."
+            )
             # We proceed to check isomorphism anyway (might be trees were already same)
 
     try:
@@ -99,7 +102,7 @@ def verify_jumping_taxa_solution(
     # 3. Isomorphism Check
     # Node equality checks topological isomorphism (same split sets)
     try:
-        is_isomorphic = (t1_copy == t2_copy)
+        is_isomorphic = t1_copy == t2_copy
     except Exception as e:
         report["errors"].append(f"Error during isomorphism check: {str(e)}")
         return report
@@ -107,6 +110,8 @@ def verify_jumping_taxa_solution(
     report["success"] = is_isomorphic
 
     if not is_isomorphic:
-        report["errors"].append("Pruned trees are distinct (not isomorphic). Conflict remains.")
+        report["errors"].append(
+            "Pruned trees are distinct (not isomorphic). Conflict remains."
+        )
 
     return report

@@ -1,6 +1,6 @@
 import pytest
 from brancharchitect.tree import Node
-from brancharchitect.tree_interpolation.subtree_paths.execution.microsteps import (
+from brancharchitect.tree_interpolation.subtree_paths.execution.step_executor import (
     build_microsteps_for_selection,
 )
 from brancharchitect.elements.partition import Partition

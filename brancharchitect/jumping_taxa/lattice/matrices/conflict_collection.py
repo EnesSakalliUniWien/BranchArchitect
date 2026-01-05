@@ -8,7 +8,7 @@ from __future__ import annotations
 from itertools import product
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
-from brancharchitect.jumping_taxa.lattice.types.types import TopToBottom
+from brancharchitect.jumping_taxa.lattice.types.child_frontiers import ChildFrontiers
 from brancharchitect.jumping_taxa.lattice.matrices.types import PMatrix
 from brancharchitect.jumping_taxa.lattice.frontiers.poset_relations import (
     are_covers_incomparable,
@@ -19,8 +19,8 @@ from brancharchitect.logger import jt_logger
 
 
 def collect_nesting_conflicts(
-    left_top_to_bottom: TopToBottom,
-    right_top_to_bottom: TopToBottom,
+    left_child_frontiers: ChildFrontiers,
+    right_child_frontiers: ChildFrontiers,
     nesting_solutions: list[PartitionSet[Partition]],
     bottom_matrix: PMatrix,
 ) -> None:
@@ -37,21 +37,23 @@ def collect_nesting_conflicts(
     Side Effects:
         Appends to nesting_solutions and bottom_matrix when nesting is found.
     """
-    for left_bottoms, right_bottoms in product(
-        left_top_to_bottom.bottom_to_frontiers.values(),
-        right_top_to_bottom.bottom_to_frontiers.values(),
+    for left_frontier_set, right_frontier_set in product(
+        left_child_frontiers.bottom_partition_map.values(),
+        right_child_frontiers.bottom_partition_map.values(),
     ):
         if not jt_logger.disabled:
-            jt_logger.info(f"------Bottoms: {left_bottoms} <-> {right_bottoms}")
+            jt_logger.info(
+                f"------Bottoms: {left_frontier_set} <-> {right_frontier_set}"
+            )
 
-        if not left_bottoms or not right_bottoms:
+        if not left_frontier_set or not right_frontier_set:
             continue
 
-        if has_nesting_relationship(left_bottoms, right_bottoms):
-            solution = get_nesting_solution(left_bottoms, right_bottoms)
+        if has_nesting_relationship(left_frontier_set, right_frontier_set):
+            solution = get_nesting_solution(left_frontier_set, right_frontier_set)
             # Keep indices synchronized: nesting_solutions[i] ↔ bottom_matrix[i]
             nesting_solutions.append(solution)
-            bottom_matrix.append([left_bottoms, right_bottoms])
+            bottom_matrix.append([left_frontier_set, right_frontier_set])
 
     if not jt_logger.disabled:
         jt_logger.matrix(
@@ -60,8 +62,8 @@ def collect_nesting_conflicts(
 
 
 def collect_all_conflicts(
-    left_covers: dict[Partition, TopToBottom],
-    right_covers: dict[Partition, TopToBottom],
+    left_covers: dict[Partition, ChildFrontiers],
+    right_covers: dict[Partition, ChildFrontiers],
 ) -> tuple[PMatrix, list[PartitionSet[Partition]], PMatrix]:
     """
     Collect all conflicts between two sets of cover frontiers.
@@ -83,16 +85,16 @@ def collect_all_conflicts(
     nesting_solutions: list[PartitionSet[Partition]] = []
 
     # Use itertools.product to generate all pairs of covers from both trees
-    for left_top_to_bottom, right_top_to_bottom in product(
+    for left_child_frontiers, right_child_frontiers in product(
         left_covers.values(), right_covers.values()
     ):
-        left_cover: PartitionSet[Partition] = left_top_to_bottom.shared_top_splits
-        right_cover: PartitionSet[Partition] = right_top_to_bottom.shared_top_splits
+        left_cover: PartitionSet[Partition] = left_child_frontiers.shared_top_splits
+        right_cover: PartitionSet[Partition] = right_child_frontiers.shared_top_splits
 
         # Collect nesting relationships from bottom sets
         collect_nesting_conflicts(
-            left_top_to_bottom,
-            right_top_to_bottom,
+            left_child_frontiers,
+            right_child_frontiers,
             nesting_solutions,
             bottom_matrix,
         )

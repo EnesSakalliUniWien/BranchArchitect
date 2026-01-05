@@ -4,7 +4,7 @@ Complex reordering tests using real example trees from the repository:
 - current_testfiles/small_example.newick: first two trees are used as source/destination
 - test-data/reverse_test_tree_moving_updwards.tree: tests upward-moving scenario
 
-We validate that running reorder_tree_toward_destination step-by-step for the
+We validate that running interpolate_subtree_order step-by-step for the
 moving subtrees (from compute_pivot_solutions_with_deletions) preserves anchor order and
 forms a contiguous block of movers in the result within the active pivot.
 """
@@ -22,6 +22,9 @@ from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
 from brancharchitect.tree_interpolation.pair_interpolation import (
     process_tree_pair_interpolation,
 )
+
+# Alias for backward compatibility with test names
+move_subtree_to_destination = reorder_tree_toward_destination
 
 
 def _read_newick_lines(path: str) -> List[str]:
@@ -76,7 +79,7 @@ def test_reordering_small_example_stepwise():
     # Apply reordering step-by-step for this solution set
     current = src
     for subtree in first_solution_set:
-        current = reorder_tree_toward_destination(current, dst, active_edge, subtree)
+        current = move_subtree_to_destination(current, dst, active_edge, subtree)
 
     # Validate contiguous movers within the active pivot
     result_order = list(current.get_current_order())
@@ -129,7 +132,7 @@ def test_reordering_reverse_upwards_from_file():
     # Apply moves
     current = src
     for subtree in solution_set:
-        current = reorder_tree_toward_destination(current, dst, active_edge, subtree)
+        current = move_subtree_to_destination(current, dst, active_edge, subtree)
 
     # Validate
     result_order = list(current.get_current_order())

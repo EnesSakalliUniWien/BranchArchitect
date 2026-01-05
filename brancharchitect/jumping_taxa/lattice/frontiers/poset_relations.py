@@ -67,10 +67,6 @@ def get_nesting_solution(
         >>> get_nesting_solution({A}, {A,B,C})  # Returns {A} (nested set)
         >>> get_nesting_solution({A,B,C}, {B})  # Returns {B} (nested set)
     """
-    if left_bottoms.issubset(right_bottoms):
-        return left_bottoms
-    elif right_bottoms.issubset(left_bottoms):
-        return right_bottoms
-    else:
-        # Fallback: should only be called for nesting relationships
-        return left_bottoms & right_bottoms
+    # Symmetric solution: consistently return the intersection (Meet)
+    # Since specific nesting is guaranteed by caller, this always returns the smaller set.
+    return left_bottoms & right_bottoms

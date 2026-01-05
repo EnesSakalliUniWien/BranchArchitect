@@ -30,14 +30,7 @@ from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.parser import parse_newick
 from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
     PivotSplitRegistry,
-)
-from brancharchitect.tree_interpolation.subtree_paths.planning.builder import (
-    build_collapse_path,
-    build_expand_path,
     build_edge_plan,
-    _gather_subtree_splits,
-    _finalize_and_store_plan,
-    _update_state,
 )
 
 
@@ -747,8 +740,8 @@ class TestPathOrdering(unittest.TestCase):
             "((A,B),(C,D));", order=taxa_order, encoding=self.encoding
         )
 
-    def test_splits_sorted_by_size_descending(self):
-        """Larger partitions should come first in paths."""
+    def test_collapse_paths_sorted_by_size_ascending(self):
+        """Collapse paths should be sorted Smallest First (Leaves Inward)."""
         collapse_by_subtree = {
             self.part_A: PartitionSet(
                 [self.part_A, self.part_AB, self.part_ABC], encoding=self.encoding
@@ -769,11 +762,11 @@ class TestPathOrdering(unittest.TestCase):
 
         collapse_path = plan[self.part_A]["collapse"]["path_segment"]
 
-        # Check sizes are descending
+        # Check sizes are ASCENDING (Smallest First/Leaves Inward)
         sizes = [len(p.indices) for p in collapse_path]
-        self.assertEqual(sizes, sorted(sizes, reverse=True), "Must be size-descending")
+        self.assertEqual(sizes, sorted(sizes), "Must be size-ascending (Leaves Inward)")
 
-        # Specifically: ABC (3) before AB (2) before A (1)
+        # Specifically: A (1) before AB (2) before ABC (3)
         size_map = {len(p.indices): p for p in collapse_path}
         self.assertEqual(size_map[3], self.part_ABC)
         self.assertEqual(size_map[2], self.part_AB)

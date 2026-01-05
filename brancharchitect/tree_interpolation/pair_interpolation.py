@@ -91,7 +91,6 @@ def process_tree_pair_interpolation(
 
     (
         sequence_trees,
-        failed_active_split,
         current_pivot_edge_tracking,
         current_subtree_tracking,
     ) = create_interpolation_for_active_split_sequence(
@@ -122,12 +121,6 @@ def process_tree_pair_interpolation(
         # Copy the leaf ordering from source to destination tree
         source_order = source_tree.get_current_order()
         destination_tree.reorder_taxa(list(source_order))
-
-    # Log any failed edges for debugging
-    if failed_active_split:
-        logger.warning(
-            f"Classical interpolation used for {len(failed_active_split)} failed active-changing splits"
-        )
 
     return TreePairInterpolation(
         trees=sequence_trees,

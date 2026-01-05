@@ -1,5 +1,5 @@
 """
-Hard tests for reorder_tree_toward_destination to stress tricky ordering cases.
+Hard tests for interpolate_subtree_order to stress tricky ordering cases.
 
 Focus:
 - Multi-step reordering stability: applying consecutive moves preserves
@@ -13,6 +13,9 @@ from brancharchitect.elements.partition import Partition
 from brancharchitect.tree_interpolation.subtree_paths.execution.reordering import (
     reorder_tree_toward_destination,
 )
+
+# Alias for backward compatibility with test names
+move_subtree_to_destination = reorder_tree_toward_destination
 
 
 def _get_tree(parsed_result) -> Node:
@@ -47,7 +50,7 @@ def test_multi_step_reordering_stability():
 
     # First move: C is mover
     mover1 = Partition((2,), enc)  # C
-    after_first = reorder_tree_toward_destination(src, dst, active, mover1)
+    after_first = move_subtree_to_destination(src, dst, active, mover1)
     order1 = list(after_first.get_current_order())
     # Expect C ahead of B (inserted before first anchor after A), and anchors A,B preserve SOURCE order
     assert order1.index("C") < order1.index("B")
@@ -55,7 +58,7 @@ def test_multi_step_reordering_stability():
 
     # Second move: now move E to the very front; use the intermediate as source
     mover2 = Partition((4,), enc)  # E
-    after_second = reorder_tree_toward_destination(after_first, dst, active, mover2)
+    after_second = move_subtree_to_destination(after_first, dst, active, mover2)
     order2 = list(after_second.get_current_order())
 
     # E should be at front
@@ -78,7 +81,7 @@ def test_large_mover_block_with_conflicting_dest_anchors():
 
     active = src.split_indices
     mover = Partition((1, 2, 3, 4), enc)  # B,C,D,E
-    result = reorder_tree_toward_destination(src, dst, active, mover)
+    result = move_subtree_to_destination(src, dst, active, mover)
     order = list(result.get_current_order())
 
     # Mover block must be contiguous and preserve SOURCE internal order (B,C,D,E)

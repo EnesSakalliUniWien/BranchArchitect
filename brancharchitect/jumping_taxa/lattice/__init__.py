@@ -1,80 +1,58 @@
 """Lattice package.
 
 Provides the lattice algorithm for computing jumping taxa between phylogenetic trees.
-
-Package Structure:
-- types/: Core data types (PMatrix, TopToBottom, PivotEdgeSubproblem)
-- solvers/: Matrix solving algorithms (meet products, pivot edge solving)
-- frontiers/: Frontier computation (child frontiers, poset relations, pivot building)
-- matrices/: Conflict matrix construction and collection
-- orchestration/: High-level drivers (iterative algorithm, taxa deletion)
-- ordering/: Edge ordering algorithms (topological sort, depth ordering)
-- mapping/: Solution mapping utilities
-
-Primary Entry Point:
-    from brancharchitect.jumping_taxa.lattice.orchestration import compute_pivot_solutions_with_deletions
-
-Note: Submodules are NOT imported at package level to prevent circular imports.
-Import submodules directly where needed.
 """
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
+        LatticeSolver,
+    )
+    from brancharchitect.jumping_taxa.lattice.matrices.types import PMatrix
+    from brancharchitect.jumping_taxa.lattice.types.child_frontiers import (
+        ChildFrontiers,
+    )
+    from brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem import (
+        PivotEdgeSubproblem,
+    )
+    from brancharchitect.jumping_taxa.lattice.types.registry import (
+        SolutionRegistry,
+        compute_solution_rank_key,
+    )
+    from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
+        sort_pivot_edges_by_subset_hierarchy,
+        topological_sort_edges,
+    )
+
 __all__ = [
-    # Primary entry point (import directly from orchestration)
     "LatticeSolver",
-    # Types (import directly from types)
     "PMatrix",
-    "TopToBottom",
+    "ChildFrontiers",
     "PivotEdgeSubproblem",
     "SolutionRegistry",
     "compute_solution_rank_key",
-    # Ordering (import directly from ordering)
     "sort_pivot_edges_by_subset_hierarchy",
     "topological_sort_edges",
 ]
 
+_LAZY_IMPORTS = {
+    "LatticeSolver": "brancharchitect.jumping_taxa.lattice.solvers.lattice_solver",
+    "PMatrix": "brancharchitect.jumping_taxa.lattice.matrices.types",
+    "ChildFrontiers": "brancharchitect.jumping_taxa.lattice.types.child_frontiers",
+    "PivotEdgeSubproblem": "brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem",
+    "SolutionRegistry": "brancharchitect.jumping_taxa.lattice.types.registry",
+    "compute_solution_rank_key": "brancharchitect.jumping_taxa.lattice.types.registry",
+    "sort_pivot_edges_by_subset_hierarchy": "brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering",
+    "topological_sort_edges": "brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering",
+}
+
 
 def __getattr__(name: str):
     """Lazy import to avoid circular dependencies."""
-    if name == "LatticeSolver":
-        from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
-            LatticeSolver,
-        )
+    if name in _LAZY_IMPORTS:
+        import importlib
 
-        return LatticeSolver
-    elif name == "PMatrix":
-        from brancharchitect.jumping_taxa.lattice.types.types import PMatrix
-
-        return PMatrix
-    elif name == "TopToBottom":
-        from brancharchitect.jumping_taxa.lattice.types.types import TopToBottom
-
-        return TopToBottom
-    elif name == "PivotEdgeSubproblem":
-        from brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem import (
-            PivotEdgeSubproblem,
-        )
-
-        return PivotEdgeSubproblem
-    elif name == "SolutionRegistry":
-        from brancharchitect.jumping_taxa.lattice.types.registry import SolutionRegistry
-
-        return SolutionRegistry
-    elif name == "compute_solution_rank_key":
-        from brancharchitect.jumping_taxa.lattice.types.registry import (
-            compute_solution_rank_key,
-        )
-
-        return compute_solution_rank_key
-    elif name == "sort_pivot_edges_by_subset_hierarchy":
-        from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
-            sort_pivot_edges_by_subset_hierarchy,
-        )
-
-        return sort_pivot_edges_by_subset_hierarchy
-    elif name == "topological_sort_edges":
-        from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
-            topological_sort_edges,
-        )
-
-        return topological_sort_edges
+        module = importlib.import_module(_LAZY_IMPORTS[name])
+        return getattr(module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

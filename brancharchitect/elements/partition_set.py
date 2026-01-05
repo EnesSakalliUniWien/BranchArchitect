@@ -1,5 +1,4 @@
-# split.py
-import sys
+# partition_set.py
 from typing import (
     Set,
     Tuple,
@@ -21,22 +20,16 @@ except Exception:  # pragma: no cover - fallback for Python < 3.11
     from typing_extensions import Self
 from collections.abc import MutableSet
 from brancharchitect.elements.partition import Partition
+from brancharchitect.elements.partition_algorithms import (
+    solve_minimum_set_cover,
+    compute_geometric_intersection,
+)
 
 # Type variable for generic typing
 T = TypeVar("T", bound="Partition")
-# Define the generic type variable if needed globally in this file
-T_Partition = TypeVar("T_Partition", bound="Partition")
 
 
 class PartitionSet(Generic[T], MutableSet[T]):
-    __slots__ = (
-        "_bitmask_set",
-        "_bitmask_to_partition",
-        "encoding",
-        "_reversed_encoding",
-        "order",
-        "name",
-    )
     """
     A set of partitions with common encoding information.
 
@@ -52,6 +45,15 @@ class PartitionSet(Generic[T], MutableSet[T]):
         order: Optional ordering for the indices
         name: Name of this partition set
     """
+
+    __slots__ = (
+        "_bitmask_set",
+        "_bitmask_to_partition",
+        "encoding",
+        "_reversed_encoding",
+        "order",
+        "name",
+    )
 
     @property
     def reversed_encoding(self) -> Dict[int, str]:
@@ -128,10 +130,26 @@ class PartitionSet(Generic[T], MutableSet[T]):
             p = Partition((element,), self.encoding)
             return p.bitmask, p
 
+    def _create_new_from_bitmasks(
+        self,
+        bitmask_set: set[int],
+        bitmask_to_partition: dict[int, Partition],
+        suffix: str,
+    ) -> Self:
+        """Helper to create a new instance with shared metadata."""
+        new_set = type(self).__new__(type(self))
+        new_set._bitmask_set = bitmask_set
+        new_set._bitmask_to_partition = bitmask_to_partition
+        new_set.encoding = self.encoding
+        new_set._reversed_encoding = self._reversed_encoding
+        new_set.order = self.order
+        new_set.name = f"{self.name}_{suffix}"
+        return new_set
+
     @property
     def fast_partitions(self) -> Iterable[T]:
         """Return the partitions in this set without sorting. Useful for performance-sensitive loops."""
-        return self._bitmask_to_partition.values()
+        return cast(Iterable[T], self._bitmask_to_partition.values())
 
     def __contains__(self, x: object) -> bool:
         # Fast path for Partition (most common case) - direct bitmask lookup
@@ -149,11 +167,11 @@ class PartitionSet(Generic[T], MutableSet[T]):
         return False
 
     def __iter__(self) -> Iterator[T]:
-        # Yield Partition objects sorted by bitmask for determinism
-        from typing import cast
-
-        partitions = cast(list[T], list(self._bitmask_to_partition.values()))
-        return iter(sorted(partitions, key=lambda p: p.bitmask))
+        # Yield Partition objects directly from internal storage.
+        # Note: This is NOT sorted. If you need deterministic order,
+        # you must sort the result explicitly (e.g. sorted(partition_set)).
+        # This optimization avoids O(N log N) sorting on every iteration.
+        return cast(Iterator[T], iter(self._bitmask_to_partition.values()))
 
     def __len__(self) -> int:
         return len(self._bitmask_set)
@@ -204,71 +222,13 @@ class PartitionSet(Generic[T], MutableSet[T]):
         """
         return hash(frozenset(self._bitmask_set))
 
-    # set operation overrides to avoid sorting via __iter__
-    def __or__(self, other: Iterable[T]) -> "PartitionSet[T]":
-        new_set = type(self)(
-            encoding=self.encoding, name=f"{self.name}_or", order=self.order
-        )
-        new_set.update(self.fast_partitions)
-        if hasattr(other, "fast_partitions"):
-            new_set.update(other.fast_partitions)
-        else:
-            new_set.update(other)
-        return new_set
-
-    def __and__(self, other: Iterable[T]) -> "PartitionSet[T]":
-        new_set = type(self)(
-            encoding=self.encoding, name=f"{self.name}_and", order=self.order
-        )
-        if isinstance(other, PartitionSet):
-            # Intersect bitmask sets first (fast)
-            common_masks = self._bitmask_set & other._bitmask_set
-            # Add partitions corresponding to the common masks
-            new_set.update(self._bitmask_to_partition[m] for m in common_masks)
-        else:
-            # Fallback for generic iterables
-            new_set.update(p for p in self.fast_partitions if p in other)
-        return new_set
-
-    def __sub__(self, other: Iterable[T]) -> "PartitionSet[T]":
-        new_set = type(self)(
-            encoding=self.encoding, name=f"{self.name}_sub", order=self.order
-        )
-        if isinstance(other, PartitionSet):
-            diff_masks = self._bitmask_set - other._bitmask_set
-            new_set.update(self._bitmask_to_partition[m] for m in diff_masks)
-        else:
-            new_set.update(p for p in self.fast_partitions if p not in other)
-        return new_set
-
-    def __xor__(self, other: Iterable[T]) -> "PartitionSet[T]":
-        new_set = type(self)(
-            encoding=self.encoding, name=f"{self.name}_xor", order=self.order
-        )
-        if isinstance(other, PartitionSet):
-            xor_masks = self._bitmask_set ^ other._bitmask_set
-            # Need to pick partition from whichever set contains the mask
-            for m in xor_masks:
-                if m in self._bitmask_to_partition:
-                    new_set.add(self._bitmask_to_partition[m])
-                else:
-                    new_set.add(other._bitmask_to_partition[m])
-        else:
-            # Fallback logic
-            s_other = set(other)
-            new_set.update(p for p in self.fast_partitions if p not in s_other)
-            new_set.update(p for p in s_other if p not in self)
-        return new_set
-
-    # Note: Legacy aliases atom()/cover() have been removed.
-
     def minimal_elements(self) -> Self:
         """
         Return minimal elements under subset order (no element is a superset of another).
         """
         parts = list(self.fast_partitions)
         # Sort ascending by set size (cached), then by bitmask for determinism
-        parts.sort(key=lambda p: (p._cached_size, p.bitmask))
+        parts.sort(key=lambda p: (p.size, p.bitmask))
         kept: list[Partition] = []
         kept_masks: list[int] = []
         for s in parts:
@@ -295,7 +255,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
         """
         parts = list(self.fast_partitions)
         # Sort descending by set size (cached), then by bitmask for determinism
-        parts.sort(key=lambda p: (-p._cached_size, p.bitmask))
+        parts.sort(key=lambda p: (-p.size, p.bitmask))
         kept: list[Partition] = []
         kept_masks: list[int] = []
         for s in parts:
@@ -376,6 +336,51 @@ class PartitionSet(Generic[T], MutableSet[T]):
             order=self.order,
         )
 
+    def maximals_under(self, upper: Union[Partition, Tuple[int, ...], int]) -> Self:
+        """
+        Return the maximal elements of the downset under ``upper`` within this set.
+
+        Computes the downset D = { s in self | s ⊆ upper } and returns
+        the maximal elements of D.
+
+        Args:
+            upper: A Partition (or tuple/int convertible to Partition) defining the upper bound.
+
+        Returns:
+            A PartitionSet containing the maximal elements of the downset.
+        """
+        upper_mask, _ = self._element_to_bitmask_and_partition(upper)
+
+        # 1. Filter elements that are subsets of upper
+        # s ⊆ upper <=> (s & ~upper) == 0
+        candidates = [p for p in self.fast_partitions if (p.bitmask & ~upper_mask) == 0]
+
+        # 2. Find maximals among candidates
+        # Sort descending by size, then bitmask
+        candidates.sort(key=lambda p: (-p.size, p.bitmask))
+
+        kept: list[Partition] = []
+        kept_masks: list[int] = []
+
+        for s in candidates:
+            s_mask = s.bitmask
+            is_maximal = True
+            for km in kept_masks:
+                # s ⊆ km <=> (s & ~km) == 0
+                if (s_mask & ~km) == 0:
+                    is_maximal = False
+                    break
+            if is_maximal:
+                kept.append(s)
+                kept_masks.append(s_mask)
+
+        return type(self)(
+            set(kept),
+            encoding=self.encoding,
+            name="maximals_under",
+            order=self.order,
+        )
+
     def covers(self, partition: Union[Partition, Tuple[int, ...], int]) -> bool:
         """
         Check if any element in this PartitionSet covers (contains as subset) the given partition.
@@ -432,14 +437,9 @@ class PartitionSet(Generic[T], MutableSet[T]):
                         result_bitmask_to_partition[bitmask] = elem
 
         # Create new PartitionSet without re-processing partitions
-        new_set = type(self).__new__(type(self))
-        new_set._bitmask_set = result_bitmask_set
-        new_set._bitmask_to_partition = result_bitmask_to_partition
-        new_set.encoding = self.encoding
-        new_set._reversed_encoding = self._reversed_encoding
-        new_set.order = self.order
-        new_set.name = self.name + "_union"
-        return new_set
+        return self._create_new_from_bitmasks(
+            result_bitmask_set, result_bitmask_to_partition, "_union"
+        )
 
     def intersection(self, *others: Iterable[T]) -> Self:
         """Optimized intersection using direct bitmask operations."""
@@ -455,16 +455,11 @@ class PartitionSet(Generic[T], MutableSet[T]):
                 result_bitmask_set &= other_bitmasks
 
         # Create new PartitionSet with only the intersecting partitions
-        new_set = type(self).__new__(type(self))
-        new_set._bitmask_set = result_bitmask_set
-        new_set._bitmask_to_partition = {
-            b: self._bitmask_to_partition[b] for b in result_bitmask_set
-        }
-        new_set.encoding = self.encoding
-        new_set._reversed_encoding = self._reversed_encoding
-        new_set.order = self.order
-        new_set.name = self.name + "_intersection"
-        return new_set
+        return self._create_new_from_bitmasks(
+            result_bitmask_set,
+            {b: self._bitmask_to_partition[b] for b in result_bitmask_set},
+            "_intersection",
+        )
 
     def difference(self, *others: Iterable[T]) -> Self:
         """Optimized difference using direct bitmask operations."""
@@ -480,16 +475,11 @@ class PartitionSet(Generic[T], MutableSet[T]):
                 result_bitmask_set -= other_bitmasks
 
         # Create new PartitionSet with remaining partitions
-        new_set = type(self).__new__(type(self))
-        new_set._bitmask_set = result_bitmask_set
-        new_set._bitmask_to_partition = {
-            b: self._bitmask_to_partition[b] for b in result_bitmask_set
-        }
-        new_set.encoding = self.encoding
-        new_set._reversed_encoding = self._reversed_encoding
-        new_set.order = self.order
-        new_set.name = self.name + "_difference"
-        return new_set
+        return self._create_new_from_bitmasks(
+            result_bitmask_set,
+            {b: self._bitmask_to_partition[b] for b in result_bitmask_set},
+            "_difference",
+        )
 
     def symmetric_difference(self, other: Iterable[T]) -> Self:
         """Optimized symmetric difference using direct bitmask operations."""
@@ -523,14 +513,9 @@ class PartitionSet(Generic[T], MutableSet[T]):
                     result_bitmask_to_partition[b] = other_bitmask_to_partition[b]
 
         # Create new PartitionSet
-        new_set = type(self).__new__(type(self))
-        new_set._bitmask_set = result_bitmask_set
-        new_set._bitmask_to_partition = result_bitmask_to_partition
-        new_set.encoding = self.encoding
-        new_set._reversed_encoding = self._reversed_encoding
-        new_set.order = self.order
-        new_set.name = self.name + "_symdiff"
-        return new_set
+        return self._create_new_from_bitmasks(
+            result_bitmask_set, result_bitmask_to_partition, "_symdiff"
+        )
 
     def __or__(self, other: object) -> Self:
         """Implement the | operator (union)."""
@@ -565,17 +550,6 @@ class PartitionSet(Generic[T], MutableSet[T]):
         """Return a string representation for debugging."""
         return str(sorted(self, key=lambda s: s))
 
-    def __getitem__(self, index: int) -> T:
-        """
-        Get the partition at the specified index.
-
-        Note: This operation sorts the set to provide a stable order,
-        incurring O(n log n) time per access. Avoid in hot paths.
-        """
-        return sorted(self, key=lambda s: s)[index]
-
-    # cartesian and __mul__ were unused and removed for simplicity
-
     def resolve_to_indices(self) -> List[List[int]]:
         """
         Convert the PartitionSet to a list of lists of indices for readability in logs.
@@ -590,8 +564,6 @@ class PartitionSet(Generic[T], MutableSet[T]):
             # instead of the tuple form (i,), improving diagnostic readability.
             result.append(list(s.resolve_to_indices()))
         return result
-
-    # list_taxa_name was unused in code and removed
 
     def issubset(self, other: Iterable[T]) -> bool:
         """
@@ -618,7 +590,23 @@ class PartitionSet(Generic[T], MutableSet[T]):
         """Return True if self < other (strict subset)."""
         return self.issubset(other) and self != other
 
-    # issuperset and its operators were unused and removed
+    def geometric_intersection(self, other: "PartitionSet[T]") -> "PartitionSet[T]":
+        """
+        Compute the **Geometric Intersection** (All-Pairs Interaction).
+        Synthesize new common substructures by intersecting every cluster.
+
+        If P1 = {{A,B}}, P2 = {{B,C}}:
+            P1 & P2 (Set Logic) -> {}
+            geometric_intersection(P1, P2) -> {{B}}
+        """
+        result_bitmasks, result_partitions = compute_geometric_intersection(
+            self._bitmask_to_partition, other._bitmask_to_partition, self.encoding
+        )
+
+        # Construct new PartitionSet manually to avoid re-validation
+        return self._create_new_from_bitmasks(
+            result_bitmasks, result_partitions, f"_geometric_intersection_{other.name}"
+        )
 
     @classmethod
     def from_existing(
@@ -639,17 +627,11 @@ class PartitionSet(Generic[T], MutableSet[T]):
         )
 
     def copy(self, name: Optional[str] = None) -> Self:
-        """Fast copy using direct assignment of internal structures."""
-        new_set = type(self).__new__(type(self))
-        new_set._bitmask_set = set(self._bitmask_set)
-        new_set._bitmask_to_partition = dict(self._bitmask_to_partition)
-        new_set.encoding = self.encoding
-        new_set._reversed_encoding = self._reversed_encoding
-        new_set.order = self.order
-        new_set.name = name or self.name
-        return new_set
-
-    # Irredundant cover utilities were unused and removed to simplify API
+        return self._create_new_from_bitmasks(
+            set(self._bitmask_set),
+            dict(self._bitmask_to_partition),
+            name or self.name,
+        )
 
     def to_singleton_partition_sets(self) -> List["PartitionSet[T]"]:
         """
@@ -700,106 +682,10 @@ class PartitionSet(Generic[T], MutableSet[T]):
         Returns:
             PartitionSet[T]: a new PartitionSet containing one minimum cover.
         """
-
-        parts: list[Partition] = [
-            p for p in self._bitmask_to_partition.values() if len(p.indices) > 0
-        ]
-        # Universe to cover
-        universe: set[int] = set()
-        for p in parts:
-            universe.update(p.indices)
-
-        if not universe:
-            return type(self).from_existing(
-                self, elements=set(), name=f"{self.name}_minimum_cover"
-            )
-
-        n = len(parts)
-        # Sort by descending set size, then by bitmask for determinism
-        parts.sort(key=lambda p: (-len(p.indices), p.bitmask))
-        cover_sets = [set(p.indices) for p in parts]
-
-        # Precompute suffix-unions for feasibility pruning
-        suffix_union: list[set[int]] = [set() for _ in range(n + 1)]
-        for i in range(n - 1, -1, -1):
-            suffix_union[i] = set(suffix_union[i + 1])
-            suffix_union[i].update(cover_sets[i])
-
-        best_size = n + 1
-        best_solution: list[int] = []
-
-        # Greedy lower bound helper: how many more picks are needed at least?
-        def greedy_lb(covered: set[int], start: int) -> int:
-            remaining = universe - covered
-            if not remaining:
-                return 0
-            used = 0
-            i = start
-            # Multiset copy for a simple bound; we greedily pick best gain next
-            # This is only used for bounding; it can overestimate feasibility but
-            # never underestimates the required picks.
-            avail = list(range(i, n))
-            current_covered = set(covered)
-            while remaining and avail:
-                best_i = -1
-                best_gain = 0
-                for idx in avail:
-                    gain = len(cover_sets[idx] - current_covered)
-                    if gain > best_gain:
-                        best_gain = gain
-                        best_i = idx
-                if best_i == -1 or best_gain == 0:
-                    break
-                current_covered |= cover_sets[best_i]
-                remaining = universe - current_covered
-                used += 1
-                avail.remove(best_i)
-            return used if not remaining else used + 1_000_000  # infeasible bound
-
-        def dfs(start: int, chosen: list[int], covered: set[int]) -> None:
-            nonlocal best_size, best_solution
-
-            # Prune if already worse than best
-            if len(chosen) >= best_size:
-                return
-
-            # If covered all, update best
-            if covered == universe:
-                best_size = len(chosen)
-                best_solution = list(chosen)
-                return
-
-            # If no sets left, stop
-            if start >= n:
-                return
-
-            # Feasibility prune: even with all remaining sets cannot cover
-            if not (universe - covered).issubset(suffix_union[start]):
-                return
-
-            # Lower bound prune
-            lb = greedy_lb(covered, start)
-            if len(chosen) + lb >= best_size:
-                return
-
-            # Branch 1: include current set
-            gain = cover_sets[start] - covered
-            if gain:
-                chosen.append(start)
-                dfs(start + 1, chosen, covered | cover_sets[start])
-                chosen.pop()
-
-            # Branch 2: skip current set
-            dfs(start + 1, chosen, covered)
-
-        dfs(0, [], set())
-
-        elems = {cast(T, parts[i]) for i in best_solution}
+        elems = solve_minimum_set_cover(self.fast_partitions)
         return type(self).from_existing(
             self, elements=elems, name=f"{self.name}_minimum_cover"
         )
-
-    # freeze was unused and removed
 
 
 def is_full_overlap(target: Partition, reference: Partition) -> bool:

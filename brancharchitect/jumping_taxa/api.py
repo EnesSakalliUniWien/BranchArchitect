@@ -15,7 +15,7 @@ def call_jumping_taxa(
     from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
         LatticeSolver,
     )
-    from typing import List, Tuple, Set
+    from typing import List, Tuple
 
     def _lattice_adapter(
         t1: Node, t2: Node, _order: List[str]
