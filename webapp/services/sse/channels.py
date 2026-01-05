@@ -120,7 +120,7 @@ class ProgressChannel:
         Yields:
             Formatted SSE message strings.
         """
-        while not self._closed:
+        while True:
             try:
                 item = self._queue.get(timeout=timeout)
                 if item is None:  # Sentinel
@@ -128,6 +128,8 @@ class ProgressChannel:
                 event, data = item
                 yield format_sse_message(data, event=event)
             except queue.Empty:
+                if self._closed:
+                    break
                 # Send keepalive comment to prevent connection timeout
                 yield ": keepalive\n\n"
 

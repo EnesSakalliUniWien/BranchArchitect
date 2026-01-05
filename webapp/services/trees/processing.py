@@ -6,7 +6,6 @@ from logging import Logger
 from typing import List, Optional, Dict, Any, Callable
 
 from flask import current_app
-from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
 from brancharchitect.io import parse_newick
@@ -26,8 +25,9 @@ from webapp.services.trees.frontend_builder import (
 ProgressCallback = Callable[[float, str], None]
 
 
-def handle_uploaded_file(
-    file_storage: FileStorage,
+def handle_tree_content(
+    tree_content: str,
+    filename: str = "uploaded_file",
     msa_content: Optional[str] = None,
     enable_rooting: bool = False,
     window_size: int = 1,
@@ -35,10 +35,13 @@ def handle_uploaded_file(
     progress_callback: Optional[ProgressCallback] = None,
 ) -> Dict[str, Any]:
     """
-    Process an uploaded Newick file and compute visualization data.
+    Process tree content string and compute visualization data.
+
+    This is the thread-safe version that accepts content directly instead of FileStorage.
 
     Args:
-        file_storage: The uploaded tree file.
+        tree_content: The Newick tree content as a string.
+        filename: The original filename for logging.
         msa_content: Optional MSA content for window inference.
         enable_rooting: Whether to enable midpoint rooting.
         window_size: Window size for tree processing.
@@ -53,14 +56,15 @@ def handle_uploaded_file(
         if progress_callback:
             progress_callback(pct, msg)
 
-    filename_value = file_storage.filename or "uploaded_file"
-    filename = secure_filename(filename_value)
+    filename = secure_filename(filename)
     logger: Logger = current_app.logger
     logger.info(f"Processing uploaded file: {filename}")
 
     report(0, "Parsing tree file...")
-    content = file_storage.read().decode("utf-8").strip("\r")
-    parsed_trees: Node | List[Node] = parse_newick(content, treat_zero_as_epsilon=True)
+    content_clean = tree_content.strip("\r")
+    parsed_trees: Node | List[Node] = parse_newick(
+        content_clean, treat_zero_as_epsilon=True
+    )
 
     # Ensure trees is always a list
     trees: List[Node] = (
@@ -84,7 +88,9 @@ def handle_uploaded_file(
     )
 
     pipeline = TreeInterpolationPipeline(config=config)
-    processed_data: InterpolationResult = pipeline.process_trees(trees=trees)
+    result: InterpolationResult = pipeline.process_trees(
+        trees, progress_callback=progress_callback
+    )
 
     report(70, "Processing MSA data...")
 
@@ -101,9 +107,12 @@ def handle_uploaded_file(
 
     report(90, "Building response...")
 
-    return _create_structured_response(
-        processed_data, filename, msa_data, enable_rooting, logger
+    response = _create_structured_response(
+        result, filename, msa_data, enable_rooting, logger
     )
+
+    report(100, "Complete")
+    return response
 
 
 def _create_structured_response(

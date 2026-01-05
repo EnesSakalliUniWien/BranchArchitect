@@ -12,7 +12,7 @@ from flask import Response, Flask
 from flask import Blueprint, current_app, jsonify, request, send_from_directory
 from brancharchitect.io import UUIDEncoder
 from webapp.routes.helpers import parse_tree_data_request
-from webapp.services.trees import handle_uploaded_file
+from webapp.services.trees import handle_tree_content
 from webapp.services.sse import (
     format_sse_message,
     sse_response,
@@ -22,7 +22,6 @@ from webapp.services.sse import (
 from typing import Union, Tuple
 import tempfile
 import os
-from werkzeug.datastructures import FileStorage
 import shutil  # Added for temporary directory cleanup
 from msa_to_trees.pipeline import run_pipeline
 
@@ -88,30 +87,27 @@ def _run_msa_analysis_and_interpolate(
 
         report(60, "Processing generated trees...")
 
-        with open(tree_file_path, "rb") as tree_file_stream:
-            mock_tree_file = FileStorage(
-                stream=tree_file_stream,
-                filename=os.path.basename(tree_file_path),
-                content_type="application/octet-stream",
-            )
+        with open(tree_file_path, "r", encoding="utf-8") as f:
+            tree_content = f.read()
 
-            log.info(
-                "[msa_analysis] Generated tree file from MSA. Running interpolation service."
-            )
+        log.info(
+            "[msa_analysis] Generated tree file from MSA. Running interpolation service."
+        )
 
-            # Create a sub-callback that maps 60-100 range
-            tree_progress_callback = _create_sub_progress_callback(
-                progress_callback, 60, 100
-            )
+        # Create a sub-callback that maps 60-100 range
+        tree_progress_callback = _create_sub_progress_callback(
+            progress_callback, 60, 100
+        )
 
-            return handle_uploaded_file(
-                mock_tree_file,
-                msa_content=msa_content,
-                enable_rooting=enable_rooting,
-                window_size=window_size,
-                window_step=window_step,
-                progress_callback=tree_progress_callback,
-            )
+        return handle_tree_content(
+            tree_content,
+            filename=os.path.basename(tree_file_path),
+            msa_content=msa_content,
+            enable_rooting=enable_rooting,
+            window_size=window_size,
+            window_step=window_step,
+            progress_callback=tree_progress_callback,
+        )
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
         log.info(f"[msa_analysis] Cleaned up temporary directory: {temp_dir}")
@@ -131,7 +127,7 @@ def treedata() -> Union[Response, Tuple[dict[str, Any], int]]:
         req_data = parse_tree_data_request(request)
 
         # --- Handle MSA-only input synchronously so response shape matches tree uploads ---
-        if req_data.tree_file is None:
+        if req_data.tree_content is None:
             if not req_data.msa_content:
                 raise ValueError("Uploaded file 'msaFile' is empty.")
 
@@ -157,14 +153,15 @@ def treedata() -> Union[Response, Tuple[dict[str, Any], int]]:
 
         # --- Existing logic for tree file upload ---
         log.info(
-            f"[treedata] Processing file: {req_data.tree_file.filename}, "
+            f"[treedata] Processing file: {req_data.tree_filename}, "
             f"Rooting: {req_data.enable_rooting}, "
             f"Window: {req_data.window_size}, Step: {req_data.window_step}, "
             f"MSA provided: {req_data.msa_content is not None}"
         )
 
-        response_data: Dict[str, Any] = handle_uploaded_file(
-            req_data.tree_file,
+        response_data: Dict[str, Any] = handle_tree_content(
+            req_data.tree_content,
+            filename=req_data.tree_filename or "uploaded_file",
             msa_content=req_data.msa_content,
             enable_rooting=req_data.enable_rooting,
             window_size=req_data.window_size,
@@ -220,7 +217,7 @@ def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
                     channel.send_progress(0, "Starting processing...")
 
                     # Handle MSA-only input
-                    if req_data.tree_file is None:
+                    if req_data.tree_content is None:
                         if not req_data.msa_content:
                             channel.complete(error="Uploaded file 'msaFile' is empty.")
                             return
@@ -234,10 +231,11 @@ def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
                             progress_callback=_make_progress_callback(channel, 10, 90),
                         )
                     else:
-                        # Tree file processing
+                        # Tree file processing (using content string for thread safety)
                         channel.send_progress(10, "Parsing tree file...")
-                        response_data = handle_uploaded_file(
-                            req_data.tree_file,
+                        response_data = handle_tree_content(
+                            req_data.tree_content,
+                            filename=req_data.tree_filename or "uploaded_file",
                             msa_content=req_data.msa_content,
                             enable_rooting=req_data.enable_rooting,
                             window_size=req_data.window_size,
