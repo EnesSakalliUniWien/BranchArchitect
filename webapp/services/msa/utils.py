@@ -1,14 +1,27 @@
-"""Simplified MSA utilities - only what's needed for tree processing."""
+"""
+Simplified MSA utilities - only what's needed for tree processing.
+"""
 
 import re
-from typing import Optional, Dict, Any
-from logging import Logger
 from io import StringIO
+from logging import Logger
+from typing import Any, Dict, Optional
+
 import skbio
 
 
 def get_alignment_length(msa_content: str) -> Optional[int]:
-    """Extract alignment length from MSA content."""
+    """
+    Extract alignment length from MSA content.
+
+    Supports FASTA, PHYLIP, and Clustal formats.
+
+    Args:
+        msa_content: Raw MSA content as string.
+
+    Returns:
+        Alignment length if parseable, None otherwise.
+    """
     if not msa_content:
         return None
 
@@ -68,11 +81,19 @@ class WindowParameters:
 
 
 def infer_window_parameters(num_trees: int, alignment_length: int) -> WindowParameters:
-    """Infer sliding window parameters from tree count and alignment length."""
+    """
+    Infer sliding window parameters from tree count and alignment length.
+
+    Args:
+        num_trees: Number of trees in the dataset.
+        alignment_length: Length of the MSA alignment.
+
+    Returns:
+        WindowParameters with inferred values.
+    """
     if num_trees <= 1:
         return WindowParameters(alignment_length, alignment_length)
 
-    # Simple calculation
     window_size = max(1, alignment_length // num_trees)
     step_size = max(1, alignment_length // num_trees)
 
@@ -80,9 +101,17 @@ def infer_window_parameters(num_trees: int, alignment_length: int) -> WindowPara
 
 
 def msa_to_dict(msa_content: str) -> Dict[str, str]:
-    """Parse MSA content (FASTA) into a dictionary."""
+    """
+    Parse MSA content (FASTA) into a dictionary.
+
+    Args:
+        msa_content: Raw MSA content in FASTA format.
+
+    Returns:
+        Dictionary mapping sequence IDs to sequences.
+    """
     try:
-        msa = skbio.io.read(StringIO(msa_content), format="fasta")  # type: ignore[reportUnknownMemberType]
+        msa = skbio.io.read(StringIO(msa_content), format="fasta")  # type: ignore
         return {seq.metadata["id"]: str(seq) for seq in msa}  # type: ignore
     except Exception:
         return {}
@@ -103,6 +132,16 @@ def process_msa_data(
       alignment length and number of trees (when MSA is provided and parsable).
     - Otherwise, echo back the provided window_size/step_size as the effective
       values so the API response reflects user input.
+
+    Args:
+        msa_content: Raw MSA content (optional).
+        num_trees: Number of trees in the dataset.
+        window_size: User-provided window size.
+        step_size: User-provided step size.
+        logger: Optional logger for debug output.
+
+    Returns:
+        Dictionary with inferred parameters and parsed MSA data.
     """
     # If no MSA provided, still surface the provided parameters
     if not msa_content:
@@ -118,7 +157,6 @@ def process_msa_data(
     if not alignment_length:
         if logger:
             logger.warning("Could not determine alignment length from MSA content")
-        # Fall back to provided parameters when alignment length can't be parsed
         return {
             "inferred_window_size": window_size,
             "inferred_step_size": step_size,

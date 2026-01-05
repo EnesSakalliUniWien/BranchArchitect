@@ -1,6 +1,8 @@
-"""Serialization utilities for converting Partition objects to JSON-serializable formats."""
+"""
+Serialization utilities for converting Partition objects to JSON-serializable formats.
+"""
 
-from typing import Dict, Any, Optional, List, TYPE_CHECKING, cast
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from brancharchitect.elements.partition import Partition
@@ -9,13 +11,14 @@ if TYPE_CHECKING:
 def serialize_partition_to_indices(
     partition: Optional["Partition"],
 ) -> Optional[List[int]]:
-    """Convert a Partition object to its indices list for JSON serialization.
+    """
+    Convert a Partition object to its indices list for JSON serialization.
 
     Args:
-        partition: A Partition object or None
+        partition: A Partition object or None.
 
     Returns:
-        List of indices if partition is not None, otherwise None
+        List of indices if partition is not None, otherwise None.
     """
     return list(partition.indices) if partition is not None else None
 
@@ -23,26 +26,24 @@ def serialize_partition_to_indices(
 def serialize_partition_dict_to_indices(
     partition_dict: Dict[Any, Any],
 ) -> Dict[str, Any]:
-    """Convert a dictionary with Partition keys to index-based keys.
+    """
+    Convert a dictionary with Partition keys to index-based keys.
 
     Args:
-        partition_dict: Dictionary with Partition objects as keys
+        partition_dict: Dictionary with Partition objects as keys.
 
     Returns:
-        Dictionary with string keys representing serialized Partition indices
+        Dictionary with string keys representing serialized Partition indices.
     """
 
     def _serialize_value(val: Any) -> Any:
         # Partition-like objects: have 'indices'
         if hasattr(val, "indices"):
-            return serialize_partition_to_indices(val)  # -> List[int]
+            return serialize_partition_to_indices(val)
         # Lists or other iterables of partitions
         if isinstance(val, list):
             val_list = cast(List[Any], val)
-            out: List[Any] = []
-            for item in val_list:
-                out.append(_serialize_value(item))
-            return out
+            return [_serialize_value(item) for item in val_list]
         # Nested dicts: recursively serialize keys and values
         if isinstance(val, dict):
             return serialize_partition_dict_to_indices(cast(Dict[Any, Any], val))

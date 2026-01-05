@@ -1,32 +1,36 @@
 """
 Builds the frontend-specific data structures from the backend processing result.
 
-This module is responsible for transforming the raw, JSON-serializable output from
-the `TreeInterpolationPipeline` into the exact format required by the frontend UI.
-It decouples the complex UI-specific data construction from the core `MovieData`
-data class.
+This module transforms the raw output from TreeInterpolationPipeline into
+the exact format required by the frontend UI.
 
 Key Responsibilities:
 - Serialize rich Python objects (like Partitions) into simple JSON types.
-- Derive UI-specific data structures like `pivot_edge_tracking` and `split_change_timeline`.
+- Derive UI-specific data structures like pivot_edge_tracking and split_change_timeline.
 - Assemble the final, flat dictionary that will be sent as the API response.
 """
 
 from __future__ import annotations
 
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
+from brancharchitect.io import serialize_tree_list_to_json
 from brancharchitect.movie_pipeline.types import (
     InterpolationResult,
     TreeMetadata as TreeMetadataType,
     TreePairSolution,
 )
-from brancharchitect.io import serialize_tree_list_to_json
-from .serialization_utils import (
-    serialize_partition_to_indices,
+
+from webapp.services.serialization import (
     serialize_partition_dict_to_indices,
+    serialize_partition_to_indices,
 )
-from .movie_data import MovieData
+from webapp.services.trees.movie_data import MovieData
+
+
+# =============================================================================
+# Main Entry Points
+# =============================================================================
 
 
 def build_movie_data_from_result(
@@ -106,6 +110,30 @@ def assemble_frontend_dict(movie_data: MovieData) -> Dict[str, Any]:
     }
 
 
+def create_empty_movie_data(filename: str) -> MovieData:
+    """Create empty MovieData for failed processing scenarios."""
+    return MovieData(
+        interpolated_trees=[],
+        tree_metadata=[],
+        rfd_list=[],
+        weighted_robinson_foulds_distance_list=[],
+        sorted_leaves=[],
+        tree_pair_solutions={},
+        pivot_edge_tracking=[],
+        subtree_tracking=[],
+        file_name=filename,
+        window_size=1,
+        window_step_size=1,
+        msa_dict=None,
+        pair_interpolation_ranges=[],
+    )
+
+
+# =============================================================================
+# Pivot Edge Tracking
+# =============================================================================
+
+
 def _derive_pivot_edge_tracking_from_events(
     processed_tree_metadata: List[TreeMetadataType],
     events_by_pair: Dict[str, List[Dict[str, Any]]],
@@ -113,6 +141,7 @@ def _derive_pivot_edge_tracking_from_events(
     """Derive per-tree pivot edge tracking aligned to metadata indices."""
     tracking: List[Optional[List[int]]] = [None for _ in processed_tree_metadata]
     first_global_for_pair: Dict[str, int] = {}
+
     for idx, meta in enumerate(processed_tree_metadata):
         pair_key = meta.get("tree_pair_key")
         step = meta.get("step_in_pair")
@@ -132,7 +161,13 @@ def _derive_pivot_edge_tracking_from_events(
                 idx = start_global + local_step
                 if 0 <= idx < len(tracking):
                     tracking[idx] = split
+
     return tracking
+
+
+# =============================================================================
+# Split Change Events
+# =============================================================================
 
 
 def _extract_split_change_events_from_solutions(
@@ -140,6 +175,7 @@ def _extract_split_change_events_from_solutions(
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Extract and serialize split_change_events per pair."""
     events: Dict[str, List[Dict[str, Any]]] = {}
+
     for pair_key, solution in tree_pair_solutions.items():
         pair_events = solution.get("split_change_events", [])
         serialized_events: List[Dict[str, Any]] = []
@@ -151,7 +187,13 @@ def _extract_split_change_events_from_solutions(
                 }
             )
         events[pair_key] = serialized_events
+
     return events
+
+
+# =============================================================================
+# Timeline Building
+# =============================================================================
 
 
 def _build_split_change_timeline(
@@ -171,6 +213,7 @@ def _build_split_change_timeline(
             events = per_pair_events.get(pair_key, [])
             start_global = first_global_for_pair.get(pair_key)
             _append_pair_events(timeline, pair_key, events, start_global)
+
     return timeline
 
 
@@ -181,6 +224,7 @@ def _index_timeline_anchors(
     first_global_for_pair: Dict[str, int] = {}
     originals: Dict[int, Dict[str, Any]] = {}
     orig_counter = 0
+
     for idx, meta in enumerate(tree_metadata):
         pair_key = meta.get("tree_pair_key")
         step = meta.get("step_in_pair")
@@ -192,6 +236,7 @@ def _index_timeline_anchors(
                 "name": "",
             }
             orig_counter += 1
+
     return first_global_for_pair, originals
 
 
@@ -238,21 +283,26 @@ def _append_pair_events(
         )
 
 
+# =============================================================================
+# Serialization Helpers
+# =============================================================================
+
+
 def _serialize_tree_pair_solutions(
     tree_pair_solutions: Dict[str, TreePairSolution],
 ) -> Dict[str, Dict[str, Any]]:
     """Convert TreePairSolution objects to a JSON-serializable dict."""
     serialized: Dict[str, Dict[str, Any]] = {}
+
     for pair_key, solution in tree_pair_solutions.items():
         # Preserve the historical nesting shape for the frontend:
         # pivot -> [solutions] (a single list wrapper around the flat list).
-        raw_js = solution[
-            "jumping_subtree_solutions"
-        ]  # Dict[Partition, List[Partition]]
+        raw_js = solution["jumping_subtree_solutions"]
         wrapped_js = {pivot: [parts] for pivot, parts in raw_js.items()}
 
         dest_map = solution.get("solution_to_destination_map", {})
         src_map = solution.get("solution_to_source_map", {})
+
         item: Dict[str, Any] = {
             "jumping_subtree_solutions": serialize_partition_dict_to_indices(
                 wrapped_js
@@ -262,6 +312,7 @@ def _serialize_tree_pair_solutions(
             ),
             "solution_to_source_map": serialize_partition_dict_to_indices(src_map),
         }
+
         if "split_change_events" in solution:
             events_ser: List[Dict[str, Any]] = []
             for ev in solution["split_change_events"]:
@@ -272,27 +323,10 @@ def _serialize_tree_pair_solutions(
                     }
                 )
             item["split_change_events"] = events_ser
+
         serialized[pair_key] = item
+
     return serialized
-
-
-def create_empty_movie_data(filename: str) -> MovieData:
-    """Create empty MovieData for failed processing scenarios."""
-    return MovieData(
-        interpolated_trees=[],
-        tree_metadata=[],
-        rfd_list=[],
-        weighted_robinson_foulds_distance_list=[],
-        sorted_leaves=[],
-        tree_pair_solutions={},
-        pivot_edge_tracking=[],
-        subtree_tracking=[],
-        file_name=filename,
-        window_size=1,
-        window_step_size=1,
-        msa_dict=None,
-        pair_interpolation_ranges=[],
-    )
 
 
 def _process_tree_metadata(
@@ -300,6 +334,7 @@ def _process_tree_metadata(
 ) -> List[TreeMetadataType]:
     """Process tree metadata to ensure JSON serialization."""
     processed_metadata: List[TreeMetadataType] = []
+
     for meta in tree_metadata:
         processed_metadata.append(
             TreeMetadataType(
@@ -308,4 +343,5 @@ def _process_tree_metadata(
                 source_tree_global_index=meta.get("source_tree_global_index"),
             )
         )
+
     return processed_metadata

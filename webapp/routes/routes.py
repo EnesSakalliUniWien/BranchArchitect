@@ -6,12 +6,17 @@ from __future__ import annotations
 from logging import Logger
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Generator
 from flask import Response
 from flask import Blueprint, current_app, jsonify, request, send_from_directory
 from brancharchitect.io import UUIDEncoder
 from webapp.routes.helpers import parse_tree_data_request
-from webapp.services.tree_processing_service import handle_uploaded_file
+from webapp.services.trees import handle_uploaded_file
+from webapp.services.sse import (
+    format_sse_message,
+    sse_response,
+    channels,
+)
 from typing import Union, Tuple
 import tempfile
 import os
@@ -189,3 +194,62 @@ def _fail(status_code: int, message: str) -> dict[str, Any]:
         "error": message,
         "status": status_code,
     }
+
+
+# ----------------------------------------------------------------------
+# SSE Streaming Endpoints
+# ----------------------------------------------------------------------
+
+
+@bp.route("/stream/progress/<channel_id>")
+def stream_progress(channel_id: str) -> Response:
+    """
+    SSE endpoint to stream progress updates for a processing task.
+
+    Connect to this endpoint after initiating a task that returns a channel_id.
+    The stream will emit events: 'progress', 'log', 'error', 'complete'.
+
+    Example client usage (JavaScript):
+        const eventSource = new EventSource(`/stream/progress/${channelId}`);
+        eventSource.addEventListener('progress', (e) => {
+            const data = JSON.parse(e.data);
+            console.log(`Progress: ${data.percent}%`);
+        });
+        eventSource.addEventListener('complete', (e) => {
+            eventSource.close();
+        });
+    """
+    log: Logger = current_app.logger
+    channel = channels.get(channel_id)
+
+    if channel is None:
+        log.warning(f"[stream] Channel not found: {channel_id}")
+        return Response(
+            format_sse_message({"error": "Channel not found"}, event="error"),
+            mimetype="text/event-stream",
+            status=404,
+        )
+
+    log.info(f"[stream] Client connected to channel: {channel_id}")
+    return sse_response(channel.stream())
+
+
+@bp.route("/stream/test")
+def stream_test() -> Response:
+    """
+    Test SSE endpoint that streams numbered messages.
+
+    Useful for verifying SSE connectivity.
+    """
+    import time
+
+    def generate() -> Generator[str, None, None]:
+        for i in range(10):
+            yield format_sse_message(
+                {"count": i + 1, "message": f"Test message {i + 1}"},
+                event="test",
+            )
+            time.sleep(0.5)
+        yield format_sse_message({"status": "complete"}, event="complete")
+
+    return sse_response(generate())

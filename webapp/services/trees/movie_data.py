@@ -1,7 +1,10 @@
-"""Movie data class for serializing backend responses to frontend format."""
+"""
+Movie data class for serializing backend responses to frontend format.
+"""
 
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 from brancharchitect.movie_pipeline.types import (
     TreeMetadata as TreeMetadataType,
     TreePairSolution,
@@ -13,9 +16,8 @@ class MovieData:
     """
     Pure data class that holds the final, frontend-ready tree processing results.
 
-    This class is now a pure data container with no dependencies on other modules.
-    All construction and conversion logic has been moved to frontend_data_builder.py
-    to eliminate circular imports.
+    This class is a pure data container with no dependencies on other modules.
+    All construction and conversion logic is in frontend_builder.py.
     """
 
     # Core tree data

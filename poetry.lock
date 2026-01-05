@@ -1123,14 +1123,14 @@ zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
 name = "hypothesis"
-version = "6.148.8"
+version = "6.149.0"
 description = "The property-based testing library for Python"
 optional = false
 python-versions = ">=3.10"
-groups = ["test"]
+groups = ["dev", "test"]
 files = [
-    {file = "hypothesis-6.148.8-py3-none-any.whl", hash = "sha256:c1842f47f974d74661b3779a26032f8b91bc1eb30d84741714d3712d7f43e85e"},
-    {file = "hypothesis-6.148.8.tar.gz", hash = "sha256:fa6b2ae029bc02f9d2d6c2257b0cbf2dc3782362457d2027a038ad7f4209c385"},
+    {file = "hypothesis-6.149.0-py3-none-any.whl", hash = "sha256:96420e306421741be4eea4f32bfc7a13360d73400b2e886a5d5e3668a2337a05"},
+    {file = "hypothesis-6.149.0.tar.gz", hash = "sha256:27afa07824fbb7785369dfae8e2574ec2ae0b1bdce50f3a327dfc069b79b0a44"},
 ]
 
 [package.dependencies]
@@ -4064,7 +4064,7 @@ version = "2.4.0"
 description = "Sorted Containers -- Sorted List, Sorted Dict, Sorted Set"
 optional = false
 python-versions = "*"
-groups = ["test"]
+groups = ["dev", "test"]
 files = [
     {file = "sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0"},
     {file = "sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88"},
@@ -4577,4 +4577,4 @@ plotting = ["cairosvg", "pycairo"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "57febf6b35123953cb3879322022d0ae5d6d6abebae53a78a4dd684fa3795fbf"
+content-hash = "f94d03ca34106db76ae419c4de356354220cf1bda46c849fc238aa669d9aacdb"

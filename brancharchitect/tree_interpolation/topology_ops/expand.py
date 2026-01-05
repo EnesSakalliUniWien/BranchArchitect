@@ -290,41 +290,46 @@ def execute_expand_path_fast(
             # Get node's bitmask
             node_bitmask = node.split_indices.bitmask
 
-            # Check if split is proper subset: (A & B) == A and A != B
-            if (
-                split_bitmask & node_bitmask
-            ) == split_bitmask and split_bitmask != node_bitmask:
-                # Partition children using bitmask operations
-                remaining_children: list[Node] = []
-                reassigned_children: list[Node] = []
+            # Check if split is proper subset: (A & B) == A
+            # If not a subset, this branch cannot contain the split
+            if (split_bitmask & node_bitmask) != split_bitmask:
+                continue
 
-                for child in node.children:
-                    child_bitmask = child.split_indices.bitmask
-                    # Child is subset of split: (child & split) == child
-                    if (child_bitmask & split_bitmask) == child_bitmask:
-                        reassigned_children.append(child)
-                    else:
-                        remaining_children.append(child)
+            # If split is equal to node, it's already present
+            if split_bitmask == node_bitmask:
+                continue
 
-                # Create new node if multiple children to reassign
-                if len(reassigned_children) > 1:
-                    new_node = Node(
-                        name="",
-                        split_indices=split,
-                        children=reassigned_children,
-                        length=0,
-                        taxa_encoding=node.taxa_encoding,
-                    )
-                    node.children = remaining_children
-                    node.children.append(new_node)
+            # Partition children using bitmask operations
+            remaining_children: list[Node] = []
+            reassigned_children: list[Node] = []
 
-                    # Track for weight application
-                    applied_nodes[split_bitmask] = new_node
-                    existing_bitmasks.add(split_bitmask)
-                    applied_any = True
-                    inserted = True
+            for child in node.children:
+                child_bitmask = child.split_indices.bitmask
+                # Child is subset of split: (child & split) == child
+                if (child_bitmask & split_bitmask) == child_bitmask:
+                    reassigned_children.append(child)
+                else:
+                    remaining_children.append(child)
 
-            if not inserted:
+            # Create new node if multiple children to reassign
+            if len(reassigned_children) > 1:
+                new_node = Node(
+                    name="",
+                    split_indices=split,
+                    children=reassigned_children,
+                    length=0,
+                    taxa_encoding=node.taxa_encoding,
+                )
+                node.children = remaining_children
+                node.children.append(new_node)
+
+                # Track for weight application
+                applied_nodes[split_bitmask] = new_node
+                existing_bitmasks.add(split_bitmask)
+                applied_any = True
+                inserted = True
+            else:
+                # Split must be deeper in the tree
                 work_stack.extend(node.children)
 
     # Rebuild indices ONCE after all splits applied
