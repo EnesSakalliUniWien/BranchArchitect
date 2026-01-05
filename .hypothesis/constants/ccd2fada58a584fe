@@ -1,4 +1,0 @@
-# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree_interpolation/subtree_paths/planning/ownership_tracker.py
-# hypothesis_version: 6.148.8
-
-['shared_resources', 'total_owners', 'total_resources', 'unique_resources']

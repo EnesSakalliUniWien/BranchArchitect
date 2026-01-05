@@ -1,4 +1,0 @@
-# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/logger/matrix_logger.py
-# hypothesis_version: 6.148.8
-
-['\n\\end{bmatrix}', ' & ', ' \\\\\n', '(', ')', '</div>', '</pre>\n</div>', 'PMatrix', 'RECTANGULAR', 'SQUARE', 'VECTOR', '\\begin{bmatrix}\n', '\\emptyset', '\\left(', '\\right)', '\\{', '\\}', 'asymmetric', 'reverse', 'right', '{', '}', '∅']

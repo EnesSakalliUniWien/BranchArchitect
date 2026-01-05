@@ -48,23 +48,17 @@ class ProgressChannel:
 
     def send_progress(
         self,
-        current: int,
-        total: int,
+        percent: int,
         message: Optional[str] = None,
     ) -> None:
         """
         Send a structured progress update.
 
         Args:
-            current: Current step number.
-            total: Total number of steps.
+            percent: Progress percentage (0-100).
             message: Optional status message.
         """
-        data = {
-            "current": current,
-            "total": total,
-            "percent": round(100 * current / total, 1) if total > 0 else 0,
-        }
+        data: Dict[str, Any] = {"percent": percent}
         if message:
             data["message"] = message
         self.send(data, event="progress")
@@ -83,14 +77,22 @@ class ProgressChannel:
         """Send an error message."""
         self.send({"error": error}, event="error")
 
-    def complete(self, result: Any = None) -> None:
+    def complete(
+        self,
+        data: Any = None,
+        error: Optional[str] = None,
+    ) -> None:
         """
         Mark the channel as complete.
 
         Args:
-            result: Optional result data to include in the complete event.
+            data: Optional result data to include in the complete event.
+            error: Optional error message if processing failed.
         """
-        self.send({"result": result}, event="complete")
+        if error:
+            self.send({"error": error}, event="complete")
+        else:
+            self.send({"data": data}, event="complete")
         self._closed = True
         self._queue.put(None)  # Sentinel to stop iteration
 
@@ -176,7 +178,7 @@ class ChannelRegistry:
             Number of channels removed.
         """
         with self._lock:
-            closed = [cid for cid, ch in self._channels.items() if ch._closed]
+            closed = [cid for cid, ch in self._channels.items() if ch.is_closed]
             for cid in closed:
                 del self._channels[cid]
             return len(closed)

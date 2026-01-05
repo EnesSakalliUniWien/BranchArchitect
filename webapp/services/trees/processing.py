@@ -3,7 +3,7 @@ Core tree processing functionality.
 """
 
 from logging import Logger
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
 
 from flask import current_app
 from werkzeug.datastructures import FileStorage
@@ -22,6 +22,9 @@ from webapp.services.trees.frontend_builder import (
     create_empty_movie_data,
 )
 
+# Type alias for progress callback
+ProgressCallback = Callable[[float, str], None]
+
 
 def handle_uploaded_file(
     file_storage: FileStorage,
@@ -29,6 +32,7 @@ def handle_uploaded_file(
     enable_rooting: bool = False,
     window_size: int = 1,
     window_step: int = 1,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> Dict[str, Any]:
     """
     Process an uploaded Newick file and compute visualization data.
@@ -39,15 +43,22 @@ def handle_uploaded_file(
         enable_rooting: Whether to enable midpoint rooting.
         window_size: Window size for tree processing.
         window_step: Window step size for tree processing.
+        progress_callback: Optional callback for progress updates (0-100, message).
 
     Returns:
         Dictionary containing all data needed for front-end visualization.
     """
+
+    def report(pct: float, msg: str) -> None:
+        if progress_callback:
+            progress_callback(pct, msg)
+
     filename_value = file_storage.filename or "uploaded_file"
     filename = secure_filename(filename_value)
     logger: Logger = current_app.logger
     logger.info(f"Processing uploaded file: {filename}")
 
+    report(0, "Parsing tree file...")
     content = file_storage.read().decode("utf-8").strip("\r")
     parsed_trees: Node | List[Node] = parse_newick(content, treat_zero_as_epsilon=True)
 
@@ -61,6 +72,7 @@ def handle_uploaded_file(
         return _create_empty_response(filename)
 
     logger.info(f"Successfully parsed {len(trees)} trees")
+    report(20, f"Parsed {len(trees)} trees, computing interpolation...")
 
     # Process trees through the pipeline
     config = PipelineConfig(
@@ -74,6 +86,8 @@ def handle_uploaded_file(
     pipeline = TreeInterpolationPipeline(config=config)
     processed_data: InterpolationResult = pipeline.process_trees(trees=trees)
 
+    report(70, "Processing MSA data...")
+
     # Process MSA data if available
     from webapp.services.msa import process_msa_data
 
@@ -84,6 +98,8 @@ def handle_uploaded_file(
         window_size=window_size,
         step_size=window_step,
     )
+
+    report(90, "Building response...")
 
     return _create_structured_response(
         processed_data, filename, msa_data, enable_rooting, logger

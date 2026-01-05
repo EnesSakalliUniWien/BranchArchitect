@@ -1,4 +1,0 @@
-# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/plot/rectangular_tree.py
-# hypothesis_version: 6.148.8
-
-[0.0, 1e-09, 0.15, 0.4, 0.5, 0.8, 2.0, 200, 400, 600, 800, '#999999', '#aaaaaa', '0.6', '0.7', '1.5', '2', '4,4', 'No trees provided.', 'branch_end', 'children', 'children_coords', 'class', 'connections', 'connector_end', 'curve_height', 'd', 'dominant-baseline', 'end', 'fill', 'font-family', 'font-size', 'g', 'horiz', 'is_internal', 'label', 'label-connections', 'left_coords', 'left_x', 'left_y', 'line', 'mid_x', 'middle', 'node', 'node_id', 'none', 'path', 'red', 'right_coords', 'right_x', 'right_y', 'start', 'stroke', 'stroke-dasharray', 'stroke-opacity', 'stroke-width', 'text', 'text-anchor', 'text_anchor', 'transform', 'utf8', 'vert', 'vertical_spacing', 'x', 'x1', 'x2', 'y', 'y1', 'y2']

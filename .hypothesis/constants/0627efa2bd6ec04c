@@ -1,4 +1,0 @@
-# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/logger/tree_logger.py
-# hypothesis_version: 6.148.8
-
-[' col-hidden', ' | ', '-', '.combined-content {', '</tbody>\n</table>\n', '</tr>\n', '</tr></thead>\n', '<table>\n', '<tbody>\n', '<thead><tr>\n', '<tr>\n', 'Edge Split', 'L Atoms', 'L Common Cover', 'L Unique Min', 'Lattice Edge Tables', 'Newick Strings', 'R Atoms', 'R Common Cover', 'R Unique Min', 'Tree Comparison', 'active', 'common', 'common_first', 'diff_first', 'different', 'html', 'indices', 'left_indices', 'left_taxa', 'match', 'mismatch', 'pivot_split', 'right_indices', 'right_taxa', 'simple', 'size', 'split', 't1_common_covers', 't1_node', 't2_common_covers', 't2_node', 'taxa', 'tree1_node', 'tree2_node', '✓', '✗']

@@ -3,32 +3,16 @@ Partial ordering strategy for subtree interpolation.
 
 This module provides functions to reorder trees during interpolation by focusing
 on local subtree contexts to minimize visual disruption.
-
-Key Algorithm: Anchor-Based Bucket Placement
----------------------------------------------
-When moving a subtree (the "mover") to its destination position:
-1. Identify "anchors" - stable taxa that define the skeleton structure
-2. Compute anchor ranks in the destination (which anchor slot each mover goes to)
-3. Place movers into buckets based on their destination anchor rank
-4. Reconstruct the order: [bucket_0, anchor_0, bucket_1, anchor_1, ..., bucket_n]
-
-This preserves anchor ordering while moving the mover subtree to its correct slot.
 """
 
 from __future__ import annotations
-
 import logging
-from typing import List, Optional, Set
+from typing import List, Optional
 
-from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
+from brancharchitect.elements.partition import Partition
 
 logger = logging.getLogger(__name__)
-
-
-# =============================================================================
-# Main Reordering Function
-# =============================================================================
 
 
 def reorder_tree_toward_destination(
@@ -36,262 +20,196 @@ def reorder_tree_toward_destination(
     destination_tree: Node,
     current_pivot_edge: Partition,
     moving_subtree_partition: Partition,
-    unstable_taxa: Optional[Set[str]] = None,
-    copy: bool = True,
+    unstable_taxa: Optional[set[str]] = None,
+    copy: bool = True,  # whether to copy the tree first
 ) -> Node:
     """
-    Reorder a subtree by placing a moving block at its destination position.
-
-    This function uses anchor-based bucket placement:
-    - Anchors (stable taxa) define the skeleton in destination order
-    - The moving subtree is placed into the correct bucket (slot between anchors)
-    - Other unstable taxa preserve their source positions
+    Reorders a subtree by moving a specific jumping-taxa block to its
+    correct position relative to stable anchor taxa.
 
     Args:
-        source_tree: The tree to reorder.
-        destination_tree: The target tree defining destination positions.
-        current_pivot_edge: The pivot edge partition (defines the subtree scope).
-        moving_subtree_partition: The partition of the subtree being moved.
-        unstable_taxa: Taxa still moving in parallel steps (not used as anchors).
-        copy: If True, return a copy; if False, modify in place.
-
-    Returns:
-        The reordered tree (copy or modified original).
-
-    Raises:
-        ValueError: If source and destination have different leaf sets under pivot.
+        source_tree: The source tree to reorder
+        destination_tree: The destination tree to match
+        current_pivot_edge: The pivot edge partition
+        moving_subtree_partition: The partition of the moving subtree
+        unstable_taxa: Optional set of taxa that are moving in this or parallel steps.
+                       These should NOT be used as anchors.
+        copy: If True, copy the tree first. If False, modify in place.
     """
-    # --- Step 0: Locate subtrees under pivot edge ---
     source_subtree = source_tree.find_node_by_split(current_pivot_edge)
     dest_subtree = destination_tree.find_node_by_split(current_pivot_edge)
 
     if source_subtree is None or dest_subtree is None:
-        logger.warning("Pivot edge not found in one of the trees; skipping reordering.")
-        return source_tree
+        logger.warning(
+            "Active split not found in one of the trees; skipping reordering."
+        )
+        return source_tree  # No modification needed, return original
 
-    # --- Step 1: Extract current and target leaf orders ---
     source_order = list(source_subtree.get_current_order())
     destination_order = list(dest_subtree.get_current_order())
-    mover_taxa = set(moving_subtree_partition.taxa)
+    mover_leaves = set(moving_subtree_partition.taxa)
 
-    # Early exit: nothing to move
-    if not mover_taxa:
-        return source_tree
+    # If no movers, keep subtree stable.
+    if not mover_leaves:
+        return source_tree  # No modification needed, return original
 
-    # Validate leaf sets match
+    # Validate leaf-set/encoding compatibility under the active edge
     if set(source_order) != set(destination_order):
         raise ValueError(
-            "Leaf set mismatch between source and destination under pivot edge"
+            "Encoding mismatch between source and destination under pivot edge: "
+            "leaf sets differ"
         )
 
-    # Validate movers exist in source
-    if not mover_taxa.issubset(set(source_order)):
-        logger.warning("Moving taxa not found in source order; skipping reordering.")
-        return source_tree
+    # If jumping-taxa leaves aren't in the source order, something is wrong.
+    if not mover_leaves.issubset(set(source_order)):
+        logger.warning("Jumping taxa leaves not in source order; skipping reordering.")
+        return source_tree  # No modification needed, return original
 
-    logger.info(f"Reordering for mover {mover_taxa}")
+    logger.info(f"Reordering for mover {mover_leaves}")
     logger.info(f"Source Order: {source_order}")
     logger.info(f"Destination Order: {destination_order}")
 
-    # --- Step 2: Classify taxa ---
-    all_unstable_taxa = mover_taxa | (unstable_taxa or set())
-    other_unstable_taxa = all_unstable_taxa - mover_taxa
+    # Identify all unstable taxa (current movers + other simultaneous movers)
+    all_unstable = mover_leaves
+    if unstable_taxa:
+        all_unstable = all_unstable | unstable_taxa
 
-    # Anchors: stable taxa in DESTINATION order (defines the skeleton)
-    anchors = [t for t in destination_order if t not in all_unstable_taxa]
-    anchor_set = set(anchors)
+    # Other movers = unstable taxa that are NOT the current mover
+    # We must preserve their relative positions in source
+    other_movers = all_unstable - mover_leaves
 
-    # Movers in their source order (preserves internal ordering)
-    movers_in_source_order = [t for t in source_order if t in mover_taxa]
+    # 1. Isolate anchors (non-moving, stable taxa) from SOURCE and preserve their order
+    source_anchors = [taxon for taxon in source_order if taxon not in all_unstable]
+    movers_in_source = [taxon for taxon in source_order if taxon in mover_leaves]
 
-    # --- Step 3: Compute new order using bucket placement ---
-    if not anchors:
-        # Edge case: no anchors means all taxa are unstable
-        # Use destination order for current movers
-        new_order = [t for t in destination_order if t in mover_taxa]
+    # Quick optimization: if no anchors, just return the destination order for movers
+    # (though typically we assume full leaf set match under pivot)
+    if not source_anchors:
+        # Just match destination order for these leaves
+        new_order = [t for t in destination_order if t in mover_leaves]
+        # Or just return destination order if sets match?
+        # But we must respect the function contract.
+        # Fallback to source relative order if no anchors?
         if not new_order:
-            new_order = movers_in_source_order
-    else:
-        new_order = _compute_bucket_order(
-            anchors=anchors,
-            anchor_set=anchor_set,
-            movers=movers_in_source_order,
-            mover_taxa=mover_taxa,
-            other_unstable=other_unstable_taxa,
-            source_order=source_order,
-            destination_order=destination_order,
-        )
+            new_order = movers_in_source
 
-    # --- Step 4: Apply if changed ---
+        # If there are other movers but no anchors, we might need a fallback strategy.
+        # For now, simplistic approach: append others after?
+        # Ideally this case (no anchors at all) is rare in local pivots unless root.
+    else:
+        # 2. Determine the "Anchor Rank" for each mover based on DESTINATION
+        # Rank k means "after k-th anchor" (0-indexed).
+        # Rank 0: before first anchor. Rank len(anchors): after last anchor.
+
+        anchor_set = set(source_anchors)
+
+        # Map other movers to their SOURCE ranks (to preserve stability)
+        other_mover_source_ranks = {}
+        source_rank = 0
+        for taxon in source_order:
+            if taxon in anchor_set:
+                source_rank += 1
+            elif taxon in other_movers:
+                other_mover_source_ranks[taxon] = source_rank
+
+        # Buckets to hold movers for each slot.
+        # buckets[i] holds movers that go immediately BEFORE anchor i.
+        # buckets[len(source_anchors)] holds movers that go AFTER the last anchor.
+        buckets: List[List[str]] = [[] for _ in range(len(source_anchors) + 1)]
+
+        # Destination scan map for CURRENT MOVER only:
+        # map each taxon in destination to "number of source-anchors seen so far"
+        dest_anchor_rank_map = {}
+        current_rank = 0
+        for taxon in destination_order:
+            if taxon in anchor_set:
+                current_rank += 1
+            elif taxon in mover_leaves:
+                dest_anchor_rank_map[taxon] = current_rank
+
+        # Fill buckets with CURRENT MOVER based on DESTINATION rank
+        for mover in movers_in_source:
+            # If mover not in dest_anchor_rank_map, it's missing from dest?
+            # (Validation above checked set equality, so this shouldn't happen)
+            rank = dest_anchor_rank_map.get(mover, 0)
+            buckets[rank].append(mover)
+            logger.debug(f"Mover {mover} assigned to rank {rank}")
+
+        # Fill buckets with OTHER MOVERS based on SOURCE rank (Preserve Stability)
+        # We iterate source order to maintain relative order among other movers too
+        for taxon in source_order:
+            if taxon in other_movers:
+                rank = other_mover_source_ranks.get(taxon, 0)
+                buckets[rank].append(taxon)
+
+        # 3. Reconstruct the new order
+        new_order = []
+        for i in range(len(source_anchors)):
+            # Append movers that belong before anchor i
+            new_order.extend(buckets[i])
+            # Append anchor i
+            new_order.append(source_anchors[i])
+
+        # Append remaining movers (after last anchor)
+        new_order.extend(buckets[len(source_anchors)])
+
+    # If reordering does nothing, keep original tree
     if new_order == source_order:
         logger.info("New order identical to source order -> No change.")
-        return source_tree
+        return source_tree  # No change needed, return original
 
     logger.info(f"Applying new order: {new_order}")
 
+    # 4. Apply the new order to the tree (copy if requested).
     new_tree = source_tree.deep_copy() if copy else source_tree
-    subtree_to_reorder = new_tree.find_node_by_split(current_pivot_edge)
+    subtree_node_to_reorder = new_tree.find_node_by_split(current_pivot_edge)
 
-    if subtree_to_reorder:
+    if subtree_node_to_reorder:
         try:
-            subtree_to_reorder.reorder_taxa(new_order)
+            # Apply the reordering to the entire subtree
+            # This uses recursive reorder_taxa to properly order the subtree structure
+            subtree_node_to_reorder.reorder_taxa(new_order)
         except ValueError as e:
-            logger.error(f"Failed to apply reordering: {e}")
-            return source_tree
-
+            logger.error(f"Failed to reorder with 'Move the Block' strategy: {e}")
+            return source_tree  # Return original on failure
     return new_tree
-
-
-# =============================================================================
-# Helper Functions
-# =============================================================================
-
-
-def _compute_bucket_order(
-    anchors: List[str],
-    anchor_set: Set[str],
-    movers: List[str],
-    mover_taxa: Set[str],
-    other_unstable: Set[str],
-    source_order: List[str],
-    destination_order: List[str],
-) -> List[str]:
-    """
-    Compute the new leaf order using anchor-based bucket placement.
-
-    The algorithm:
-    1. Create buckets[0..n] where n = len(anchors)
-       - bucket[i] holds taxa that appear BEFORE anchor[i] in destination
-       - bucket[n] holds taxa that appear AFTER the last anchor
-    2. Place current movers based on their DESTINATION rank
-    3. Place other unstable taxa based on their SOURCE rank (preserve stability)
-    4. Reconstruct: [bucket_0, anchor_0, bucket_1, anchor_1, ..., bucket_n]
-
-    Args:
-        anchors: Stable taxa in destination order (the skeleton).
-        anchor_set: Set of anchor taxa for O(1) lookup.
-        movers: Current moving taxa in source order.
-        mover_taxa: Set of current moving taxa.
-        other_unstable: Other unstable taxa (not current movers).
-        source_order: Current leaf order in source tree.
-        destination_order: Target leaf order in destination tree.
-
-    Returns:
-        The computed new leaf order.
-    """
-    num_buckets = len(anchors) + 1
-    buckets: List[List[str]] = [[] for _ in range(num_buckets)]
-
-    # --- Compute destination ranks for current movers ---
-    # Rank = number of anchors seen before this taxon in destination
-    dest_rank_for_movers = _compute_anchor_ranks(
-        order=destination_order,
-        anchor_set=anchor_set,
-        target_taxa=mover_taxa,
-    )
-
-    # --- Compute source ranks for other unstable taxa ---
-    # These preserve their source positions relative to anchors
-    source_rank_for_others = _compute_anchor_ranks(
-        order=source_order,
-        anchor_set=anchor_set,
-        target_taxa=other_unstable,
-    )
-
-    # --- Fill buckets ---
-    # Current movers go to their DESTINATION rank
-    for taxon in movers:
-        rank = dest_rank_for_movers.get(taxon, 0)
-        buckets[rank].append(taxon)
-        logger.debug(f"Mover '{taxon}' -> bucket {rank}")
-
-    # Other unstable taxa go to their SOURCE rank (preserve stability)
-    for taxon in source_order:
-        if taxon in other_unstable:
-            rank = source_rank_for_others.get(taxon, 0)
-            buckets[rank].append(taxon)
-
-    # --- Reconstruct order ---
-    new_order: List[str] = []
-    for i, anchor in enumerate(anchors):
-        new_order.extend(buckets[i])  # Taxa before this anchor
-        new_order.append(anchor)  # The anchor itself
-    new_order.extend(buckets[len(anchors)])  # Taxa after last anchor
-
-    return new_order
-
-
-def _compute_anchor_ranks(
-    order: List[str],
-    anchor_set: Set[str],
-    target_taxa: Set[str],
-) -> dict[str, int]:
-    """
-    Compute the anchor rank for each target taxon in a given order.
-
-    Anchor rank = number of anchors seen before the taxon.
-    - Rank 0: before first anchor
-    - Rank k: after k-th anchor (0-indexed: after anchors[k-1])
-    - Rank n: after last anchor
-
-    Args:
-        order: The leaf order to scan.
-        anchor_set: Set of anchor taxa.
-        target_taxa: Taxa to compute ranks for.
-
-    Returns:
-        Dict mapping taxon -> anchor rank.
-    """
-    rank_map: dict[str, int] = {}
-    current_rank = 0
-
-    for taxon in order:
-        if taxon in anchor_set:
-            current_rank += 1
-        elif taxon in target_taxa:
-            rank_map[taxon] = current_rank
-
-    return rank_map
-
-
-# =============================================================================
-# Alternative Alignment Strategy
-# =============================================================================
 
 
 def align_to_source_order(
     tree: Node,
     source_order: List[str],
-    moving_taxa: Optional[Set[str]] = None,
+    moving_taxa: Optional[set[str]] = None,
 ) -> None:
     """
-    Align a tree's ordering to match source_order using weighted positioning.
+    Align a tree's ordering to match source_order, prioritizing non-moving taxa.
 
     This function reorders children at each internal node to best match the
-    source_order. Non-moving taxa are weighted heavily to preserve their
-    positions, while moving taxa adapt around them.
+    source_order. Unlike reorder_taxa with MINIMUM strategy, it uses a weighted
+    approach that strongly prioritizes preserving non-moving taxa positions.
 
     Args:
-        tree: The tree to reorder (modified in place).
-        source_order: The target taxa order to match.
-        moving_taxa: Taxa that are moving (weighted lower).
+        tree: The tree to reorder (modified in place)
+        source_order: The target taxa order to match
+        moving_taxa: Optional set of taxa that are moving. If provided,
+                     non-moving taxa positions are weighted higher.
     """
     if moving_taxa is None:
         moving_taxa = set()
 
+    # Build index map: taxon -> position in source_order
     order_index = {name: i for i, name in enumerate(source_order)}
     n = len(source_order)
 
-    # Weight constants
-    MOVER_WEIGHT = 1.0
-    STABLE_WEIGHT = 100.0
-
-    def get_sort_key(node: Node) -> tuple[float, int]:
+    def get_node_sort_key(node: Node) -> tuple[float, int]:
         """
-        Compute sort key based on weighted average of leaf positions.
+        Compute a sort key for a node based on its leaves' positions in source_order.
 
-        Returns:
-            (weighted_average, min_stable_index) for sorting.
+        Strategy: Use weighted average of leaf positions, with non-moving taxa
+        weighted much higher to preserve their positions.
+
+        Returns a tuple (weighted_avg, min_non_mover_idx) for tie-breaking:
+        - Primary: weighted average of positions
+        - Secondary: minimum index among non-moving taxa (or first leaf if all movers)
         """
         leaves = node.get_leaves()
         if not leaves:
@@ -299,40 +217,46 @@ def align_to_source_order(
 
         total_weight = 0.0
         weighted_sum = 0.0
-        min_stable_idx = n
+        min_non_mover_idx = n  # Track minimum index for tie-breaking
 
         for leaf in leaves:
             idx = order_index.get(leaf.name, n)
             if leaf.name in moving_taxa:
-                weight = MOVER_WEIGHT
+                # Moving taxa get low weight - they should adapt
+                weight = 1.0
             else:
-                weight = STABLE_WEIGHT
-                min_stable_idx = min(min_stable_idx, idx)
+                # Non-moving taxa get high weight - they should stay put
+                weight = 100.0
+                min_non_mover_idx = min(min_non_mover_idx, idx)
 
             weighted_sum += idx * weight
             total_weight += weight
 
         weighted_avg = weighted_sum / total_weight if total_weight > 0 else float("inf")
 
-        # Fallback tie-breaker if no stable taxa
-        if min_stable_idx == n and leaves:
-            min_stable_idx = order_index.get(leaves[0].name, n)
+        # If no non-movers, use first leaf index as tie-breaker
+        if min_non_mover_idx == n and leaves:
+            min_non_mover_idx = order_index.get(leaves[0].name, n)
 
-        return (weighted_avg, min_stable_idx)
+        return (weighted_avg, min_non_mover_idx)
 
-    def reorder_recursively(node: Node) -> bool:
-        """Recursively reorder children. Returns True if changed."""
+    def reorder_node(node: Node) -> bool:
+        """Recursively reorder children. Returns True if any change occurred."""
         if not node.children:
             return False
 
-        changed = any(reorder_recursively(child) for child in node.children)
+        changed = False
+        for child in node.children:
+            changed = reorder_node(child) or changed
 
-        sorted_children = sorted(node.children, key=get_sort_key)
+        # Sort children by weighted position
+        sorted_children = sorted(node.children, key=get_node_sort_key)
+
         if sorted_children != node.children:
             node.children = sorted_children
             changed = True
 
         return changed
 
-    if reorder_recursively(tree):
+    if reorder_node(tree):
         tree.invalidate_caches(propagate_up=True)

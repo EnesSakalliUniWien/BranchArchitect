@@ -6,8 +6,9 @@ from __future__ import annotations
 from logging import Logger
 import json
 from pathlib import Path
-from typing import Dict, Any, Generator
-from flask import Response
+import threading
+from typing import Dict, Any, Generator, Optional, Callable
+from flask import Response, Flask
 from flask import Blueprint, current_app, jsonify, request, send_from_directory
 from brancharchitect.io import UUIDEncoder
 from webapp.routes.helpers import parse_tree_data_request
@@ -16,6 +17,7 @@ from webapp.services.sse import (
     format_sse_message,
     sse_response,
     channels,
+    ProgressChannel,
 )
 from typing import Union, Tuple
 import tempfile
@@ -50,13 +52,19 @@ def _run_msa_analysis_and_interpolate(
     window_size: int,
     window_step: int,
     enable_rooting: bool,
+    progress_callback: Optional[Callable[[float, str], None]] = None,
 ) -> Dict[str, Any]:
     """Run the MSA → tree pipeline and return the normal response structure."""
 
     log: Logger = current_app.logger
     temp_dir = tempfile.mkdtemp(prefix="msa-analysis-")
 
+    def report(pct: float, msg: str) -> None:
+        if progress_callback:
+            progress_callback(pct, msg)
+
     try:
+        report(0, "Starting MSA analysis...")
         log.info("[msa_analysis] Starting MSA analysis...")
         msa_path = os.path.join(temp_dir, "input.msa")
         analysis_output_dir = os.path.join(temp_dir, "output")
@@ -64,6 +72,7 @@ def _run_msa_analysis_and_interpolate(
         with open(msa_path, "w") as f:
             f.write(msa_content)
 
+        report(20, "Running tree inference pipeline...")
         log.info("[msa_analysis] Running analysis pipeline...")
         tree_file_path = run_pipeline(
             input_file=msa_path,
@@ -77,6 +86,8 @@ def _run_msa_analysis_and_interpolate(
                 "Analysis script finished but did not produce the expected tree file."
             )
 
+        report(60, "Processing generated trees...")
+
         with open(tree_file_path, "rb") as tree_file_stream:
             mock_tree_file = FileStorage(
                 stream=tree_file_stream,
@@ -88,12 +99,18 @@ def _run_msa_analysis_and_interpolate(
                 "[msa_analysis] Generated tree file from MSA. Running interpolation service."
             )
 
+            # Create a sub-callback that maps 60-100 range
+            tree_progress_callback = _create_sub_progress_callback(
+                progress_callback, 60, 100
+            )
+
             return handle_uploaded_file(
                 mock_tree_file,
                 msa_content=msa_content,
                 enable_rooting=enable_rooting,
                 window_size=window_size,
                 window_step=window_step,
+                progress_callback=tree_progress_callback,
             )
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
@@ -173,6 +190,109 @@ def treedata() -> Union[Response, Tuple[dict[str, Any], int]]:
 
 
 # ----------------------------------------------------------------------
+# Streaming tree processing endpoint
+# ----------------------------------------------------------------------
+
+
+@bp.route("/treedata/stream", methods=["POST"])
+def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
+    """
+    Streaming version of /treedata that returns a channel_id immediately.
+
+    Progress updates are sent via SSE on /stream/progress/<channel_id>.
+    Final result is sent as a 'complete' event with the full response data.
+    """
+    log: Logger = current_app.logger
+    log.info("[treedata/stream] POST /treedata/stream from %s", request.remote_addr)
+
+    try:
+        req_data = parse_tree_data_request(request)
+        channel = channels.create()
+
+        # Capture Flask app for background thread
+        # Use getattr to avoid Pylance warning about protected attribute
+        app: Flask = getattr(current_app, "_get_current_object")()
+
+        def process_in_background() -> None:
+            """Run tree processing in background thread with progress updates."""
+            with app.app_context():
+                try:
+                    channel.send_progress(0, "Starting processing...")
+
+                    # Handle MSA-only input
+                    if req_data.tree_file is None:
+                        if not req_data.msa_content:
+                            channel.complete(error="Uploaded file 'msaFile' is empty.")
+                            return
+
+                        channel.send_progress(10, "Running MSA analysis...")
+                        response_data = _run_msa_analysis_and_interpolate(
+                            msa_content=req_data.msa_content,
+                            window_size=req_data.window_size,
+                            window_step=req_data.window_step,
+                            enable_rooting=req_data.enable_rooting,
+                            progress_callback=_make_progress_callback(channel, 10, 90),
+                        )
+                    else:
+                        # Tree file processing
+                        channel.send_progress(10, "Parsing tree file...")
+                        response_data = handle_uploaded_file(
+                            req_data.tree_file,
+                            msa_content=req_data.msa_content,
+                            enable_rooting=req_data.enable_rooting,
+                            window_size=req_data.window_size,
+                            window_step=req_data.window_step,
+                            progress_callback=_make_progress_callback(channel, 10, 90),
+                        )
+
+                    channel.send_progress(100, "Complete")
+                    channel.complete(data=response_data)
+
+                except Exception as e:
+                    log.error(
+                        "[treedata/stream] Processing error: %s", str(e), exc_info=True
+                    )
+                    channel.complete(error=str(e))
+
+        # Start background processing
+        thread = threading.Thread(target=process_in_background, daemon=True)
+        thread.start()
+
+        return jsonify({"channel_id": channel.channel_id})
+
+    except ValueError as e:
+        log.warning(f"[treedata/stream] Bad request: {e}")
+        return _fail(400, str(e)), 400
+
+    except Exception as e:
+        log.error("[treedata/stream] Exception: %s", str(e), exc_info=True)
+        return _fail(500, str(e)), 500
+
+
+def _make_progress_callback(
+    channel: ProgressChannel, start_pct: int, end_pct: int
+) -> Callable[[float, str], None]:
+    """
+    Create a progress callback that maps 0-100 input to start_pct-end_pct range.
+
+    Args:
+        channel: The progress channel to send updates to.
+        start_pct: Starting percentage (e.g., 10).
+        end_pct: Ending percentage (e.g., 90).
+
+    Returns:
+        Callback function that accepts (progress: float, message: str).
+    """
+
+    def callback(progress: float, message: str = "") -> None:
+        # Map 0-100 to start_pct-end_pct range
+        mapped = start_pct + (progress / 100.0) * (end_pct - start_pct)
+        channel.send_progress(int(mapped), message)
+
+    return callback
+
+
+# ----------------------------------------------------------------------
 # Diagnostic helpers
 # ----------------------------------------------------------------------
 @bp.route("/cause-error")
@@ -194,6 +314,32 @@ def _fail(status_code: int, message: str) -> dict[str, Any]:
         "error": message,
         "status": status_code,
     }
+
+
+def _create_sub_progress_callback(
+    parent_callback: Optional[Callable[[float, str], None]],
+    start_pct: float,
+    end_pct: float,
+) -> Optional[Callable[[float, str], None]]:
+    """
+    Create a sub-progress callback that maps 0-100 to a sub-range.
+
+    Args:
+        parent_callback: The parent callback to delegate to (can be None).
+        start_pct: Starting percentage in parent range.
+        end_pct: Ending percentage in parent range.
+
+    Returns:
+        A callback that maps progress to the sub-range, or None if parent is None.
+    """
+    if parent_callback is None:
+        return None
+
+    def callback(pct: float, msg: str) -> None:
+        mapped = start_pct + (pct / 100.0) * (end_pct - start_pct)
+        parent_callback(mapped, msg)
+
+    return callback
 
 
 # ----------------------------------------------------------------------

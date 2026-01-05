@@ -1,4 +1,0 @@
-# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/jumping_taxa/lattice/frontiers/__init__.py
-# hypothesis_version: 6.148.8
-
-['get_nesting_solution', 'log_pivot_processing']
