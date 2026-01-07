@@ -135,20 +135,14 @@ def _create_structured_response(
     Returns:
         Hierarchical dictionary for API response.
     """
-    # Extract leaf names from the first tree
+    # Extract leaf names using the encoding order to align with split_indices.
     sorted_leaves: List[str] = []
     if result["interpolated_trees"]:
         first_tree = result["interpolated_trees"][0]
-
-        if hasattr(first_tree, "leaves"):
-            sorted_leaves = [leaf.name for leaf in first_tree.leaves]
-        elif hasattr(first_tree, "get_leaves"):
-            sorted_leaves = [leaf.name for leaf in first_tree.get_leaves()]
-        else:
-            logger.warning(
-                f"Unexpected tree type: {type(first_tree)}, using fallback leaf extraction"
-            )
-            sorted_leaves = []
+        encoding = first_tree.taxa_encoding or {}
+        sorted_leaves = [
+            name for _, name in sorted(encoding.items(), key=lambda item: item[1])
+        ]
 
     movie_data = build_movie_data_from_result(
         result=result,

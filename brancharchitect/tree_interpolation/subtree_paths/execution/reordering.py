@@ -128,7 +128,10 @@ def reorder_tree_toward_destination(
                 dest_anchor_rank_map[taxon] = current_rank
 
         # Fill buckets with CURRENT MOVER based on DESTINATION rank
-        for mover in movers_in_source:
+        # We use destination order to ensure that movers in the same bucket
+        # are reordered relative to each other to match the destination.
+        movers_in_dest = [taxon for taxon in destination_order if taxon in mover_leaves]
+        for mover in movers_in_dest:
             # If mover not in dest_anchor_rank_map, it's missing from dest?
             # (Validation above checked set equality, so this shouldn't happen)
             rank = dest_anchor_rank_map.get(mover, 0)

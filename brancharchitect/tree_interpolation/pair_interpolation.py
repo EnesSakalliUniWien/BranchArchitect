@@ -102,16 +102,8 @@ def process_tree_pair_interpolation(
     )
 
     if sequence_trees:
-        try:
-            assert_final_topology_matches(sequence_trees[-1], destination_tree, logger)
-        except ValueError as e:
-            logger.warning(
-                "Topology mismatch detected; appending destination tree as fallback. Details: %s",
-                e,
-            )
-            sequence_trees.append(destination_tree.deep_copy())
-            current_pivot_edge_tracking.append(None)
-            current_subtree_tracking.append(None)
+        # User Request: Throw error on mismatch instead of fallback
+        assert_final_topology_matches(sequence_trees[-1], destination_tree, logger)
 
     # For identical trees (no active edges), ensure destination tree has same ordering as source
     if not ordered_edges:

@@ -63,11 +63,15 @@ class PivotSplitRegistry:
         self.expand_tracker = OwnershipTracker(self.encoding)
 
         # Populate trackers from initial assignments
+        # Use intersection (&) to ensure we only claim splits that are globally valid
+        # This filters out "shared splits" that exist in both trees but appear in local paths
         for subtree, splits in collapse_splits_by_subtree.items():
-            self.collapse_tracker.claim_batch(splits, subtree)
+            valid_splits = splits & all_collapse_splits
+            self.collapse_tracker.claim_batch(valid_splits, subtree)
 
         for subtree, splits in expand_splits_by_subtree.items():
-            self.expand_tracker.claim_batch(splits, subtree)
+            valid_splits = splits & all_expand_splits
+            self.expand_tracker.claim_batch(valid_splits, subtree)
 
         # CRITICAL: Claim any expand split that CONTAINS a subtree's taxa (Parent),
         # AND any split that is a SIBLING (child of a Parent, disjoint from subtree).
@@ -88,8 +92,16 @@ class PivotSplitRegistry:
         # Initialize path group manager for topological ordering
         self._path_group_manager: Optional[PathGroupManager] = None
         if use_path_grouping and expand_splits_by_subtree:
+            # Use COMPREHENSIVE split ownership from tracker (including parent/related splits)
+            # This ensures that overlapping claims (like shared parent splits) are
+            # correctly identified as dependencies for grouping.
+            full_expand_splits = {
+                subtree: self.expand_tracker.get_resources(subtree)
+                for subtree in expand_splits_by_subtree
+            }
+
             self._path_group_manager = PathGroupManager(
-                expand_splits_by_subtree=expand_splits_by_subtree,
+                expand_splits_by_subtree=full_expand_splits,
                 encoding=self.encoding,
                 enabled=True,
             )

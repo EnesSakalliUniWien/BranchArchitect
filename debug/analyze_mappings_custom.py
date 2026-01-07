@@ -10,7 +10,6 @@ from brancharchitect.movie_pipeline.types import PipelineConfig, InterpolationRe
 from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
     TreeInterpolationPipeline,
 )
-import pprint
 
 
 def analyze_mappings():
