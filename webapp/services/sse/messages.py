@@ -12,6 +12,8 @@ from typing import Any, Dict, Iterator, Optional
 
 from flask import Response
 
+from brancharchitect.io import UUIDEncoder
+
 
 def format_sse_message(
     data: Any,
@@ -50,7 +52,7 @@ def format_sse_message(
     if isinstance(data, str):
         payload = data
     else:
-        payload = json.dumps(data)
+        payload = json.dumps(data, cls=UUIDEncoder)
 
     # SSE requires each line of data to be prefixed with "data: "
     for line in payload.split("\n"):

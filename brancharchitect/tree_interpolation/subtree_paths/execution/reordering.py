@@ -65,9 +65,9 @@ def reorder_tree_toward_destination(
         logger.warning("Jumping taxa leaves not in source order; skipping reordering.")
         return source_tree  # No modification needed, return original
 
-    logger.info(f"Reordering for mover {mover_leaves}")
-    logger.info(f"Source Order: {source_order}")
-    logger.info(f"Destination Order: {destination_order}")
+    logger.debug(f"Reordering for mover {mover_leaves}")
+    logger.debug(f"Source Order: {source_order}")
+    logger.debug(f"Destination Order: {destination_order}")
 
     # Identify all unstable taxa (current movers + other simultaneous movers)
     all_unstable = mover_leaves
@@ -155,10 +155,10 @@ def reorder_tree_toward_destination(
 
     # If reordering does nothing, keep original tree
     if new_order == source_order:
-        logger.info("New order identical to source order -> No change.")
+        logger.debug("New order identical to source order -> No change.")
         return source_tree  # No change needed, return original
 
-    logger.info(f"Applying new order: {new_order}")
+    logger.debug(f"Applying new order: {new_order}")
 
     # 4. Apply the new order to the tree (copy if requested).
     new_tree = source_tree.deep_copy() if copy else source_tree

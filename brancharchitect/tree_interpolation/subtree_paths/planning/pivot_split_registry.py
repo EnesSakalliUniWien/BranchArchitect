@@ -71,7 +71,7 @@ class PivotSplitRegistry:
 
         # CRITICAL: Claim any expand split that CONTAINS a subtree's taxa (Parent),
         # AND any split that is a SIBLING (child of a Parent, disjoint from subtree).
-        # self._claim_related_expand_splits(expand_splits_by_subtree, all_expand_splits)
+        self._claim_related_expand_splits(expand_splits_by_subtree, all_expand_splits)
 
         # Store original full sets for incompatibility checks and final cleanup
         self.all_collapsible_splits = all_collapse_splits
@@ -108,45 +108,13 @@ class PivotSplitRegistry:
 
         1. Containing Splits (Parents): If a split contains the subtree, the subtree
            owns it (it's inside).
-        2. Sibling Splits: If a subtree owns a Parent split, and that Parent contains
-           another split (Child) which is disjoint from the subtree, then that Child
-           is a "sibling structure" that the subtree should also own/control.
         """
-        # Phase 1: Claim Containing Splits (Parents)
-        parents_by_subtree: Dict[Partition, Set[Partition]] = {
-            s: set() for s in initial_assignments
-        }
-
         for split in all_expand_splits:
             split_taxa = split.taxa
             for subtree in initial_assignments:
                 # If subtree is a subset of the split, it's a "Parent" split
                 if subtree.taxa.issubset(split_taxa):
                     self.expand_tracker.claim(split, subtree)
-                    parents_by_subtree[subtree].add(split)
-
-        # Phase 2: Claim Sibling Splits (Children of Parents, disjoint from Self)
-        for subtree, parents in parents_by_subtree.items():
-            subtree_taxa = subtree.taxa
-            for parent in parents:
-                parent_taxa = parent.taxa
-
-                # Check all other splits -> are they children of this parent?
-                for potential_sibling in all_expand_splits:
-                    if potential_sibling == parent:
-                        continue
-
-                    sibling_taxa = potential_sibling.taxa
-                    # Must be strictly contained in Parent
-                    if not sibling_taxa.issubset(parent_taxa):
-                        continue
-
-                    # Must be disjoint from Subtree (Sibling relationship)
-                    if not sibling_taxa.isdisjoint(subtree_taxa):
-                        continue
-
-                    # It's a sibling! Claim it.
-                    self.expand_tracker.claim(potential_sibling, subtree)
 
     # ============================================================================
     # 3. Shared/Unique Split Queries
@@ -755,7 +723,8 @@ def build_edge_plan(
 
     # COMPLETENESS GUARANTEE: Path-based assignments may miss splits not on any path
     # (e.g., contingent splits from jumping taxa, cross-branch splits). Assign any
-    # unassigned expands to first subtree as fallback to ensure every split is processed.
+    # unassigned expands to the LAST subtree as fallback. This aligns better with
+    # the "Expand Last" strategy, preventing premature creation by the first subtree.
     claimed_expands = PartitionSet(
         set().union(*expand_splits_by_subtree.values())
         if expand_splits_by_subtree
@@ -764,24 +733,25 @@ def build_edge_plan(
     )
     unassigned_expands = all_expand_splits - claimed_expands
     if unassigned_expands:
-        first_subtree = (
-            next(iter(expand_splits_by_subtree.keys()))
+        # Assign to the LAST subtree instead of the first
+        target_subtree = (
+            list(expand_splits_by_subtree.keys())[-1]
             if expand_splits_by_subtree
             else current_pivot_edge
         )
-        if first_subtree not in expand_splits_by_subtree:
-            expand_splits_by_subtree[first_subtree] = PartitionSet(
+        if target_subtree not in expand_splits_by_subtree:
+            expand_splits_by_subtree[target_subtree] = PartitionSet(
                 encoding=all_expand_splits.encoding
             )
         # Reassign with a new PartitionSet to avoid in-place quirks
-        expand_splits_by_subtree[first_subtree] = (
-            expand_splits_by_subtree[first_subtree] | unassigned_expands
+        expand_splits_by_subtree[target_subtree] = (
+            expand_splits_by_subtree[target_subtree] | unassigned_expands
         )
         logger.debug(
-            "[builder] pivot=%s assigning %d unclaimed expands to subtree=%s",
+            "[builder] pivot=%s assigning %d unclaimed expands to target_subtree=%s",
             current_pivot_edge.bipartition(),
             len(unassigned_expands),
-            first_subtree.bipartition(),
+            target_subtree.bipartition(),
         )
 
     # Initialize state management for proper shared splits handling
@@ -792,6 +762,7 @@ def build_edge_plan(
         expand_splits_by_subtree,
         current_pivot_edge,
     )
+
     logger.debug(
         "[builder] pivot=%s all_expand_splits=%s expand_paths_by_subtree=%s",
         current_pivot_edge.bipartition(),

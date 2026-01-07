@@ -265,6 +265,10 @@ class TestExpandLastStrategy(unittest.TestCase):
         state.expand_tracker.release(self.part_AB, self.part_A)
         state.expand_tracker.release(part_ABC, self.part_A)
 
+        # NEW: Since C is contained in ABC, it now correctly claims ownership.
+        # For B to be the 'last' user, C must also release it (as if C finished).
+        state.expand_tracker.release(part_ABC, self.part_C)
+
         # part_B should now be last user for both part_AB and part_ABC
         last_user_B = state.get_expand_splits_for_last_user(self.part_B)
         self.assertIn(self.part_AB, last_user_B)
