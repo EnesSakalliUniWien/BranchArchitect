@@ -5,7 +5,8 @@ from brancharchitect.jumping_taxa.lattice.matrices.matrix_shape_classifier impor
     MatrixClassifier,
     MatrixCategory,
 )
-from typing import List
+from typing import List, Callable, Optional
+import operator
 
 # Use FrozenPartitionSet for hashable, immutable keys
 from brancharchitect.elements.frozen_partition_set import FrozenPartitionSet
@@ -13,7 +14,15 @@ from brancharchitect.logger import jt_logger
 from brancharchitect.logger.formatting import format_partition_set
 
 
-def _vector_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
+# Type definition for the meet operation
+MeetFunction = Callable[
+    [PartitionSet[Partition], PartitionSet[Partition]], PartitionSet[Partition]
+]
+
+
+def _vector_meet_product(
+    matrix: PMatrix, meet_fn: Optional[MeetFunction] = None
+) -> list[PartitionSet[Partition]]:
     """Compute meet product for 1×2 vector matrix."""
     _rows, cols = MatrixClassifier.validate_matrix(matrix)
     if _rows != 1 or cols != 2:
@@ -23,8 +32,11 @@ def _vector_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
     if not jt_logger.disabled:
         jt_logger.matrix(matrix, title="Vector Meet Product: Input Matrix")
 
+    # Use operator.and_ as default if no custom meet function provided
+    op = meet_fn or operator.and_
+
     a, b = matrix[0]
-    result: PartitionSet[Partition] = a & b
+    result: PartitionSet[Partition] = op(a, b)
     if result:
         if not jt_logger.disabled:
             jt_logger.info(f"[diag] meet/vector raw = {format_partition_set(result)}")
@@ -38,7 +50,7 @@ def _vector_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
 
 
 def _rectangular_row_wise_meet_product(
-    matrix: PMatrix,
+    matrix: PMatrix, meet_fn: Optional[MeetFunction] = None
 ) -> list[PartitionSet[Partition]]:
     """
     Handle rectangular matrices (rows x 2) by computing each row's intersection
@@ -56,10 +68,12 @@ def _rectangular_row_wise_meet_product(
         )
 
     row_results: list[PartitionSet[Partition]] = []
+    # Use operator.and_ as default if no custom meet function provided
+    op = meet_fn or operator.and_
 
     for row in matrix:
         left, right = row[0], row[1]
-        result: PartitionSet[Partition] = left & right
+        result: PartitionSet[Partition] = op(left, right)
 
         if result:
             if not jt_logger.disabled:
@@ -74,7 +88,9 @@ def _rectangular_row_wise_meet_product(
     return row_results
 
 
-def generalized_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
+def generalized_meet_product(
+    matrix: PMatrix, meet_fn: Optional[MeetFunction] = None
+) -> list[PartitionSet[Partition]]:
     """
     Compute generalized meet product using shape-specific strategy.
 
@@ -86,6 +102,9 @@ def generalized_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
 
     Args:
         matrix: Input partition matrix
+        meet_fn: Optional function to use for 'meet' (intersection) operation.
+                 Defaults to standard set intersection (&) if None.
+                 Can be used to inject `geometric_intersection`.
 
     Returns:
         List of partition set solutions
@@ -99,23 +118,30 @@ def generalized_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
     category = MatrixClassifier.classify_matrix(matrix)
     # Log strategy selection for readability
     try:
+        if not jt_logger.disabled:
+            jt_logger.info(
+                f"Matrix shape {rows}x{cols} classified as {category.name}. "
+                f"Using {category.name.lower().replace('_', ' ')} strategy."
+            )
         jt_logger.log_strategy_selection(rows, cols, category.name)
     except Exception:
         pass
 
     if category == MatrixCategory.VECTOR:
-        return _vector_meet_product(matrix)
+        return _vector_meet_product(matrix, meet_fn)
     elif category == MatrixCategory.SQUARE:
-        return _square_meet_product(matrix)
+        return _square_meet_product(matrix, meet_fn)
     elif category == MatrixCategory.RECTANGULAR:
-        return _rectangular_row_wise_meet_product(matrix)
+        return _rectangular_row_wise_meet_product(matrix, meet_fn)
     else:
         raise ValueError(
             f"Generalized meet product not implemented for {rows}×{cols} matrices."
         )
 
 
-def _square_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
+def _square_meet_product(
+    matrix: PMatrix, meet_fn: Optional[MeetFunction] = None
+) -> list[PartitionSet[Partition]]:
     """Compute meet product for square matrix via diagonal intersections."""
     rows, cols = MatrixClassifier.validate_matrix(matrix)
     if rows != cols:
@@ -129,13 +155,22 @@ def _square_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
         return [result] if result else []
 
     if rows == 2:
+        # Use operator.and_ as default if no custom meet function provided
+        op = meet_fn or operator.and_
+
+        if not jt_logger.disabled:
+            jt_logger.info(
+                "Checking main diagonal (top-left & bottom-right) and "
+                "counter-diagonal (top-right & bottom-left) for valid intersections."
+            )
+
         # Main diagonal: [0,0] ∩ [1,1]
         a00, a11 = matrix[0][0], matrix[1][1]
-        main_diag = a00 & a11
+        main_diag = op(a00, a11)
 
         # Counter diagonal: [0,1] ∩ [1,0]
         a01, a10 = matrix[0][1], matrix[1][0]
-        counter_diag = a01 & a10
+        counter_diag = op(a01, a10)
 
         # Collect non-empty results
         results: list[PartitionSet[Partition]] = []
@@ -156,6 +191,9 @@ def _square_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
                     f"[diag] meet/diag maxima = {format_partition_set(maxima)}"
                 )
             results.append(maxima)
+        elif not jt_logger.disabled:
+            jt_logger.info("Main diagonal intersection is empty.")
+
         if counter_diag:
             if not jt_logger.disabled:
                 jt_logger.info(
@@ -167,6 +205,8 @@ def _square_meet_product(matrix: PMatrix) -> list[PartitionSet[Partition]]:
                     f"[diag] meet/cdiag maxima = {format_partition_set(maxima)}"
                 )
             results.append(maxima)
+        elif not jt_logger.disabled:
+            jt_logger.info("Counter-diagonal intersection is empty.")
 
         return results
 
@@ -348,7 +388,7 @@ def split_matrix(matrix: PMatrix) -> list[PMatrix]:
 
 
 def union_split_matrix_results(
-    matrices: List[PMatrix],
+    matrices: List[PMatrix], meet_fn: Optional[MeetFunction] = None
 ) -> list[PartitionSet[Partition]]:
     """
     Apply generalized meet product to each matrix and create paired solutions using reverse mapping.
@@ -360,6 +400,7 @@ def union_split_matrix_results(
 
     Args:
         matrices: List of matrices from matrix splitting
+        meet_fn: Optional function to use for 'meet' (intersection) operation.
 
     Returns:
         List of PartitionSet solutions where each solution contains
@@ -369,17 +410,17 @@ def union_split_matrix_results(
         return []
 
     if len(matrices) == 1:
-        return generalized_meet_product(matrices[0])
+        return generalized_meet_product(matrices[0], meet_fn)
 
     if len(matrices) == 2:
-        return _pair_two_matrix_results(matrices[0], matrices[1])
+        return _pair_two_matrix_results(matrices[0], matrices[1], meet_fn)
 
     # For more than 2 matrices, use the original union approach
-    return _union_multiple_matrices(matrices)
+    return _union_multiple_matrices(matrices, meet_fn)
 
 
 def _pair_two_matrix_results(
-    matrix1: PMatrix, matrix2: PMatrix
+    matrix1: PMatrix, matrix2: PMatrix, meet_fn: Optional[MeetFunction] = None
 ) -> list[PartitionSet[Partition]]:
     """
     Handle the specific case of two matrices using a Structure-Preserving Pairing Strategy.
@@ -395,8 +436,8 @@ def _pair_two_matrix_results(
     on both sides, guiding the solver towards solutions that preserve at least one side's structure.
     """
     # Get results from each matrix
-    result1 = generalized_meet_product(matrix1)
-    result2 = generalized_meet_product(matrix2)
+    result1 = generalized_meet_product(matrix1, meet_fn)
+    result2 = generalized_meet_product(matrix2, meet_fn)
 
     # Apply reverse mapping logic: result[i] pairs with result[n-1-i]
     n1, n2 = len(result1), len(result2)
@@ -465,7 +506,9 @@ def _union_results(
     return final_solutions
 
 
-def _union_multiple_matrices(matrices: List[PMatrix]) -> list[PartitionSet[Partition]]:
+def _union_multiple_matrices(
+    matrices: List[PMatrix], meet_fn: Optional[MeetFunction] = None
+) -> list[PartitionSet[Partition]]:
     """
     Union approach for multiple matrices (3 or more).
 
@@ -476,7 +519,7 @@ def _union_multiple_matrices(matrices: List[PMatrix]) -> list[PartitionSet[Parti
     # Get results from each matrix
     all_results: list[list[PartitionSet[Partition]]] = []
     for matrix in matrices:
-        result = generalized_meet_product(matrix)
+        result = generalized_meet_product(matrix, meet_fn)
         all_results.append(result)
 
     return _union_results(all_results)

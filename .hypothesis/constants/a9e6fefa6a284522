@@ -1,4 +1,0 @@
-# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/elements/partition_set.py
-# hypothesis_version: 6.148.8
-
-[1000000, 'Partition', 'PartitionSet', 'PartitionSet[T]', 'T', 'T_Partition', '_bitmask_set', '_difference', '_intersection', '_reversed_encoding', '_symdiff', '_union', 'bottoms', 'bottoms_under', 'encoding', 'fast_partitions', 'maximal_elements', 'minimal_elements', 'name', 'order']

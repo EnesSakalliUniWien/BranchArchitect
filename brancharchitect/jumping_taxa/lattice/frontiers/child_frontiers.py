@@ -11,7 +11,7 @@ Mathematical context:
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
-from brancharchitect.jumping_taxa.lattice.types.types import TopToBottom
+from brancharchitect.jumping_taxa.lattice.types.child_frontiers import ChildFrontiers
 from brancharchitect.logger import jt_logger
 
 
@@ -21,7 +21,7 @@ from brancharchitect.logger import jt_logger
 
 
 def _add_bottom_to_frontiers_entry(
-    child_frontiers: dict[Partition, TopToBottom],
+    child_frontiers: dict[Partition, ChildFrontiers],
     unique_maximal_split: Partition,
     all_frontier_splits: PartitionSet[Partition],
     bottom_split: Partition,
@@ -34,19 +34,17 @@ def _add_bottom_to_frontiers_entry(
     """
     child_frontiers.setdefault(
         unique_maximal_split,
-        TopToBottom(
+        ChildFrontiers(
             shared_top_splits=all_frontier_splits,
-            bottom_to_frontiers={},
+            bottom_partition_map={},
         ),
     )
 
     # Find which frontiers this bottom covers (shared clades nested within)
-    covered_frontiers = all_frontier_splits.bottoms_under(
-        bottom_split
-    ).maximal_elements()
+    covered_frontiers = all_frontier_splits.maximals_under(bottom_split)
 
     # Add the bottom→frontiers mapping
-    child_frontiers[unique_maximal_split].bottom_to_frontiers[
+    child_frontiers[unique_maximal_split].bottom_partition_map[
         bottom_node.split_indices
     ] = covered_frontiers
 
@@ -55,7 +53,7 @@ def compute_child_frontiers(
     parent: Node,
     children_to_process: PartitionSet[Partition],
     shared_splits: PartitionSet[Partition],
-) -> dict[Partition, TopToBottom]:
+) -> dict[Partition, ChildFrontiers]:
     """
     Compute per-child frontiers (maximal shared elements) under the given parent.
 
@@ -71,14 +69,14 @@ def compute_child_frontiers(
         shared_splits: Common splits between two trees
 
     Returns:
-        Dict mapping each maximal child split to its TopToBottom structure.
+        Dict mapping each maximal child split to its ChildFrontiers structure.
 
     Raises:
         ValueError: If a child split cannot be found under parent
     """
-    # Handle empty case: Create a TopToBottom entry for each shared split
+    # Handle empty case: Create a ChildFrontiers entry for each shared split
     if not children_to_process:
-        child_frontiers: dict[Partition, TopToBottom] = {}
+        child_frontiers: dict[Partition, ChildFrontiers] = {}
 
         for partition in shared_splits:
             # Create singleton PartitionSet for this partition
@@ -87,39 +85,45 @@ def compute_child_frontiers(
                 encoding=shared_splits.encoding,
                 name=f"{shared_splits.name}_singleton",
             )
-            # Each partition gets its own TopToBottom entry
-            child_frontiers[partition] = TopToBottom(
+            # Each partition gets its own ChildFrontiers entry
+            child_frontiers[partition] = ChildFrontiers(
                 shared_top_splits=singleton_set,
-                bottom_to_frontiers={partition: singleton_set},
+                bottom_partition_map={partition: singleton_set},
             )
 
         return child_frontiers
 
-    # Dictionary to store TopToBottom structures for each maximal child split
-    child_frontiers: dict[Partition, TopToBottom] = {}
+    # Dictionary to store ChildFrontiers structures for each maximal child split
+    child_frontiers: dict[Partition, ChildFrontiers] = {}
 
     # ========================================================================
-    # Add shared direct children of pivot as separate TopToBottom entries
+    # Add shared direct children of pivot as separate ChildFrontiers entries
     # ========================================================================
     # These are children of the parent node whose splits are in shared_splits
     # but are NOT covered by any split in children_to_process (unique splits).
-    # They need their own TopToBottom entry with self as frontier and bottom.
+    # They need their own ChildFrontiers entry with self as frontier and bottom.
 
-    for child in parent.children:
+    # Enforce deterministic iteration order for children
+    # Sort children by their split bitmask to ensure consistent frontier headers
+    sorted_children = sorted(
+        parent.children, key=lambda c: c.split_indices.bitmask if c.split_indices else 0
+    )
+
+    for child in sorted_children:
         if child.split_indices in shared_splits:
             # Check if this shared child is covered by any unique child
             # MATHEMATICAL: Test if ∃u ∈ children_to_process: child.split ⊆ u
             if not children_to_process.covers(child.split_indices):
                 # This shared direct child is not nested under any unique child
-                # Add it as its own TopToBottom entry (self-covering)
+                # Add it as its own ChildFrontiers entry (self-covering)
                 frontier_set: PartitionSet[Partition] = PartitionSet(
                     encoding=shared_splits.encoding
                 )
                 frontier_set.add(child.split_indices)
 
-                child_frontiers[child.split_indices] = TopToBottom(
+                child_frontiers[child.split_indices] = ChildFrontiers(
                     shared_top_splits=frontier_set,
-                    bottom_to_frontiers={child.split_indices: frontier_set},
+                    bottom_partition_map={child.split_indices: frontier_set},
                 )
 
                 if not jt_logger.disabled:
@@ -151,7 +155,9 @@ def compute_child_frontiers(
             encoding=shared_splits.encoding
         )
         child_splits_across_trees.update(
-            s for s in shared_splits.fast_partitions if (s.bitmask & child_mask) == s.bitmask
+            s
+            for s in shared_splits.fast_partitions
+            if (s.bitmask & child_mask) == s.bitmask
         )
 
         # Per-child frontier (maximal shared elements)

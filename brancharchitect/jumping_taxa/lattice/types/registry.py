@@ -23,8 +23,8 @@ def compute_solution_rank_key(
     Compute ranking key for solution comparison.
 
     Solutions are ranked by (in order of priority):
-    1. Smallest total taxa count (sum of partition sizes) - Maximum Parsimony
-    2. Fewest partitions (simpler = fewer jumping taxa groups)
+    1. Fewest partitions (simpler = fewer jumping taxa groups/subtrees)
+    2. Smallest total taxa count (sum of partition sizes) - Maximum Parsimony
     3. Smallest individual partition sizes (tie-breaker)
     4. Deterministic bitmask ordering (reproducibility)
 
@@ -32,21 +32,21 @@ def compute_solution_rank_key(
         solution: PartitionSet to rank
 
     Returns:
-        Tuple of (total_taxa, num_partitions, sorted_sizes, sorted_bitmasks)
+        Tuple of (num_partitions, total_taxa, sorted_sizes, sorted_bitmasks)
         Lower values indicate "better" (more parsimonious) solutions
 
     Example:
         >>> sol1 = PartitionSet([Partition({A}), Partition({B}), Partition({C})])
         >>> sol2 = PartitionSet([Partition({A,B,C})])
         >>> compute_solution_rank_key(sol1)  # (3, 3, (1,1,1), (...))
-        >>> compute_solution_rank_key(sol2)  # (3, 1, (3,), (...))
-        >>> # Both have total_taxa=3, but sol2 has fewer partitions, so sol2 ranks better
+        >>> compute_solution_rank_key(sol2)  # (1, 3, (3,), (...))
+        >>> # sol2 has fewer partitions (1 vs 3), so sol2 ranks better
     """
     num_parts = len(solution)
     sizes_tuple = tuple(sorted(p.size for p in solution))
     total_taxa = sum(sizes_tuple)
     mask_tuple = tuple(sorted((p.bitmask for p in solution)))
-    return (total_taxa, num_parts, sizes_tuple, mask_tuple)
+    return (num_parts, total_taxa, sizes_tuple, mask_tuple)
 
 
 class SolutionRegistry:
@@ -263,3 +263,53 @@ class SolutionRegistry:
             solutions_dict[pivot_edge_partition] = flat_partitions
 
         return solutions_dict
+
+    def get_all_candidates_by_pivot(
+        self,
+    ) -> Dict[Partition, List[PartitionSet[Partition]]]:
+        """
+        Retrieve all unique candidate solutions for each pivot edge.
+
+        Returns:
+            Dictionary mapping pivot edges to a list of unique PartitionSet solutions,
+            sorted by rank (best first).
+        """
+        from collections import defaultdict
+
+        candidates: Dict[Partition, List[PartitionSet[Partition]]] = {}
+
+        # Temporary storage to deduplicate by content (bitmask set)
+        # Map: pivot -> set of frozen_bitmasks
+        seen_solutions: defaultdict[Partition, set[tuple[int, ...]]] = defaultdict(set)
+
+        # Map: pivot -> list of (solution, rank)
+        raw_candidates: defaultdict[
+            Partition,
+            List[
+                Tuple[
+                    PartitionSet[Partition],
+                    Tuple[int, int, Tuple[int, ...], Tuple[int, ...]],
+                ]
+            ],
+        ] = defaultdict(list)
+
+        for (pivot, visit), _ in self.solutions_by_pivot_and_iteration.items():
+            visit_solutions = self.get_solutions_for_edge_visit(pivot, visit)
+
+            for sol in visit_solutions:
+                # Deduplicate based on bitmasks
+                sol_mask = tuple(sorted(p.bitmask for p in sol))
+                if sol_mask in seen_solutions[pivot]:
+                    continue
+                seen_solutions[pivot].add(sol_mask)
+
+                rank = compute_solution_rank_key(sol)
+                raw_candidates[pivot].append((sol, rank))
+
+        # Sort and store
+        for pivot, items in raw_candidates.items():
+            # Sort by rank (best first)
+            items.sort(key=lambda x: x[1])
+            candidates[pivot] = [item[0] for item in items]
+
+        return candidates

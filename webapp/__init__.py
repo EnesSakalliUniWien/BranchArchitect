@@ -5,7 +5,7 @@ from flask import Flask
 from flask_cors import CORS
 
 from .config import Config
-from .services.logging_config import configure_logging
+from .services.logging import configure_logging
 from .routes.routes import bp as main_bp
 from pathlib import Path
 

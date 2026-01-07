@@ -1,6 +1,6 @@
 """Tree processing pipeline."""
 
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Tuple, Callable
 import logging
 import time
 from joblib import Parallel, delayed
@@ -73,17 +73,27 @@ class TreeInterpolationPipeline:
 
         jt_logger.disabled = not self.config.enable_debug_visualization
 
-    def process_trees(self, trees: Node | List[Node]) -> InterpolationResult:
+    def process_trees(
+        self,
+        trees: Node | List[Node],
+        progress_callback: Optional[Callable[[float, str], None]] = None,
+    ) -> InterpolationResult:
         """
         Executes the complete tree interpolation pipeline.
 
         Args:
             trees: List of phylogenetic trees to process.
+            progress_callback: Optional callback for progress updates (0-100, message).
 
         Returns:
             An InterpolationResult object containing all interpolated trees,
             metadata, and analysis results.
         """
+
+        def report(pct: float, msg: str) -> None:
+            if progress_callback:
+                progress_callback(pct, msg)
+
         start_time = time.time()
 
         processed_trees: Node | List[Node] = trees
@@ -94,12 +104,17 @@ class TreeInterpolationPipeline:
             return create_empty_result()
         self._ensure_shared_taxa_encoding(processed_trees)
         if len(processed_trees) == 1:
+            report(10, "Rooting single tree...")
             processed_trees = self._apply_rooting_if_enabled(processed_trees)
             return create_single_tree_result(processed_trees)
 
+        report(5, "Rooting trees...")
         processed_trees = self._apply_rooting_if_enabled(processed_trees)
+
+        report(10, "Precomputing solutions...")
         precomputed_pair_solutions = self._precompute_pair_solutions(processed_trees)
 
+        report(20, "Optimizing tree order...")
         t_opt_start = time.perf_counter()
         processed_trees = self._optimize_tree_order(
             processed_trees,
@@ -112,11 +127,24 @@ class TreeInterpolationPipeline:
             f"Leaf order optimization took {time.perf_counter() - t_opt_start:.3f}s"
         )
 
+        report(30, "Interpolating sequence...")
+
+        # Create a sub-callback for interpolation (30-80%)
+        interp_callback: Optional[Callable[[float, str], None]] = None
+        if progress_callback:
+
+            def interp_callback(pct: float, msg: str) -> None:
+                mapped = 30 + (pct / 100.0) * 50
+                progress_callback(mapped, msg)
+
         seq_result = self._interpolate_tree_sequence(
-            processed_trees, precomputed_pair_solutions=precomputed_pair_solutions
+            processed_trees,
+            precomputed_pair_solutions=precomputed_pair_solutions,
+            progress_callback=interp_callback,
         )
 
         self.logger.info("Calculating distance metrics...")
+        report(80, "Calculating distance metrics...")
         t_dist_start = time.perf_counter()
         distances = self._calculate_distances(processed_trees)
         self.logger.info(
@@ -173,6 +201,7 @@ class TreeInterpolationPipeline:
         precomputed_pair_solutions: Optional[
             List[Optional[Dict[Partition, List[Partition]]]]
         ] = None,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
     ) -> TreeInterpolationSequence:
         """
         Orchestrates the interpolation between all consecutive tree pairs.
@@ -180,7 +209,7 @@ class TreeInterpolationPipeline:
         result: TreeInterpolationSequence = SequentialInterpolationBuilder(
             logger=self.logger,
             precomputed_pair_solutions=precomputed_pair_solutions,
-        ).build(trees)
+        ).build(trees, progress_callback=progress_callback)
 
         original_tree_global_indices = result.get_original_tree_indices()
         pair_solutions, pair_ranges = result.build_pair_solutions(

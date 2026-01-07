@@ -55,8 +55,12 @@ if [ ! -f "run.py" ]; then
   exit 1
 fi
 
+# Create logs directory
+mkdir -p "$PROJECT_ROOT/logs"
+LOG_DIR="$PROJECT_ROOT/logs"
+
 # Create a detailed startup log
-STARTUP_LOG="$PROJECT_ROOT/backend_startup.log"
+STARTUP_LOG="$LOG_DIR/backend_startup.log"
 echo "[backend] Starting backend at $(date)" > "$STARTUP_LOG"
 echo "[backend] Python path: $PYTHONPATH" >> "$STARTUP_LOG"
 echo "[backend] Library path: $DYLD_LIBRARY_PATH" >> "$STARTUP_LOG"
@@ -64,11 +68,11 @@ echo "[backend] Library path: $DYLD_LIBRARY_PATH" >> "$STARTUP_LOG"
 # Run the server using poetry with proper environment, log output for diagnostics
 cd "$PROJECT_ROOT"
 echo "[backend] Running command: PYTHONPATH=\"$PROJECT_ROOT:$PYTHONPATH\" poetry run python webapp/run.py --host=127.0.0.1 --port=5002" >> "$STARTUP_LOG"
-PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH" poetry run python webapp/run.py --host=127.0.0.1 --port=5002 >"$PROJECT_ROOT/backend.log" 2>&1 &
+PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH" poetry run python webapp/run.py --host=127.0.0.1 --port=5002 >"$LOG_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 echo "[backend] Backend PID: $BACKEND_PID" >> "$STARTUP_LOG"
-echo "[backend] Backend log: $PROJECT_ROOT/backend.log"
-echo "[backend] Startup log: $PROJECT_ROOT/backend_startup.log"
+echo "[backend] Backend log: $LOG_DIR/backend.log"
+echo "[backend] Startup log: $LOG_DIR/backend_startup.log"
 
 # Wait for backend to be ready
 echo "[backend] Waiting for backend to start..."
@@ -83,9 +87,9 @@ for i in {1..30}; do
     echo "[backend] Process died at $(date)" >> "$STARTUP_LOG"
     echo "[backend] Exit status: $?" >> "$STARTUP_LOG"
     echo "[backend] Last 20 lines of backend.log:"
-    tail -n 20 "$PROJECT_ROOT/backend.log"
+    tail -n 20 "$LOG_DIR/backend.log"
     echo "[backend] Full backend.log contents:" >> "$STARTUP_LOG"
-    cat "$PROJECT_ROOT/backend.log" >> "$STARTUP_LOG"
+    cat "$LOG_DIR/backend.log" >> "$STARTUP_LOG"
     exit 1
   fi
   echo "[backend] Waiting for backend... ($i/30)"

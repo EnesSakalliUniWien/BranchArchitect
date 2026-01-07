@@ -387,8 +387,16 @@ class TestCollapsePathCorrectness:
         original_splits = list(tree.to_splits())
         assert len(original_splits) >= 1, "Tree should have internal splits"
 
-        # Pick a split to collapse
-        split_to_collapse = original_splits[0]
+        # Pick a non-root split to collapse (root split contains all taxa and cannot be collapsed)
+        # Filter to find splits that are proper internal nodes (not the root)
+        all_taxa_count = len(taxa_order)
+        collapsible_splits = [
+            s for s in original_splits if len(s.indices) < all_taxa_count
+        ]
+        assert len(collapsible_splits) >= 1, (
+            "Tree should have collapsible internal splits"
+        )
+        split_to_collapse = collapsible_splits[0]
 
         # Execute collapse path
         execute_collapse_path(tree, [split_to_collapse], destination_tree=None)

@@ -11,7 +11,8 @@ from werkzeug.datastructures import FileStorage
 class TreeDataRequest:
     """Encapsulates data from a tree data upload request."""
 
-    tree_file: Optional[FileStorage]
+    tree_content: Optional[str]  # File content, not FileStorage (for thread safety)
+    tree_filename: Optional[str]
     window_size: int
     window_step: int
     enable_rooting: bool
@@ -56,8 +57,16 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
 
     msa_content = get_msa_content(msa_file)
 
+    # Read tree file content now (before request context ends)
+    tree_content = None
+    tree_filename = None
+    if tree_file:
+        tree_content = tree_file.read().decode("utf-8", errors="replace")
+        tree_filename = tree_file.filename
+
     return TreeDataRequest(
-        tree_file=tree_file,
+        tree_content=tree_content,
+        tree_filename=tree_filename,
         window_size=window_size,
         window_step=window_step,
         enable_rooting=enable_rooting,

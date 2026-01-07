@@ -1,4 +1,0 @@
-# file: /Users/berksakalli/Projects/BranchArchitect/brancharchitect/tree.py
-# hypothesis_version: 6.148.8
-
-[0.0, 1e-05, '(', ')', ',', '0.000000', ';', 'Internal', 'Node', 'ReorderStrategy', '[', ']', '_cache_valid', '_cached_subtree_cost', '_leaves_cache', '_split_index', '_splits_cache', '_traverse_cache', 'average', 'children', 'depth', 'inf', 'length', 'list_index', 'maximum', 'median', 'minimum', 'name', 'parent', 'split_indices', 'taxa_encoding', 'values']

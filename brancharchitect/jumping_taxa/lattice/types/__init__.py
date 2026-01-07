@@ -10,7 +10,7 @@ from brancharchitect.jumping_taxa.lattice.matrices.types import (
     MatrixRow,
     PMatrix,
 )
-from brancharchitect.jumping_taxa.lattice.types.types import TopToBottom
+from brancharchitect.jumping_taxa.lattice.types.child_frontiers import ChildFrontiers
 from brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem import (
     PivotEdgeSubproblem,
     get_child_splits,
@@ -24,7 +24,7 @@ __all__ = [
     "MatrixCell",
     "MatrixRow",
     "PMatrix",
-    "TopToBottom",
+    "ChildFrontiers",
     "PivotEdgeSubproblem",
     "get_child_splits",
     "SolutionRegistry",

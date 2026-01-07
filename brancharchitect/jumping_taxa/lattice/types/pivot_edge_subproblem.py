@@ -2,7 +2,7 @@ from brancharchitect.elements.partition_set import PartitionSet, Partition
 from typing import List, Dict
 from dataclasses import dataclass, field
 from brancharchitect.tree import Node
-from brancharchitect.jumping_taxa.lattice.types.types import TopToBottom
+from brancharchitect.jumping_taxa.lattice.types.child_frontiers import ChildFrontiers
 
 
 @dataclass(slots=True)
@@ -21,9 +21,9 @@ class PivotEdgeSubproblem:
     tree2_node: Node
 
     # Per-side per-child frontiers (lists of PartitionSets of maximal shared elements)
-    tree1_child_frontiers: Dict[Partition, TopToBottom]
+    tree1_child_frontiers: Dict[Partition, ChildFrontiers]
 
-    tree2_child_frontiers: Dict[Partition, TopToBottom]
+    tree2_child_frontiers: Dict[Partition, ChildFrontiers]
 
     # Across-trees intersection in child subtrees
     child_subtree_splits_across_trees: PartitionSet[Partition]
@@ -45,8 +45,8 @@ class PivotEdgeSubproblem:
         out in subsequent iterations without modifying the original trees.
 
         When a partition is removed from covers, it must also be removed from:
-        1. The frontier sets (values of bottom_to_frontiers)
-        2. The bottom_to_frontiers dictionary keys (if the partition is a bottom)
+        1. The frontier sets (values of bottom_partition_map)
+        2. The bottom_partition_map dictionary keys (if the partition is a bottom)
         3. Added to excluded_partitions for filtering in future iterations
         """
         for partitionset in solutions:
@@ -55,12 +55,12 @@ class PivotEdgeSubproblem:
                 self.excluded_partitions.add(partition)
 
                 # Process tree1 child frontiers
-                for top_to_bottom in self.tree1_child_frontiers.values():
-                    top_to_bottom.remove_partition(partition)
+                for child_frontiers in self.tree1_child_frontiers.values():
+                    child_frontiers.remove_partition(partition)
 
                 # Process tree2 child frontiers
-                for top_to_bottom in self.tree2_child_frontiers.values():
-                    top_to_bottom.remove_partition(partition)
+                for child_frontiers in self.tree2_child_frontiers.values():
+                    child_frontiers.remove_partition(partition)
 
     def has_remaining_conflicts(self) -> bool:
         """
@@ -70,16 +70,16 @@ class PivotEdgeSubproblem:
         meaning we can skip this pivot in future iterations.
         """
         # Check if there are any non-excluded partitions in the frontier data structures
-        for top_to_bottom in self.tree1_child_frontiers.values():
-            if top_to_bottom.shared_top_splits:
+        for child_frontiers in self.tree1_child_frontiers.values():
+            if child_frontiers.shared_top_splits:
                 return True
-            if top_to_bottom.bottom_to_frontiers:
+            if child_frontiers.bottom_partition_map:
                 return True
 
-        for top_to_bottom in self.tree2_child_frontiers.values():
-            if top_to_bottom.shared_top_splits:
+        for child_frontiers in self.tree2_child_frontiers.values():
+            if child_frontiers.shared_top_splits:
                 return True
-            if top_to_bottom.bottom_to_frontiers:
+            if child_frontiers.bottom_partition_map:
                 return True
 
         return False

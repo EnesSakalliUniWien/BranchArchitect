@@ -81,10 +81,6 @@ def serialize_tree_list_to_json(tree_list: List[Node]) -> List[Dict[str, Any]]:
     serialized_tree_list: List[Dict[str, Any]] = []
     for i, tree in enumerate(tree_list):
         d: Dict[str, Any] = tree.to_dict()
-        if i == 0:
-            print(
-                f"[SERIALIZE DEBUG] type: {type(d['split_indices'])}, value: {d['split_indices']}"
-            )
         serialized_tree_list.append(d)
     return serialized_tree_list
 

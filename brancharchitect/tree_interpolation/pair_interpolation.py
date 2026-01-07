@@ -91,7 +91,6 @@ def process_tree_pair_interpolation(
 
     (
         sequence_trees,
-        failed_active_split,
         current_pivot_edge_tracking,
         current_subtree_tracking,
     ) = create_interpolation_for_active_split_sequence(
@@ -103,16 +102,8 @@ def process_tree_pair_interpolation(
     )
 
     if sequence_trees:
-        try:
-            assert_final_topology_matches(sequence_trees[-1], destination_tree, logger)
-        except ValueError as e:
-            logger.warning(
-                "Topology mismatch detected; appending destination tree as fallback. Details: %s",
-                e,
-            )
-            sequence_trees.append(destination_tree.deep_copy())
-            current_pivot_edge_tracking.append(None)
-            current_subtree_tracking.append(None)
+        # User Request: Throw error on mismatch instead of fallback
+        assert_final_topology_matches(sequence_trees[-1], destination_tree, logger)
 
     # For identical trees (no active edges), ensure destination tree has same ordering as source
     if not ordered_edges:
@@ -122,12 +113,6 @@ def process_tree_pair_interpolation(
         # Copy the leaf ordering from source to destination tree
         source_order = source_tree.get_current_order()
         destination_tree.reorder_taxa(list(source_order))
-
-    # Log any failed edges for debugging
-    if failed_active_split:
-        logger.warning(
-            f"Classical interpolation used for {len(failed_active_split)} failed active-changing splits"
-        )
 
     return TreePairInterpolation(
         trees=sequence_trees,

@@ -5,7 +5,10 @@ This module contains all components related to subtree path-based tree interpola
 including path planning, state management, execution, and ordering strategies.
 """
 
-from .pivot_sequence_orchestrator import create_interpolation_for_active_split_sequence
+from .pivot_sequence_orchestrator import (
+    create_interpolation_for_active_split_sequence,
+    calculate_subtree_paths,
+)
 from .planning import (
     build_edge_plan,
     PivotSplitRegistry,
@@ -16,7 +19,6 @@ from .execution import (
     build_microsteps_for_selection,
     reorder_tree_toward_destination,
 )
-from .paths import calculate_subtree_paths
 from .analysis import (
     get_unique_splits_for_current_pivot_edge_subtree,
     find_incompatible_splits,

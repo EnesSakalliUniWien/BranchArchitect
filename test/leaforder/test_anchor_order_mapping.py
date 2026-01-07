@@ -83,6 +83,12 @@ def test_blocked_order_singleton_solutions_move_as_singletons():
     mover_taxa = {"A", "C"}
 
     # In t1: movers should be on the left side
-    assert set(order1[:2]) == mover_taxa
-    # In t2: movers should be on the right side
-    assert set(order2[-2:]) == mover_taxa
+    # In t1: movers should alternate (Ping-Pong) to minimize crossing
+    # A (Band 0/Left), B/D (Center), C (Band 2/Right)
+    assert order1[0] == "A"
+    assert order1[-1] == "C"
+
+    # In t2: movers should alternate (Ping-Pong)
+    # C (Band 0/Left), B/D (Center), A (Band 2/Right)
+    assert order2[0] == "C"
+    assert order2[-1] == "A"

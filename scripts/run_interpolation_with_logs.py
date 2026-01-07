@@ -7,6 +7,7 @@ from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
 )
 from brancharchitect.io import read_newick
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run tree interpolation with focused logging",
@@ -30,13 +31,13 @@ def main() -> None:
         "brancharchitect.tree_interpolation.subtree_paths.execution.step_executor"
     ).setLevel(logging.INFO)
     logging.getLogger(
-        "brancharchitect.tree_interpolation.subtree_paths.planning.builder"
+        "brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry"
     ).setLevel(logging.DEBUG)
     logging.getLogger(
         "brancharchitect.tree_interpolation.subtree_paths.pivot_sequence_orchestrator"
     ).setLevel(logging.INFO)
     logging.getLogger(
-        "brancharchitect.tree_interpolation.subtree_paths.execution.microsteps"
+        "brancharchitect.tree_interpolation.subtree_paths.execution.step_executor"
     ).setLevel(logging.INFO)
     logging.getLogger(
         "brancharchitect.tree_interpolation.subtree_paths.paths.transition_builder"

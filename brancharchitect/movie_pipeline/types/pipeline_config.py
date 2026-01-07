@@ -15,7 +15,7 @@ class PipelineConfig:
     anchor_weight_policy: str = "destination"
     # Circular rendering support: rotate final permutations to place the
     # linear boundary at a visually appropriate position for circular layouts.
-    circular: bool = True
+    circular: bool = False
     circular_boundary_policy: str = (
         "between_anchor_blocks"  # or "largest_mover_at_zero"
     )

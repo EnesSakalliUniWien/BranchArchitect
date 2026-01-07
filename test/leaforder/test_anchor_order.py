@@ -81,14 +81,30 @@ def test_blocked_order_extremes_two_movers_same_side():
     mover_taxa = {"B", "E", "F"}
     anchor_taxa = {"A", "C", "D"}
 
-    # In t1: all movers should be on the left side
-    assert set(o1[:3]) == mover_taxa
-    # In t2: all movers should be on the right side
-    assert set(o2[-3:]) == mover_taxa
+    # In t1: movers are split because of alternation
+    # i=0 (E,F) -> src_band=0 (left)
+    # i=1 (B)   -> src_band=2 (right)
 
-    # Anchors stay in the middle/opposite side
-    assert set(o1[-3:]) == anchor_taxa
-    assert set(o2[:3]) == anchor_taxa
+    # So E,F should be at the start (left)
+    assert set(o1[:2]) == {"E", "F"}
+    # B should be at the end (right)
+    assert o1[-1] == "B"
+
+    # In t2:
+    # i=0 (E,F) -> dst_band=2 (right)
+    # i=1 (B)   -> dst_band=0 (left)
+
+    # So B should be at the start (left)
+    assert o2[0] == "B"
+    # E,F should be at the end (right)
+    assert set(o2[-2:]) == {"E", "F"}
+
+    # Anchors stay in the middle
+    # In t1: E,F (left) ... Anchors ... B (right)
+    assert set(o1[2:-1]) == anchor_taxa
+
+    # In t2: B (left) ... Anchors ... E,F (right)
+    assert set(o2[1:-2]) == anchor_taxa
 
 
 def test_derive_order_for_pair_no_differences_root_alignment():

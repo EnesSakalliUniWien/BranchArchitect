@@ -27,7 +27,7 @@ class TreeLogger(AlgorithmLogger):
         vertical_taxon_labels: bool = False,
     ):
         """Log visual comparison of two trees - rectangular layout only."""
-        self.section(title)
+        self.subsection(title)
         svg_content = plot_rectangular_tree_pair(
             node_one, node_two, vertical_leaf_labels=vertical_taxon_labels
         )
@@ -54,7 +54,7 @@ class TreeLogger(AlgorithmLogger):
         if self.disabled:
             return
 
-        self.section("Tree Split Comparison")
+        self.subsection("Tree Split Comparison")
 
         # Extract splits from both trees
         splits1 = tree1.to_splits()
@@ -272,14 +272,14 @@ class TreeLogger(AlgorithmLogger):
 
         from brancharchitect.logger.formatting import format_set as _fmt
 
-        self.section("Lattice Edge Tables")
+        self.subsection("Lattice Edge Tables")
         # Edge header
         try:
             split_taxa = getattr(edge, "pivot_split", getattr(edge, "split", None))
             split_taxa = getattr(split_taxa, "taxa", set())
-            self.info(f"Edge split: {_fmt(split_taxa)}")
+            self.info(f"Pivot Split: {_fmt(split_taxa)}")
         except Exception:
-            self.info(f"Edge split: {getattr(edge, 'split', 'N/A')}")
+            self.info(f"Pivot Split: {getattr(edge, 'split', 'N/A')}")
 
         # Helper: compute unique splits and their minimum cover per side
         def _min_cover_unique(node_a: Node, node_b: Node):
@@ -363,7 +363,7 @@ class TreeLogger(AlgorithmLogger):
         )
 
         combined_rows: List[List[str]] = []
-        # First column: Edge split (only for first row to avoid repetition)
+        # First column: Pivot split (only for first row to avoid repetition)
         _pivot_obj = getattr(edge, "pivot_split", None)
         if _pivot_obj is None:
             _pivot_obj = getattr(edge, "split", None)
@@ -384,7 +384,7 @@ class TreeLogger(AlgorithmLogger):
             )
 
         headers = [
-            "Edge Split",
+            "Pivot Split",
             "L Common Cover",
             "R Common Cover",
             "L Unique Min",
@@ -409,7 +409,7 @@ class TreeLogger(AlgorithmLogger):
         if self.disabled:
             return
 
-        self.section(title)
+        self.subsection(title)
 
         # Get Newick string representations properly
         # The to_newick method already adds a semicolon at the end

@@ -2,8 +2,8 @@
 Frontiers: pivot lattice building, child frontier computation, and poset relations.
 """
 
-from brancharchitect.jumping_taxa.lattice.frontiers.build_pivot_lattices import (
-    construct_sublattices,
+from brancharchitect.jumping_taxa.lattice.frontiers.construct_pivot_edge_problems import (
+    construct_pivot_edge_problems,
 )
 from brancharchitect.jumping_taxa.lattice.frontiers.child_frontiers import (
     compute_child_frontiers,
@@ -26,7 +26,7 @@ from brancharchitect.jumping_taxa.lattice.logging_helpers import (
 
 __all__ = [
     # Lattice building
-    "construct_sublattices",
+    "construct_pivot_edge_problems",
     # Child frontiers
     "compute_child_frontiers",
     # Poset relations (pure predicates)

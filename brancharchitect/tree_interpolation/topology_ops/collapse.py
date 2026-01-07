@@ -18,8 +18,9 @@ Related modules:
 
 from __future__ import annotations
 import logging
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 from brancharchitect.elements.partition import Partition
+from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree import Node
 
 __all__ = [
@@ -39,63 +40,74 @@ def calculate_consensus_tree(tree: Node, split_dict: Dict[Partition, float]) -> 
     return _calculate_consensus_tree(consensus_tree, split_dict)
 
 
-def _collapse_once(
-    cur: Node,
+def _collapse_iterative(
+    root: Node,
     tol: float,
-    destination_splits: Optional[Set[Partition]],
-) -> bool:
+    destination_splits: Optional[PartitionSet[Partition]],
+) -> None:
     """
-    Single pass of collapsing zero-length branches in a subtree.
+    Collapse zero-length branches using iterative post-order traversal.
+
+    This avoids recursion limits and function call overhead.
+    Uses two stacks to generate post-order processing sequence.
 
     Args:
-        cur: Current node to process
+        root: Root node to process
         tol: Tolerance for considering a branch as zero-length
-        destination_splits: Set of splits to preserve (or None to collapse all zero-length)
-
-    Returns:
-        True if any structural change was made
+        destination_splits: Set of splits to preserve
     """
-    if not cur.children:
-        return False
+    # 1. Generate post-order traversal sequence
+    # stack1 is for traversal, stack2 accumulates nodes in reverse post-order
+    stack1: List[Node] = [root]
+    stack2: List[Node] = []
 
-    changed = False
-    new_children: List[Node] = []
+    while stack1:
+        node = stack1.pop()
+        stack2.append(node)
+        # Push children to stack1
+        for child in node.children:
+            stack1.append(child)
 
-    for ch in cur.children:
-        ch_len = 0.0 if ch.length is None else float(ch.length)
-        is_zero_length = ch_len <= tol and ch.children
+    # 2. Process nodes in post-order (popping from stack2)
+    while stack2:
+        cur = stack2.pop()
 
-        if not is_zero_length:
-            new_children.append(ch)
+        if not cur.children:
             continue
 
-        # Check if this split should be preserved
-        should_preserve = (
-            destination_splits is not None and ch.split_indices in destination_splits
-        )
+        new_children: List[Node] = []
+        local_change = False
 
-        if should_preserve:
-            logger.debug(
-                f"[CONSENSUS COLLAPSE] Preserving zero-length branch "
-                f"(split exists in destination): {ch.split_indices}"
+        for ch in cur.children:
+            ch_len = 0.0 if ch.length is None else float(ch.length)
+            is_zero_length = ch_len <= tol and ch.children
+
+            if not is_zero_length:
+                new_children.append(ch)
+                continue
+
+            # Check if this split should be preserved
+            should_preserve = (
+                destination_splits is not None
+                and ch.split_indices in destination_splits
             )
-            new_children.append(ch)
-        else:
-            # Splice grandchildren into current level
-            for g in ch.children:
-                g.parent = cur
-                new_children.append(g)
-            changed = True
 
-    if changed:
-        cur.children = new_children
+            if should_preserve:
+                logger.debug(
+                    f"[CONSENSUS COLLAPSE] Preserving zero-length branch "
+                    f"(split exists in destination): {ch.split_indices}"
+                )
+                new_children.append(ch)
+            else:
+                # Splice grandchildren into current level
+                # Note: grandchildren are already processed because of post-order
+                for g in ch.children:
+                    g.parent = cur
+                    new_children.append(g)
+                local_change = True
 
-    # Recurse into children
-    for ch in cur.children:
-        if _collapse_once(ch, tol, destination_splits):
-            changed = True
-
-    return changed
+        if local_change:
+            cur.children = new_children
 
 
 def collapse_zero_length_branches_for_node(
@@ -109,13 +121,15 @@ def collapse_zero_length_branches_for_node(
     in the destination tree. This ensures we preserve topology needed for the final tree.
     """
     # Pre-compute destination splits if provided
-    destination_splits: Optional[Set[Partition]] = None
+    destination_splits: Optional[PartitionSet[Partition]] = None
     if destination_tree is not None:
-        destination_splits = set(destination_tree.to_splits())
+        # Use PartitionSet for faster lookups (bitmask-based)
+        destination_splits = PartitionSet(
+            set(destination_tree.to_splits()), encoding=destination_tree.taxa_encoding
+        )
 
-    # Fixed point: keep collapsing until no structural change occurs
-    while _collapse_once(node, tol, destination_splits):
-        pass
+    # Single pass iterative post-order traversal handles all collapses
+    _collapse_iterative(node, tol, destination_splits)
 
     # Rebuild split indices & caches once after topology edits
     root = node.get_root()

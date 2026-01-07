@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests for reorder_tree_toward_destination function.
+Tests for interpolate_subtree_order function.
 
 This module tests the partial ordering strategy for subtree interpolation,
 specifically the "move the block" reordering algorithm that moves a subtree
@@ -13,6 +13,9 @@ from brancharchitect.elements.partition import Partition
 from brancharchitect.tree_interpolation.subtree_paths.execution.reordering import (
     reorder_tree_toward_destination,
 )
+
+# Alias for backward compatibility with test names
+move_subtree_to_destination = reorder_tree_toward_destination
 
 
 def _get_tree(parsed_result) -> Node:
@@ -54,7 +57,7 @@ def test_reorder_simple_case():
     print("Moving subtree:", moving_subtree.taxa)
 
     # Perform reordering
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, moving_subtree
     )
 
@@ -84,7 +87,7 @@ def test_reorder_move_to_middle():
     print(f"Source order: {list(source_tree.get_current_order())}")
     print(f"Destination order: {list(dest_tree.get_current_order())}")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, moving_subtree
     )
 
@@ -113,7 +116,7 @@ def test_reorder_move_to_end():
     print(f"Source order: {list(source_tree.get_current_order())}")
     print(f"Destination order: {list(dest_tree.get_current_order())}")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, moving_subtree
     )
 
@@ -144,7 +147,7 @@ def test_reorder_multi_taxon_block():
     print(f"Destination order: {list(dest_tree.get_current_order())}")
     print(f"Moving block: {moving_subtree.taxa}")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, moving_subtree
     )
 
@@ -185,7 +188,7 @@ def test_reorder_with_nested_tree():
     print(f"Destination order: {list(dest_tree.get_current_order())}")
     print(f"Moving subtree split: {ab_split}")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, ab_split
     )
 
@@ -217,7 +220,7 @@ def test_reorder_preserves_internal_block_order():
     print(f"Destination order: {list(dest_tree.get_current_order())}")
     print(f"Moving block: {moving_subtree.taxa}")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, moving_subtree
     )
 
@@ -248,7 +251,7 @@ def test_reorder_no_change_needed():
     print(f"Source order: {list(source_tree.get_current_order())}")
     print(f"Destination order: {list(dest_tree.get_current_order())}")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, moving_subtree
     )
 
@@ -287,7 +290,7 @@ def test_reorder_with_subtree_as_active_edge():
     print(f"Destination order: {list(dest_tree.get_current_order())}")
     print(f"Active edge (subtree): {active_edge}")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, moving_subtree
     )
 
@@ -324,7 +327,7 @@ def test_reorder_missing_split_returns_copy():
 
     print("Using split with non-existent index")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, non_existent_split, moving_subtree
     )
 
@@ -353,7 +356,7 @@ def test_reorder_mover_not_in_source():
 
     print(f"Using invalid moving subtree: {invalid_moving.taxa}")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, invalid_moving
     )
 
@@ -396,7 +399,7 @@ def test_reorder_complex_phylogenetic_tree():
     print(f"Source order: {list(source_tree.get_current_order())}")
     print(f"Destination order: {list(dest_tree.get_current_order())}")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, efg_split
     )
 
@@ -431,7 +434,7 @@ def test_reorder_preserves_tree_structure():
     # Get source splits before reordering
     source_splits = source_tree.to_splits()
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, ab_split
     )
 
@@ -460,7 +463,7 @@ def test_reorder_returns_new_tree():
     original_order = list(source_tree.get_current_order())
     print(f"Original order before: {original_order}")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, moving_subtree
     )
 
@@ -517,7 +520,7 @@ def test_reorder_scattered_movers_in_destination():
     print(f"Moving taxa: {moving_subtree.taxa}")
     print(f"Active edge split: {active_edge}")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, moving_subtree
     )
 
@@ -581,7 +584,7 @@ def test_reorder_movers_not_in_destination():
 
     # This should raise ValueError due to encoding mismatch
     try:
-        result_tree = reorder_tree_toward_destination(
+        result_tree = move_subtree_to_destination(
             source_tree, dest_tree, active_edge, moving_subtree
         )
         # If we get here, something unexpected happened
@@ -625,7 +628,7 @@ def test_reorder_mismatched_taxa_sets():
 
     # This should raise ValueError due to encoding mismatch
     try:
-        result_tree = reorder_tree_toward_destination(
+        result_tree = move_subtree_to_destination(
             source_tree, dest_tree, active_edge, moving_subtree
         )
         print(f"Result order: {list(result_tree.get_current_order())}")
@@ -671,7 +674,7 @@ def test_reorder_anchor_order_preservation():
     print(f"Source anchors: A,B,D")
     print(f"Dest anchor order: D,B,A (different from source!)")
 
-    result_tree = reorder_tree_toward_destination(
+    result_tree = move_subtree_to_destination(
         source_tree, dest_tree, active_edge, moving_subtree
     )
 
@@ -696,7 +699,7 @@ def test_reorder_anchor_order_preservation():
 if __name__ == "__main__":
     """Run all tests with verbose output."""
     print("=" * 70)
-    print("TESTING reorder_tree_toward_destination")
+    print("TESTING move_subtree_to_destination")
     print("=" * 70)
 
     # Original tests

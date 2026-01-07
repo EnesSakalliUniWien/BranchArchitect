@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Callable
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
@@ -175,7 +175,11 @@ class SequentialInterpolationBuilder:
             jumping_subtree_solutions_list=self.jumping_subtree_solutions,
         )
 
-    def build(self, trees: List[Node]) -> TreeInterpolationSequence:
+    def build(
+        self,
+        trees: List[Node],
+        progress_callback: Optional[Callable[[float, str], None]] = None,
+    ) -> TreeInterpolationSequence:
         """Build sequential interpolations between consecutive tree pairs."""
         if len(trees) < 2:
             raise ValueError("Need at least 2 trees for interpolation")
@@ -190,8 +194,15 @@ class SequentialInterpolationBuilder:
         # Add the first tree as the initial delimiter
         self._add_delimiter_frame(trees[0])
 
+        total_pairs = len(trees) - 1
         for pair in iter_consecutive_pairs(trees):
             pair_index, source, target, is_first, is_last = pair
+
+            if progress_callback:
+                pct = (pair_index / total_pairs) * 100
+                progress_callback(
+                    pct, f"Interpolating pair {pair_index + 1}/{total_pairs}"
+                )
 
             precomputed_solution = (
                 self.precomputed_pair_solutions[pair_index]

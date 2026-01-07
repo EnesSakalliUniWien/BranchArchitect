@@ -218,6 +218,9 @@ class TreeOrderOptimizer:
         # Trees are re-parsed after rooting in the pipeline, ensuring
         # all trees start with consistent encodings from the same parse batch.
 
+        # Final alignment to ensure global coherence
+        final_pairwise_alignment_pass(self.trees)
+
         # Apply anchor-based ordering to each consecutive pair
         for i in range(n - 1):
             self.logger.info(f"Processing tree pair ({i}, {i + 1})")
@@ -229,6 +232,11 @@ class TreeOrderOptimizer:
             ):
                 precomputed_solution = self.precomputed_pair_solutions[i]
 
+            # Pre-compute common splits to avoid redundant calculations in derive_order and propagation
+            common_splits: PartitionSet[Partition] = get_common_splits(
+                self.trees[i], self.trees[i + 1]
+            )
+
             # Default to destination-anchored ordering so only jumping taxa move
             derive_order_for_pair(
                 self.trees[i],
@@ -237,17 +245,14 @@ class TreeOrderOptimizer:
                 circular=circular,
                 circular_boundary_policy=circular_boundary_policy,
                 precomputed_solution=precomputed_solution,
+                common_splits=common_splits,
             )
 
             # After ordering pair (i, i+1), their common splits are now aligned.
             # Propagate the orientation from tree i backwards and from tree i+1 forwards.
-            common_splits = get_common_splits(self.trees[i], self.trees[i + 1])
-
+            # Reuse the already computed common_splits
             self._propagate_from_index_backward(i, common_splits)
             self._propagate_from_index_forward(i + 1, common_splits)
-
-        # Final alignment to ensure global coherence
-        final_pairwise_alignment_pass(self.trees)
 
         for idx, tree in enumerate(self.trees):
             self.logger.debug(
