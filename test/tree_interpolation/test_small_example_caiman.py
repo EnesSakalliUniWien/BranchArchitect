@@ -72,6 +72,7 @@ class TestSmallExampleCaiman(unittest.TestCase):
         # Use fresh copies for interpolation
         t2_interp = tree2.deep_copy()
         t3_interp = tree3.deep_copy()
+        t3_interp.taxa_encoding = t2_interp.taxa_encoding
 
         # NOTE: We are NOT calling derive_order_for_pair here to see what the raw pipeline does
 

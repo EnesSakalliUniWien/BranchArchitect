@@ -73,7 +73,9 @@ def build_microsteps_for_selection(
     destination_tree: Node,
     current_pivot_edge: Partition,
     selection: Dict[str, Any],
-    unstable_taxa: Optional[set[str]] = None,
+    all_mover_partitions: Optional[List[Partition]] = None,
+    source_parent_map: Optional[Dict[Partition, Partition]] = None,
+    dest_parent_map: Optional[Dict[Partition, Partition]] = None,
 ) -> Tuple[List[Node], List[Optional[Partition]], Node, List[Partition]]:
     """
     Build the 5 microsteps for a single selection under an active-changing edge.
@@ -90,7 +92,10 @@ def build_microsteps_for_selection(
         destination_tree: The final target tree (used for weight lookups and consensus checks).
         current_pivot_edge: The active-changing split (pivot edge) currently being processed.
         selection: A dictionary containing the 'subtree' partition and its 'expand'/'collapse' paths.
-        unstable_taxa: Taxa that are still moving and should not be used as anchors.
+        all_mover_partitions: List of all moving subtree Partitions (blocks) for this pivot edge.
+                              Used to identify stable anchor blocks vs moving blocks.
+        source_parent_map: Maps each mover -> its parent in source tree (from map_solution_elements_via_parent).
+        dest_parent_map: Maps each mover -> its parent in destination tree (from map_solution_elements_via_parent).
 
     Returns:
         Tuple containing:
@@ -134,7 +139,9 @@ def build_microsteps_for_selection(
         destination_tree=destination_tree,
         current_pivot_edge=current_pivot_edge,
         moving_subtree_partition=subtree_partition,
-        unstable_taxa=unstable_taxa,
+        all_mover_partitions=all_mover_partitions,
+        source_parent_map=source_parent_map,
+        dest_parent_map=dest_parent_map,
         copy=True,
     )
 
@@ -202,6 +209,8 @@ def apply_stepwise_plan_for_edge(
     current_pivot_edge: Partition,
     expand_paths_for_pivot_edge: Dict[Partition, PartitionSet[Partition]],
     collapse_paths_for_pivot_edge: Dict[Partition, PartitionSet[Partition]],
+    source_parent_map: Optional[Dict[Partition, Partition]] = None,
+    dest_parent_map: Optional[Dict[Partition, Partition]] = None,
 ) -> Tuple[List[Node], List[Optional[Partition]], Node, List[Partition]]:
     """
     Executes the stepwise plan for one pivot edge across all selections.
@@ -244,17 +253,10 @@ def apply_stepwise_plan_for_edge(
             for path in expand_paths:
                 logging.debug(f"    - {path}")
 
-    # Calculate global set of all moving taxa for this edge
-    global_moving_taxa = set()
-    for subtree_partition in selections.keys():
-        global_moving_taxa.update(subtree_partition.taxa)
-
-    processed_taxa = set()
+    # All mover partitions as BLOCKS (not flattened to taxa)
+    all_mover_partitions: List[Partition] = list(selections.keys())
 
     for subtree, selection in selections.items():
-        # Unstable taxa: current movers + future movers (not yet processed)
-        unstable_taxa = global_moving_taxa - processed_taxa
-
         # Add subtree to selection for compatibility
         selection_with_subtree: Dict[str, Any] = {**selection, "subtree": subtree}
 
@@ -264,19 +266,14 @@ def apply_stepwise_plan_for_edge(
                 destination_tree=destination_tree,
                 current_pivot_edge=current_pivot_edge,
                 selection=selection_with_subtree,
-                unstable_taxa=unstable_taxa,
+                all_mover_partitions=all_mover_partitions,
+                source_parent_map=source_parent_map,
+                dest_parent_map=dest_parent_map,
             )
         )
 
         trees.extend(step_trees)
         edges.extend(step_edges)
         subtree_tracker.extend(step_subtree_tracker)
-
-        # Mark current selection's taxa as processed
-        if "collapse" in selection and "taxa" in selection["collapse"]:
-            processed_taxa.update(selection["collapse"]["taxa"])
-        if "expand" in selection and "taxa" in selection["expand"]:
-            processed_taxa.update(selection["expand"]["taxa"])
-        processed_taxa.update(subtree.taxa)
 
     return trees, edges, interpolation_state, subtree_tracker

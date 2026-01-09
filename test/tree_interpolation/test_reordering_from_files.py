@@ -95,7 +95,11 @@ def test_pair_interpolation_matches_destination_order_small_example():
     dst = parse_newick(lines[1])
     _shares_encoding(src, dst)
 
-    result = process_tree_pair_interpolation(src.deep_copy(), dst.deep_copy())
+    src_copy = src.deep_copy()
+    dst_copy = dst.deep_copy()
+    _shares_encoding(src_copy, dst_copy)
+
+    result = process_tree_pair_interpolation(src_copy, dst_copy)
     assert result.trees, "Interpolation should yield intermediate states"
 
     final_order = result.trees[-1].get_current_order()

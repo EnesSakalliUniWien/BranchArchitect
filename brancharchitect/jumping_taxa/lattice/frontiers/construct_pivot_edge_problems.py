@@ -21,6 +21,9 @@ from brancharchitect.jumping_taxa.lattice.logging_helpers import (
     log_lattice_edge_details,
 )
 from brancharchitect.logger import jt_logger
+from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
+    topological_sort_edges,
+)
 
 
 """
@@ -60,7 +63,7 @@ def construct_pivot_edge_problems(t1: Node, t2: Node) -> List[PivotEdgeSubproble
     pivot_edge_subproblems: List[PivotEdgeSubproblem] = []
 
     # Sort splits deterministically by size (approx. topological) then bitmask
-    sorted_common_splits = sorted(intersection, key=lambda s: (len(s), s.bitmask))
+    sorted_common_splits = topological_sort_edges(list(intersection), t1)
 
     for pivot_split in sorted_common_splits:
         subproblem = construct_pivot_edge_problem(pivot_split, t1, t2)

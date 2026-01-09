@@ -102,6 +102,8 @@ def create_interpolation_for_active_split_sequence(
     destination_tree: Node,
     target_pivot_edges: List[Partition],
     jumping_subtree_solutions: Dict[Partition, List[Partition]],
+    source_parent_maps: Optional[Dict[Partition, Dict[Partition, Partition]]] = None,
+    dest_parent_maps: Optional[Dict[Partition, Dict[Partition, Partition]]] = None,
     pair_index: Optional[int] = None,
 ) -> tuple[
     List[Node],
@@ -148,12 +150,22 @@ def create_interpolation_for_active_split_sequence(
             destination_subtree_paths.get(current_pivot_edge, {})
         )
 
+        # Get parent maps for this pivot edge (if available)
+        source_parent_map = (
+            source_parent_maps.get(current_pivot_edge) if source_parent_maps else None
+        )
+        dest_parent_map = (
+            dest_parent_maps.get(current_pivot_edge) if dest_parent_maps else None
+        )
+
         step_trees, step_edges, new_state, step_subtrees = apply_stepwise_plan_for_edge(
             current_base_tree=current_base_tree,
             destination_tree=destination_tree,
             current_pivot_edge=current_pivot_edge,
             expand_paths_for_pivot_edge=destination_paths_for_pivot_edge,
             collapse_paths_for_pivot_edge=source_paths_for_pivot_edge,
+            source_parent_map=source_parent_map,
+            dest_parent_map=dest_parent_map,
         )
 
         if step_trees:

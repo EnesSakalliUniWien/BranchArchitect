@@ -1,5 +1,5 @@
 """
-Tests for the OwnershipTracker class.
+Tests for the SplitClaimTracker class.
 
 This test suite verifies all core functionality including:
 - Claim and release operations
@@ -12,8 +12,8 @@ This test suite verifies all core functionality including:
 import pytest
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.subtree_paths.planning.ownership_tracker import (
-    OwnershipTracker,
+from brancharchitect.tree_interpolation.subtree_paths.planning.split_claim_tracker import (
+    SplitClaimTracker,
 )
 
 
@@ -30,8 +30,8 @@ def encoding():
 
 @pytest.fixture
 def tracker(encoding):
-    """Create a fresh OwnershipTracker instance."""
-    return OwnershipTracker(encoding)
+    """Create a fresh SplitClaimTracker instance."""
+    return SplitClaimTracker(encoding)
 
 
 @pytest.fixture
@@ -506,7 +506,7 @@ def test_stats_after_operations(tracker, splits, subtrees):
 def test_repr(tracker):
     """Test string representation."""
     repr_str = repr(tracker)
-    assert "OwnershipTracker" in repr_str
+    assert "SplitClaimTracker" in repr_str
     assert "resources=" in repr_str
     assert "owners=" in repr_str
 

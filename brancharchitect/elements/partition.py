@@ -255,23 +255,6 @@ class Partition:
     def copy(self) -> "Partition":
         return Partition(self.indices, self.encoding)
 
-    def __iand__(self, other: Any) -> "Partition":
-        if isinstance(other, Partition):
-            common_indices = set(self.indices) & set(other.indices)
-            self._indices = tuple(sorted(common_indices))
-            # Update bitmask as well
-            bitmask = 0
-            for idx in self._indices:
-                bitmask |= 1 << idx
-            self.bitmask = bitmask
-            # Update caches
-            self._cached_size = bitmask.bit_count()
-            self._cached_hash = hash(bitmask)
-            self._cached_reverse_encoding = None
-            self._cached_taxa = None
-            return self
-        return NotImplemented
-
     def __and__(self, other: Any) -> "Partition":
         if isinstance(other, Partition):
             # Fast path: use bitmask intersection directly

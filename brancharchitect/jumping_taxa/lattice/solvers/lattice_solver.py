@@ -32,6 +32,15 @@ from brancharchitect.jumping_taxa.lattice.matrices.meet_product_solvers import (
 from brancharchitect.jumping_taxa.lattice.mapping.iterative_pivot_mappings import (
     map_single_pivot_edge_to_original,
 )
+from brancharchitect.jumping_taxa.lattice.mapping.solution_mapping import (
+    map_solutions_to_common_subtrees,
+)
+from brancharchitect.jumping_taxa.lattice.solvers.identify_jumping_taxa import (
+    identify_and_delete_jumping_taxa,
+)
+from brancharchitect.jumping_taxa.lattice.solvers.verify_solutions import (
+    verify_mapped_solutions_prune,
+)
 
 
 class LatticeSolver:
@@ -88,6 +97,16 @@ class LatticeSolver:
             self._original_common_splits = (
                 self.original_tree1.to_splits() & self.original_tree2.to_splits()
             )
+        self._original_common_splits_with_leaves = self.original_tree1.to_splits(
+            with_leaves=True
+        ) & self.original_tree2.to_splits(with_leaves=True)
+
+        # Pre-compute leaf map for original_tree1 for efficient MRCA lookups in mapping
+        self._original_leaf_map = {
+            self.original_tree1.taxa_encoding[leaf.name]: leaf
+            for leaf in self.original_tree1.get_leaves()
+            if leaf.name in self.original_tree1.taxa_encoding
+        }
 
         # Working copies of trees that get pruned during iterative solving
         self.current_t1: Node = self.tree1.deep_copy()
@@ -137,13 +156,17 @@ class LatticeSolver:
         )
         return True
 
-    def solve(self) -> Dict[Partition, List[Partition]]:
+    def solve(self, map_solutions: bool = True) -> Dict[Partition, List[Partition]]:
         """
         Process all pivot edge subproblems and return best solutions.
 
         Returns:
             Dictionary mapping pivot edges (mapped to original trees)
             to their flattened, sorted solution partitions.
+
+        Args:
+            map_solutions: If True, map solution partitions to original common subtrees.
+                If False, keep solutions in current-tree space (used for pruning steps).
         """
         if not jt_logger.disabled:
             jt_logger.subsection("Lattice Algorithm Execution")
@@ -153,8 +176,16 @@ class LatticeSolver:
         while self.processing_stack:
             self._process_next_pivot()
 
-        # Solutions are already mapped to original trees during processing
-        return self.registry.select_best_solutions()
+        selected = self.registry.select_best_solutions()
+        mapped_pivots = self._map_selected_pivots(selected)
+
+        if not map_solutions:
+            return mapped_pivots
+        return map_solutions_to_common_subtrees(
+            mapped_pivots,
+            self.original_tree1,
+            self.original_tree2,
+        )
 
     def _process_next_pivot(self) -> None:
         """Process a single pivot edge subproblem from the stack."""
@@ -173,17 +204,16 @@ class LatticeSolver:
         solutions: List[PartitionSet[Partition]],
     ) -> None:
         """
-        Handle the solutions found for a pivot edge: map them and register them.
+        Handle the solutions found for a pivot edge: register them under the
+        current pivot split and map only after selection.
 
         Note: We do NOT re-queue the pivot edge here. If there are secondary conflicts
         (e.g. overlaps hidden by nesting), they will be caught in the next iteration
         of solve_iteratively() after the current solutions are applied and trees are pruned.
         """
-        # 1. Handle case with no solutions
         if not solutions:
-            self.registry.add_solutions(
+            self.registry.add_no_solution(
                 current_pivot_edge.pivot_split,
-                [],
                 category="solution",
                 visit=current_pivot_edge.visits,
             )
@@ -200,20 +230,49 @@ class LatticeSolver:
             for i, sol in enumerate(solutions):
                 jt_logger.info(f"  Solution {i + 1}: {format_partition_set(sol)}")
 
-        # Map each solution individually to preserve specificity
         for solution in solutions:
-            mapped_pivot = map_single_pivot_edge_to_original(
-                current_pivot_edge.pivot_split,
-                self._original_common_splits,
-                [solution],
-            )
+            # CRITICAL: Snapshot the solution before adding to registry.
+            # remove_solutions_from_covers() will likely be called on the *original* objects.
+            # While PartitionSet internal storage (bitmasks) is usually robust,
+            # explicit snapshotting protects against any mutable aliasing bugs.
+            solution_snapshot = solution.copy()
 
             self.registry.add_solutions(
-                mapped_pivot,
-                [solution],
+                current_pivot_edge.pivot_split,
+                [solution_snapshot],
                 category="solution",
                 visit=current_pivot_edge.visits,
             )
+
+        # Remove solved partitions from covers and re-queue if conflicts remain.
+        current_pivot_edge.remove_solutions_from_covers(solutions)
+        if current_pivot_edge.has_remaining_conflicts():
+            self.processing_stack.append(current_pivot_edge)
+
+    def _map_selected_pivots(
+        self,
+        selected_solutions: Dict[Partition, List[Partition]],
+    ) -> Dict[Partition, List[Partition]]:
+        """
+        Map pivot edges to original trees after selecting best solutions.
+
+        Uses Φ(p, best_solution) so each pivot contributes a single mapped key.
+        """
+        mapped: Dict[Partition, List[Partition]] = {}
+
+        for pivot_edge, partitions in selected_solutions.items():
+            solution_sets = [partitions] if partitions else []
+            mapped_pivot = map_single_pivot_edge_to_original(
+                pivot_edge,
+                self._original_common_splits,
+                solution_sets,
+                self.original_tree1,
+                self._original_leaf_map,
+            )
+
+            mapped.setdefault(mapped_pivot, []).extend(partitions)
+
+        return mapped
 
     def _solve_pivot_edge(
         self, pivot_edge: PivotEdgeSubproblem
@@ -255,8 +314,7 @@ class LatticeSolver:
         usability in interpolation.
 
         Args:
-            max_iters: Maximum number of iterations to perform to prevent infinite loops.
-                      Defaults to 100.
+            max_iters: Retained for compatibility; no longer enforced.
         """
         if not jt_logger.disabled:
             jt_logger.section("Iterative Lattice Algorithm")
@@ -267,90 +325,59 @@ class LatticeSolver:
 
         iteration_count = 0
 
-        while iteration_count < max_iters:
-            iteration_count += 1
+        while True:
             if not jt_logger.disabled:
-                jt_logger.subsection(f"Iteration {iteration_count}")
+                jt_logger.subsection(f"Iteration {iteration_count + 1}")
 
             # Check if trees are now identical (using Node.__eq__ which compares full topology)
             if self.current_t1 == self.current_t2:
                 break
 
+            iteration_count += 1
+
             # Rebuild processing state for current trees
             has_work = self._build_processing_state()
-
             if not has_work:
-                # No pivot edges means trees are topologically identical
-                break
+                raise RuntimeError(
+                    "No pivot edges constructed but trees are not isomorphic."
+                )
 
-            solutions_dict_this_iter = self.solve()
+            solutions_dict_this_iter = self.solve(map_solutions=False)
 
             # Accumulate solutions (flat partitions) from this iteration into the global dictionary
             for split, partitions in solutions_dict_this_iter.items():
                 jumping_subtree_solutions_dict.setdefault(split, []).extend(partitions)
 
             # Identify and delete jumping taxa
-            should_break_loop = self._identify_and_delete_jumping_taxa(
-                solutions_dict_this_iter, iteration_count
+            should_break_loop = identify_and_delete_jumping_taxa(
+                self.current_t1,
+                self.current_t2,
+                self.deleted_taxa_per_iteration,
+                solutions_dict_this_iter,
+                iteration_count,
             )
 
             if should_break_loop:
-                break
+                if self.current_t1 == self.current_t2:
+                    break
+                raise RuntimeError(
+                    "Stopping condition reached before tree isomorphism."
+                )
 
         # Note: Dict order may not be topologically sorted across iterations.
         # Callers should sort if needed using topological_sort_edges.
-        return jumping_subtree_solutions_dict, self.deleted_taxa_per_iteration
+        # Map moving subtrees to common splits so interpolation doesn't target missing nodes.
+        mapped_solutions_dict = map_solutions_to_common_subtrees(
+            jumping_subtree_solutions_dict,
+            self.original_tree1,
+            self.original_tree2,
+        )
 
-    def _identify_and_delete_jumping_taxa(
-        self,
-        solutions_dict_this_iter: Dict[Partition, List[Partition]],
-        iteration_count: int,
-    ) -> bool:
-        """
-        Identify jumping taxa from solutions and delete them from trees.
-
-        Args:
-            solution_elements_this_iter: Flat list of solution partitions from this iteration
-            iteration_count: Current iteration number
-
-        Returns:
-            should_break_loop: Boolean indicating if loop should break
-        """
-
-        # Collect taxa indices from all solution partitions
-        taxa_indices_to_delete: Set[int] = set()
-
-        for pivot_split, solutions in solutions_dict_this_iter.items():
-            for sol_partition in solutions:
-                indices = sol_partition.resolve_to_indices()
-                taxa_indices_to_delete.update(indices)
-                if not jt_logger.disabled:
-                    jt_logger.info(
-                        f"Deleting taxa {format_partition_set([sol_partition])} "
-                        f"because they appear in the solution for Pivot Split {pivot_split}"
-                    )
-
-        # Check if there are any taxa to delete
-        if not taxa_indices_to_delete:
-            return True  # Break loop
-
-        # Track which taxa were deleted in this iteration
-        self.deleted_taxa_per_iteration.append(taxa_indices_to_delete)
-
-        # Perform deletion (sorted for determinism)
-        indices = sorted(taxa_indices_to_delete)
-        self.current_t1.delete_taxa(indices)
-        self.current_t2.delete_taxa(indices)
-
-        if not jt_logger.disabled:
-            jt_logger.debug(
-                f"Iter {iteration_count}: Deleted {len(taxa_indices_to_delete)} taxa"
-            )
-
-        # Check if trees have enough leaves to continue
-        t1_leaf_count = len(self.current_t1.get_leaves())
-        t2_leaf_count = len(self.current_t2.get_leaves())
-        if t1_leaf_count < 2 or t2_leaf_count < 2:
-            return True  # Break loop
-
-        return False  # Continue loop
+        verify_mapped_solutions_prune(
+            self.original_tree1,
+            self.original_tree2,
+            self.current_t1,
+            self.current_t2,
+            mapped_solutions_dict,
+        )
+        return mapped_solutions_dict, self.deleted_taxa_per_iteration

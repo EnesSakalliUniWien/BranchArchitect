@@ -1,6 +1,19 @@
 {
   "tree1": "(((((A,B),C),D),(((E,G),F),H)),(O1,O2)));",
   "tree2": "(((((B,C),D),H),(((A,E),G),F)),(O1,O2)));",
-  "solutions": [],
-  "comment": "All previously listed solutions (A, B, A+H) failed topological verification"
+  "solutions": [
+    [
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "G"
+      ],
+      [
+        "H"
+      ]
+    ]
+  ]
 }

@@ -270,22 +270,10 @@ class PivotSplitRegistry:
         unique_expand: PartitionSet[Partition],
     ) -> PartitionSet[Partition]:
         """
-        Compute the collapse path for a subtree using STEPWISE strategy.
+        Compute the collapse path for a subtree.
 
-        Stepwise Strategy:
-        - Each subtree collapses ONLY its assigned splits + incompatible splits.
-        - This produces smoother animations (incremental changes) compared to
-          Tabula Rasa (which collapsed everything at once for the first subtree).
-
-        The collapse path is the union of:
-        1. shared_collapse: Splits shared with other subtrees (first to process wins)
-        2. unique_collapse: Splits owned exclusively by this subtree
-        3. incompatible: Splits that conflict with planned expansions
-
-        Mathematical correctness is guaranteed because:
-        - Incompatible splits are computed against the GLOBAL remaining set
-        - The global set is updated after each subtree processes
-        - Any split blocking an expansion will be collapsed (regardless of owner)
+        First subtree uses tabula rasa strategy (collapse everything).
+        Subsequent subtrees collapse only their assigned + incompatible splits.
 
         Args:
             shared_collapse: Shared collapse splits for this subtree
@@ -296,9 +284,11 @@ class PivotSplitRegistry:
         Returns:
             The collapse path for this subtree
         """
-        # Mark first subtree as processed for bookkeeping (even without Tabula Rasa)
-        if not self.first_subtree_processed:
-            self.first_subtree_processed = True
+        # First subtree: try tabula rasa (collapse everything)
+        # Note: get_tabula_rasa_collapse_splits() marks first_subtree_processed=True
+        tabula_rasa_splits = self.get_tabula_rasa_collapse_splits()
+        if tabula_rasa_splits:
+            return tabula_rasa_splits
 
         # Compute incompatibilities for this subtree's planned expands
         # NOTE: Don't include contingent_expand here - they haven't been consumed yet!
@@ -473,12 +463,7 @@ class PivotSplitRegistry:
 
     def get_tabula_rasa_collapse_splits(self) -> PartitionSet[Partition]:
         """
-        DEPRECATED: Get ALL collapse splits for tabula rasa (clean slate) strategy.
-
-        NOTE: This method is no longer used by _compute_collapse_path().
-        The stepwise strategy replaces Tabula Rasa for smoother animations.
-        This method is kept for backwards compatibility and the backup file
-        pivot_split_registry_tabula_rasa.py.
+        Get ALL collapse splits for tabula rasa (clean slate) strategy.
 
         The first subtree collapses EVERYTHING from the source tree to create
         a blank canvas. Then we rebuild the tree from scratch by expanding splits

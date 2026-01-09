@@ -24,6 +24,7 @@ RUN COMMANDS:
 """
 
 import unittest
+from unittest.mock import patch
 from collections import OrderedDict
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
@@ -744,6 +745,18 @@ class TestPathOrdering(unittest.TestCase):
             "((A,B),(C,D));", order=taxa_order, encoding=self.encoding
         )
 
+        # Patch get_unique_splits to return all splits regardless of tree identity
+        self.patcher = patch(
+            "brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry.get_unique_splits_for_current_pivot_edge_subtree"
+        )
+        self.mock_get_splits = self.patcher.start()
+        # Set default to empty sets to prevent unpacking error if test setup fails
+        self.mock_get_splits.return_value = (
+            PartitionSet(encoding=self.encoding),
+            PartitionSet(encoding=self.encoding),
+        )
+        self.addCleanup(self.patcher.stop)
+
     def test_collapse_paths_sorted_by_size_ascending(self):
         """Collapse paths should be sorted Smallest First (Leaves Inward)."""
         collapse_by_subtree = {
@@ -755,6 +768,14 @@ class TestPathOrdering(unittest.TestCase):
         expand_by_subtree = {
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
         }
+
+        # Configure mock to return splits despite identical trees
+        all_collapse = set().union(*collapse_by_subtree.values())
+        all_expand = set().union(*expand_by_subtree.values())
+        self.mock_get_splits.return_value = (
+            PartitionSet(all_collapse, encoding=self.encoding),
+            PartitionSet(all_expand, encoding=self.encoding),
+        )
 
         plan = build_edge_plan(
             expand_by_subtree,
@@ -787,6 +808,15 @@ class TestPathOrdering(unittest.TestCase):
         expand_by_subtree = {
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
         }
+
+        # Configure mock (use side_effect to return fresh sets for each call)
+        def get_splits(*args):
+            return (
+                PartitionSet([self.part_A, self.part_AB], encoding=self.encoding),
+                PartitionSet([self.part_A], encoding=self.encoding),
+            )
+
+        self.mock_get_splits.side_effect = get_splits
 
         # Run twice
         plan1 = build_edge_plan(

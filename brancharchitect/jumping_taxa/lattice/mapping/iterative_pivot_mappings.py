@@ -26,10 +26,9 @@ where |s| denotes the cardinality of the split (number of taxa).
 
 Rationale
 ---------
-- Direct pivot edges map to maximum splits to allow broader, higher-level
-  structural changes in the tree interpolation
-- Pivot edges with jumping taxa map to minimum splits to find the most
-  specific split that contains both the pivot and the jumping taxa
+- All pivot edges map to minimum splits to find the most specific common structure match,
+  ensuring that local changes in pruned trees are mapped to their most precise
+  local equivalents in the original tree.
 
 Implementation Notes
 --------------------
@@ -38,70 +37,150 @@ Implementation Notes
 - Among splits of equal size, ties are broken deterministically by bitmask value
 """
 
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Dict, Union, Iterable
 
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import Partition, PartitionSet
 from brancharchitect.logger.debug import jt_logger
+from brancharchitect.jumping_taxa.lattice.frontiers.construct_pivot_edge_problems import (
+    is_pivot_edge,
+    _validate_nodes_exist,
+)
+from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
+    topological_sort_edges,
+)
 
 
 def map_single_pivot_edge_to_original(
     pivot_edge: Partition,
     original_common_splits: PartitionSet[Partition],
-    solutions: List[PartitionSet[Partition]],
+    solutions: Iterable[Union[PartitionSet[Partition], Partition, Iterable[Partition]]],
+    original_tree: Node,
+    leaf_map: Dict[int, Node] | None = None,
 ) -> Partition:
     """
     Map a single pivot edge from a pruned tree to its corresponding split in original trees.
 
-    This is the incremental version of map_iterative_pivot_edges_to_original,
-    called immediately when solutions are found rather than batched at the end.
+    Uses efficient tree traversal (MRCA) on the original tree to find the
+    MINIMUM (smallest/most specific) common split that contains the pivot/jumping taxa.
 
     Args:
         pivot_edge: Pivot edge from the current (possibly pruned) iteration
         original_common_splits: Pre-computed common splits from original trees (T₁ ∩ T₂)
         solutions: List of solution PartitionSets for this pivot edge
+        original_tree: The original unpruned tree T1 (used for topological traversal)
+        leaf_map: Optional pre-computed map of taxon index -> Leaf Node in original_tree
 
     Returns:
         The mapped split from original trees (minimum containing split)
     """
-    # Collect jumping taxa indices from all solutions
+    # 1. Provide Leaf Map (Build on the fly if missing - inefficient for batch, ok for single)
+    if leaf_map is None:
+        leaf_map = {
+            original_tree.taxa_encoding[leaf.name]: leaf
+            for leaf in original_tree.get_leaves()
+            if leaf.name in original_tree.taxa_encoding
+        }
+
+    # 2. Collect all target indices (P ∪ J)
+    # We handle the polymorphic input manually to avoid wrapper overhead
     jumping_taxa_indices: Set[int] = set()
-    for solution_set in solutions:
-        for partition in solution_set:
-            jumping_taxa_indices.update(partition.indices)
+    for item in solutions:
+        if isinstance(item, Partition):
+            jumping_taxa_indices.update(item.indices)
+        elif isinstance(item, (set, list, tuple, PartitionSet)):
+            for sub_item in item:
+                if isinstance(sub_item, Partition):
+                    jumping_taxa_indices.update(sub_item.indices)
 
-    # Calculate expected original taxa set (E = p ∪ J)
-    pivot_indices: Set[int] = set(pivot_edge.indices)
-    expected_original_indices: Set[int] = pivot_indices | jumping_taxa_indices
+    expected_original_indices: Set[int] = set(pivot_edge.indices) | jumping_taxa_indices
 
-    # Create bitmask for efficient subset checking
-    expected_bitmask: int = 0
-    for index in expected_original_indices:
-        expected_bitmask |= 1 << index
+    # 3. Optimization: Trivial Case
+    # If no indices (shouldn't happen), return pivot
+    if not expected_original_indices:
+        return pivot_edge
 
-    # Determine total taxa count to identify root split
-    total_taxa = len(pivot_edge.encoding)
+    # 4. Find MRCA (Most Recent Common Ancestor) in original_tree
+    # Strategy: Start at one leaf, walk up until the node covers all expected bits.
 
-    # Find containing splits (excluding root for now)
-    root_split: Optional[Partition] = None
-    containing_splits: List[Partition] = []
+    # Calculate target bitmask
+    target_mask = 0
+    start_node: Optional[Node] = None
 
-    for split in original_common_splits:
-        if len(split.indices) == total_taxa:
-            root_split = split
-        elif (expected_bitmask & split.bitmask) == expected_bitmask:
-            containing_splits.append(split)
+    for idx in expected_original_indices:
+        target_mask |= 1 << idx
+        # Pick the first valid leaf we find as our start point
+        if start_node is None and idx in leaf_map:
+            start_node = leaf_map[idx]
 
-    # Select minimum (smallest) containing split
-    if containing_splits:
-        return min(containing_splits, key=lambda s: (s.bitmask.bit_count(), s.bitmask))
+    if start_node is None:
+        # Fallback: Indices don't match tree? Return pivot.
+        return pivot_edge
 
-    # Fallback to root split if no internal split contains the expected taxa
-    if root_split and (expected_bitmask & root_split.bitmask) == expected_bitmask:
-        return root_split
+    # Walk up to find MRCA in T1
+    # The MRCA is the first ancestor where (node_mask & target_mask) == target_mask
+    curr = start_node
+    while curr.parent is not None:
+        if (curr.split_indices.bitmask & target_mask) == target_mask:
+            break
+        curr = curr.parent
 
-    # Last resort: return the pivot edge itself (shouldn't happen in practice)
+    mrca_node = curr
+
+    # 5. Find MINIMUM Common Split
+    # The MRCA is the smallest split in T1 containing the taxa.
+    # We now walk UP from MRCA to find the first ancestor that is ALSO in T2 (common).
+    # This guarantees it is the smallest common split.
+
+    common_bitmasks = original_common_splits._bitmask_set
+    cursor: Optional[Node] = mrca_node
+
+    while cursor is not None:
+        if cursor.split_indices.bitmask in common_bitmasks:
+            # FOUND IT: This is the smallest common split containing target.
+            return original_common_splits._bitmask_to_partition[
+                cursor.split_indices.bitmask
+            ]
+        cursor = cursor.parent
+
+    # 6. Fallback (Root)
+    # If we walked off the top without hitting a common split (rare if trees share root),
+    # return the pivot as a fallback.
     return pivot_edge
+
+
+def get_pivot_edges(t1: Node, t2: Node) -> List[Partition]:
+    """Compute detailed split information for two trees (per pivot/frontiers)."""
+    # Ensure both trees have their indices built
+
+    t1_splits: PartitionSet[Partition] = t1.to_splits()  # fresh splits
+    t2_splits: PartitionSet[Partition] = t2.to_splits()  # fresh splits
+
+    # Get common splits and verify they exist in both trees
+    intersection: PartitionSet[Partition] = t1_splits.intersection(t2_splits)
+
+    # Sort splits deterministically by size (approx. topological) then bitmask
+    sorted_common_splits = topological_sort_edges(list(intersection), t1)
+
+    pivot_edge_problems: List[Partition] = []
+    for pivot_split in sorted_common_splits:
+        t1_node: Node | None = t1.find_node_by_split(pivot_split)
+        t2_node: Node | None = t2.find_node_by_split(pivot_split)
+
+        # Validate that both trees contain the pivot split
+        _validate_nodes_exist(pivot_split, t1_node, t2_node)
+
+        # Type narrowing: after validation, nodes are guaranteed to be non-None
+        assert t1_node is not None
+        assert t2_node is not None
+
+        is_pivot, child_subtree_splits_across_trees = is_pivot_edge(t1_node, t2_node)
+
+        # Process further if there are child splits unique to either tree.
+        if is_pivot:
+            pivot_edge_problems.append(pivot_split)
+
+    return pivot_edge_problems
 
 
 def map_iterative_pivot_edges_to_original(
@@ -144,96 +223,31 @@ def map_iterative_pivot_edges_to_original(
     """
     mapped_splits: List[Partition] = []
 
-    # Pre-compute all common splits from the original trees for efficient lookup.
-    # This is the set C = Σ(T₁) ∩ Σ(T₂).
-    original_common_splits: PartitionSet[Partition] = (
-        original_t1.to_splits() & original_t2.to_splits()
-    )
+    # Build efficiency map for MRCA lookups
+    leaf_map = {
+        original_t1.taxa_encoding[leaf.name]: leaf
+        for leaf in original_t1.get_leaves()
+        if leaf.name in original_t1.taxa_encoding
+    }
 
-    # Determine the total number of taxa to identify the root split
-    # The root split contains all taxa in the tree
-    total_taxa = len(original_t1.taxa_encoding)
-
-    # Separate root split from other common splits
-    # Pivot edges should map to internal splits, not the trivial root split
-    root_split: Optional[Partition] = None
-    non_root_common_splits: List[Partition] = []
-
-    for split in original_common_splits:
-        if len(split.indices) == total_taxa:
-            root_split = split
-        else:
-            non_root_common_splits.append(split)
+    pivot_edges = get_pivot_edges(original_t1, original_t2)
 
     if not jt_logger.disabled:
         jt_logger.info(
             f"Mapping {len(pivot_edges_from_iteration)} pivot edges "
-            f"({len(original_common_splits)} common splits available, "
-            f"{len(non_root_common_splits)} non-root)"
+            f"via MRCA traversal ({len(pivot_edges)} common splits)"
         )
-
-    success_count = 0
-    fallback_count = 0
 
     for i, pivot_edge in enumerate(pivot_edges_from_iteration):
-        # Get the jumping taxa solution J for this pivot edge as a flat list of partitions.
-        jumping_taxa_indices: Set[int] = set()
+        current_solutions = []
         if jumping_taxa_solutions and i < len(jumping_taxa_solutions):
-            partitions_for_this_pivot = jumping_taxa_solutions[i]
-            if partitions_for_this_pivot:
-                for partition in partitions_for_this_pivot:
-                    jumping_taxa_indices.update(partition.indices)
+            # Pass the list of partitions directly.
+            # Our updated map_single handles List[Partition] correctly.
+            current_solutions = jumping_taxa_solutions[i]
 
-        # Step 1: Calculate the expected original taxa set (E = p ∪ J).
-        pivot_indices: Set[int] = set(pivot_edge.indices)
-        expected_original_indices: Set[int] = pivot_indices | jumping_taxa_indices
-
-        # Create a bitmask for the expected taxa set for efficient subset checking.
-        expected_bitmask: int = 0
-        for index in expected_original_indices:
-            expected_bitmask |= 1 << index
-
-        # Step 2: Find all common splits that are supersets of the expected taxa set.
-        containing_splits: List[Partition] = [
-            split
-            for split in non_root_common_splits
-            if (expected_bitmask & split.bitmask) == expected_bitmask
-        ]
-
-        # If no non-root splits found, check if root split can contain it (fallback)
-        is_fallback = False
-        if not containing_splits and root_split:
-            if (expected_bitmask & root_split.bitmask) == expected_bitmask:
-                containing_splits = [root_split]
-                is_fallback = True
-
-        # Step 3: From the valid candidates, select the MINIMUM (smallest) split.
-        if containing_splits:
-            selected_split: Partition = min(
-                containing_splits, key=lambda s: (s.bitmask.bit_count(), s.bitmask)
-            )
-            mapped_splits.append(selected_split)
-            if is_fallback:
-                fallback_count += 1
-            else:
-                success_count += 1
-        else:
-            # If no common split contains the expected taxa, fall back to root split.
-            if root_split:
-                mapped_splits.append(root_split)
-                fallback_count += 1
-            else:
-                mapped_splits.append(
-                    list(original_common_splits)[0]
-                    if original_common_splits
-                    else pivot_edge
-                )
-                fallback_count += 1
-
-    if not jt_logger.disabled:
-        jt_logger.info(
-            f"✓ Mapped {len(mapped_splits)} pivots: "
-            f"{success_count} internal, {fallback_count} root fallbacks"
+        mapped_split = map_single_pivot_edge_to_original(
+            pivot_edge, pivot_edge, current_solutions, original_t1, leaf_map
         )
+        mapped_splits.append(mapped_split)
 
     return mapped_splits

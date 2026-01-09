@@ -21,6 +21,9 @@ from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
 from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
     topological_sort_edges,
 )
+from brancharchitect.jumping_taxa.lattice.mapping.minimum_cover_mappings import (
+    map_solution_elements_via_parent,
+)
 
 # Final topology check: ensure last interpolated tree matches destination
 from brancharchitect.tree_interpolation.subtree_paths.pivot_sequence_orchestrator import (
@@ -89,6 +92,11 @@ def process_tree_pair_interpolation(
     pivot_edges: List[Partition] = list(jumping_subtree_solutions.keys())
     ordered_edges: List[Partition] = topological_sort_edges(pivot_edges, source_tree)
 
+    # Compute MRCA parent maps for all movers (V2 MRCA-aware reordering)
+    source_parent_maps, dest_parent_maps = map_solution_elements_via_parent(
+        jumping_subtree_solutions, source_tree, destination_tree
+    )
+
     (
         sequence_trees,
         current_pivot_edge_tracking,
@@ -98,6 +106,8 @@ def process_tree_pair_interpolation(
         destination_tree=destination_tree,
         target_pivot_edges=ordered_edges,
         jumping_subtree_solutions=jumping_subtree_solutions,
+        source_parent_maps=source_parent_maps,
+        dest_parent_maps=dest_parent_maps,
         pair_index=pair_index,
     )
 

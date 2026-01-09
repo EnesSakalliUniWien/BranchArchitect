@@ -11,6 +11,7 @@ Tests cover:
 
 import unittest
 from collections import OrderedDict
+from unittest.mock import patch
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree import Node
@@ -27,6 +28,19 @@ class TestEdgePlanBuilder(unittest.TestCase):
         from brancharchitect.parser import parse_newick
 
         self.encoding = {"A": 0, "B": 1, "C": 2, "D": 3}
+
+        # Patch the split analysis function to return all splits passed in input
+        # This bypasses the check for identical trees (T1==T2) which would result in empty sets
+        self.patcher = patch(
+            "brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry.get_unique_splits_for_current_pivot_edge_subtree"
+        )
+        self.mock_get_splits = self.patcher.start()
+
+        # Default behavior: return empty sets (override in tests if needed)
+        self.mock_get_splits.return_value = (
+            PartitionSet(encoding=self.encoding),
+            PartitionSet(encoding=self.encoding),
+        )
 
         self.part_A = Partition((0,), self.encoding)
         self.part_B = Partition((1,), self.encoding)
@@ -53,6 +67,14 @@ class TestEdgePlanBuilder(unittest.TestCase):
         expand_by_subtree = {
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
         }
+
+        # Configure mock
+        all_collapse = set().union(*collapse_by_subtree.values())
+        all_expand = set().union(*expand_by_subtree.values())
+        self.mock_get_splits.return_value = (
+            PartitionSet(all_collapse, encoding=self.encoding),
+            PartitionSet(all_expand, encoding=self.encoding),
+        )
 
         plan = build_edge_plan(
             expand_by_subtree,
@@ -81,6 +103,14 @@ class TestEdgePlanBuilder(unittest.TestCase):
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
             self.part_C: PartitionSet([self.part_C], encoding=self.encoding),
         }
+
+        # Configure mock to return all splits passed in input
+        all_collapse = set().union(*collapse_by_subtree.values())
+        all_expand = set().union(*expand_by_subtree.values())
+        self.mock_get_splits.return_value = (
+            PartitionSet(all_collapse, encoding=self.encoding),
+            PartitionSet(all_expand, encoding=self.encoding),
+        )
 
         plan = build_edge_plan(
             expand_by_subtree,
@@ -112,6 +142,14 @@ class TestEdgePlanBuilder(unittest.TestCase):
             self.part_B: PartitionSet([self.part_B], encoding=self.encoding),
         }
 
+        # Configure mock
+        all_collapse = set().union(*collapse_by_subtree.values())
+        all_expand = set().union(*expand_by_subtree.values())
+        self.mock_get_splits.return_value = (
+            PartitionSet(all_collapse, encoding=self.encoding),
+            PartitionSet(all_expand, encoding=self.encoding),
+        )
+
         plan = build_edge_plan(
             expand_by_subtree,
             collapse_by_subtree,
@@ -131,7 +169,7 @@ class TestEdgePlanBuilder(unittest.TestCase):
         self.assertEqual(ab_count, 1)
 
     def test_splits_sorted_by_size(self):
-        """Test that splits are sorted by partition size (larger first)."""
+        """Test that splits are sorted by partition size (smallest first / leaves inward)."""
         collapse_by_subtree = {
             self.part_A: PartitionSet(
                 [self.part_A, self.part_AB, self.part_ABC], encoding=self.encoding
@@ -141,6 +179,14 @@ class TestEdgePlanBuilder(unittest.TestCase):
         expand_by_subtree = {
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
         }
+
+        # Configure mock
+        all_collapse = set().union(*collapse_by_subtree.values())
+        all_expand = set().union(*expand_by_subtree.values())
+        self.mock_get_splits.return_value = (
+            PartitionSet(all_collapse, encoding=self.encoding),
+            PartitionSet(all_expand, encoding=self.encoding),
+        )
 
         plan = build_edge_plan(
             expand_by_subtree,
@@ -152,9 +198,9 @@ class TestEdgePlanBuilder(unittest.TestCase):
 
         collapse_path = plan[self.part_A]["collapse"]["path_segment"]
 
-        # Verify larger partitions come first
+        # Verify smaller partitions come first (Leaves Inward)
         sizes = [len(p.indices) for p in collapse_path]
-        self.assertEqual(sizes, sorted(sizes, reverse=True))
+        self.assertEqual(sizes, sorted(sizes))
 
     def test_last_subtree_gets_remaining_splits(self):
         """Test that the last subtree aggregates all remaining splits."""
@@ -169,6 +215,14 @@ class TestEdgePlanBuilder(unittest.TestCase):
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
             self.part_B: PartitionSet([self.part_B], encoding=self.encoding),
         }
+
+        # Configure mock
+        all_collapse = set().union(*collapse_by_subtree.values())
+        all_expand = set().union(*expand_by_subtree.values())
+        self.mock_get_splits.return_value = (
+            PartitionSet(all_collapse, encoding=self.encoding),
+            PartitionSet(all_expand, encoding=self.encoding),
+        )
 
         plan = build_edge_plan(
             expand_by_subtree,
@@ -204,6 +258,17 @@ class TestContingentSplitsInBuilder(unittest.TestCase):
             "((A,B),(C,D));", order=taxa_order, encoding=self.encoding
         )
 
+        # Patch the split analysis function
+        self.patcher = patch(
+            "brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry.get_unique_splits_for_current_pivot_edge_subtree"
+        )
+        self.mock_get_splits = self.patcher.start()
+        self.mock_get_splits.return_value = (
+            PartitionSet(encoding=self.encoding),
+            PartitionSet(encoding=self.encoding),
+        )
+        self.addCleanup(self.patcher.stop)
+
     def test_contingent_splits_used_when_space_available(self):
         """Test that contingent splits are used when collapse creates space."""
         # Collapse part_ABC, which creates space for part_A and part_B
@@ -216,9 +281,17 @@ class TestContingentSplitsInBuilder(unittest.TestCase):
             self.part_A: PartitionSet([self.part_C], encoding=self.encoding),
         }
 
-        # Note: We need to pass ALL expand splits (including contingent ones)
-        # through the get_unique_splits_for_active_changing_edge_subtree function
-        # For this test, we'll manually construct the scenario
+        # Configure mock to return all splits passed in input + contingent splits
+        all_collapse = set().union(*collapse_by_subtree.values())
+        # We need to make sure expand splits has everything we want to be available
+        claimed_expand = set().union(*expand_by_subtree.values())
+        # Add contingent splits (A and B) that are NOT in expand_by_subtree
+        all_expand = claimed_expand | {self.part_A, self.part_B}
+
+        self.mock_get_splits.return_value = (
+            PartitionSet(all_collapse, encoding=self.encoding),
+            PartitionSet(all_expand, encoding=self.encoding),
+        )
 
         plan = build_edge_plan(
             expand_by_subtree,
@@ -247,7 +320,19 @@ class TestDeterministicOrdering(unittest.TestCase):
         self.part_ABCD = Partition((0, 1, 2, 3), self.encoding)
 
         taxa_order = ["A", "B", "C", "D"]
+        taxa_order = ["A", "B", "C", "D"]
         self.root = parse_newick("(A,B,C,D);", order=taxa_order, encoding=self.encoding)
+
+        # Patch the split analysis function
+        self.patcher = patch(
+            "brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry.get_unique_splits_for_current_pivot_edge_subtree"
+        )
+        self.mock_get_splits = self.patcher.start()
+        self.mock_get_splits.return_value = (
+            PartitionSet(encoding=self.encoding),
+            PartitionSet(encoding=self.encoding),
+        )
+        self.addCleanup(self.patcher.stop)
 
     def test_multiple_runs_produce_same_order(self):
         """Test that running build_edge_plan multiple times gives the same result."""
@@ -263,6 +348,14 @@ class TestDeterministicOrdering(unittest.TestCase):
             self.part_B: PartitionSet([self.part_B], encoding=self.encoding),
             self.part_C: PartitionSet([self.part_C], encoding=self.encoding),
         }
+
+        # Configure mock for first run
+        all_collapse = set().union(*collapse_by_subtree_1.values())
+        all_expand = set().union(*expand_by_subtree_1.values())
+        self.mock_get_splits.return_value = (
+            PartitionSet(all_collapse, encoding=self.encoding),
+            PartitionSet(all_expand, encoding=self.encoding),
+        )
 
         plan1 = build_edge_plan(
             expand_by_subtree_1,
@@ -285,6 +378,14 @@ class TestDeterministicOrdering(unittest.TestCase):
             self.part_C: PartitionSet([self.part_C], encoding=self.encoding),
         }
 
+        # Configure mock to return all splits passed in input
+        all_collapse = set().union(*collapse_by_subtree_2.values())
+        all_expand = set().union(*expand_by_subtree_2.values())
+        self.mock_get_splits.return_value = (
+            PartitionSet(all_collapse, encoding=self.encoding),
+            PartitionSet(all_expand, encoding=self.encoding),
+        )
+
         plan2 = build_edge_plan(
             expand_by_subtree_2,
             collapse_by_subtree_2,
@@ -305,6 +406,18 @@ class TestEdgeCases(unittest.TestCase):
         from brancharchitect.parser import parse_newick
 
         self.encoding = {"A": 0, "B": 1}
+
+        # Patch the split analysis function to return all splits passed in input
+        self.patcher = patch(
+            "brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry.get_unique_splits_for_current_pivot_edge_subtree"
+        )
+        self.mock_get_splits = self.patcher.start()
+        # Default behavior: return empty sets
+        self.mock_get_splits.return_value = (
+            PartitionSet(encoding=self.encoding),
+            PartitionSet(encoding=self.encoding),
+        )
+        self.addCleanup(self.patcher.stop)
 
         self.part_A = Partition((0,), self.encoding)
         self.part_AB = Partition((0, 1), self.encoding)
@@ -330,6 +443,13 @@ class TestEdgeCases(unittest.TestCase):
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
         }
 
+        # Configure mock
+        all_collapse = set().union(*collapse_by_subtree.values())
+        self.mock_get_splits.return_value = (
+            PartitionSet(all_collapse, encoding=self.encoding),
+            PartitionSet(encoding=self.encoding),
+        )
+
         plan = build_edge_plan(
             {},
             collapse_by_subtree,
@@ -347,6 +467,13 @@ class TestEdgeCases(unittest.TestCase):
         expand_by_subtree = {
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
         }
+
+        # Configure mock
+        all_expand = set().union(*expand_by_subtree.values())
+        self.mock_get_splits.return_value = (
+            PartitionSet(encoding=self.encoding),
+            PartitionSet(all_expand, encoding=self.encoding),
+        )
 
         plan = build_edge_plan(
             expand_by_subtree,

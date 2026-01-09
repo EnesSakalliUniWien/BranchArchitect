@@ -58,13 +58,15 @@ class ChildFrontiers:
         partition_mask = partition.bitmask
 
         # 1. Remove intersecting from covers (tops)
-        if partition in self.shared_top_splits:
-            self.shared_top_splits.discard(partition)
+        for top in list(self.shared_top_splits):
+            if (top.bitmask & partition_mask) != 0:
+                self.shared_top_splits.discard(top)
 
         # 2. Remove intersecting from frontier sets (values)
         for frontier_set in self.bottom_partition_map.values():
-            if partition in frontier_set:
-                frontier_set.discard(partition)
+            for frontier in list(frontier_set):
+                if (frontier.bitmask & partition_mask) != 0:
+                    frontier_set.discard(frontier)
 
         # 3. Remove from bottom keys safely
         keys_to_remove = [

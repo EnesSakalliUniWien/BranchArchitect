@@ -7,6 +7,15 @@ Tests cover:
 - API response structure
 """
 
+import sys
+from unittest.mock import MagicMock
+
+# Mock flask and flask_cors before they are imported by webapp modules
+sys.modules["flask"] = MagicMock()
+sys.modules["flask_cors"] = MagicMock()
+sys.modules["msa_to_trees"] = MagicMock()
+sys.modules["msa_to_trees.pipeline"] = MagicMock()
+
 import unittest
 from typing import Optional
 
@@ -22,7 +31,7 @@ class TestTreeInterpolationSequenceSubtreeTracking(unittest.TestCase):
         seq = TreeInterpolationSequence()
 
         # Field should exist
-        self.assertTrue(hasattr(seq, 'current_subtree_tracking'))
+        self.assertTrue(hasattr(seq, "current_subtree_tracking"))
 
         # Should initialize to empty list
         self.assertEqual(seq.current_subtree_tracking, [])
@@ -35,9 +44,7 @@ class TestTreeInterpolationSequenceSubtreeTracking(unittest.TestCase):
 
         tracking = [None, part_a, part_a, None]
 
-        seq = TreeInterpolationSequence(
-            current_subtree_tracking=tracking
-        )
+        seq = TreeInterpolationSequence(current_subtree_tracking=tracking)
 
         self.assertEqual(len(seq.current_subtree_tracking), 4)
         self.assertIsNone(seq.current_subtree_tracking[0])
@@ -51,8 +58,7 @@ class TestTreeInterpolationSequenceSubtreeTracking(unittest.TestCase):
 
         # Both should be list[Optional[Partition]]
         self.assertEqual(
-            type(seq.current_subtree_tracking),
-            type(seq.current_pivot_edge_tracking)
+            type(seq.current_subtree_tracking), type(seq.current_pivot_edge_tracking)
         )
 
     def test_field_independent_of_pivot_edge_tracking(self):
@@ -63,19 +69,17 @@ class TestTreeInterpolationSequenceSubtreeTracking(unittest.TestCase):
 
         seq = TreeInterpolationSequence(
             current_pivot_edge_tracking=[None, part_a, None],
-            current_subtree_tracking=[None, part_b, None]
+            current_subtree_tracking=[None, part_b, None],
         )
 
         # Should be independent
         self.assertNotEqual(
-            seq.current_pivot_edge_tracking[1],
-            seq.current_subtree_tracking[1]
+            seq.current_pivot_edge_tracking[1], seq.current_subtree_tracking[1]
         )
 
 
 if __name__ == "__main__":
     unittest.main()
-
 
 
 class TestSubtreeTrackingLengthInvariant(unittest.TestCase):
@@ -121,12 +125,12 @@ class TestSubtreeTrackingLengthInvariant(unittest.TestCase):
         self.assertEqual(
             len(result.interpolated_trees),
             len(result.current_pivot_edge_tracking),
-            "interpolated_trees and current_pivot_edge_tracking must have equal length"
+            "interpolated_trees and current_pivot_edge_tracking must have equal length",
         )
         self.assertEqual(
             len(result.interpolated_trees),
             len(result.current_subtree_tracking),
-            "interpolated_trees and current_subtree_tracking must have equal length"
+            "interpolated_trees and current_subtree_tracking must have equal length",
         )
 
     def test_length_invariant_three_trees(self):
@@ -140,12 +144,10 @@ class TestSubtreeTrackingLengthInvariant(unittest.TestCase):
 
         # All three lists must have equal length
         self.assertEqual(
-            len(result.interpolated_trees),
-            len(result.current_pivot_edge_tracking)
+            len(result.interpolated_trees), len(result.current_pivot_edge_tracking)
         )
         self.assertEqual(
-            len(result.interpolated_trees),
-            len(result.current_subtree_tracking)
+            len(result.interpolated_trees), len(result.current_subtree_tracking)
         )
 
 
@@ -192,7 +194,7 @@ class TestSubtreeTrackingPairingInvariant(unittest.TestCase):
                 pivot_is_none,
                 subtree_is_none,
                 f"At index {i}: pivot_edge is None ({pivot_is_none}) must equal "
-                f"subtree is None ({subtree_is_none})"
+                f"subtree is None ({subtree_is_none})",
             )
 
     def test_original_trees_have_none_tracking(self):
@@ -209,13 +211,12 @@ class TestSubtreeTrackingPairingInvariant(unittest.TestCase):
         for idx in original_indices:
             self.assertIsNone(
                 result.current_pivot_edge_tracking[idx],
-                f"Original tree at index {idx} should have None pivot_edge"
+                f"Original tree at index {idx} should have None pivot_edge",
             )
             self.assertIsNone(
                 result.current_subtree_tracking[idx],
-                f"Original tree at index {idx} should have None subtree"
+                f"Original tree at index {idx} should have None subtree",
             )
-
 
 
 class TestSerializationDeterminism(unittest.TestCase):
@@ -264,10 +265,7 @@ class TestSerializationDeterminism(unittest.TestCase):
         pipeline = TreeInterpolationPipeline()
 
         # Serialize multiple times
-        results = [
-            pipeline._serialize_subtree_tracking([part])[0]
-            for _ in range(5)
-        ]
+        results = [pipeline._serialize_subtree_tracking([part])[0] for _ in range(5)]
 
         # All results should be identical
         for result in results:
@@ -297,8 +295,8 @@ class TestAPIResponseStructure(unittest.TestCase):
 
     def test_assemble_frontend_dict_includes_subtree_tracking(self):
         """Test that assemble_frontend_dict includes subtree_tracking field."""
-        from webapp.services.movie_data import MovieData
-        from webapp.services.frontend_data_builder import assemble_frontend_dict
+        from webapp.services.trees.movie_data import MovieData
+        from webapp.services.trees.frontend_builder import assemble_frontend_dict
 
         # Create MovieData with subtree_tracking
         movie_data = MovieData(
@@ -325,8 +323,8 @@ class TestAPIResponseStructure(unittest.TestCase):
 
     def test_subtree_tracking_format_matches_pivot_edge_tracking(self):
         """Test that subtree_tracking has same format as pivot_edge_tracking."""
-        from webapp.services.movie_data import MovieData
-        from webapp.services.frontend_data_builder import assemble_frontend_dict
+        from webapp.services.trees.movie_data import MovieData
+        from webapp.services.trees.frontend_builder import assemble_frontend_dict
 
         movie_data = MovieData(
             interpolated_trees=[],
@@ -348,8 +346,7 @@ class TestAPIResponseStructure(unittest.TestCase):
 
         # Both should be lists of same length
         self.assertEqual(
-            len(result["subtree_tracking"]),
-            len(result["pivot_edge_tracking"])
+            len(result["subtree_tracking"]), len(result["pivot_edge_tracking"])
         )
 
         # Both should have same structure: List[Optional[List[int]]]
@@ -365,7 +362,7 @@ class TestAPIResponseStructure(unittest.TestCase):
 
     def test_create_empty_movie_data_includes_pivot_edge_tracking(self):
         """Test that create_empty_movie_data includes empty pivot_edge_tracking."""
-        from webapp.services.frontend_data_builder import create_empty_movie_data
+        from webapp.services.trees.frontend_builder import create_empty_movie_data
 
         movie_data = create_empty_movie_data("empty.nwk")
 
@@ -374,13 +371,12 @@ class TestAPIResponseStructure(unittest.TestCase):
 
     def test_create_empty_movie_data_includes_subtree_tracking(self):
         """Test that create_empty_movie_data includes empty subtree_tracking."""
-        from webapp.services.frontend_data_builder import create_empty_movie_data
+        from webapp.services.trees.frontend_builder import create_empty_movie_data
 
         movie_data = create_empty_movie_data("empty.nwk")
 
         self.assertTrue(hasattr(movie_data, "subtree_tracking"))
         self.assertEqual(movie_data.subtree_tracking, [])
-
 
 
 class TestAggregationCorrectness(unittest.TestCase):
@@ -429,7 +425,7 @@ class TestAggregationCorrectness(unittest.TestCase):
         for idx in original_indices:
             self.assertIsNone(
                 result.current_subtree_tracking[idx],
-                f"Original tree at index {idx} should have None subtree tracking"
+                f"Original tree at index {idx} should have None subtree tracking",
             )
 
         # For interpolated trees, tracking should be non-None
@@ -437,7 +433,7 @@ class TestAggregationCorrectness(unittest.TestCase):
         for idx in interpolated_indices:
             self.assertIsNotNone(
                 result.current_subtree_tracking[idx],
-                f"Interpolated tree at index {idx} should have non-None subtree tracking"
+                f"Interpolated tree at index {idx} should have non-None subtree tracking",
             )
 
     def test_subtree_tracking_parallel_to_pivot_edge(self):
@@ -452,7 +448,7 @@ class TestAggregationCorrectness(unittest.TestCase):
         # Both lists should have same length
         self.assertEqual(
             len(result.current_subtree_tracking),
-            len(result.current_pivot_edge_tracking)
+            len(result.current_pivot_edge_tracking),
         )
 
         # None positions should match
@@ -460,6 +456,7 @@ class TestAggregationCorrectness(unittest.TestCase):
             subtree_none = result.current_subtree_tracking[i] is None
             pivot_none = result.current_pivot_edge_tracking[i] is None
             self.assertEqual(
-                subtree_none, pivot_none,
-                f"At index {i}: subtree None ({subtree_none}) should match pivot None ({pivot_none})"
+                subtree_none,
+                pivot_none,
+                f"At index {i}: subtree None ({subtree_none}) should match pivot None ({pivot_none})",
             )

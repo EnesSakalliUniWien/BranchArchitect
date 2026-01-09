@@ -3,7 +3,7 @@ from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 
 
-class OwnershipTracker:
+class SplitClaimTracker:
     """
     Tracks ownership and usage of splits (resources) by subtrees (consumers).
 
@@ -18,7 +18,7 @@ class OwnershipTracker:
     - Atomic operations: Claims and releases are transactional
 
     Example:
-        tracker = OwnershipTracker(encoding)
+        tracker = SplitClaimTracker(encoding)
         tracker.claim(split_1, subtree_A)
         tracker.claim(split_2, subtree_A)
         tracker.claim(split_2, subtree_B)  # Now shared
@@ -404,7 +404,7 @@ class OwnershipTracker:
     def __repr__(self) -> str:
         """String representation for debugging."""
         return (
-            f"OwnershipTracker("
+            f"SplitClaimTracker("
             f"resources={len(self._resource_to_owners)}, "
             f"owners={len(self._owner_to_resources)})"
         )

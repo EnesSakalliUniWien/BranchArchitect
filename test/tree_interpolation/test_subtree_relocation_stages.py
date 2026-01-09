@@ -258,7 +258,7 @@ class TestStage3Reorder:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=moving_subtree,
-            unstable_taxa=None,
+            all_mover_partitions=None,
             copy=True,
         )
 
@@ -274,14 +274,16 @@ class TestStage3Reorder:
         encoding = source_tree.taxa_encoding
         pivot_edge = make_partition(["A", "B", "C", "D", "E", "F", "G", "H"], encoding)
         moving_subtree = make_partition(["F", "G"], encoding)
-        unstable_taxa = {"E"}  # E will move in a later step
+        # E will move in a later step - represented as a partition
+        other_mover = make_partition(["E"], encoding)
+        all_movers = [moving_subtree, other_mover]
 
         reordered = reorder_tree_toward_destination(
             source_tree=source_tree,
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=moving_subtree,
-            unstable_taxa=unstable_taxa,
+            all_mover_partitions=all_movers,
             copy=True,
         )
 
@@ -302,7 +304,7 @@ class TestStage3Reorder:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=moving_subtree,
-            unstable_taxa=None,
+            all_mover_partitions=None,
             copy=True,
         )
 
@@ -392,7 +394,7 @@ class TestStage5Snap:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             selection=selection,
-            unstable_taxa=None,
+            all_mover_partitions=None,
         )
 
         # Verify 5 intermediate trees are generated
@@ -425,7 +427,7 @@ class TestStage5Snap:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             selection=selection,
-            unstable_taxa=None,
+            all_mover_partitions=None,
         )
 
         assert len(trees) == 5, f"Expected 5 animation frames, got {len(trees)}"
@@ -451,7 +453,7 @@ class TestStage5Snap:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             selection=selection,
-            unstable_taxa=None,
+            all_mover_partitions=None,
         )
 
         source_taxa = set(get_leaf_order(source_tree))
@@ -501,7 +503,7 @@ class TestIntegration:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             selection=selection,
-            unstable_taxa=None,
+            all_mover_partitions=None,
         )
 
         # Verify the animation sequence is valid

@@ -141,7 +141,7 @@ def _create_structured_response(
         first_tree = result["interpolated_trees"][0]
         encoding = first_tree.taxa_encoding or {}
         sorted_leaves = [
-            name for _, name in sorted(encoding.items(), key=lambda item: item[1])
+            name for name, _ in sorted(encoding.items(), key=lambda item: item[1])
         ]
 
     movie_data = build_movie_data_from_result(

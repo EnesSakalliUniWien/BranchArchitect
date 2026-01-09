@@ -698,6 +698,126 @@ class Node:
     def is_internal(self) -> bool:
         return bool(self.children)
 
+    def remove_subtree(
+        self,
+        target: "Node",
+        mode: str = "stable",  # "stable" or "shrink"
+        preserve_lengths: bool = True,
+    ) -> None:
+        """
+        Remove the subtree rooted at 'target' from this tree.
+
+        Args:
+            target: The node object to remove. Must be a descendant of self.
+            mode: "stable" keeps original taxa_encoding (removed taxa bits become 0).
+                  "shrink" rebuilds encoding map (indices shift, expensive).
+            preserve_lengths: If True, merges branch lengths when compressing single-child nodes.
+
+        Raises:
+            ValueError: If target is root or not found in parent's children.
+        """
+        if target.parent is None:
+            raise ValueError("Cannot remove root node")
+
+        parent = target.parent
+        try:
+            parent.children.remove(target)
+        except ValueError:
+            raise ValueError(
+                f"Target node {target.name} not found in parent's children list."
+            )
+        target.parent = None
+
+        # Prune single-child chain growing upwards (Compress linear segments)
+        curr = parent
+        while curr.parent is not None:  # Stop at root
+            if not curr.children:
+                # Became a leaf (internal node with all parts removed)
+                # Its split mask effectively becomes 0 in stable mode
+                pass
+            elif len(curr.children) == 1:
+                # Compression needed
+                # A -> B(curr) -> C(child)  ==>  A -> C
+                child = curr.children[0]
+                grandparent = curr.parent
+
+                # Merge logic
+                if preserve_lengths and curr.length is not None:
+                    child_len = child.length if child.length is not None else 0.0
+                    curr_len = curr.length if curr.length is not None else 0.0
+                    child.length = child_len + curr_len
+
+                # Pointer updates
+                child.parent = grandparent
+                if grandparent:
+                    # Replace curr with child in grandparent's list
+                    # Use index-based replacement for safety if duplicate nodes exist (unlikely in tree)
+                    try:
+                        idx = grandparent.children.index(curr)
+                        grandparent.children[idx] = child
+                    except ValueError:
+                        # Fallback if list consistency issues
+                        grandparent.children.remove(curr)
+                        grandparent.children.append(child)
+
+                curr = child  # Continue checking from this level (now attached to grandparent)
+
+            curr = curr.parent  # Move up to next ancestor
+
+        # Recompute splits (Stable Mode)
+        if mode == "stable":
+            # Walk up from the modification point
+            cursor = parent
+            while cursor:
+                # Fast recalculation using existing encoding
+                if cursor.is_leaf():
+                    # If it was internal and became leaf, mask is 0
+                    if cursor.name not in cursor.taxa_encoding:
+                        cursor.split_indices = Partition.from_bitmask(
+                            0, cursor.taxa_encoding
+                        )
+                else:
+                    new_mask = 0
+                    for child in cursor.children:
+                        new_mask |= child.split_indices.bitmask
+                    cursor.split_indices = Partition.from_bitmask(
+                        new_mask, cursor.taxa_encoding
+                    )
+                cursor = cursor.parent
+        elif mode == "shrink":
+            # Full Rebuild
+            remaining_leaves = sorted([l.name for l in self.get_root().get_leaves()])
+            new_encoding = {name: i for i, name in enumerate(remaining_leaves)}
+            self.get_root().initialize_split_indices(new_encoding)
+        else:
+            raise ValueError(f"Unknown pruning mode: {mode}")
+
+        # Invalidate caches globally for safety
+        self.get_root().invalidate_caches()
+
+    def find_leaf_by_name(self, name: str) -> Optional["Node"]:
+        """
+        Find a leaf node by name using safe traversal (O(N) fallback).
+        Does not rely on cached split indices which might be stale.
+        """
+        for node in self.traverse():
+            if node.is_leaf() and node.name == name:
+                return node
+        return None
+
+    def find_node_by_bitmask(self, bitmask: int) -> Optional["Node"]:
+        """
+        Find node with specific split bitmask.
+        Safe to use during pruning if implemented via traversal or fresh index.
+        """
+        # Try cache first? No, explicit request to NOT depend on potentially stale index.
+        # But we can try _split_index if valid?
+        # Safe fallback logic:
+        for node in self.traverse():
+            if node.split_indices.bitmask == bitmask:
+                return node
+        return None
+
     def delete_taxa(self, indices_to_delete: list[int]) -> Self:
         """
         Delete taxa and update indices/caches.
