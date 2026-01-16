@@ -20,9 +20,11 @@ try:
     from Bio import AlignIO
     from Bio.Align import MultipleSeqAlignment
 except ImportError:
-    print("Error: BioPython is required but not installed.")
-    print("Please install it by running: poetry add biopython")
-    exit(1)
+    # BioPython is required
+    raise ImportError(
+        "Error: BioPython is required but not installed. "
+        "Please install it by running: poetry add biopython"
+    )
 
 
 class WindowInfo:
@@ -101,8 +103,7 @@ def run_pipeline(
     try:
         alignment = AlignIO.read(input_file, "fasta")  # Assuming fasta for simplicity
     except Exception as e:
-        print(f"Error reading alignment file: {e}")
-        exit(1)
+        raise RuntimeError(f"Error reading alignment file: {e}")
 
     alignment_length = alignment.get_alignment_length()
     print(
@@ -158,10 +159,10 @@ def run_pipeline(
 
     except RuntimeError as e:
         print(f"\nError during tree inference: {e}")
-        exit(1)
+        raise
     except Exception as e:
         print(f"\nUnexpected error: {e}")
-        exit(1)
+        raise
 
     print(
         f"Tree inference complete. All trees are concatenated into {master_tree_file}"

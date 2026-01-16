@@ -186,7 +186,11 @@ class MatrixLogger(AlgorithmLogger):
         for i, row in enumerate(matrix):
             table_data.append([f"Row {i}"] + [format_func(cell) for cell in row])
 
-        # Generate HTML table
+        # If this is part of a combined Logger class, we can call create_html_table directly
+        if hasattr(self, "create_html_table"):
+            return self.create_html_table(table_data, headers)
+
+        # Otherwise, instantiate TableLogger (which is now non-destructive)
         table_logger = TableLogger(self.name)
         return table_logger.create_html_table(table_data, headers)
 

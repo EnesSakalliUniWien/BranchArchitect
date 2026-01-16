@@ -43,6 +43,11 @@ class SplitClaimTracker:
         # Reverse index for fast lookups: owner -> set of resources
         self._owner_to_resources: Dict[Partition, Set[Partition]] = {}
 
+    def clear(self) -> None:
+        """Clear all tracking data."""
+        self._resource_to_owners.clear()
+        self._owner_to_resources.clear()
+
     # ========================================================================
     # Core Operations: Claim and Release
     # ========================================================================

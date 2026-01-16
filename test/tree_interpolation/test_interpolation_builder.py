@@ -41,6 +41,7 @@ class TestEdgePlanBuilder(unittest.TestCase):
             PartitionSet(encoding=self.encoding),
             PartitionSet(encoding=self.encoding),
         )
+        self.addCleanup(self.patcher.stop)
 
         self.part_A = Partition((0,), self.encoding)
         self.part_B = Partition((1,), self.encoding)

@@ -22,7 +22,6 @@ from .execution import (
 from .analysis import (
     get_unique_splits_for_current_pivot_edge_subtree,
     find_incompatible_splits,
-    get_shared_split_paths,
 )
 
 __all__ = [
@@ -37,7 +36,6 @@ __all__ = [
     # Path segment utilities
     "get_unique_splits_for_current_pivot_edge_subtree",
     "find_incompatible_splits",
-    "get_shared_split_paths",
     # Partial ordering strategies
     "reorder_tree_toward_destination",
     # Utilities

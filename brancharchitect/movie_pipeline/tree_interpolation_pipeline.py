@@ -103,6 +103,7 @@ class TreeInterpolationPipeline:
         if not processed_trees:
             return create_empty_result()
         self._ensure_shared_taxa_encoding(processed_trees)
+        self._check_for_identical_trees(processed_trees)
         if len(processed_trees) == 1:
             report(10, "Rooting single tree...")
             processed_trees = self._apply_rooting_if_enabled(processed_trees)
@@ -192,6 +193,36 @@ class TreeInterpolationPipeline:
                     f"Aligning taxa encoding for tree {idx} to match first tree"
                 )
                 tree.initialize_split_indices(base_encoding)
+
+    def _check_for_identical_trees(self, trees: List[Node]) -> None:
+        """
+        Check for consecutive identical trees and log warnings.
+
+        Two trees are considered identical if they have the same set of splits
+        (same topology). This check helps identify potential issues in input data.
+        """
+        if len(trees) < 2:
+            return
+
+        identical_pairs: List[Tuple[int, int]] = []
+
+        for i in range(len(trees) - 1):
+            t1_splits = trees[i].to_splits()
+            t2_splits = trees[i + 1].to_splits()
+
+            # Compare split sets (topology comparison)
+            if t1_splits == t2_splits:
+                identical_pairs.append((i, i + 1))
+                self.logger.warning(
+                    f"Trees {i} and {i + 1} are topologically identical "
+                    f"(same splits). No interpolation needed between them."
+                )
+
+        if identical_pairs:
+            self.logger.info(
+                f"Found {len(identical_pairs)} pair(s) of identical consecutive trees: "
+                f"{identical_pairs}"
+            )
 
     # --- Private helpers ---
 

@@ -591,7 +591,12 @@ class PivotSplitRegistry:
         return bool(self.get_remaining_subtrees())
 
     def get_all_remaining_collapse_splits(self) -> PartitionSet[Partition]:
-        """Gather remaining collapse splits from tracker."""
+        """Gather remaining collapse splits from tracker.
+
+        Note: With the Collapse Completeness Guarantee in build_edge_plan(),
+        all collapse splits are guaranteed to be claimed by some subtree,
+        so the tracker contains all splits.
+        """
         return PartitionSet(
             set(self.collapse_tracker.get_all_resources()), encoding=self.encoding
         )
@@ -762,6 +767,46 @@ def build_edge_plan(
             "[builder] pivot=%s assigning %d unclaimed expands to target_subtree=%s",
             current_pivot_edge.bipartition(),
             len(unassigned_expands),
+            target_subtree.bipartition(),
+        )
+
+    # COLLAPSE COMPLETENESS GUARANTEE: Similar to expand, path-based assignments may
+    # miss collapse splits not on any subtree's path. Assign any unassigned collapses
+    # to the FIRST subtree (aligns with tabula rasa strategy where first subtree
+    # collapses everything).
+    claimed_collapses = PartitionSet(
+        set().union(*collapse_splits_by_subtree.values())
+        if collapse_splits_by_subtree
+        else set(),
+        encoding=all_collapse_splits.encoding,
+    )
+
+    unassigned_collapses = all_collapse_splits - claimed_collapses
+
+    if unassigned_collapses:
+        # Assign to the FIRST subtree (deterministic ordering via min bitmask).
+        # This aligns with tabula rasa where first subtree handles all collapses.
+        target_subtree = (
+            min(collapse_splits_by_subtree.keys(), key=lambda p: p.bitmask)
+            if collapse_splits_by_subtree
+            else (
+                min(expand_splits_by_subtree.keys(), key=lambda p: p.bitmask)
+                if expand_splits_by_subtree
+                else current_pivot_edge
+            )
+        )
+        if target_subtree not in collapse_splits_by_subtree:
+            collapse_splits_by_subtree[target_subtree] = PartitionSet(
+                encoding=all_collapse_splits.encoding
+            )
+        # Reassign with a new PartitionSet to avoid in-place quirks
+        collapse_splits_by_subtree[target_subtree] = (
+            collapse_splits_by_subtree[target_subtree] | unassigned_collapses
+        )
+        logger.debug(
+            "[builder] pivot=%s assigning %d unclaimed collapses to target_subtree=%s",
+            current_pivot_edge.bipartition(),
+            len(unassigned_collapses),
             target_subtree.bipartition(),
         )
 

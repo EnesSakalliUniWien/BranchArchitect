@@ -31,6 +31,10 @@ def root_trees(trees: List[Node]) -> List[Node]:
     Returns:
         List of midpoint-rooted trees (new copies, originals unchanged)
     """
+    # Preserve original taxa encoding to ensure consistent split indices after rooting
+    original_encoding = trees[0].taxa_encoding
+    original_order = list(trees[0].get_current_order())
+
     rooted_newick_strings: List[str] = []
     for tree in trees:
         # 1. Convert brancharchitect.tree.Node to Newick string
@@ -52,11 +56,14 @@ def root_trees(trees: List[Node]) -> List[Node]:
 
         rooted_newick_strings.append(rooted_newick_string)
 
-        # 5. Parse the new Newick string back to a brancharchitect.tree.Node
-        # The parser returns a list, so we take the first element.
+    # 5. Parse the new Newick strings back to brancharchitect.tree.Node objects
+    # CRITICAL: Pass original order/encoding to preserve consistent split indices
     rooted_trees: List[Node] = parse_newick(  # type: ignore[assignment]
-        "\n".join(rooted_newick_strings), force_list=True, treat_zero_as_epsilon=True
+        "\n".join(rooted_newick_strings),
+        order=original_order,
+        encoding=original_encoding,
+        force_list=True,
+        treat_zero_as_epsilon=True,
     )
-    print("\n".join(rooted_newick_strings))
 
     return rooted_trees

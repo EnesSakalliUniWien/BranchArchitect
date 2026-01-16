@@ -8,9 +8,10 @@ map_solution_elements_via_parent to determine optimal block placement.
 import pytest
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.elements.partition import Partition
-from brancharchitect.tree_interpolation.subtree_paths.execution.reordering_v2_mrca_aware import (
+from brancharchitect.tree_interpolation.subtree_paths.execution.reordering import (
     reorder_tree_toward_destination,
-    classify_mover_relationships,
+)
+from brancharchitect.jumping_taxa.lattice.mapping.minimum_cover_mappings import (
     map_solution_elements_via_parent,
 )
 
@@ -142,94 +143,6 @@ class TestMapSolutionElementsViaParent:
         parent_in_dest = mapped_t2[pivot_edge][mover_m]
         expected_dest_parent = Partition((1, 3), encoding)
         assert parent_in_dest.indices == expected_dest_parent.indices
-
-
-# =============================================================================
-# Test: classify_mover_relationships
-# =============================================================================
-
-
-class TestClassifyMoverRelationships:
-    """Test the mover relationship classification."""
-
-    def test_classifies_diverging_movers(self, diverging_trees):
-        """Movers that were siblings but go to different parents are diverging."""
-        source, dest, encoding = diverging_trees
-
-        pivot_edge = Partition((0, 1, 2, 3, 4), encoding)
-        m1 = Partition((3,), encoding)
-        m2 = Partition((4,), encoding)
-
-        pivot_edge_solutions = {pivot_edge: [m1, m2]}
-
-        mapped_t1, mapped_t2 = map_solution_elements_via_parent(
-            pivot_edge_solutions, source, dest
-        )
-
-        relationships = classify_mover_relationships(
-            [m1, m2],
-            mapped_t1[pivot_edge],
-            mapped_t2[pivot_edge],
-        )
-
-        # M1 and M2 should be classified as diverging
-        assert len(relationships["diverging"]) == 1
-        assert len(relationships["converging"]) == 0
-        assert len(relationships["stable"]) == 0
-
-        diverging_pair = relationships["diverging"][0]
-        assert m1 in diverging_pair and m2 in diverging_pair
-
-    def test_classifies_converging_movers(self, converging_trees):
-        """Movers that were separate but become siblings are converging."""
-        source, dest, encoding = converging_trees
-
-        pivot_edge = Partition((0, 1, 2, 3, 4), encoding)
-        m1 = Partition((3,), encoding)
-        m2 = Partition((4,), encoding)
-
-        pivot_edge_solutions = {pivot_edge: [m1, m2]}
-
-        mapped_t1, mapped_t2 = map_solution_elements_via_parent(
-            pivot_edge_solutions, source, dest
-        )
-
-        relationships = classify_mover_relationships(
-            [m1, m2],
-            mapped_t1[pivot_edge],
-            mapped_t2[pivot_edge],
-        )
-
-        # M1 and M2 should be classified as converging
-        assert len(relationships["converging"]) == 1
-        assert len(relationships["diverging"]) == 0
-        assert len(relationships["stable"]) == 0
-
-    def test_classifies_stable_movers(self, simple_trees):
-        """Movers that stay with same parent relationship are stable."""
-        source, dest, encoding = simple_trees
-
-        pivot_edge = Partition((0, 1, 2, 3, 4, 5), encoding)
-        # E and F are always siblings (same parent) in both trees
-        m_e = Partition((4,), encoding)
-        m_f = Partition((5,), encoding)
-
-        pivot_edge_solutions = {pivot_edge: [m_e, m_f]}
-
-        mapped_t1, mapped_t2 = map_solution_elements_via_parent(
-            pivot_edge_solutions, source, dest
-        )
-
-        relationships = classify_mover_relationships(
-            [m_e, m_f],
-            mapped_t1[pivot_edge],
-            mapped_t2[pivot_edge],
-        )
-
-        # E and F should be classified as stable (same parent in both)
-        assert len(relationships["stable"]) == 1
-        assert len(relationships["diverging"]) == 0
-        assert len(relationships["converging"]) == 0
 
 
 # =============================================================================

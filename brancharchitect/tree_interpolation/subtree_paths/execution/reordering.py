@@ -142,8 +142,6 @@ def reorder_tree_toward_destination(
             current_mover_taxa=current_mover_taxa,
         )
 
-        logger.debug(f"Block destination rank: {block_dest_rank}")
-
         # Buckets: buckets[i] holds taxa that go immediately BEFORE anchor i
         # buckets[len(anchors)] holds taxa that go AFTER the last anchor
         buckets: List[List[str]] = [[] for _ in range(len(anchor_taxa) + 1)]
@@ -174,8 +172,6 @@ def reorder_tree_toward_destination(
     if new_order == source_order:
         logger.debug("New order identical to source order -> No change.")
         return source_tree  # No change needed, return original
-
-    logger.debug(f"Applying new order: {new_order}")
 
     # 4. Apply the new order to the tree (copy if requested).
     new_tree = source_tree.deep_copy() if copy else source_tree

@@ -61,7 +61,14 @@ class TestInterpolationStateInitialization(unittest.TestCase):
         self.assertEqual(len(state.processed_subtrees), 0)
 
     def test_contingent_splits_computed_correctly(self):
-        """Test that contingent splits are correctly identified."""
+        """Test that related structural splits are correctly claimed.
+
+        The _claim_related_expand_splits method claims ONLY:
+        1. Parent splits (subtree is inside the split)
+
+        Sibling splits are NOT claimed - they remain as contingent splits
+        to be consumed opportunistically when collapse operations create space.
+        """
         all_collapse = PartitionSet([self.part_A], encoding=self.encoding)
         all_expand = PartitionSet(
             [self.part_B, self.part_C, self.part_AB], encoding=self.encoding
@@ -83,12 +90,14 @@ class TestInterpolationStateInitialization(unittest.TestCase):
             self.part_ABCD,
         )
 
-        # part_C and part_AB should be contingent (not assigned to any subtree)
-        # Check by verifying they're NOT in the expand_tracker
+        # Only explicitly assigned and parent splits should be tracked:
+        # - part_B: explicitly assigned
+        # - part_AB: parent of part_A (part_A is subset of part_AB)
+        # - part_C: NOT claimed (sibling/disjoint splits are not claimed)
         tracked_resources = state.expand_tracker.get_all_resources()
-        self.assertNotIn(self.part_C, tracked_resources)
-        self.assertNotIn(self.part_AB, tracked_resources)
-        self.assertIn(self.part_B, tracked_resources)  # B was assigned
+        self.assertIn(self.part_B, tracked_resources)  # Explicitly assigned
+        self.assertIn(self.part_AB, tracked_resources)  # Parent claim
+        self.assertNotIn(self.part_C, tracked_resources)  # Sibling NOT claimed
 
 
 class TestSharedAndUniqueSplits(unittest.TestCase):
@@ -379,12 +388,19 @@ class TestContingentSplits(unittest.TestCase):
         self.part_ABCD = Partition((0, 1, 2, 3), self.encoding)
 
     def test_consume_contingent_splits_within_collapsed_region(self):
-        """Test that contingent splits are correctly consumed."""
+        """Test that contingent splits are correctly consumed.
+
+        Contingent splits are those NOT in the expand_tracker (not claimed by any subtree).
+        With _claim_related_expand_splits claiming parent splits (including self),
+        only truly disjoint splits remain as contingent.
+        """
+        # Use part_C as a disjoint split that won't be claimed
+        part_c = Partition((2,), self.encoding)
         all_expand = PartitionSet(
-            [self.part_A, self.part_B, self.part_AB], encoding=self.encoding
+            [self.part_A, self.part_B, self.part_AB, part_c], encoding=self.encoding
         )
 
-        # Only part_B is assigned to a subtree
+        # Only part_B is assigned to subtree part_A
         expand_by_subtree = {
             self.part_A: PartitionSet([self.part_B], encoding=self.encoding),
         }
@@ -397,44 +413,75 @@ class TestContingentSplits(unittest.TestCase):
             self.part_ABCD,
         )
 
-        # part_A and part_AB are contingent (not in tracker)
+        # Due to _claim_related_expand_splits (parent-only claiming):
+        # - part_B: explicitly assigned
+        # - part_AB: parent of part_A (part_A is subset of part_AB)
+        # - part_A: claimed because subtree A is subset of split A (self)
+        # - part_C: NOT claimed (disjoint from part_A)
         tracked_resources = state.expand_tracker.get_all_resources()
-        self.assertNotIn(self.part_A, tracked_resources)
-        self.assertNotIn(self.part_AB, tracked_resources)
+
+        # Verify the structural claims are working
+        self.assertIn(self.part_B, tracked_resources)  # Explicitly assigned
+        self.assertIn(self.part_AB, tracked_resources)  # Parent claim
+        self.assertIn(self.part_A, tracked_resources)  # Self claim (subset of itself)
+        self.assertNotIn(part_c, tracked_resources)  # Disjoint NOT claimed
 
         # Consume contingent splits when collapsing part_ABC
+        # part_C is NOT claimed, so it should be consumed as contingent
         collapsed = PartitionSet([self.part_ABC], encoding=self.encoding)
         contingent = state.consume_contingent_expand_splits_for_subtree(
             self.part_A, collapsed
         )
 
-        # All contingent splits that fit within part_ABC should be consumed
-        self.assertIn(self.part_A, contingent)
-        self.assertIn(self.part_AB, contingent)
+        # part_C should be consumed as contingent (it was not claimed)
+        self.assertIn(part_c, contingent)
 
     def test_contingent_splits_not_reused(self):
-        """Test that used contingent splits are tracked and not reused."""
-        all_expand = PartitionSet([self.part_A, self.part_B], encoding=self.encoding)
+        """Test that claimed splits are tracked and not re-consumed as contingent."""
+        # Use part_C as a truly disjoint split
+        part_c = Partition((2,), self.encoding)
+        all_expand = PartitionSet(
+            [self.part_A, self.part_B, part_c], encoding=self.encoding
+        )
 
+        # No explicit expand assignments - but _claim_related_expand_splits will claim
+        # parent splits based on structural relationships
         state = PivotSplitRegistry(
             PartitionSet([self.part_ABC], encoding=self.encoding),
             all_expand,
             {self.part_A: PartitionSet([self.part_ABC], encoding=self.encoding)},
-            {},
+            {
+                self.part_A: PartitionSet(encoding=self.encoding)
+            },  # Empty expand assignment
             self.part_ABCD,
         )
 
-        # Mark part_A as used by claiming it for another subtree
-        state.expand_tracker.claim(self.part_A, self.part_B)
+        # With _claim_related_expand_splits (parent-only):
+        # - part_A: claimed (subtree A is subset of split A - itself)
+        # - part_B: NOT claimed (disjoint from part_A)
+        # - part_C: NOT claimed (disjoint from part_A)
+        tracked_resources = state.expand_tracker.get_all_resources()
+        self.assertIn(self.part_A, tracked_resources)  # Self claim
+        self.assertNotIn(self.part_B, tracked_resources)  # Disjoint NOT claimed
+        self.assertNotIn(part_c, tracked_resources)  # Disjoint NOT claimed
 
-        # Try to consume contingent splits
+        # Try to consume contingent splits - part_B and part_C should be available
         collapsed = PartitionSet([self.part_ABC], encoding=self.encoding)
         contingent = state.consume_contingent_expand_splits_for_subtree(
             self.part_A, collapsed
         )
 
-        # part_A should not be included (already used)
+        # part_B and part_C should be consumed as contingent (they were not claimed)
+        self.assertIn(self.part_B, contingent)
+        self.assertIn(part_c, contingent)
+        # part_A should NOT be in contingent (it was already claimed)
         self.assertNotIn(self.part_A, contingent)
+
+        # Now try to consume again - should get nothing (already claimed)
+        contingent2 = state.consume_contingent_expand_splits_for_subtree(
+            self.part_A, collapsed
+        )
+        self.assertEqual(len(contingent2), 0)
 
 
 class TestRemainingWork(unittest.TestCase):

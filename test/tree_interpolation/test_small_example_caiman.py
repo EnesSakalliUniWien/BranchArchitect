@@ -73,6 +73,8 @@ class TestSmallExampleCaiman(unittest.TestCase):
         t2_interp = tree2.deep_copy()
         t3_interp = tree3.deep_copy()
         t3_interp.taxa_encoding = t2_interp.taxa_encoding
+        t3_interp._initialize_split_indices(t2_interp.taxa_encoding)
+        t3_interp.build_split_index()
 
         # NOTE: We are NOT calling derive_order_for_pair here to see what the raw pipeline does
 

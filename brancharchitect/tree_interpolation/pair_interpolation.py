@@ -41,6 +41,23 @@ __all__: List[str] = [
 ]
 
 
+def _unify_encodings(src: Node, dst: Node) -> None:
+    """
+    Ensure destination tree shares the exact encoding object of the source tree.
+
+    This prevents Partitions from different encodings being compared or operated on,
+    which would raise ValueError or produce incorrect bitmask results.
+    Refreshes split indices on dst to match the src encoding.
+    """
+    enc = src.taxa_encoding
+    dst.taxa_encoding = enc
+    # Re-initialize split indices for the destination to use the new encoding
+    dst._initialize_split_indices(enc)
+    dst.build_split_index()
+    # Invalidate caches to ensure no stale partitions with old encoding remain
+    dst.invalidate_caches(propagate_down=True)
+
+
 def process_tree_pair_interpolation(
     source_tree: Node,
     destination_tree: Node,
@@ -77,6 +94,9 @@ def process_tree_pair_interpolation(
     # The caller (SequentialInterpolationBuilder) already passes deep-copied trees
     # for each pair, so we can call the lattice algorithm directly without
     # performing additional copies here.
+
+    # Unify encodings to ensure valid partition comparisons
+    _unify_encodings(source_tree, destination_tree)
 
     if precomputed_solutions is not None:
         jumping_subtree_solutions: Dict[Partition, List[Partition]] = (

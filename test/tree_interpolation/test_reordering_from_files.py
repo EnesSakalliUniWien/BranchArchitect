@@ -33,12 +33,14 @@ def _read_newick_lines(path: str) -> List[str]:
 
 
 def _shares_encoding(src: Node, dst: Node) -> None:
-    # Ensure destination uses identical encoding and refresh split indices
+    # Ensure destination uses identical encoding OBJECT and refresh split indices
     enc = src.taxa_encoding
     dst.taxa_encoding = enc
-    # Re-initialize split indices and caches for the destination
+    # Re-initialize split indices for the destination to use the new encoding
+    # We must propagate this to all nodes, but _initialize_split_indices is typically recursive
+    # from the root.
     dst._initialize_split_indices(enc)
-    dst.build_split_index()  # Must rebuild index after _initialize_split_indices
+    dst.build_split_index()  # Rebuild index
 
 
 def _subsequence(seq: List[str], subset: Set[str]) -> List[str]:
@@ -59,6 +61,10 @@ def test_reordering_small_example_stepwise():
 
     src = parse_newick(lines[0])
     dst = parse_newick(lines[1])
+
+    # Unify encodings to prevent Partition mismatch errors
+    # Note: parse_newick creates independent encodings. We must merge/share them.
+    # Safe to use src's encoding if both trees have same taxa or src is superset.
     _shares_encoding(src, dst)
 
     # Use first changing edge and its first solution set
@@ -93,6 +99,7 @@ def test_pair_interpolation_matches_destination_order_small_example():
 
     src = parse_newick(lines[0])
     dst = parse_newick(lines[1])
+
     _shares_encoding(src, dst)
 
     src_copy = src.deep_copy()
@@ -118,6 +125,7 @@ def test_reordering_reverse_upwards_from_file():
 
     src = parse_newick(lines[0])
     dst = parse_newick(lines[1])
+
     _shares_encoding(src, dst)
 
     # Compute changing edges and use the first with its first solution set

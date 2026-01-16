@@ -131,7 +131,8 @@ def _apply_split_at_node(split: Partition, split_set: set, node: Node) -> bool:
                 taxa_encoding=node.taxa_encoding,
             )
             node.children = remaining_children
-            node.children.append(new_node)
+            # Use append_child to properly set parent pointer
+            node.append_child(new_node)
             return True
 
     # Recursively try children
@@ -146,18 +147,50 @@ def _apply_split_no_rebuild(split: Partition, node: Node) -> bool:
     """
     Apply a split without rebuilding indices. Used for batch operations.
 
-    Returns True if split was applied, False if already present.
+    Returns True if split was applied, False if it already exists or cannot be applied.
+
+    Note: In rooted trees, a split and its complement are DIFFERENT nodes.
+    We only check if the exact split exists, not its complement.
+    The complement check was causing bugs where large splits (e.g., 50 out of 52 taxa)
+    would fail to apply because their small complement (e.g., 2 taxa) already existed.
     """
     split_set = set(split.indices)
+    split_mask = split.bitmask
 
-    # Check if split is already present - idempotent operation
-    # Use a quick traversal check instead of to_splits() to avoid cache issues
+    # Check if the EXACT split is already present - idempotent operation
+    # Note: We do NOT check for complement here because in rooted trees,
+    # a split and its complement represent different nodes in the tree.
     for n in node.traverse():
-        if n.split_indices == split:
+        if n.split_indices.bitmask == split_mask:
+            # Split already exists - no action needed
             return False
 
-    # Find the correct parent node where this split should be applied
-    return _apply_split_at_node(split, split_set, node)
+    # Try applying direct split
+    if _apply_split_at_node(split, split_set, node):
+        return True
+
+    # If direct failed, try applying complement split
+    # This handles the case where we need to create a node for the "other side"
+    # of the bipartition to achieve the desired topology.
+    encoding = node.taxa_encoding
+    all_indices = set(encoding.values())
+    complement_indices = all_indices - split_set
+
+    # Only try complement if it's a valid non-empty split
+    if complement_indices:
+        complement_split = Partition(
+            indices=list(complement_indices), encoding=encoding
+        )
+        # Check if complement already exists before trying to apply
+        complement_mask = complement_split.bitmask
+        complement_exists = any(
+            n.split_indices.bitmask == complement_mask for n in node.traverse()
+        )
+        if not complement_exists:
+            if _apply_split_at_node(complement_split, complement_indices, node):
+                return True
+
+    return False
 
 
 def execute_expand_path(
@@ -321,7 +354,8 @@ def execute_expand_path_fast(
                     taxa_encoding=node.taxa_encoding,
                 )
                 node.children = remaining_children
-                node.children.append(new_node)
+                # Use append_child to properly set parent pointer
+                node.append_child(new_node)
 
                 # Track for weight application
                 applied_nodes[split_bitmask] = new_node
@@ -392,6 +426,12 @@ def create_subtree_grafted_tree(
         if ref_split not in base_splits:
             if _apply_split_no_rebuild(ref_split, grafted_tree):
                 applied_any = True
+            else:
+                logger.warning(
+                    f"[Expand] Failed to apply split {list(ref_split.indices)} "
+                    f"(Bitmask: {ref_split.bitmask:b}) to grafted tree. "
+                    "This implies incompatibility with the current topology."
+                )
 
     # Rebuild indices ONCE after all splits are applied
     if applied_any:

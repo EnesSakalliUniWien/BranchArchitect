@@ -53,8 +53,14 @@ def calculate_subtree_paths(
     ] = {}
     source_subtree_paths: Dict[Partition, Dict[Partition, PartitionSet[Partition]]] = {}
 
-    # Pre-compute splits in source tree for existence checks
+    # Pre-compute splits in source and destination trees
     source_splits: PartitionSet[Partition] = source_tree.to_splits()
+    dest_splits: PartitionSet[Partition] = destination_tree.to_splits()
+
+    # Identify splits that are only in source (candidates for collapse)
+    source_only_splits = source_splits - dest_splits
+    # Identify splits that are only in destination (candidates for expansion)
+    dest_only_splits = dest_splits - source_splits
 
     for current_pivot_edge, subtrees in jumping_subtree_solutions.items():
         destination_subtree_paths[current_pivot_edge] = {}
@@ -77,15 +83,25 @@ def calculate_subtree_paths(
                 {node.split_indices for node in source_node_paths}
             )
 
+            # Filter paths to only include unique splits
+            # Common splits (in both trees) should use Mean interpolation and NOT be
+            # collapsed or expanded/grafted.
+            source_partitions = source_partitions.intersection(source_only_splits)
+            destination_partitions = destination_partitions.intersection(
+                dest_only_splits
+            )
+
             # Always remove pivot edge endpoint from both paths
             destination_partitions.discard(current_pivot_edge)
             source_partitions.discard(current_pivot_edge)
 
-            # Always remove subtree from collapse path (source)
+            # The subtree partition itself is handled by the intersection logic:
+            # - If common, it's removed from both (correct).
+            # - If unique to source (shouldn't happen for mover?), it collapses.
+            # - If unique to dest (new), it expands.
+            # Explicit discards below are redundant but safe if strictness desired.
             source_partitions.discard(subtree)
 
-            # Only remove subtree from expand path (destination) if it
-            # already exists in source - otherwise it needs to be created
             if subtree in source_splits:
                 destination_partitions.discard(subtree)
 
@@ -161,9 +177,10 @@ def create_interpolation_for_active_split_sequence(
         step_trees, step_edges, new_state, step_subtrees = apply_stepwise_plan_for_edge(
             current_base_tree=current_base_tree,
             destination_tree=destination_tree,
+            source_tree=source_tree,
             current_pivot_edge=current_pivot_edge,
-            expand_paths_for_pivot_edge=destination_paths_for_pivot_edge,
             collapse_paths_for_pivot_edge=source_paths_for_pivot_edge,
+            expand_paths_for_pivot_edge=destination_paths_for_pivot_edge,
             source_parent_map=source_parent_map,
             dest_parent_map=dest_parent_map,
         )

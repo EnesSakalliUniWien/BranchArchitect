@@ -120,6 +120,9 @@ class PivotSplitRegistry:
 
         1. Containing Splits (Parents): If a split contains the subtree, the subtree
            owns it (it's inside).
+
+        All subtrees inside a parent split claim it. The "expand-last" strategy
+        handles shared ownership by having the last remaining owner expand the split.
         """
         for split in all_expand_splits:
             split_taxa = split.taxa
@@ -152,6 +155,11 @@ class PivotSplitRegistry:
         Implements the "expand-last" strategy: returns splits where this subtree
         is the sole remaining owner. Works for both unique splits (always last owner)
         and shared splits (becomes last owner after others are processed).
+
+        IMPORTANT: For shared splits, we check if this subtree is the last owner
+        among UNPROCESSED subtrees. This ensures that when earlier subtrees are
+        processed and release their claims, the remaining subtrees can pick up
+        the shared splits.
         """
         # Get all resources owned by this subtree
         subtree_resources = self.expand_tracker.get_resources(subtree)

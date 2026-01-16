@@ -155,16 +155,16 @@ class TreeInterpolationSequence:
         for pair_index, (start, end) in enumerate(pair_ranges):
             pair_key = str(PairKey.from_index(pair_index))
             source_global_idx = start
-            target_global_idx = end
+            destination_global_idx = end
             pivot_sequence = self.current_pivot_edge_tracking[
-                source_global_idx + 1 : target_global_idx
+                source_global_idx + 1 : destination_global_idx
             ]
             # Filter out None to keep ancestor list contiguous and events aligned
             ancestor_sequence: List[Partition] = [
                 p for p in pivot_sequence if p is not None
             ]
             split_change_events = self._build_split_change_events(
-                ancestor_sequence, source_global_idx, target_global_idx
+                ancestor_sequence, source_global_idx, destination_global_idx
             )
 
             pair_solution: TreePairSolution = {
@@ -175,7 +175,7 @@ class TreeInterpolationSequence:
                 "solution_to_source_map": self.mapping_two[pair_index],
                 "split_change_events": split_change_events,
                 "source_tree_global_index": source_global_idx,
-                "target_tree_global_index": target_global_idx,
+                "destination_tree_global_index": destination_global_idx,
                 "interpolation_start_global_index": source_global_idx + 1,
             }
             tree_pair_solutions[pair_key] = pair_solution
@@ -195,7 +195,7 @@ class TreeInterpolationSequence:
     def _build_split_change_events(
         split_sequence: Sequence[Optional[Partition]],
         source_global_idx: int,
-        target_global_idx: int,
+        destination_global_idx: int,
     ) -> List[SplitChangeEvent]:
         """Aggregate contiguous occurrences of a split into SplitChangeEvent entries.
 
@@ -217,7 +217,7 @@ class TreeInterpolationSequence:
                     "split": split,
                     "step_range": (start_idx, start_idx + group_size - 1),
                     "source_tree_global_index": source_global_idx,
-                    "target_tree_global_index": target_global_idx,
+                    "destination_tree_global_index": destination_global_idx,
                 }
             )
             start_idx += group_size

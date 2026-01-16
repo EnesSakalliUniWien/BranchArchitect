@@ -22,36 +22,38 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def interpolate_tree(target: Node, reference: Node) -> tuple[Node, Node, Node, Node]:
+def interpolate_tree(source: Node, destination: Node) -> tuple[Node, Node, Node, Node]:
     """
     Interpolate between two trees to create intermediate and consensus trees.
 
     Returns a tuple of 4 trees:
-    1. Intermediate tree from target (branch lengths averaged toward reference)
-    2. Consensus from target (keeping only splits that are also in reference)
-    3. Consensus from reference (keeping only splits that are also in target)
-    4. Intermediate tree from reference (branch lengths averaged toward target)
+    1. Intermediate tree from source (branch lengths averaged toward destination)
+    2. Consensus from source (keeping only splits that are also in destination)
+    3. Consensus from destination (keeping only splits that are also in source)
+    4. Intermediate tree from destination (branch lengths averaged toward source)
     """
-    target_splits: Dict[Partition, float] = target.to_weighted_splits()
-    reference_splits: Dict[Partition, float] = reference.to_weighted_splits()
+    source_splits: Dict[Partition, float] = source.to_weighted_splits()
+    destination_splits: Dict[Partition, float] = destination.to_weighted_splits()
 
-    intermediate_from_target: Node = calculate_intermediate_tree(
-        target, reference_splits
+    intermediate_from_source: Node = calculate_intermediate_tree(
+        source, destination_splits
     )
-    intermediate_from_reference = calculate_intermediate_tree(reference, target_splits)
+    intermediate_from_destination = calculate_intermediate_tree(
+        destination, source_splits
+    )
 
-    consensus_from_target: Node = calculate_consensus_tree(
-        intermediate_from_target, reference_splits
+    consensus_from_source: Node = calculate_consensus_tree(
+        intermediate_from_source, destination_splits
     )
-    consensus_from_reference: Node = calculate_consensus_tree(
-        intermediate_from_reference, target_splits
+    consensus_from_destination: Node = calculate_consensus_tree(
+        intermediate_from_destination, source_splits
     )
 
     return (
-        intermediate_from_target,
-        consensus_from_target,
-        consensus_from_reference,
-        intermediate_from_reference,
+        intermediate_from_source,
+        consensus_from_source,
+        consensus_from_destination,
+        intermediate_from_destination,
     )
 
 
@@ -62,11 +64,11 @@ def interpolate_adjacent_tree_pairs(tree_list: List[Node]) -> List[Node]:
 
     results: List[Node] = []
     for i in range(len(tree_list) - 1):
-        target = tree_list[i]
-        reference = tree_list[i + 1]
+        source = tree_list[i]
+        destination = tree_list[i + 1]
 
-        trees = interpolate_tree(target, reference)
-        results.append(target)
+        trees = interpolate_tree(source, destination)
+        results.append(source)
         results.extend(trees)
 
     results.append(tree_list[-1])
@@ -82,17 +84,17 @@ intermediate and consensus trees during the interpolation process.
 
 
 def classical_interpolation(
-    target: Node,
-    reference: Node,
+    source: Node,
+    destination: Node,
     split_data: Tuple[Dict[Partition, float], Dict[Partition, float]],
 ) -> List[Node]:
     """Create consensus tree sequence and mappings."""
-    split_dict1, split_dict2 = split_data
+    source_split_dict, destination_split_dict = split_data
 
     # Create intermediate and consensus trees
-    it1: Node = calculate_intermediate_tree(target, split_dict2)
-    it2: Node = calculate_intermediate_tree(reference, split_dict1)
-    c1: Node = calculate_consensus_tree(it1, split_dict2)
-    c2: Node = calculate_consensus_tree(it2, split_dict1)
+    it1: Node = calculate_intermediate_tree(source, destination_split_dict)
+    it2: Node = calculate_intermediate_tree(destination, source_split_dict)
+    c1: Node = calculate_consensus_tree(it1, destination_split_dict)
+    c2: Node = calculate_consensus_tree(it2, source_split_dict)
 
     return [it1, c1, c2, it2]

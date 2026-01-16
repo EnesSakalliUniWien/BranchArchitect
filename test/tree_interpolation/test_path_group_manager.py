@@ -7,9 +7,8 @@ using Hypothesis for property-based testing.
 Feature: expand-path-grouping
 """
 
-import pytest
 from hypothesis import given, strategies as st, settings, assume
-from typing import Dict, Set, List, FrozenSet
+from typing import Dict, Set, List, FrozenSet, Optional, Tuple
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
@@ -287,7 +286,7 @@ class TestPathOverlapDetection:
             f"Expected overlap between subtrees with shared split {shared_split}"
         )
         assert manager.has_overlap(subtree_b, subtree_a), (
-            f"Expected symmetric overlap detection"
+            "Expected symmetric overlap detection"
         )
 
     @given(expand_paths_data(min_subtrees=2, max_subtrees=5))
@@ -364,7 +363,7 @@ class TestPathContainmentDetection:
 
         # Reverse should NOT be true
         assert not manager.has_containment(container_subtree, contained_subtree), (
-            f"Containment should not be symmetric"
+            "Containment should not be symmetric"
         )
 
     @given(expand_paths_data(min_subtrees=2, max_subtrees=5))
@@ -650,8 +649,8 @@ class TestContainmentOrdering:
             order.index(container_subtree) if container_subtree in order else -1
         )
 
-        assert contained_pos != -1, f"Contained subtree not in order"
-        assert container_pos != -1, f"Container subtree not in order"
+        assert contained_pos != -1, "Contained subtree not in order"
+        assert container_pos != -1, "Container subtree not in order"
         assert contained_pos < container_pos, (
             f"Contained subtree should be processed before container: "
             f"contained at {contained_pos}, container at {container_pos}"
@@ -949,8 +948,8 @@ class TestGroupCohesion:
         group_b = manager.get_group(subtree_b)
         group_c = manager.get_group(subtree_c)
 
-        assert group_a == group_b, f"A and B should be in same group"
-        assert group_c != group_a, f"C should be in different group"
+        assert group_a == group_b, "A and B should be in same group"
+        assert group_c != group_a, "C should be in different group"
 
         # Get processing order
         processed: Set[Partition] = set()
@@ -1429,69 +1428,6 @@ class TestSharedCollapsePriorityPreserved:
         )
 
 
-class TestTabulaRasaPreserved:
-    """
-    Property 12: Tabula Rasa Preserved
-
-    For any interpolation, the first subtree processed should receive
-    all collapse splits (tabula rasa strategy).
-
-    Feature: expand-path-grouping, Property 12: Tabula Rasa Preserved
-    Validates: Requirements 7.3
-    """
-
-    def test_tabula_rasa_returns_all_collapse_splits_for_first(self):
-        """
-        Property: First subtree gets all collapse splits via tabula rasa.
-        """
-        encoding = create_encoding(10)
-
-        subtree_a = create_partition(frozenset({0}), encoding)
-        subtree_b = create_partition(frozenset({1}), encoding)
-
-        collapse_a = create_partition(frozenset({2}), encoding)
-        collapse_b = create_partition(frozenset({3}), encoding)
-        expand_a = create_partition(frozenset({4}), encoding)
-        expand_b = create_partition(frozenset({5}), encoding)
-
-        all_collapse = PartitionSet({collapse_a, collapse_b}, encoding=encoding)
-        all_expand = PartitionSet({expand_a, expand_b}, encoding=encoding)
-
-        collapse_by_subtree = {
-            subtree_a: PartitionSet({collapse_a}, encoding=encoding),
-            subtree_b: PartitionSet({collapse_b}, encoding=encoding),
-        }
-
-        expand_by_subtree = {
-            subtree_a: PartitionSet({expand_a}, encoding=encoding),
-            subtree_b: PartitionSet({expand_b}, encoding=encoding),
-        }
-
-        state = PivotSplitRegistry(
-            all_collapse,
-            all_expand,
-            collapse_by_subtree,
-            expand_by_subtree,
-            subtree_a,
-            use_path_grouping=True,
-        )
-
-        # Before first subtree processed, tabula rasa should return ALL collapse
-        tabula_rasa = state.get_tabula_rasa_collapse_splits()
-        assert len(tabula_rasa) == 2, (
-            f"Expected all 2 collapse splits, got {len(tabula_rasa)}"
-        )
-        assert collapse_a in tabula_rasa
-        assert collapse_b in tabula_rasa
-
-        # After marking first processed, tabula rasa should return empty
-        state.mark_first_subtree_processed()
-        tabula_rasa_after = state.get_tabula_rasa_collapse_splits()
-        assert len(tabula_rasa_after) == 0, (
-            f"Expected empty after first processed, got {len(tabula_rasa_after)}"
-        )
-
-
 class TestExpandLastPreserved:
     """
     Property 13: Expand-Last Preserved
@@ -1560,7 +1496,7 @@ class TestExpandLastPreserved:
         # Now subtree_b is the last user of shared_expand
         last_user_b = state.get_expand_splits_for_last_user(subtree_b)
         assert shared_expand in last_user_b, (
-            f"Shared expand should be in last-user splits for last user"
+            "Shared expand should be in last-user splits for last user"
         )
 
 

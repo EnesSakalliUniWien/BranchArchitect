@@ -130,8 +130,8 @@ class SequentialInterpolationBuilder:
         if interpolation_result.jumping_subtree_solutions:
             destination_map, source_map = generate_solution_mappings(
                 interpolation_result.jumping_subtree_solutions,
-                target=t2,
-                reference=t1,
+                destination=t2,
+                source=t1,
             )
             self.source_mappings.append(destination_map)
             self.target_mappings.append(source_map)
@@ -179,6 +179,7 @@ class SequentialInterpolationBuilder:
         self,
         trees: List[Node],
         progress_callback: Optional[Callable[[float, str], None]] = None,
+        enable_tabula_rasa: bool = False,
     ) -> TreeInterpolationSequence:
         """Build sequential interpolations between consecutive tree pairs."""
         if len(trees) < 2:
@@ -213,7 +214,10 @@ class SequentialInterpolationBuilder:
 
             # Process the pair and get the final resolved tree
             resolved_tree = self._process_pair(
-                source_tree, target, pair_index, precomputed_solution
+                source_tree,
+                target,
+                pair_index,
+                precomputed_solution,
             )
 
             # Add the resolved tree as the delimiter for the next pair
