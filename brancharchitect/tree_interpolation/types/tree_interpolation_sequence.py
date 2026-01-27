@@ -106,8 +106,8 @@ class TreeInterpolationSequence:
     )
     # Tracks which subtree is being moved for each tree in the sequence
     # Parallel to current_pivot_edge_tracking: None for original trees, Partition for interpolated
-    current_subtree_tracking: list[Optional[Partition]] = field(
-        default_factory=_empty_partition_list
+    current_subtree_tracking: list[Optional[list[Partition]]] = field(
+        default_factory=list
     )
     pair_interpolated_tree_counts: list[int] = field(default_factory=_empty_int_list)
     jumping_subtree_solutions_list: list[JumpingSolutions] = field(

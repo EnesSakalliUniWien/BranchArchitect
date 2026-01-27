@@ -31,6 +31,7 @@ __all__ = [
     "compensate_tip_distances",  # Deprecated alias for backward compatibility
     "distribute_path_weights",
     "get_virtual_collapse_weights",
+    "_apply_average_to_pivot_edge",
 ]
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -198,20 +199,46 @@ def apply_mean_weights_to_path(
     for split in splits_to_update:
         node: Node | None = tree.find_node_by_split(split)
         if node is not None:
-            dest_weight = destination_weights.get(split, node.length)
-
+            # Check if this is an "active expanding" split (new in destination)
             if split in expand_set:
-                # Expand splits: Interpolate from 0 (Source) to Dest
-                # Mean = (0.0 + Dest) / 2.0
-                node.length = dest_weight / 2.0
+                # Expand splits: Use FULL destination weight (no properties from source)
+                # Setting to destination effectively 'snaps' it to final size immediately,
+                # as it doesn't exist in source to be averaged.
+                dest_weight = destination_weights.get(split, node.length or 0.0)
+                node.length = dest_weight
             else:
-                # Common splits: interpolate with mean
-                if source_weights is not None and split in source_weights:
-                    current_weight = source_weights[split]
-                else:
-                    current_weight = node.length
+                # Common splits: Preserved structure, so we AVERAGE (Source + Dest) / 2.
+                # This keeps the tree in the 'middle' of the two topologies.
+                _apply_average_to_pivot_edge(
+                    tree, destination_weights, source_weights, split
+                )
 
-                node.length = (current_weight + dest_weight) / 2.0
+
+def _apply_average_to_pivot_edge(
+    tree: Node,
+    destination_weights: Dict[Partition, float],
+    source_weights: Optional[Dict[Partition, float]],
+    pivot_edge: Partition,
+) -> None:
+    """
+    Apply arithmetic mean (L1 + L2) / 2 to a specific edge.
+
+    Mutates tree in-place.
+    """
+    # Simply find the node by split and update if it exists in dest
+    if pivot_edge in destination_weights:
+        node = tree.find_node_by_split(pivot_edge)
+        node_length_in_tree = node.length or 0.0 if node else 0.0
+
+        if node is not None:
+            # Prefer explicit source weight if available, otherwise use current tree length
+            if source_weights and pivot_edge in source_weights:
+                l1 = source_weights[pivot_edge]
+            else:
+                l1 = node_length_in_tree
+
+            l2 = destination_weights[pivot_edge]
+            node.length = (l1 + l2) / 2.0
 
 
 def compensate_patristic_distances(

@@ -1,6 +1,6 @@
 """Tree processing pipeline."""
 
-from typing import List, Optional, Dict, Tuple, Callable
+from typing import List, Optional, Dict, Tuple, Callable, Any
 import logging
 import time
 from joblib import Parallel, delayed
@@ -28,6 +28,7 @@ from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
 )
 from brancharchitect.tree_interpolation.types import TreeInterpolationSequence
 from brancharchitect.tree import Node
+from brancharchitect.io import serialize_subtree_tracking
 from .tree_rooting import root_trees
 
 
@@ -39,7 +40,12 @@ def _parallel_solve_pair(
     Returns (solution_dict, error_message).
     """
     try:
-        solution_dict, _ = LatticeSolver(source, destination).solve_iteratively()
+        solver = LatticeSolver(source, destination)
+        # Type hint to help Pylance resolve the tuple unpacking
+        result: Tuple[Dict[Partition, List[Partition]], List[Any]] = (
+            solver.solve_iteratively()
+        )
+        solution_dict = result[0]
         return solution_dict, None
     except Exception as e:
         return None, str(e)
@@ -134,9 +140,11 @@ class TreeInterpolationPipeline:
         interp_callback: Optional[Callable[[float, str], None]] = None
         if progress_callback:
 
-            def interp_callback(pct: float, msg: str) -> None:
+            def _interp_callback(pct: float, msg: str) -> None:
                 mapped = 30 + (pct / 100.0) * 50
                 progress_callback(mapped, msg)
+
+            interp_callback = _interp_callback
 
         seq_result = self._interpolate_tree_sequence(
             processed_trees,
@@ -165,7 +173,7 @@ class TreeInterpolationPipeline:
             wrfd_list=distances.wrfd_list,
             processing_time=processing_time,
             pair_interpolation_ranges=seq_result.pair_interpolation_ranges,
-            subtree_tracking=self._serialize_subtree_tracking(
+            subtree_tracking=serialize_subtree_tracking(
                 seq_result.current_subtree_tracking
             ),
         )
@@ -317,7 +325,20 @@ class TreeInterpolationPipeline:
 
         # Process results and log any errors
         sols: List[Optional[Dict[Partition, List[Partition]]]] = []
-        for i, (solution_dict, error_msg) in enumerate(results):
+        if results is None:
+            return sols
+
+        for i, result_tuple in enumerate(results):
+            if result_tuple is None:
+                self.logger.error(
+                    f"Parallel execution returned None for pair {i}-{i + 1}."
+                )
+                sols.append(None)
+                continue
+
+            # Explicit unpacking to satisfy type checker if it thinks tuple could be None
+            solution_dict, error_msg = result_tuple
+
             if error_msg:
                 self.logger.error(
                     f"Failed to compute lattice solution for pair {i}-{i + 1}. Error: {error_msg}"
@@ -427,20 +448,3 @@ class TreeInterpolationPipeline:
         except Exception as e:
             self.logger.error(f"Rooting failed: {e}")
             return trees
-
-    def _serialize_subtree_tracking(
-        self, tracking: List[Optional[Partition]]
-    ) -> List[Optional[List[int]]]:
-        """
-        Serialize partition tracking to index arrays for JSON serialization.
-
-        Converts each Partition to a sorted list of integer indices.
-        None values remain None.
-
-        Args:
-            tracking: List of Optional[Partition] from the interpolation sequence
-
-        Returns:
-            List of Optional[List[int]] suitable for JSON serialization
-        """
-        return [sorted(list(p.indices)) if p is not None else None for p in tracking]

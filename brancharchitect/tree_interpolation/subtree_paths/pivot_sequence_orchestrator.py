@@ -124,7 +124,7 @@ def create_interpolation_for_active_split_sequence(
 ) -> tuple[
     List[Node],
     List[Optional[Partition]],
-    List[Optional[Partition]],
+    List[Optional[List[Partition]]],
 ]:
     """
     Create an interpolation sequence from source to destination tree for pivot edges (active-changing splits).
@@ -140,7 +140,7 @@ def create_interpolation_for_active_split_sequence(
     """
     interpolation_sequence: List[Node] = []
     processed_pivot_edge_tracking: List[Optional[Partition]] = []
-    processed_subtree_tracking: List[Optional[Partition]] = []
+    processed_subtree_tracking: List[Optional[List[Partition]]] = []
 
     interpolation_state: Node = source_tree.deep_copy()
 

@@ -76,7 +76,7 @@ class SequentialInterpolationBuilder:
         self.source_mappings: List[Dict[Partition, Dict[Partition, Partition]]] = []
         self.target_mappings: List[Dict[Partition, Dict[Partition, Partition]]] = []
         self.current_pivot_edge_tracking: List[Optional[Partition]] = []
-        self.current_subtree_tracking: List[Optional[Partition]] = []
+        self.current_subtree_tracking: List[Optional[List[Partition]]] = []
         self.pair_tree_counts: List[int] = []
         self.jumping_subtree_solutions: List[Dict[Partition, List[Partition]]] = []
 

@@ -204,22 +204,24 @@ class InterpolationResult(TypedDict):
     - Pair 1->2: interpolated trees at global indices 5, 6, 7
     """
 
-    subtree_tracking: List[Optional[List[int]]]
+    subtree_tracking: List[Optional[List[List[int]]]]
     """
     Serialized subtree partition for each tree in the sequence.
 
     Parallel to interpolated_trees and tree_metadata. For each tree at index i:
     - None: Original tree (no subtree being moved)
-    - List[int]: Sorted list of taxa indices representing the subtree being moved
+    - List[List[int]]: A list of disjoint taxon groups (lists of indices), where each group
+                       represents a distinct subtree moving simultaneously in this step.
 
-    This tracks which subtree is being relocated during each interpolation step,
+    This tracks which subtrees are being relocated during each interpolation step,
     enabling visualization of the specific taxa movement.
 
-    Example: [None, [0, 1], [0, 1], None, [2, 3], None]
+    Example: [None, [[0, 1]], [[0, 1], [4]], None, [[2, 3]], None]
     - Index 0: Original tree
-    - Index 1-2: Subtree containing taxa 0,1 is being moved
+    - Index 1: Subtree {0,1} is moving
+    - Index 2: Subtrees {0,1} and {4} are moving simultaneously
     - Index 3: Original tree
-    - Index 4: Subtree containing taxa 2,3 is being moved
+    - Index 4: Subtree {2,3} is moving
     - Index 5: Original tree
     """
 
