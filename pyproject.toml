@@ -39,6 +39,7 @@ flask = "^3.1.2"
 flask-cors = "^6.0.1"
 joblib = "^1.4.0"
 msa_to_trees = {path = "msa_to_trees", develop = true}
+flask-compress = "^1.23"
 
 [tool.poetry.extras]
 plotting = ["cairosvg", "pycairo"]
