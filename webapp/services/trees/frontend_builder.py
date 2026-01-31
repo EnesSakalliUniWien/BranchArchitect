@@ -110,6 +110,44 @@ def assemble_frontend_dict(movie_data: MovieData) -> Dict[str, Any]:
     }
 
 
+def assemble_frontend_metadata(movie_data: MovieData) -> Dict[str, Any]:
+    """
+    Create a lightweight metadata-only response (no trees).
+
+    Use this when streaming trees separately via chunked SSE events.
+    """
+    timeline = _build_split_change_timeline(
+        movie_data.tree_metadata,
+        movie_data.tree_pair_solutions,
+    )
+
+    return {
+        "tree_count": len(movie_data.interpolated_trees),
+        "tree_metadata": movie_data.tree_metadata,
+        "tree_pair_solutions": _serialize_tree_pair_solutions(
+            movie_data.tree_pair_solutions
+        ),
+        "split_change_events": _extract_split_change_events_from_solutions(
+            movie_data.tree_pair_solutions
+        ),
+        "split_change_timeline": timeline,
+        "sorted_leaves": movie_data.sorted_leaves,
+        "pivot_edge_tracking": movie_data.pivot_edge_tracking,
+        "subtree_tracking": movie_data.subtree_tracking,
+        "pair_interpolation_ranges": movie_data.pair_interpolation_ranges,
+        "msa": {
+            "sequences": movie_data.msa_dict,
+            "window_size": movie_data.window_size,
+            "step_size": movie_data.window_step_size,
+        },
+        "file_name": movie_data.file_name,
+        "distances": {
+            "robinson_foulds": movie_data.rfd_list,
+            "weighted_robinson_foulds": movie_data.weighted_robinson_foulds_distance_list,
+        },
+    }
+
+
 def create_empty_movie_data(filename: str) -> MovieData:
     """Create empty MovieData for failed processing scenarios."""
     return MovieData(

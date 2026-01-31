@@ -13,12 +13,14 @@ from flask import Blueprint, current_app, jsonify, request, send_from_directory
 from brancharchitect.io import UUIDEncoder
 from webapp.routes.helpers import parse_tree_data_request
 from webapp.services.trees import handle_tree_content
+from webapp.services.trees.processing import handle_tree_content_streaming
 from webapp.services.sse import (
     format_sse_message,
     sse_response,
     channels,
     ProgressChannel,
 )
+
 from typing import Union, Tuple
 import tempfile
 import os
@@ -296,23 +298,48 @@ def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
                             enable_rooting=req_data.enable_rooting,
                             use_gtr=req_data.use_gtr,
                             use_gamma=req_data.use_gamma,
-                            progress_callback=_make_progress_callback(channel, 10, 90),
+                            progress_callback=_make_progress_callback(channel, 10, 85),
+                        )
+
+                        # Extract trees from response for chunked streaming
+                        trees = response_data.pop("interpolated_trees", [])
+                        metadata = response_data  # Everything except trees
+
+                        # Always use chunked streaming to avoid SSE message size limits
+                        log.info(
+                            f"[treedata/stream] MSA analysis: Streaming {len(trees)} trees in chunks"
+                        )
+                        channel.send_progress(90, "Streaming trees...")
+                        channel.send({"metadata": metadata}, event="metadata")
+                        channel.send_trees_chunked(trees, chunk_size=100)
+                        channel.send_progress(100, "Complete")
+                        channel.complete(
+                            data={"chunked": True, "tree_count": len(trees)}
                         )
                     else:
-                        # Tree file processing (using content string for thread safety)
+                        # Tree file processing with chunked streaming for large datasets
                         channel.send_progress(10, "Parsing tree file...")
-                        response_data = handle_tree_content(
+                        metadata, trees, use_chunked = handle_tree_content_streaming(
                             req_data.tree_content,
                             filename=req_data.tree_filename or "uploaded_file",
                             msa_content=req_data.msa_content,
                             enable_rooting=req_data.enable_rooting,
                             window_size=req_data.window_size,
                             window_step=req_data.window_step,
-                            progress_callback=_make_progress_callback(channel, 10, 90),
+                            progress_callback=_make_progress_callback(channel, 10, 85),
                         )
 
-                    channel.send_progress(100, "Complete")
-                    channel.complete(data=response_data)
+                        # Always use chunked streaming to avoid SSE message size limits
+                        log.info(
+                            f"[treedata/stream] Streaming {len(trees)} trees in chunks"
+                        )
+                        channel.send_progress(90, "Streaming trees...")
+                        channel.send({"metadata": metadata}, event="metadata")
+                        channel.send_trees_chunked(trees, chunk_size=100)
+                        channel.send_progress(100, "Complete")
+                        channel.complete(
+                            data={"chunked": True, "tree_count": len(trees)}
+                        )
 
                 except Exception as e:
                     log.error(

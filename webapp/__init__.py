@@ -3,6 +3,7 @@
 # --------------------------------------------------------------
 from flask import Flask
 from flask_cors import CORS
+from flask_compress import Compress
 
 from .config import Config
 from .services.logging import configure_logging
@@ -13,6 +14,9 @@ from pathlib import Path
 from typing import cast
 
 __all__ = ["create_app"]
+
+# Initialize compression
+compress = Compress()
 
 
 def create_app() -> Flask:
@@ -38,6 +42,10 @@ def create_app() -> Flask:
         app.logger.info("[INIT] Enabling CORS...")
         # Enable CORS
         CORS(app)
+
+        app.logger.info("[INIT] Enabling gzip/brotli compression...")
+        # Enable response compression
+        compress.init_app(app)
 
         app.logger.info("[INIT] Registering blueprints...")
         # Register blueprints (keeps route definitions in *one* place)
