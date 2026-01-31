@@ -33,7 +33,7 @@ __all__ = [
 # Per-edge caches to keep rotations and mover ranks stable across repeated calls
 _rotation_cut_cache: Dict[Tuple[int, ...], Tuple[int, int, Tuple[str, ...]]] = {}
 _mover_rank_cache: Dict[
-    Tuple[int, ...], Dict[Tuple[int, ...], Tuple[int, int, int]]
+    Tuple[Tuple[int, ...], str], Dict[Tuple[int, ...], Tuple[int, int, int]]
 ] = {}
 
 
@@ -228,7 +228,8 @@ def _get_stable_and_moving_components(
     source_blocked: List[Tuple[str, ...]] = []
     for cs in stable_common_splits:
         node = t1.find_node_by_split(cs)
-        source_blocked.append(tuple(node.get_current_order()))
+        if node:
+            source_blocked.append(tuple(node.get_current_order()))
 
     return source_blocked, jumping_taxa_partitions
 

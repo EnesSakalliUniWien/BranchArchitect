@@ -13,8 +13,8 @@ from brancharchitect.jumping_taxa.lattice.mapping import (
 
 def generate_solution_mappings(
     solutions: Dict[Partition, List[Partition]],
-    target: Node,
-    reference: Node,
+    source: Node,
+    destination: Node,
 ) -> Tuple[
     Dict[Partition, Dict[Partition, Partition]],
     Dict[Partition, Dict[Partition, Partition]],
@@ -23,12 +23,12 @@ def generate_solution_mappings(
     Generate per-edge solution-to-atom mappings for phylogenetic analysis.
 
     Uses parent relationships to determine where each solution element is attached
-    in the target and reference trees.
+    in the source and destination trees.
     """
     mapping_one, mapping_two = map_solution_elements_via_parent(
         solutions,
-        target,
-        reference,
+        source,
+        destination,
     )
 
     return mapping_one, mapping_two

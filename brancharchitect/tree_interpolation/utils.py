@@ -16,7 +16,7 @@ def iter_consecutive_pairs(
         trees: List of phylogenetic trees.
 
     Yields:
-        Tuples of (pair_index, source_tree, target_tree, is_first, is_last).
+        Tuples of (pair_index, source_tree, destination_tree, is_first, is_last).
     """
     if len(trees) < 2:
         return

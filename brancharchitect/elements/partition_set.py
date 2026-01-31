@@ -336,7 +336,11 @@ class PartitionSet(Generic[T], MutableSet[T]):
             order=self.order,
         )
 
-    def maximals_under(self, upper: Union[Partition, Tuple[int, ...], int]) -> Self:
+    def maximals_under(
+        self,
+        upper: Union[Partition, Tuple[int, ...], int],
+        exclude: Optional[Set[Union[Partition, int]]] = None,
+    ) -> Self:
         """
         Return the maximal elements of the downset under ``upper`` within this set.
 
@@ -345,15 +349,33 @@ class PartitionSet(Generic[T], MutableSet[T]):
 
         Args:
             upper: A Partition (or tuple/int convertible to Partition) defining the upper bound.
+            exclude: Optional set of Partitions (or bitmasks) to strictly exclude from the result.
+                     This allows finding the "next best" maximals if the primary maximal is invalid.
 
         Returns:
             A PartitionSet containing the maximal elements of the downset.
         """
         upper_mask, _ = self._element_to_bitmask_and_partition(upper)
 
-        # 1. Filter elements that are subsets of upper
+        # Resolve exclude set to bitmasks for fast checking
+        exclude_masks: Set[int] = set()
+        if exclude:
+            for item in exclude:
+                if isinstance(item, Partition):
+                    exclude_masks.add(item.bitmask)
+                elif isinstance(item, int):
+                    exclude_masks.add(item)
+                # Note: Tuple encoding conversion would require self reference which is tricky here
+                # without strict type checking, assuming Partition or int (bitmask) for excludes.
+
+        # 1. Filter elements that are subsets of upper AND not in exclude set
         # s ⊆ upper <=> (s & ~upper) == 0
-        candidates = [p for p in self.fast_partitions if (p.bitmask & ~upper_mask) == 0]
+        candidates = []
+        for p in self.fast_partitions:
+            if p.bitmask in exclude_masks:
+                continue
+            if (p.bitmask & ~upper_mask) == 0:
+                candidates.append(p)
 
         # 2. Find maximals among candidates
         # Sort descending by size, then bitmask
@@ -380,6 +402,47 @@ class PartitionSet(Generic[T], MutableSet[T]):
             name="maximals_under",
             order=self.order,
         )
+
+    def minimals_over(
+        self,
+        lower: Union[Partition, Tuple[int, ...], int],
+        exclude: Optional[Set[Union[Partition, int]]] = None,
+    ) -> Self:
+        """
+        Return the minimal elements of the upset over ``lower`` within this set.
+
+        Computes the upset U = { s in self | lower ⊆ s } and returns
+        the minimal elements of U (minimal supersets).
+
+        Args:
+            lower: A Partition (or tuple/int convertible to Partition) defining the lower bound.
+            exclude: Optional set of Partitions (or bitmasks) to strictly exclude from the result.
+
+        Returns:
+            A PartitionSet containing the minimal supersets of ``lower``.
+        """
+        lower_mask, _ = self._element_to_bitmask_and_partition(lower)
+
+        exclude_masks: Set[int] = set()
+        if exclude:
+            for item in exclude:
+                if isinstance(item, Partition):
+                    exclude_masks.add(item.bitmask)
+                elif isinstance(item, int):
+                    exclude_masks.add(item)
+
+        elems = {
+            p
+            for p in self.fast_partitions
+            if p.bitmask not in exclude_masks and (lower_mask & ~p.bitmask) == 0
+        }
+        up = type(self)(
+            splits=elems,
+            encoding=self.encoding,
+            name=f"{self.name}_upset",
+            order=self.order,
+        )
+        return up.minimal_elements()
 
     def covers(self, partition: Union[Partition, Tuple[int, ...], int]) -> bool:
         """

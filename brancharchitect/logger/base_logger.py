@@ -26,16 +26,31 @@ class AlgorithmLogger:
 
         # Create logger with single handler to avoid duplication
         self.logger = logging.getLogger(name)
-        self.logger.handlers = []  # Clear any existing handlers
 
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter("%(message)s")
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
-        self.logger.setLevel(logging.INFO)
-
-        # Prevent propagation to avoid duplicate logs
-        self.logger.propagate = False
+        # Only add a default StreamHandler if no handlers exist.
+        # This prevents duplicate logs and avoids wiping handlers from other logger instances
+        # that share the same name (e.g., when TableLogger is called inside MatrixLogger).
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter("%(message)s")
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+            self.logger.setLevel(logging.INFO)
+            # Prevent propagation to avoid duplicate logs when a root logger is configured
+            self.logger.propagate = False
+            # Default to enabled, but specific subclasses or instances may override.
+            self.disabled = False
+        else:
+            # If handlers exist, we still want to ensure a base level is set if it was NOTSET
+            if self.logger.level == logging.NOTSET:
+                self.logger.setLevel(logging.INFO)
+            # We also ensure propagation is False to maintain AlgorithmLogger's behavior
+            # of being a self-contained logger, unless the caller explicitly wants it.
+            self.logger.propagate = False
+            # If the logger was already configured (e.g. by another AlgorithmLogger),
+            # we respect its current 'disabled' state if it has one, otherwise default to False.
+            if not hasattr(self, "disabled"):
+                self.disabled = False
 
         # Add enhanced CSS for basic display
         self._css_content.append(CSS_LOG)
@@ -133,7 +148,9 @@ class AlgorithmLogger:
             import cairosvg  # type: ignore
 
             png_bytes = cairosvg.svg2png(
-                bytestring=svg_content.encode("utf-8"), scale=scale, background_color="white"
+                bytestring=svg_content.encode("utf-8"),
+                scale=scale,
+                background_color="white",
             )
             b64 = base64.b64encode(png_bytes).decode("ascii")
             img_html = (
@@ -215,12 +232,7 @@ class AlgorithmLogger:
 
         # If MathJax is enabled, include the header at the beginning
         if self._include_mathjax:
-            return (
-                self._mathjax_header
-                + "\n"
-                + "\n".join(parts)
-                + toggle_script
-            )
+            return self._mathjax_header + "\n" + "\n".join(parts) + toggle_script
         else:
             return "\n".join(parts) + toggle_script
 

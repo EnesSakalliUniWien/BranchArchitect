@@ -26,7 +26,6 @@ __all__ = [
     "SplitApplicationError",
     "apply_split_simple",
     "execute_expand_path",
-    "execute_expand_path_fast",
     "create_subtree_grafted_tree",
 ]
 
@@ -79,14 +78,12 @@ def apply_split_simple(split: Partition, node: Node) -> None:
         Encoding is guaranteed consistent by the interpolation pipeline -
         both trees are parsed with the same encoding at the start.
     """
-    split_set = set(split.indices)
-
     # Check if split is already present - idempotent operation
     if split in node.to_splits():
         return
 
     # Find the correct parent node where this split should be applied
-    _apply_split_at_node(split, split_set, node)
+    _apply_split_at_node(split, node)
 
     # Refresh split indices after modification
     root = node.get_root()
@@ -103,20 +100,22 @@ def apply_split_simple(split: Partition, node: Node) -> None:
         )
 
 
-def _apply_split_at_node(split: Partition, split_set: set, node: Node) -> bool:
+def _apply_split_at_node(split: Partition, node: Node) -> bool:
     """
     Recursively find and apply split at the correct node.
 
     Returns True if split was applied at this node or a descendant.
     """
-    # Check if split_set is a proper subset of node.split_indices
-    if split_set < set(node.split_indices):
+    split_indices = set(split.indices)
+
+    # Check if split_indices is a proper subset of node.split_indices
+    if split_indices < set(node.split_indices):
         remaining_children: list[Node] = []
         reassigned_children: list[Node] = []
 
         for child in node.children:
             child_split_set = set(child.split_indices)
-            if child_split_set.issubset(split_set):
+            if child_split_set.issubset(split_indices):
                 reassigned_children.append(child)
             else:
                 remaining_children.append(child)
@@ -131,12 +130,13 @@ def _apply_split_at_node(split: Partition, split_set: set, node: Node) -> bool:
                 taxa_encoding=node.taxa_encoding,
             )
             node.children = remaining_children
-            node.children.append(new_node)
+            # Use append_child to properly set parent pointer
+            node.append_child(new_node)
             return True
 
     # Recursively try children
     for child in node.children:
-        if child.children and _apply_split_at_node(split, split_set, child):
+        if child.children and _apply_split_at_node(split, child):
             return True
 
     return False
@@ -146,18 +146,48 @@ def _apply_split_no_rebuild(split: Partition, node: Node) -> bool:
     """
     Apply a split without rebuilding indices. Used for batch operations.
 
-    Returns True if split was applied, False if already present.
+    Returns True if split was applied, False if it already exists or cannot be applied.
+
+    Note: In rooted trees, a split and its complement are DIFFERENT nodes.
+    We only check if the exact split exists, not its complement.
+    The complement check was causing bugs where large splits (e.g., 50 out of 52 taxa)
+    would fail to apply because their small complement (e.g., 2 taxa) already existed.
     """
     split_set = set(split.indices)
+    split_mask = split.bitmask
 
-    # Check if split is already present - idempotent operation
-    # Use a quick traversal check instead of to_splits() to avoid cache issues
+    # Check if the EXACT split is already present - idempotent operation
+    # Note: We do NOT check for complement here because in rooted trees,
+    # a split and its complement represent different nodes in the tree.
     for n in node.traverse():
-        if n.split_indices == split:
+        if n.split_indices.bitmask == split_mask:
+            # Split already exists - no action needed
             return False
 
-    # Find the correct parent node where this split should be applied
-    return _apply_split_at_node(split, split_set, node)
+    # Try applying direct split
+    if _apply_split_at_node(split, node):
+        return True
+
+    # If direct failed, try applying complement split
+    # This handles the case where we need to create a node for the "other side"
+    # of the bipartition to achieve the desired topology.
+    encoding = node.taxa_encoding
+    all_indices = set(encoding.values())
+    complement_indices = all_indices - split_set
+
+    # Only try complement if it's a valid non-empty split
+    if complement_indices:
+        complement_split = split
+        # Check if complement already exists before trying to apply
+        complement_mask = complement_split.bitmask
+        complement_exists = any(
+            n.split_indices.bitmask == complement_mask for n in node.traverse()
+        )
+        if not complement_exists:
+            if _apply_split_at_node(complement_split, node):
+                return True
+
+    return False
 
 
 def execute_expand_path(
@@ -208,6 +238,7 @@ def execute_expand_path(
 
     # Verify all splits were applied
     tree_splits = tree.to_splits()
+
     for split in sorted_path:
         if split not in tree_splits:
             raise SplitApplicationError(
@@ -222,142 +253,6 @@ def execute_expand_path(
             node = tree.find_node_by_split(split)
             if node is not None:
                 node.length = reference_weights.get(split, 0.0)
-
-    return tree
-
-
-def execute_expand_path_fast(
-    tree: Node,
-    expand_path: List[Partition],
-    reference_weights: dict[Partition, float] | None = None,
-) -> Node:
-    """
-    Stack-based fast version of execute_expand_path.
-
-    Optimizations:
-    1. Iterative stack-based traversal (no recursion, no stack overflow risk)
-    2. Bitmask operations for O(1) subset checks instead of set operations
-    3. Pre-collect existing bitmasks to avoid repeated traversals
-    4. Track applied nodes for O(1) weight assignment
-    5. Single-pass verification using bitmask set
-
-    Args:
-        tree: The tree to modify (will be mutated)
-        expand_path: Splits to apply
-        reference_weights: Weights to apply to new nodes
-
-    Returns:
-        The modified tree with expand splits added
-
-    Raises:
-        SplitApplicationError: If any split fails to apply
-
-    Requirements: 3.1, 3.2, 3.3, 3.4
-    """
-    if not expand_path:
-        return tree
-
-    # Sort by partition size (largest first), tie-break by bitmask for determinism
-    sorted_path = sorted(expand_path, key=lambda p: (-len(p.indices), p.bitmask))
-
-    # Pre-collect existing bitmasks in single traversal
-    existing_bitmasks: set[int] = set()
-    stack = [tree]
-    while stack:
-        node = stack.pop()
-        existing_bitmasks.add(node.split_indices.bitmask)
-        stack.extend(node.children)
-
-    # Track newly applied nodes for O(1) weight lookup
-    applied_nodes: dict[int, Node] = {}  # bitmask -> node
-    applied_any = False
-
-    # Apply each split using stack-based iteration
-    for split in sorted_path:
-        split_bitmask = split.bitmask
-
-        # Skip if already exists
-        if split_bitmask in existing_bitmasks:
-            continue
-
-        # Stack-based search for insertion point
-        work_stack: list[Node] = [tree]
-        inserted = False
-
-        while work_stack and not inserted:
-            node = work_stack.pop()
-
-            # Get node's bitmask
-            node_bitmask = node.split_indices.bitmask
-
-            # Check if split is proper subset: (A & B) == A
-            # If not a subset, this branch cannot contain the split
-            if (split_bitmask & node_bitmask) != split_bitmask:
-                continue
-
-            # If split is equal to node, it's already present
-            if split_bitmask == node_bitmask:
-                continue
-
-            # Partition children using bitmask operations
-            remaining_children: list[Node] = []
-            reassigned_children: list[Node] = []
-
-            for child in node.children:
-                child_bitmask = child.split_indices.bitmask
-                # Child is subset of split: (child & split) == child
-                if (child_bitmask & split_bitmask) == child_bitmask:
-                    reassigned_children.append(child)
-                else:
-                    remaining_children.append(child)
-
-            # Create new node if multiple children to reassign
-            if len(reassigned_children) > 1:
-                new_node = Node(
-                    name="",
-                    split_indices=split,
-                    children=reassigned_children,
-                    length=0,
-                    taxa_encoding=node.taxa_encoding,
-                )
-                node.children = remaining_children
-                node.children.append(new_node)
-
-                # Track for weight application
-                applied_nodes[split_bitmask] = new_node
-                existing_bitmasks.add(split_bitmask)
-                applied_any = True
-                inserted = True
-            else:
-                # Split must be deeper in the tree
-                work_stack.extend(node.children)
-
-    # Rebuild indices ONCE after all splits applied
-    if applied_any:
-        root = tree.get_root()
-        root.initialize_split_indices(root.taxa_encoding)
-        root.invalidate_caches()
-
-    # Verify all splits were applied (use bitmask set)
-    for split in sorted_path:
-        if split.bitmask not in existing_bitmasks:
-            raise SplitApplicationError(
-                split=split,
-                tree_splits=list(tree.to_splits()),
-                message="Cannot apply split - incompatible with existing topology",
-            )
-
-    # Apply reference weights using tracked nodes (O(1) lookups)
-    if reference_weights:
-        for split in expand_path:
-            node = applied_nodes.get(split.bitmask)
-            if node is not None:
-                node.length = reference_weights.get(split, 0.0)
-            else:
-                # Split was already in tree, need to find it
-                node = tree.find_node_by_split(split)
-                if node is not None:
-                    node.length = reference_weights.get(split, 0.0)
 
     return tree
 
@@ -392,6 +287,12 @@ def create_subtree_grafted_tree(
         if ref_split not in base_splits:
             if _apply_split_no_rebuild(ref_split, grafted_tree):
                 applied_any = True
+            else:
+                logger.warning(
+                    f"[Expand] Failed to apply split {list(ref_split.indices)} "
+                    f"(Bitmask: {ref_split.bitmask:b}) to grafted tree. "
+                    "This implies incompatibility with the current topology."
+                )
 
     # Rebuild indices ONCE after all splits are applied
     if applied_any:

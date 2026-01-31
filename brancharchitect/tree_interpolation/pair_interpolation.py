@@ -21,6 +21,9 @@ from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
 from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
     topological_sort_edges,
 )
+from brancharchitect.jumping_taxa.lattice.mapping.minimum_cover_mappings import (
+    map_solution_elements_via_parent,
+)
 
 # Final topology check: ensure last interpolated tree matches destination
 from brancharchitect.tree_interpolation.subtree_paths.pivot_sequence_orchestrator import (
@@ -36,6 +39,23 @@ logger: logging.Logger = logging.getLogger(__name__)
 __all__: List[str] = [
     "process_tree_pair_interpolation",
 ]
+
+
+def _unify_encodings(src: Node, dst: Node) -> None:
+    """
+    Ensure destination tree shares the exact encoding object of the source tree.
+
+    This prevents Partitions from different encodings being compared or operated on,
+    which would raise ValueError or produce incorrect bitmask results.
+    Refreshes split indices on dst to match the src encoding.
+    """
+    enc = src.taxa_encoding
+    dst.taxa_encoding = enc
+    # Re-initialize split indices for the destination to use the new encoding
+    dst.initialize_split_indices(enc)
+    dst.build_split_index()
+    # Invalidate caches to ensure no stale partitions with old encoding remain
+    dst.invalidate_caches(propagate_down=True)
 
 
 def process_tree_pair_interpolation(
@@ -75,6 +95,9 @@ def process_tree_pair_interpolation(
     # for each pair, so we can call the lattice algorithm directly without
     # performing additional copies here.
 
+    # Unify encodings to ensure valid partition comparisons
+    _unify_encodings(source_tree, destination_tree)
+
     if precomputed_solutions is not None:
         jumping_subtree_solutions: Dict[Partition, List[Partition]] = (
             precomputed_solutions
@@ -89,6 +112,11 @@ def process_tree_pair_interpolation(
     pivot_edges: List[Partition] = list(jumping_subtree_solutions.keys())
     ordered_edges: List[Partition] = topological_sort_edges(pivot_edges, source_tree)
 
+    # Compute MRCA parent maps for all movers (V2 MRCA-aware reordering)
+    source_parent_maps, dest_parent_maps = map_solution_elements_via_parent(
+        jumping_subtree_solutions, source_tree, destination_tree
+    )
+
     (
         sequence_trees,
         current_pivot_edge_tracking,
@@ -98,6 +126,8 @@ def process_tree_pair_interpolation(
         destination_tree=destination_tree,
         target_pivot_edges=ordered_edges,
         jumping_subtree_solutions=jumping_subtree_solutions,
+        source_parent_maps=source_parent_maps,
+        dest_parent_maps=dest_parent_maps,
         pair_index=pair_index,
     )
 

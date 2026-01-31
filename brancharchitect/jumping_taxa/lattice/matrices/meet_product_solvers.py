@@ -6,6 +6,7 @@ from brancharchitect.jumping_taxa.lattice.matrices.matrix_shape_classifier impor
     MatrixCategory,
 )
 from typing import List, Callable, Optional
+from itertools import product
 import operator
 
 # Use FrozenPartitionSet for hashable, immutable keys
@@ -210,9 +211,39 @@ def _square_meet_product(
 
         return results
 
-    raise ValueError(
-        "Square meet product not implemented for matrices larger than 2x2."
-    )
+    # Generalized square meet product for n×n (n > 2): evaluate all row-wise
+    # combinations of column selections and keep non-empty intersections.
+    op = meet_fn or operator.and_
+    if not jt_logger.disabled:
+        jt_logger.info(
+            f"Computing generalized square meet product for {rows}×{cols} matrix."
+        )
+        jt_logger.matrix(matrix, title="Square Meet Product (n×n): Input Matrix")
+
+    results: list[PartitionSet[Partition]] = []
+    seen: set[tuple[int, ...]] = set()
+
+    for col_indices in product(range(cols), repeat=rows):
+        result = matrix[0][col_indices[0]]
+        for r in range(1, rows):
+            result = op(result, matrix[r][col_indices[r]])
+            if not result:
+                break
+
+        if not result:
+            continue
+
+        maxima = result.maximal_elements()
+        if not maxima:
+            continue
+
+        key = tuple(sorted(p.bitmask for p in maxima))
+        if key in seen:
+            continue
+        seen.add(key)
+        results.append(maxima)
+
+    return results
 
 
 # ---------------------------

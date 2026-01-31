@@ -11,7 +11,7 @@ This package provides modular services for the Flask application:
 
 # Re-export commonly used items for convenience
 from webapp.services.logging import configure_logging
-from webapp.services.trees import handle_tree_content, MovieData
+from webapp.services.trees import MovieData
 from webapp.services.sse import (
     format_sse_message,
     sse_response,
@@ -24,7 +24,6 @@ __all__ = [
     # Logging
     "configure_logging",
     # Trees
-    "handle_uploaded_file",
     "MovieData",
     # SSE
     "format_sse_message",

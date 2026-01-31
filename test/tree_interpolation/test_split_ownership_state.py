@@ -1,11 +1,11 @@
 """
-Test suite for pivot_split_registry.py - OwnershipTracker-based implementation.
+Test suite for pivot_split_registry.py - SplitClaimTracker-based implementation.
 
 This test suite verifies PivotSplitRegistry functionality.
 Note: The analyze_split_ownership helper function has been removed in favor
-of OwnershipTracker, which is tested in test_ownership_tracker.py.
+of SplitClaimTracker, which is tested in test_split_claim_tracker.py.
 
-TODO: Some tests in this file need updating to work with OwnershipTracker API
+TODO: Some tests in this file need updating to work with SplitClaimTracker API
 instead of directly accessing removed internal dicts (shared_collapse_splits, etc).
 """
 
@@ -19,8 +19,8 @@ from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_regis
 
 
 # NOTE: TestCategorizeSplits has been removed as analyze_split_ownership()
-# function no longer exists. OwnershipTracker provides this functionality
-# and is tested comprehensively in test_ownership_tracker.py.
+# function no longer exists. SplitClaimTracker provides this functionality
+# and is tested comprehensively in test_split_claim_tracker.py.
 
 
 class TestInterpolationStateV2(unittest.TestCase):
@@ -76,7 +76,7 @@ class TestInterpolationStateV2(unittest.TestCase):
         self.assertIn(self.part_A, unique_expand_A)
 
     def test_expand_last_strategy(self):
-        """Last user detection works with OwnershipTracker."""
+        """Last user detection works with SplitClaimTracker."""
         expand_by_subtree = {
             self.part_A: PartitionSet(
                 [self.part_AB, self.part_A], encoding=self.encoding

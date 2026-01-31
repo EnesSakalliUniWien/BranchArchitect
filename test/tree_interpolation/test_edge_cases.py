@@ -428,15 +428,22 @@ class TestEdgeCases(unittest.TestCase):
         # Act
         # We expect M1 and M2 to be reordered to match T2
         result_tree = reorder_tree_toward_destination(
-            t1, t2, root_partition, movers_partition, unstable_taxa=set(), copy=True
+            t1,
+            t2,
+            root_partition,
+            movers_partition,
+            all_mover_partitions=[movers_partition],
+            copy=True,
         )
 
         # Assert
         final_order = list(result_tree.get_current_order())
-        expected_order = ["A", "M2", "M1", "B"]
+        # Block position follows destination (between A and B - same as source in this case)
+        # but internal order stays as SOURCE: M1, M2 (not destination's M2, M1)
+        expected_order = ["A", "M1", "M2", "B"]
 
         self.assertEqual(
             final_order,
             expected_order,
-            f"Expected {expected_order}, but got {final_order}. Movers should follow destination order.",
+            f"Expected {expected_order}, but got {final_order}. Block internal order should follow source.",
         )

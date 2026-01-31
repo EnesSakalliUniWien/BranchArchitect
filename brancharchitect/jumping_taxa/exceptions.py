@@ -41,7 +41,7 @@ class LatticeConstructionError(JumpingTaxaError):
             f"This indicates an inconsistency between split enumeration and node indexing."
         )
         if not jt_logger.disabled:
-             jt_logger.error(missing_node_error_message)
+            jt_logger.error(missing_node_error_message)
         raise LatticeConstructionError(missing_node_error_message)
 
 

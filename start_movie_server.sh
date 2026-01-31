@@ -3,15 +3,22 @@
 # Backend Server Startup Script
 # Starts the Flask backend server
 
+export PYTHONDONTWRITEBYTECODE=1
+
 # Kill any existing processes on backend ports and verify
 for PORT in 5002; do
   echo "[backend] Checking for processes on port $PORT..."
-  PIDS=$(lsof -ti :$PORT)
-  if [ -n "$PIDS" ]; then
-    echo "[backend] Killing processes on port $PORT: $PIDS"
-    kill -9 $PIDS 2>/dev/null
-    sleep 1
-  fi
+  for i in {1..3}; do
+    PIDS=$(lsof -ti :$PORT)
+    if [ -n "$PIDS" ]; then
+      echo "[backend] Killing processes on port $PORT: $PIDS (attempt $i)"
+      kill -9 $PIDS 2>/dev/null
+      sleep 2
+    else
+      break
+    fi
+  done
+
   # Double check port is free
   if lsof -i :$PORT | grep LISTEN; then
     echo "[backend] ERROR: Port $PORT is still in use after kill. Please free it and try again."

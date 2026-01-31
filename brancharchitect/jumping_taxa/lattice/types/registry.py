@@ -109,6 +109,32 @@ class SolutionRegistry:
                 category, []
             ).append(wrapped)
 
+    def add_no_solution(
+        self,
+        pivot_edge: Partition,
+        category: str,
+        visit: int,
+    ) -> None:
+        """
+        Explicitly record that a pivot edge has no solutions (empty set).
+
+        Args:
+            pivot_edge: The mapped pivot edge.
+            category: The category label (usually "solution").
+            visit: Visit number.
+        """
+        key: Tuple[Partition, int] = (pivot_edge, visit)
+        # We store an empty PartitionSet to signify "no jumping taxa needed"
+        # Using encoding from pivot_edge if available
+        encoding = getattr(pivot_edge, "encoding", {})
+        empty_solution = PartitionSet(
+            set(), encoding=encoding, name=f"empty_{category}"
+        )
+
+        self.solutions_by_pivot_and_iteration.setdefault(key, {}).setdefault(
+            category, []
+        ).append(empty_solution)
+
     def add_solutions(
         self,
         pivot_edge: Partition,
@@ -252,6 +278,14 @@ class SolutionRegistry:
 
         # For each pivot_edge, keep only best-ranked solution
         for pivot_edge_partition, solutions in pivot_edge_to_solutions.items():
+            # Filter logic: If there are ANY non-empty solutions, discard the empty ones.
+            # Empty solutions (size 0) indicate "no conflict / no jump needed" for a specific visit.
+            # Non-empty solutions indicate "jump needed" for another visit.
+            # Since conflict is the stronger constraint within a single iteration, we preserve the jumps.
+            has_non_empty = any(len(s[0]) > 0 for s in solutions)
+            if has_non_empty:
+                solutions = [s for s in solutions if len(s[0]) > 0]
+
             solutions.sort(key=lambda x: x[1])
             best_solution_set: PartitionSet[Partition] = solutions[0][0]
 

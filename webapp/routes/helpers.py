@@ -1,4 +1,5 @@
 """Request handling helpers."""
+
 from __future__ import annotations
 from dataclasses import dataclass
 import os
@@ -17,6 +18,12 @@ class TreeDataRequest:
     window_step: int
     enable_rooting: bool
     msa_content: Optional[str] = None
+    use_gtr: bool = (
+        True  # Use GTR model (General Time Reversible - most realistic for viruses)
+    )
+    use_gamma: bool = (
+        True  # Use gamma rate heterogeneity (accounts for rate variation across sites)
+    )
 
 
 def get_msa_content(msa_file: Optional[FileStorage]) -> Optional[str]:
@@ -39,8 +46,12 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
     msa_file = request.files.get("msaFile")
 
     # We need at least one of the two files
-    if (not tree_file or not tree_file.filename) and (not msa_file or not msa_file.filename):
-        raise ValueError("Missing required file. Please provide either a 'treeFile' or an 'msaFile'.")
+    if (not tree_file or not tree_file.filename) and (
+        not msa_file or not msa_file.filename
+    ):
+        raise ValueError(
+            "Missing required file. Please provide either a 'treeFile' or an 'msaFile'."
+        )
 
     # If tree_file is provided, validate it
     if tree_file and tree_file.filename:
@@ -49,11 +60,18 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
             raise ValueError("Uploaded file 'treeFile' is empty.")
         tree_file.seek(0)
     else:
-        tree_file = None # Ensure tree_file is None if not provided or empty
+        tree_file = None  # Ensure tree_file is None if not provided or empty
 
     window_size = int(request.form.get("windowSize", 1))
     window_step = int(request.form.get("windowStepSize", 1))
     enable_rooting = request.form.get("midpointRooting", "") == "on"
+
+    # Model options for tree inference (GTR and gamma are enabled by default)
+    # "on" means checkbox is checked, empty or missing means use default (True)
+    use_gtr_raw = request.form.get("useGtr", "on")
+    use_gamma_raw = request.form.get("useGamma", "on")
+    use_gtr = use_gtr_raw == "on"
+    use_gamma = use_gamma_raw == "on"
 
     msa_content = get_msa_content(msa_file)
 
@@ -71,4 +89,6 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
         window_step=window_step,
         enable_rooting=enable_rooting,
         msa_content=msa_content,
+        use_gtr=use_gtr,
+        use_gamma=use_gamma,
     )

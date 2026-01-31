@@ -6,7 +6,15 @@ human‑readable labels and partition names.
 """
 
 from typing import Any, List, Optional, Sequence
-from tabulate import tabulate
+
+try:
+    from tabulate import tabulate
+except ImportError:
+
+    def tabulate(data, headers=(), **kwargs):
+        return str(data)
+
+
 from brancharchitect.logger.base_logger import AlgorithmLogger
 
 

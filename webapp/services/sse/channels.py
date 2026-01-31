@@ -77,6 +77,31 @@ class ProgressChannel:
         """Send an error message."""
         self.send({"error": error}, event="error")
 
+    def send_trees_chunked(
+        self,
+        trees: list[Any],
+        chunk_size: int = 100,
+    ) -> None:
+        """
+        Send trees in chunks to avoid overwhelming the client.
+
+        Args:
+            trees: List of serialized tree dictionaries.
+            chunk_size: Number of trees per chunk.
+        """
+        total = len(trees)
+        for i in range(0, total, chunk_size):
+            chunk = trees[i : i + chunk_size]
+            self.send(
+                {
+                    "trees": chunk,
+                    "start_index": i,
+                    "end_index": i + len(chunk),
+                    "total": total,
+                },
+                event="trees_chunk",
+            )
+
     def complete(
         self,
         data: Any = None,

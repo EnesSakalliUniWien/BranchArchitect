@@ -23,6 +23,52 @@ from .execution.step_executor import apply_stepwise_plan_for_edge
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+def find_residual_collapse_splits(
+    current_pivot_edge: Partition,
+    subtrees: List[Partition],
+    source_only_splits: PartitionSet[Partition],
+) -> PartitionSet[Partition]:
+    """
+    Find residual splits that need to be collapsed but aren't on any mover's path.
+
+    When a pivot edge like (314, 315, 316) has a singleton mover like (314,),
+    there may be splits like (315, 316) that are:
+    - Inside the pivot (proper subsets of pivot taxa)
+    - Unique to source (not in destination)
+    - Not containing any mover taxa
+
+    These "orphaned" splits won't appear on any mover's path but still need
+    to be collapsed during the pivot's processing.
+
+    Args:
+        current_pivot_edge: The pivot being processed
+        subtrees: List of mover partitions for this pivot
+        source_only_splits: Splits that exist only in the source tree
+
+    Returns:
+        PartitionSet of residual splits that need to be collapsed
+    """
+    # Collect all mover taxa for this pivot
+    all_mover_taxa: set[int] = set()
+    for subtree in subtrees:
+        all_mover_taxa.update(subtree.indices)
+
+    pivot_taxa = set(current_pivot_edge.indices)
+    residual_splits: PartitionSet[Partition] = PartitionSet(
+        encoding=source_only_splits.encoding
+    )
+
+    for s in source_only_splits:
+        split_taxa = set(s.indices)
+        # Must be inside pivot (proper subset)
+        if split_taxa.issubset(pivot_taxa) and split_taxa != pivot_taxa:
+            # Must not contain any mover taxa
+            if split_taxa.isdisjoint(all_mover_taxa):
+                residual_splits.add(s)
+
+    return residual_splits
+
+
 def calculate_subtree_paths(
     jumping_subtree_solutions: Dict[Partition, List[Partition]],
     destination_tree: Node,
@@ -53,12 +99,23 @@ def calculate_subtree_paths(
     ] = {}
     source_subtree_paths: Dict[Partition, Dict[Partition, PartitionSet[Partition]]] = {}
 
-    # Pre-compute splits in source tree for existence checks
+    # Pre-compute splits in source and destination trees
     source_splits: PartitionSet[Partition] = source_tree.to_splits()
+    dest_splits: PartitionSet[Partition] = destination_tree.to_splits()
+
+    # Identify splits that are only in source (candidates for collapse)
+    source_only_splits = source_splits - dest_splits
+    # Identify splits that are only in destination (candidates for expansion)
+    dest_only_splits = dest_splits - source_splits
 
     for current_pivot_edge, subtrees in jumping_subtree_solutions.items():
         destination_subtree_paths[current_pivot_edge] = {}
         source_subtree_paths[current_pivot_edge] = {}
+
+        # Find residual splits: orphaned splits inside the pivot that need collapsing
+        residual_splits = find_residual_collapse_splits(
+            current_pivot_edge, subtrees, source_only_splits
+        )
 
         for subtree in subtrees:
             destination_node_paths: List[Node] = (
@@ -77,15 +134,25 @@ def calculate_subtree_paths(
                 {node.split_indices for node in source_node_paths}
             )
 
+            # Filter paths to only include unique splits
+            # Common splits (in both trees) should use Mean interpolation and NOT be
+            # collapsed or expanded/grafted.
+            source_partitions = source_partitions.intersection(source_only_splits)
+            destination_partitions = destination_partitions.intersection(
+                dest_only_splits
+            )
+
             # Always remove pivot edge endpoint from both paths
             destination_partitions.discard(current_pivot_edge)
             source_partitions.discard(current_pivot_edge)
 
-            # Always remove subtree from collapse path (source)
+            # The subtree partition itself is handled by the intersection logic:
+            # - If common, it's removed from both (correct).
+            # - If unique to source (shouldn't happen for mover?), it collapses.
+            # - If unique to dest (new), it expands.
+            # Explicit discards below are redundant but safe if strictness desired.
             source_partitions.discard(subtree)
 
-            # Only remove subtree from expand path (destination) if it
-            # already exists in source - otherwise it needs to be created
             if subtree in source_splits:
                 destination_partitions.discard(subtree)
 
@@ -93,6 +160,19 @@ def calculate_subtree_paths(
                 destination_partitions
             )
             source_subtree_paths[current_pivot_edge][subtree] = source_partitions
+
+        # Add residual splits to the first subtree's collapse path (if any)
+        # These are orphaned splits inside the pivot that don't belong to any mover
+        if residual_splits and source_subtree_paths[current_pivot_edge]:
+            # Pick the first subtree (by bitmask order) to handle residual collapses
+            first_subtree = min(
+                source_subtree_paths[current_pivot_edge].keys(),
+                key=lambda p: p.bitmask,
+            )
+            source_subtree_paths[current_pivot_edge][first_subtree] = (
+                source_subtree_paths[current_pivot_edge][first_subtree]
+                | residual_splits
+            )
 
     return destination_subtree_paths, source_subtree_paths
 
@@ -102,11 +182,13 @@ def create_interpolation_for_active_split_sequence(
     destination_tree: Node,
     target_pivot_edges: List[Partition],
     jumping_subtree_solutions: Dict[Partition, List[Partition]],
+    source_parent_maps: Optional[Dict[Partition, Dict[Partition, Partition]]] = None,
+    dest_parent_maps: Optional[Dict[Partition, Dict[Partition, Partition]]] = None,
     pair_index: Optional[int] = None,
 ) -> tuple[
     List[Node],
     List[Optional[Partition]],
-    List[Optional[Partition]],
+    List[Optional[List[Partition]]],
 ]:
     """
     Create an interpolation sequence from source to destination tree for pivot edges (active-changing splits).
@@ -122,7 +204,7 @@ def create_interpolation_for_active_split_sequence(
     """
     interpolation_sequence: List[Node] = []
     processed_pivot_edge_tracking: List[Optional[Partition]] = []
-    processed_subtree_tracking: List[Optional[Partition]] = []
+    processed_subtree_tracking: List[Optional[List[Partition]]] = []
 
     interpolation_state: Node = source_tree.deep_copy()
 
@@ -148,12 +230,23 @@ def create_interpolation_for_active_split_sequence(
             destination_subtree_paths.get(current_pivot_edge, {})
         )
 
+        # Get parent maps for this pivot edge (if available)
+        source_parent_map = (
+            source_parent_maps.get(current_pivot_edge) if source_parent_maps else None
+        )
+        dest_parent_map = (
+            dest_parent_maps.get(current_pivot_edge) if dest_parent_maps else None
+        )
+
         step_trees, step_edges, new_state, step_subtrees = apply_stepwise_plan_for_edge(
             current_base_tree=current_base_tree,
             destination_tree=destination_tree,
+            source_tree=source_tree,
             current_pivot_edge=current_pivot_edge,
-            expand_paths_for_pivot_edge=destination_paths_for_pivot_edge,
             collapse_paths_for_pivot_edge=source_paths_for_pivot_edge,
+            expand_paths_for_pivot_edge=destination_paths_for_pivot_edge,
+            source_parent_map=source_parent_map,
+            dest_parent_map=dest_parent_map,
         )
 
         if step_trees:
