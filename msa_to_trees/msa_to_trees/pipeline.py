@@ -39,12 +39,14 @@ class FastTreeConfig:
     Attributes:
         use_gtr: Use GTR (General Time Reversible) model instead of JC.
         use_gamma: Use gamma rate heterogeneity for rate variation across sites.
+        use_pseudo: Use pseudocounts for sequences with gaps/little overlap.
         no_ml: Disable ML NNI moves to produce fully bifurcating trees.
     """
 
     # Defaults tuned for speed: start simple, allow callers to opt into heavier models.
     use_gtr: bool = False
     use_gamma: bool = False
+    use_pseudo: bool = False
     no_ml: bool = True
 
     @property
@@ -55,6 +57,8 @@ class FastTreeConfig:
             parts.append("GTR")
         if self.use_gamma:
             parts.append("gamma")
+        if self.use_pseudo:
+            parts.append("pseudo")
         if self.no_ml:
             parts.append("no-ML")
         return " + ".join(parts) if parts else "JC (fast default)"
@@ -66,6 +70,8 @@ class FastTreeConfig:
             args.append("-gtr")
         if self.use_gamma:
             args.append("-gamma")
+        if self.use_pseudo:
+            args.append("-pseudo")
         if self.no_ml:
             args.append("-noml")
         return args
