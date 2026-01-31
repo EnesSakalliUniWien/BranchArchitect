@@ -17,10 +17,9 @@ from __future__ import annotations
 
 import heapq
 import logging
-from typing import Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import AbstractSet, Dict, FrozenSet, List, Mapping, Optional, Set, Tuple
 
 from brancharchitect.elements.partition import Partition
-from brancharchitect.elements.partition_set import PartitionSet
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ class PathGroupManager:
 
     def __init__(
         self,
-        expand_splits_by_subtree: Dict[Partition, PartitionSet[Partition]],
+        expand_splits_by_subtree: Mapping[Partition, AbstractSet[Partition]],
         encoding: Dict[str, int],
         enabled: bool = True,
     ) -> None:
@@ -61,7 +60,7 @@ class PathGroupManager:
         """
         self.encoding = encoding
         self.enabled = enabled
-        self._expand_paths: Dict[Partition, PartitionSet[Partition]] = (
+        self._expand_paths: Mapping[Partition, AbstractSet[Partition]] = (
             expand_splits_by_subtree
         )
 
@@ -293,7 +292,7 @@ class PathGroupManager:
         for subtree in self._expand_paths:
             self._in_degree[subtree] = 0
 
-        for contained, container in self._containment_edges:
+        for _, container in self._containment_edges:
             # container depends on contained being processed first
             self._in_degree[container] += 1
 

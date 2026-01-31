@@ -52,7 +52,7 @@ def _unify_encodings(src: Node, dst: Node) -> None:
     enc = src.taxa_encoding
     dst.taxa_encoding = enc
     # Re-initialize split indices for the destination to use the new encoding
-    dst._initialize_split_indices(enc)
+    dst.initialize_split_indices(enc)
     dst.build_split_index()
     # Invalidate caches to ensure no stale partitions with old encoding remain
     dst.invalidate_caches(propagate_down=True)

@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Set, Tuple, Any
+from typing import AbstractSet, Dict, Mapping, Optional, Set, Tuple, Any
 from collections import OrderedDict
 import logging
 from brancharchitect.elements.partition import Partition
@@ -39,8 +39,8 @@ class PivotSplitRegistry:
         self,
         all_collapse_splits: PartitionSet[Partition],
         all_expand_splits: PartitionSet[Partition],
-        collapse_splits_by_subtree: Dict[Partition, PartitionSet[Partition]],
-        expand_splits_by_subtree: Dict[Partition, PartitionSet[Partition]],
+        collapse_splits_by_subtree: Mapping[Partition, AbstractSet[Partition]],
+        expand_splits_by_subtree: Mapping[Partition, AbstractSet[Partition]],
         active_changing_edge: Partition,
         use_path_grouping: bool = True,
     ):
@@ -66,11 +66,17 @@ class PivotSplitRegistry:
         # Use intersection (&) to ensure we only claim splits that are globally valid
         # This filters out "shared splits" that exist in both trees but appear in local paths
         for subtree, splits in collapse_splits_by_subtree.items():
-            valid_splits = splits & all_collapse_splits
+            valid_splits = PartitionSet(
+                splits={s for s in splits if s in all_collapse_splits},
+                encoding=self.encoding,
+            )
             self.collapse_tracker.claim_batch(valid_splits, subtree)
 
         for subtree, splits in expand_splits_by_subtree.items():
-            valid_splits = splits & all_expand_splits
+            valid_splits = PartitionSet(
+                splits={s for s in splits if s in all_expand_splits},
+                encoding=self.encoding,
+            )
             self.expand_tracker.claim_batch(valid_splits, subtree)
 
         # CRITICAL: Claim any expand split that CONTAINS a subtree's taxa (Parent),
@@ -112,7 +118,7 @@ class PivotSplitRegistry:
 
     def _claim_related_expand_splits(
         self,
-        initial_assignments: Dict[Partition, PartitionSet[Partition]],
+        initial_assignments: Mapping[Partition, AbstractSet[Partition]],
         all_expand_splits: PartitionSet[Partition],
     ) -> None:
         """

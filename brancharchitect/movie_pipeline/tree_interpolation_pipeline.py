@@ -325,8 +325,6 @@ class TreeInterpolationPipeline:
 
         # Process results and log any errors
         sols: List[Optional[Dict[Partition, List[Partition]]]] = []
-        if results is None:
-            return sols
 
         for i, result_tuple in enumerate(results):
             if result_tuple is None:

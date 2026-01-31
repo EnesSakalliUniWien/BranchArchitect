@@ -23,6 +23,52 @@ from .execution.step_executor import apply_stepwise_plan_for_edge
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+def find_residual_collapse_splits(
+    current_pivot_edge: Partition,
+    subtrees: List[Partition],
+    source_only_splits: PartitionSet[Partition],
+) -> PartitionSet[Partition]:
+    """
+    Find residual splits that need to be collapsed but aren't on any mover's path.
+
+    When a pivot edge like (314, 315, 316) has a singleton mover like (314,),
+    there may be splits like (315, 316) that are:
+    - Inside the pivot (proper subsets of pivot taxa)
+    - Unique to source (not in destination)
+    - Not containing any mover taxa
+
+    These "orphaned" splits won't appear on any mover's path but still need
+    to be collapsed during the pivot's processing.
+
+    Args:
+        current_pivot_edge: The pivot being processed
+        subtrees: List of mover partitions for this pivot
+        source_only_splits: Splits that exist only in the source tree
+
+    Returns:
+        PartitionSet of residual splits that need to be collapsed
+    """
+    # Collect all mover taxa for this pivot
+    all_mover_taxa: set[int] = set()
+    for subtree in subtrees:
+        all_mover_taxa.update(subtree.indices)
+
+    pivot_taxa = set(current_pivot_edge.indices)
+    residual_splits: PartitionSet[Partition] = PartitionSet(
+        encoding=source_only_splits.encoding
+    )
+
+    for s in source_only_splits:
+        split_taxa = set(s.indices)
+        # Must be inside pivot (proper subset)
+        if split_taxa.issubset(pivot_taxa) and split_taxa != pivot_taxa:
+            # Must not contain any mover taxa
+            if split_taxa.isdisjoint(all_mover_taxa):
+                residual_splits.add(s)
+
+    return residual_splits
+
+
 def calculate_subtree_paths(
     jumping_subtree_solutions: Dict[Partition, List[Partition]],
     destination_tree: Node,
@@ -65,6 +111,11 @@ def calculate_subtree_paths(
     for current_pivot_edge, subtrees in jumping_subtree_solutions.items():
         destination_subtree_paths[current_pivot_edge] = {}
         source_subtree_paths[current_pivot_edge] = {}
+
+        # Find residual splits: orphaned splits inside the pivot that need collapsing
+        residual_splits = find_residual_collapse_splits(
+            current_pivot_edge, subtrees, source_only_splits
+        )
 
         for subtree in subtrees:
             destination_node_paths: List[Node] = (
@@ -109,6 +160,19 @@ def calculate_subtree_paths(
                 destination_partitions
             )
             source_subtree_paths[current_pivot_edge][subtree] = source_partitions
+
+        # Add residual splits to the first subtree's collapse path (if any)
+        # These are orphaned splits inside the pivot that don't belong to any mover
+        if residual_splits and source_subtree_paths[current_pivot_edge]:
+            # Pick the first subtree (by bitmask order) to handle residual collapses
+            first_subtree = min(
+                source_subtree_paths[current_pivot_edge].keys(),
+                key=lambda p: p.bitmask,
+            )
+            source_subtree_paths[current_pivot_edge][first_subtree] = (
+                source_subtree_paths[current_pivot_edge][first_subtree]
+                | residual_splits
+            )
 
     return destination_subtree_paths, source_subtree_paths
 

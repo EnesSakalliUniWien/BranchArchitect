@@ -1,45 +1,12 @@
-from typing import Dict, List, IO
+from typing import Dict, List, IO, Any
 import xml.etree.ElementTree as ET
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.plot.circular_tree import generate_multiple_circular_trees_svg
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
-from uuid import UUID
 import json
-from typing import Any, Optional
-
-
-class UUIDEncoder(json.JSONEncoder):
-    def default(self, o: Any):
-        # Handle Partition objects
-        if o.__class__.__name__ == "Partition":
-            # Just return the indices as a list
-            return list(o.indices)
-
-        # Original UUID handling code
-        if isinstance(o, UUID):
-            return str(o)
-
-        # Add handling for PartitionSet too
-        if o.__class__.__name__ == "PartitionSet":
-            # Return a list of lists of indices
-            return [list(partition.indices) for partition in o]
-
-        # Add handling for Node objects
-        if o.__class__.__name__ == "Node":
-            # Convert Node to a serializable dictionary
-            node_dict = {
-                "name": o.name,
-                "length": o.length,
-                "values": o.values,
-                "children": o.children,  # This will recursively serialize child nodes
-            }
-            # Only include non-default/non-empty fields to keep JSON clean
-            if hasattr(o, "split_indices") and o.split_indices:
-                node_dict["split_indices"] = o.split_indices
-            return node_dict
-
-        return super().default(o)
+from typing import Optional
+from brancharchitect.uuid_encoder import UUIDEncoder
 
 
 def dump_json(tree: Node, f: IO[str]):
@@ -80,7 +47,7 @@ def write_svg(tree: Node, path: str, ignore_branch_lengths: bool = False):
 
 def serialize_tree_list_to_json(tree_list: List[Node]) -> List[Dict[str, Any]]:
     serialized_tree_list: List[Dict[str, Any]] = []
-    for i, tree in enumerate(tree_list):
+    for tree in tree_list:
         d: Dict[str, Any] = tree.to_dict()
         serialized_tree_list.append(d)
     return serialized_tree_list

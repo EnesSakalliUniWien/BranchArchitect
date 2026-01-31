@@ -1,17 +1,3 @@
-"""
-Step Executor for Subtree-Path Interpolation
-
-Executes the stepwise plan for pivot edges and generates animation frames
-for visualizing subtree movement between phylogenetic tree topologies.
-
-Key Stages (5 per selection):
-1. Collapse Down: Zero-length branches inside the moving subtree
-2. Collapse: Merge zero-length branches into consensus topology
-3. Reorder: Place the subtree at its new position among stable anchors
-4. Expand Up: Restore branch lengths from destination tree
-5. Snap: Final state matching the destination topology
-"""
-
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -25,8 +11,6 @@ from brancharchitect.tree_interpolation.topology_ops.collapse import (
 )
 from brancharchitect.tree_interpolation.topology_ops.weights import (
     apply_zero_branch_lengths,
-    apply_mean_weights_to_path,
-    _apply_average_to_pivot_edge,
 )
 from brancharchitect.tree_interpolation.topology_ops.expand import (
     create_subtree_grafted_tree,
@@ -35,6 +19,132 @@ from ..planning import build_edge_plan
 from .reordering import reorder_tree_toward_destination, align_to_source_order
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Weight Application Functions
+# ============================================================================
+
+
+def apply_expand_split_weights(
+    tree: Node,
+    expand_splits: List[Partition],
+    destination_weights: Dict[Partition, float],
+) -> None:
+    """
+    Set expand splits (new in destination) to their destination weight.
+
+    Expand splits don't exist in the source tree, so there's nothing to average -
+    we simply set them to their final destination weight.
+
+    Args:
+        tree: The tree to modify (mutated in place)
+        expand_splits: List of splits that are new in the destination
+        destination_weights: Weights from the destination tree
+    """
+    for split in expand_splits:
+        node = tree.find_node_by_split(split)
+        if node is not None:
+            node.length = destination_weights.get(split, 0.0)
+
+
+def apply_shared_split_average(
+    tree: Node,
+    split: Partition,
+    source_weights: Optional[Dict[Partition, float]],
+    destination_weights: Dict[Partition, float],
+) -> None:
+    """
+    Average a shared split's weight: (source + dest) / 2.
+
+    Shared splits exist in both source and destination, so we interpolate
+    by taking the arithmetic mean of both weights.
+
+    Args:
+        tree: The tree to modify (mutated in place)
+        split: The shared split to average
+        source_weights: Weights from the original source tree
+        destination_weights: Weights from the destination tree
+    """
+    node = tree.find_node_by_split(split)
+    if node is not None:
+        src_weight = (
+            source_weights.get(split, node.length or 0.0)
+            if source_weights
+            else (node.length or 0.0)
+        )
+        dest_weight = destination_weights.get(split, 0.0)
+        node.length = (src_weight + dest_weight) / 2.0
+
+
+def apply_shared_splits_under_pivot(
+    tree: Node,
+    pivot_node: Node,
+    expand_set: set[Partition],
+    source_weights: Optional[Dict[Partition, float]],
+    destination_weights: Dict[Partition, float],
+) -> None:
+    """
+    Apply weight averaging to all shared splits under the pivot.
+
+    For the first mover, we average ALL shared splits under the pivot edge.
+    Expand splits are set to destination weight, shared splits are averaged.
+
+    Args:
+        tree: The tree to modify (mutated in place)
+        pivot_node: The node representing the pivot edge
+        expand_set: Set of splits that are expand (new) splits
+        source_weights: Weights from the original source tree
+        destination_weights: Weights from the destination tree
+    """
+    splits_under_pivot = list(pivot_node.to_splits(with_leaves=True))
+
+    for split in splits_under_pivot:
+        if split in expand_set:
+            # Expand split: set to destination weight
+            apply_expand_split_weights(tree, [split], destination_weights)
+        else:
+            # Shared split: average (source + dest) / 2
+            apply_shared_split_average(tree, split, source_weights, destination_weights)
+
+
+def apply_snap_weights(
+    tree: Node,
+    current_pivot_edge: Partition,
+    expand_path: List[Partition],
+    is_first_mover: bool,
+    source_weights: Optional[Dict[Partition, float]],
+    destination_weights: Dict[Partition, float],
+) -> None:
+    """
+    Apply final weights during the snap phase.
+
+    Weight application strategy:
+    - First mover: Average all shared splits under pivot, set expand splits to dest weight
+    - Subsequent movers: Only set their expand splits to destination weight
+                         (shared splits were already averaged by first mover)
+
+    Args:
+        tree: The tree to modify (mutated in place)
+        current_pivot_edge: The pivot edge being processed
+        expand_path: List of splits to expand for this mover
+        is_first_mover: Whether this is the first mover for this pivot
+        source_weights: Weights from the original source tree
+        destination_weights: Weights from the destination tree
+    """
+    pivot_node = tree.find_node_by_split(current_pivot_edge)
+
+    if is_first_mover:
+        # First mover: Average all shared splits under pivot + pivot edge itself
+        if pivot_node is not None:
+            expand_set = set(expand_path)
+            apply_shared_splits_under_pivot(
+                tree, pivot_node, expand_set, source_weights, destination_weights
+            )
+    else:
+        # Subsequent movers: Only set expand splits to destination weight
+        # Shared splits were already averaged by the first mover
+        apply_expand_split_weights(tree, expand_path, destination_weights)
 
 
 # ============================================================================
@@ -196,8 +306,6 @@ def build_microsteps_for_selection(
     )
 
     # Step 1: Collapse Down - zero branch lengths
-    # CRITICAL: deep_copy is required because apply_zero_branch_lengths mutates in-place.
-    # Without this, the previous animation frame (interpolation_state) gets corrupted.
     it_down: Node = interpolation_state.deep_copy()
     # Move internal mass to pendants before zeroing (Causal Mass Transfer)
     # distribute_path_weights(it_down, zeroing_path, operation="add")
@@ -218,8 +326,9 @@ def build_microsteps_for_selection(
     logger.debug(f"[StepExecutor] After IT_Down: {len(it_down.to_splits())} splits")
 
     # Step 2: Collapse - merge zero-length branches
+    # CRITICAL: Pass destination_tree to preserve common splits that exist in destination
     collapsed: Node = create_collapsed_consensus_tree(
-        it_down, current_pivot_edge, copy=True
+        it_down, current_pivot_edge, copy=True, destination_tree=destination_tree
     )
 
     _add_step(
@@ -265,17 +374,9 @@ def build_microsteps_for_selection(
 
     logger.debug(f"[StepExecutor] After Reorder: {len(reordered.to_splits())} splits")
 
-    # Step 3.5: Mean - average pivot edge (L1 + L2) / 2
-    # Only apply mean to pivot edge if this is the first mover in the sequence for this edge.
-    # Otherwise, the pivot edge is already at the mean state (inherited).
     destination_weights: Dict[Partition, float] = destination_tree.to_weighted_splits()
 
     reordered_mean: Node = reordered.deep_copy()
-
-    if is_first_mover:
-        _apply_average_to_pivot_edge(
-            reordered_mean, destination_weights, source_weights, current_pivot_edge
-        )
 
     # Calculate movers for Expand phase (Destination side)
     expand_movers = find_siblings_with_shared_parent_in_path(
@@ -311,48 +412,25 @@ def build_microsteps_for_selection(
     # Align ordering once after graft so both microsteps share identical layout
     snapped_tree: Node = pre_snap_reordered.deep_copy()
 
-    # Apply progress-aware patristic distance compensation ONLY to snapped_tree
-    # pre_snap_reordered intentionally has zero-length expand splits to show the grafting step
-    # snapped_tree gets compensation after apply_mean_weights_to_path sets the expand splits
-    # Note: We compensate here before apply_mean_weights_to_path, then the snap adjusts internal branches
-
     # Normalize to final snapped ordering
     final_order = list(snapped_tree.get_current_order())
     pre_snap_reordered.reorder_taxa(final_order)
 
-    # Step 5: Snap - conditionally apply full destination weights
-    # Only update common splits that are strictly underneath the pivot edge,
-    # plus the pivot edge itself (if last mover).
-    # This prevents global updates to stable branches outside the active area.
-
-    # 1. Identify candidate splits (descendants of pivot + pivot itself)
-    splits_to_update: List[Partition] = []
-
-    # We need to find the specific node for the pivot edge to traverse its children
-    pivot_node = snapped_tree.find_node_by_split(current_pivot_edge)
-
     reordered.reorder_taxa(list(pre_snap_reordered.get_current_order()))
 
-    if pivot_node is not None:
-        splits_to_update = list(pivot_node.to_splits(with_leaves=True))
+    # Step 5: Snap - apply weights based on split type
+    # - Shared splits (in both source and dest): Average ONCE on first mover only
+    # - Expand splits (new in dest): Set to destination weight
+    # - Pivot edge: Average on first mover only
 
-    if not is_last_mover:
-        if current_pivot_edge in splits_to_update:
-            splits_to_update.remove(current_pivot_edge)
-
-    # Use mean interpolation with raw weights (Mean(Source, Dest))
-    # This avoids "Mass Transfer" logic entirely -> No claming, but visual shrinkage.
-    apply_mean_weights_to_path(
-        snapped_tree,
-        splits_to_update,
-        destination_weights,
-        expand_splits=PartitionSet(set(expand_path)),
+    apply_snap_weights(
+        tree=snapped_tree,
+        current_pivot_edge=current_pivot_edge,
+        expand_path=expand_path,
+        is_first_mover=is_first_mover,
         source_weights=source_weights,
+        destination_weights=destination_weights,
     )
-
-    # Pull mass back out of pendants into the new internal expanded branches.
-    # This completes the cycle: mass is conserved exactly at the root-to-leaf path.
-    # distribute_path_weights(snapped_tree, expand_path, operation="subtract")
 
     _add_step(
         trees,
@@ -506,5 +584,11 @@ def apply_stepwise_plan_for_edge(
             last_subtree_partition,
             subtree_tracker,
         )
+    elif not trees:
+        # No selections means no work to do for this pivot edge (reordering only).
+        # Add the current state as a pass-through step so interpolation can continue.
+        trees.append(interpolation_state.deep_copy())
+        edges.append(current_pivot_edge)
+        subtree_tracker.append([])
 
     return trees, edges, interpolation_state, subtree_tracker

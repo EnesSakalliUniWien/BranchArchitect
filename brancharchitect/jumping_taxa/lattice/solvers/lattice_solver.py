@@ -101,13 +101,6 @@ class LatticeSolver:
             with_leaves=True
         ) & self.original_tree2.to_splits(with_leaves=True)
 
-        # Pre-compute leaf map for original_tree1 for efficient MRCA lookups in mapping
-        self._original_leaf_map = {
-            self.original_tree1.taxa_encoding[leaf.name]: leaf
-            for leaf in self.original_tree1.get_leaves()
-            if leaf.name in self.original_tree1.taxa_encoding
-        }
-
         # Working copies of trees that get pruned during iterative solving
         self.current_t1: Node = self.tree1.deep_copy()
         self.current_t2: Node = self.tree2.deep_copy()
@@ -261,13 +254,10 @@ class LatticeSolver:
         mapped: Dict[Partition, List[Partition]] = {}
 
         for pivot_edge, partitions in selected_solutions.items():
-            solution_sets = [partitions] if partitions else []
             mapped_pivot = map_single_pivot_edge_to_original(
                 pivot_edge,
                 self._original_common_splits,
-                solution_sets,
-                self.original_tree1,
-                self._original_leaf_map,
+                partitions,
             )
 
             mapped.setdefault(mapped_pivot, []).extend(partitions)
@@ -360,8 +350,19 @@ class LatticeSolver:
             if should_break_loop:
                 if self.current_t1 == self.current_t2:
                     break
+                # Provide more detailed error information
+                t1_splits = self.current_t1.to_splits()
+                t2_splits = self.current_t2.to_splits()
+                only_in_t1 = t1_splits - t2_splits
+                only_in_t2 = t2_splits - t1_splits
+
                 raise RuntimeError(
-                    "Stopping condition reached before tree isomorphism."
+                    f"Stopping condition reached before tree isomorphism. "
+                    f"Pivot edges: {len(self.pivot_edges)}, "
+                    f"Solutions this iter: {len(solutions_dict_this_iter)}, "
+                    f"Splits only in T1: {len(only_in_t1)}, "
+                    f"Splits only in T2: {len(only_in_t2)}. "
+                    f"This may indicate structural differences that cannot be resolved by the lattice algorithm."
                 )
 
         # Note: Dict order may not be topologically sorted across iterations.
@@ -380,4 +381,5 @@ class LatticeSolver:
             self.current_t2,
             mapped_solutions_dict,
         )
+
         return mapped_solutions_dict, self.deleted_taxa_per_iteration

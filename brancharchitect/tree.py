@@ -1,7 +1,6 @@
 from __future__ import annotations
 import json
 from enum import Enum
-from statistics import mean
 from typing import Optional, Any, Tuple, Dict, List
 
 try:
@@ -720,17 +719,23 @@ class Node:
             raise ValueError("Cannot remove root node")
 
         parent = target.parent
+
         try:
             parent.children.remove(target)
         except ValueError:
             raise ValueError(
                 f"Target node {target.name} not found in parent's children list."
             )
+
         target.parent = None
 
         # Prune single-child chain growing upwards (Compress linear segments)
+        # Track a node guaranteed to survive compression for later use
+        surviving_node = parent
         curr = parent
-        while curr.parent is not None:  # Stop at root
+
+        # Compress single-child nodes going up the tree (stops at root since root has no parent)
+        while curr.parent is not None:
             if not curr.children:
                 # Became a leaf (internal node with all parts removed)
                 # Its split mask effectively becomes 0 in stable mode
@@ -744,7 +749,7 @@ class Node:
                 # Merge logic
                 if preserve_lengths and curr.length is not None:
                     child_len = child.length if child.length is not None else 0.0
-                    curr_len = curr.length if curr.length is not None else 0.0
+                    curr_len = curr.length
                     child.length = child_len + curr_len
 
                 # Pointer updates
@@ -760,14 +765,38 @@ class Node:
                         grandparent.children.remove(curr)
                         grandparent.children.append(child)
 
+                # If curr was our surviving_node, update to child (which is now in the tree)
+                if curr is surviving_node:
+                    surviving_node = child
+
                 curr = child  # Continue checking from this level (now attached to grandparent)
+                continue  # Skip the curr = curr.parent at the end
 
             curr = curr.parent  # Move up to next ancestor
 
+        # Handle root becoming single-child (special case - can't compress root normally)
+        # Get the root node
+        root = surviving_node.get_root()
+        if len(root.children) == 1:
+            # Root has single child - promote grandchildren to be root's children
+            single_child = root.children[0]
+            # Transfer all grandchildren to root
+            root.children = single_child.children
+            for grandchild in root.children:
+                grandchild.parent = root
+                # Optionally merge branch lengths
+                if preserve_lengths and single_child.length is not None:
+                    gc_len = grandchild.length if grandchild.length is not None else 0.0
+                    grandchild.length = gc_len + single_child.length
+            # Disconnect the single child
+            single_child.parent = None
+            single_child.children = []
+
         # Recompute splits (Stable Mode)
+        # Use surviving_node to walk up (guaranteed to be in the tree)
         if mode == "stable":
-            # Walk up from the modification point
-            cursor = parent
+            # Walk up from the surviving node
+            cursor = surviving_node
             while cursor:
                 # Fast recalculation using existing encoding
                 if cursor.is_leaf():
@@ -785,15 +814,17 @@ class Node:
                     )
                 cursor = cursor.parent
         elif mode == "shrink":
-            # Full Rebuild
-            remaining_leaves = sorted([l.name for l in self.get_root().get_leaves()])
+            # Full Rebuild - use surviving_node to get root
+            remaining_leaves = sorted(
+                [l.name for l in surviving_node.get_root().get_leaves()]
+            )
             new_encoding = {name: i for i, name in enumerate(remaining_leaves)}
-            self.get_root().initialize_split_indices(new_encoding)
+            surviving_node.get_root().initialize_split_indices(new_encoding)
         else:
             raise ValueError(f"Unknown pruning mode: {mode}")
 
-        # Invalidate caches globally for safety
-        self.get_root().invalidate_caches()
+        # Invalidate caches globally for safety - use surviving_node to get root
+        surviving_node.get_root().invalidate_caches()
 
     def find_leaf_by_name(self, name: str) -> Optional["Node"]:
         """

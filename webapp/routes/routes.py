@@ -23,7 +23,7 @@ from typing import Union, Tuple
 import tempfile
 import os
 import shutil  # Added for temporary directory cleanup
-from msa_to_trees.pipeline import run_pipeline
+from msa_to_trees.pipeline import run_pipeline, FastTreeConfig
 
 bp = Blueprint("main", __name__)
 
@@ -51,9 +51,24 @@ def _run_msa_analysis_and_interpolate(
     window_size: int,
     window_step: int,
     enable_rooting: bool,
+    use_gtr: bool = True,
+    use_gamma: bool = True,
     progress_callback: Optional[Callable[[float, str], None]] = None,
 ) -> Dict[str, Any]:
-    """Run the MSA → tree pipeline and return the normal response structure."""
+    """Run the MSA → tree pipeline and return the normal response structure.
+
+    Args:
+        msa_content: The raw MSA content as a string.
+        window_size: Size of the sliding window.
+        window_step: Step size for the sliding window.
+        enable_rooting: Whether to enable midpoint rooting.
+        use_gtr: Use GTR (General Time Reversible) model for tree inference.
+        use_gamma: Use gamma rate heterogeneity for tree inference.
+        progress_callback: Optional callback for progress reporting.
+
+    Returns:
+        Dictionary with the response data.
+    """
 
     log: Logger = current_app.logger
     temp_dir = tempfile.mkdtemp(prefix="msa-analysis-")
@@ -65,20 +80,48 @@ def _run_msa_analysis_and_interpolate(
     try:
         report(0, "Starting MSA analysis...")
         log.info("[msa_analysis] Starting MSA analysis...")
-        msa_path = os.path.join(temp_dir, "input.msa")
+
+        # Output directory for intermediate files (FastTree requires file I/O)
         analysis_output_dir = os.path.join(temp_dir, "output")
 
-        with open(msa_path, "w") as f:
-            f.write(msa_content)
+        # Create FastTree configuration
+        fasttree_config = FastTreeConfig(
+            use_gtr=use_gtr,
+            use_gamma=use_gamma,
+            no_ml=True,  # Always use no-ML to produce fully bifurcating trees
+        )
 
-        report(20, "Running tree inference pipeline...")
-        log.info("[msa_analysis] Running analysis pipeline...")
-        tree_file_path = run_pipeline(
-            input_file=msa_path,
+        report(
+            20,
+            f"Running tree inference pipeline with {fasttree_config.description} model...",
+        )
+
+        log.info(
+            f"[msa_analysis] Running analysis pipeline with {fasttree_config.description} model..."
+        )
+
+        # Pass MSA content directly - no need to write input file to disk
+        pipeline_result = run_pipeline(
+            input_file=None,
             output_directory=analysis_output_dir,
             window_size=window_size,
             step_size=window_step,
+            fasttree_config=fasttree_config,
+            msa_content=msa_content,  # In-memory content for webservice
         )
+
+        tree_file_path = pipeline_result.tree_file_path
+
+        # Log dropped taxa information
+        if pipeline_result.has_dropped_taxa:
+            log.warning(
+                f"[msa_analysis] {len(pipeline_result.dropped_taxa)} taxa were dropped "
+                f"due to invalid data in some windows: {pipeline_result.dropped_taxa[:5]}..."
+            )
+            report(
+                30,
+                f"Note: {len(pipeline_result.dropped_taxa)} taxa dropped (gaps/ambiguous in some windows)",
+            )
 
         if not os.path.exists(tree_file_path):
             raise FileNotFoundError(
@@ -91,7 +134,8 @@ def _run_msa_analysis_and_interpolate(
             tree_content = f.read()
 
         log.info(
-            "[msa_analysis] Generated tree file from MSA. Running interpolation service."
+            f"[msa_analysis] Generated {pipeline_result.num_windows} trees with "
+            f"{pipeline_result.kept_taxa} taxa. Running interpolation service."
         )
 
         # Create a sub-callback that maps 60-100 range
@@ -99,15 +143,35 @@ def _run_msa_analysis_and_interpolate(
             progress_callback, 60, 100
         )
 
-        return handle_tree_content(
+        response_data = handle_tree_content(
             tree_content,
-            filename=os.path.basename(tree_file_path),
+            filename=os.path.basename(str(tree_file_path)),
             msa_content=msa_content,
             enable_rooting=enable_rooting,
             window_size=window_size,
             window_step=window_step,
             progress_callback=tree_progress_callback,
         )
+
+        # Add pipeline feedback about dropped taxa to response
+        response_data["pipeline_info"] = {
+            "total_taxa_in_alignment": pipeline_result.total_taxa,
+            "taxa_in_trees": pipeline_result.kept_taxa,
+            "dropped_taxa": pipeline_result.dropped_taxa,
+            "dropped_taxa_count": len(pipeline_result.dropped_taxa),
+            "num_trees_generated": pipeline_result.num_windows,
+            "model_used": fasttree_config.description,
+        }
+
+        if pipeline_result.has_dropped_taxa:
+            response_data["warnings"] = response_data.get("warnings", [])
+            response_data["warnings"].append(
+                f"{len(pipeline_result.dropped_taxa)} taxa were excluded because they "
+                f"had only gaps or ambiguous characters in some alignment windows. "
+                f"This ensures all trees have consistent taxa."
+            )
+
+        return response_data
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
         log.info(f"[msa_analysis] Cleaned up temporary directory: {temp_dir}")
@@ -140,6 +204,8 @@ def treedata() -> Union[Response, Tuple[dict[str, Any], int]]:
                 window_size=req_data.window_size,
                 window_step=req_data.window_step,
                 enable_rooting=req_data.enable_rooting,
+                use_gtr=req_data.use_gtr,
+                use_gamma=req_data.use_gamma,
             )
 
             log.info(
@@ -228,6 +294,8 @@ def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
                             window_size=req_data.window_size,
                             window_step=req_data.window_step,
                             enable_rooting=req_data.enable_rooting,
+                            use_gtr=req_data.use_gtr,
+                            use_gamma=req_data.use_gamma,
                             progress_callback=_make_progress_callback(channel, 10, 90),
                         )
                     else:

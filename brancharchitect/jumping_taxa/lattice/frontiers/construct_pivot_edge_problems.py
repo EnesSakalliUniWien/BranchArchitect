@@ -60,6 +60,7 @@ def construct_pivot_edge_problems(t1: Node, t2: Node) -> List[PivotEdgeSubproble
 
     if not jt_logger.disabled:
         log_lattice_construction_start(t1, t2, intersection)
+
     pivot_edge_subproblems: List[PivotEdgeSubproblem] = []
 
     # Sort splits deterministically by size (approx. topological) then bitmask
@@ -88,7 +89,7 @@ def construct_pivot_edge_problem(
     t2_node: Node | None = t2.find_node_by_split(pivot_split)
 
     # Validate that both trees contain the pivot split
-    _validate_nodes_exist(pivot_split, t1_node, t2_node)
+    validate_nodes_exist(pivot_split, t1_node, t2_node)
 
     # Type narrowing: after validation, nodes are guaranteed to be non-None
     assert t1_node is not None
@@ -180,7 +181,7 @@ def is_pivot_edge(t1_node: Node, t2_node: Node) -> Tuple[bool, PartitionSet[Part
 # The original implementation is preserved in child_frontiers_original.py
 
 
-def _validate_nodes_exist(
+def validate_nodes_exist(
     pivot_split: Partition, t1_node: Node | None, t2_node: Node | None
 ) -> None:
     """
