@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 
-def apply_expand_split_weights(
+def set_expand_splits_to_dest_weight(
     tree: Node,
     expand_splits: List[Partition],
     destination_weights: Dict[Partition, float],
@@ -48,36 +48,7 @@ def apply_expand_split_weights(
             node.length = destination_weights.get(split, 0.0)
 
 
-def apply_shared_split_average(
-    tree: Node,
-    split: Partition,
-    source_weights: Optional[Dict[Partition, float]],
-    destination_weights: Dict[Partition, float],
-) -> None:
-    """
-    Average a shared split's weight: (source + dest) / 2.
-
-    Shared splits exist in both source and destination, so we interpolate
-    by taking the arithmetic mean of both weights.
-
-    Args:
-        tree: The tree to modify (mutated in place)
-        split: The shared split to average
-        source_weights: Weights from the original source tree
-        destination_weights: Weights from the destination tree
-    """
-    node = tree.find_node_by_split(split)
-    if node is not None:
-        src_weight = (
-            source_weights.get(split, node.length or 0.0)
-            if source_weights
-            else (node.length or 0.0)
-        )
-        dest_weight = destination_weights.get(split, 0.0)
-        node.length = (src_weight + dest_weight) / 2.0
-
-
-def apply_shared_splits_under_pivot(
+def average_weights_under_pivot(
     tree: Node,
     pivot_node: Node,
     expand_set: set[Partition],
@@ -85,10 +56,11 @@ def apply_shared_splits_under_pivot(
     destination_weights: Dict[Partition, float],
 ) -> None:
     """
-    Apply weight averaging to all shared splits under the pivot.
+    Average branch weights for all splits under the pivot edge.
 
-    For the first mover, we average ALL shared splits under the pivot edge.
-    Expand splits are set to destination weight, shared splits are averaged.
+    For the first mover, we process ALL splits under the pivot:
+    - Expand splits (new in destination): set to destination weight
+    - Shared splits (in both trees): average (source + dest) / 2
 
     Args:
         tree: The tree to modify (mutated in place)
@@ -100,15 +72,25 @@ def apply_shared_splits_under_pivot(
     splits_under_pivot = list(pivot_node.to_splits(with_leaves=True))
 
     for split in splits_under_pivot:
+        node = tree.find_node_by_split(split)
+        if node is None:
+            continue
+
         if split in expand_set:
             # Expand split: set to destination weight
-            apply_expand_split_weights(tree, [split], destination_weights)
+            node.length = destination_weights.get(split, 0.0)
         else:
             # Shared split: average (source + dest) / 2
-            apply_shared_split_average(tree, split, source_weights, destination_weights)
+            src_weight = (
+                source_weights.get(split, node.length or 0.0)
+                if source_weights
+                else (node.length or 0.0)
+            )
+            dest_weight = destination_weights.get(split, 0.0)
+            node.length = (src_weight + dest_weight) / 2.0
 
 
-def apply_snap_weights(
+def finalize_branch_weights(
     tree: Node,
     current_pivot_edge: Partition,
     expand_path: List[Partition],
@@ -117,7 +99,7 @@ def apply_snap_weights(
     destination_weights: Dict[Partition, float],
 ) -> None:
     """
-    Apply final weights during the snap phase.
+    Finalize branch weights during the snap phase.
 
     Weight application strategy:
     - First mover: Average all shared splits under pivot, set expand splits to dest weight
@@ -138,13 +120,13 @@ def apply_snap_weights(
         # First mover: Average all shared splits under pivot + pivot edge itself
         if pivot_node is not None:
             expand_set = set(expand_path)
-            apply_shared_splits_under_pivot(
+            average_weights_under_pivot(
                 tree, pivot_node, expand_set, source_weights, destination_weights
             )
     else:
         # Subsequent movers: Only set expand splits to destination weight
         # Shared splits were already averaged by the first mover
-        apply_expand_split_weights(tree, expand_path, destination_weights)
+        set_expand_splits_to_dest_weight(tree, expand_path, destination_weights)
 
 
 # ============================================================================
@@ -152,14 +134,14 @@ def apply_snap_weights(
 # ============================================================================
 
 
-def find_siblings_with_shared_parent_in_path(
+def find_sibling_movers(
     current_mover: Partition,
     current_path: List[Partition],
     all_movers: List[Partition],
     parent_map: Optional[Dict[Partition, Partition]],
 ) -> List[Partition]:
     """
-    Identify sibling movers that share the same parent in the source/dest tree,
+    Find sibling movers that share the same parent in the source/dest tree,
     ONLY if that parent is also present in the current mover's path.
 
     This ensures that when a parent node moves (is in the path), all its children
@@ -187,16 +169,16 @@ def find_siblings_with_shared_parent_in_path(
     return sorted(group, key=lambda p: (-p.size, p.bitmask))
 
 
-def _add_step(
+def _append_frame(
     trees: List[Node],
     edges: List[Optional[Partition]],
     tree: Node,
     edge: Optional[Partition],
     subtree: Partition,
-    subtree_tracker: Optional[List[List[Partition]]] = None,  # Updated type
-    partition_group: Optional[List[Partition]] = None,  # New argument
+    subtree_tracker: Optional[List[List[Partition]]] = None,
+    partition_group: Optional[List[Partition]] = None,
 ) -> None:
-    """Add a tree and edge to the collection of microsteps.
+    """Append an animation frame to the output lists.
 
     Args:
         trees: List to append the tree to
@@ -218,7 +200,7 @@ def _add_step(
             subtree_tracker.append([subtree])
 
 
-def build_microsteps_for_selection(
+def build_frames_for_subtree(
     interpolation_state: Node,
     destination_tree: Node,
     current_pivot_edge: Partition,
@@ -231,18 +213,18 @@ def build_microsteps_for_selection(
     source_weights: Optional[Dict[Partition, float]] = None,
     source_tree: Optional[Node] = None,
     step_progress: float = 0.5,
-) -> Tuple[
-    List[Node], List[Optional[Partition]], Node, List[List[Partition]]
-]:  # Updated return type
+) -> Tuple[List[Node], List[Optional[Partition]], Node, List[List[Partition]]]:
     """
-    Build the 5 microsteps for a single selection under an active-changing edge.
+    Build animation frames for a single subtree/mover under an active-changing edge.
 
-    Steps:
-    - IT_down: set branch lengths to zero inside the subtree selection
-    - C: collapse zero-length branches to consensus topology
-    - C_reorder: partially reorder to match the destination
-    - IT_up: graft the reference path while preserving order
-    - IT_ref: apply final reference weights on the grafted path
+    The function performs 4 phases:
+    1. Collapse: Zero branch lengths and remove zero-length branches
+    2. Reorder: Move subtree to its destination position
+    3. Expand: Graft new branches (with zero weights initially)
+    4. Snap: Apply final branch weights
+
+    Only phases with actual work generate animation frames. The returned
+    final_state is always a fresh copy for safe chaining to the next subtree.
 
     Args:
         interpolation_state: The current tree state before applying this selection's steps.
@@ -250,106 +232,114 @@ def build_microsteps_for_selection(
         current_pivot_edge: The active-changing split (pivot edge) currently being processed.
         selection: A dictionary containing the 'subtree' partition and its 'expand'/'collapse' paths.
         all_mover_partitions: List of all moving subtree Partitions (blocks) for this pivot edge.
-                              Used to identify stable anchor blocks vs moving blocks.
-        source_parent_map: Maps each mover -> its parent in source tree (from map_solution_elements_via_parent).
-        dest_parent_map: Maps each mover -> its parent in destination tree (from map_solution_elements_via_parent).
+        source_parent_map: Maps each mover -> its parent in source tree.
+        dest_parent_map: Maps each mover -> its parent in destination tree.
         is_first_mover: Whether this is the first subtree being moved for the current pivot edge.
         is_last_mover: Whether this is the last subtree being moved for the current pivot edge.
         source_weights: Optional dictionary of original source weights for stable averaging.
-        source_tree: Optional reference to the original source tree for tip distance compensation.
+        source_tree: Optional reference to the original source tree.
         step_progress: Current interpolation progress (0.0 = source, 1.0 = destination).
-                       Used for progress-aware patristic distance compensation.
 
     Returns:
         Tuple containing:
-        - List[Node]: The sequence of 5 intermediate trees generated by this selection.
-        - List[Optional[Partition]]: The pivot edge associated with each step (for tracking).
-        - Node: The final tree state after applying all microsteps (snapped_tree).
-        - List[List[Partition]]: The subtree partitions (grouped) associated with each step.
+        - List[Node]: Animation frames (intermediate trees) for this selection.
+        - List[Optional[Partition]]: The pivot edge associated with each frame.
+        - Node: The final tree state after all transformations (always a fresh copy).
+        - List[List[Partition]]: The subtree partitions (grouped) associated with each frame.
     """
     trees: List[Node] = []
     edges: List[Optional[Partition]] = []
-    subtree_tracker: List[List[Partition]] = []  # Updated type
+    subtree_tracker: List[List[Partition]] = []
 
-    # Extract path segments directly from selection
-    # Note: Paths are already filtered upstream in calculate_subtree_paths (transition_builder.py)
-    # which removes pivot_edge from both paths and subtree from collapse path
+    # =========================================================================
+    # Extract paths and detect work
+    # =========================================================================
     subtree_partition = selection["subtree"]
-    expand_path: List[Partition] = selection.get("expand", {}).get("path_segment", [])
-    zeroing_path: List[Partition] = selection.get("collapse", {}).get(
+    collapse_paths: List[Partition] = selection.get("collapse", {}).get(
         "path_segment", []
     )
+    expand_paths: List[Partition] = selection.get("expand", {}).get("path_segment", [])
 
-    # Log the paths being applied for debugging
+    has_collapse_work = len(collapse_paths) > 0
+    has_expand_work = len(expand_paths) > 0
+
     logger.debug(
         f"[StepExecutor] Subtree {subtree_partition}: "
-        f"collapse_path={[tuple(s.indices) for s in zeroing_path]}, "
-        f"expand_path={[tuple(s.indices) for s in expand_path]}"
+        f"collapse_paths={[tuple(s.indices) for s in collapse_paths]}, "
+        f"expand_paths={[tuple(s.indices) for s in expand_paths]}, "
+        f"is_first_mover={is_first_mover}"
     )
 
-    # Determine movers for the collapse phase (Source side)
-    collapse_movers = find_siblings_with_shared_parent_in_path(
+    # =========================================================================
+    # Determine mover groups for tracking
+    # =========================================================================
+    collapse_movers = find_sibling_movers(
         current_mover=subtree_partition,
-        current_path=zeroing_path,
+        current_path=collapse_paths,
         all_movers=all_mover_partitions or [],
-        parent_map=source_parent_map,  # Source context for collapse
+        parent_map=source_parent_map,
+    )
+    expand_movers = find_sibling_movers(
+        current_mover=subtree_partition,
+        current_path=expand_paths,
+        all_movers=all_mover_partitions or [],
+        parent_map=dest_parent_map,
     )
 
-    _add_step(
-        trees,
-        edges,
-        interpolation_state,
-        current_pivot_edge,
-        subtree_partition,  # Legacy single support
-        subtree_tracker,
-        partition_group=collapse_movers,  # New grouped support
-    )
+    # =========================================================================
+    # Phase 1: Collapse (compute always, add frames conditionally)
+    # =========================================================================
+    if has_collapse_work:
+        zeroed_tree: Node = interpolation_state.deep_copy()
+        apply_zero_branch_lengths(zeroed_tree, PartitionSet(set(collapse_paths)))
+        collapsed_tree: Node = create_collapsed_consensus_tree(
+            zeroed_tree,
+            current_pivot_edge,
+            copy=True,
+            destination_tree=destination_tree,
+        )
 
-    # Step 1: Collapse Down - zero branch lengths
-    it_down: Node = interpolation_state.deep_copy()
-    # Move internal mass to pendants before zeroing (Causal Mass Transfer)
-    # distribute_path_weights(it_down, zeroing_path, operation="add")
+        # Add collapse frames
+        _append_frame(
+            trees,
+            edges,
+            interpolation_state.deep_copy(),
+            current_pivot_edge,
+            subtree_partition,
+            subtree_tracker,
+            partition_group=collapse_movers,
+        )
+        _append_frame(
+            trees,
+            edges,
+            zeroed_tree,
+            current_pivot_edge,
+            subtree_partition,
+            subtree_tracker,
+            partition_group=collapse_movers,
+        )
+        _append_frame(
+            trees,
+            edges,
+            collapsed_tree.deep_copy(),
+            current_pivot_edge,
+            subtree_partition,
+            subtree_tracker,
+            partition_group=collapse_movers,
+        )
 
-    # Then zero the branch lengths within the subtree selection
-    apply_zero_branch_lengths(it_down, PartitionSet(set(zeroing_path)))
+        logger.debug(
+            f"[StepExecutor] After Collapse: {len(collapsed_tree.to_splits())} splits"
+        )
+    else:
+        # No collapse work - start from a copy of input
+        collapsed_tree = interpolation_state.deep_copy()
 
-    _add_step(
-        trees,
-        edges,
-        it_down,
-        current_pivot_edge,
-        subtree_partition,
-        subtree_tracker,
-        partition_group=collapse_movers,  # Use collapse group
-    )
-
-    logger.debug(f"[StepExecutor] After IT_Down: {len(it_down.to_splits())} splits")
-
-    # Step 2: Collapse - merge zero-length branches
-    # CRITICAL: Pass destination_tree to preserve common splits that exist in destination
-    collapsed: Node = create_collapsed_consensus_tree(
-        it_down, current_pivot_edge, copy=True, destination_tree=destination_tree
-    )
-
-    _add_step(
-        trees,
-        edges,
-        collapsed,
-        current_pivot_edge,
-        subtree_partition,
-        subtree_tracker,
-        partition_group=collapse_movers,  # Use collapse group
-    )
-
-    logger.debug(f"[StepExecutor] After Collapse: {len(collapsed.to_splits())} splits")
-
-    # Step 2.5: Tip Distance Compensation (Post-Collapse)
-    # Not needed here as "collapsed" inherits lengths from "it_down"
-    # which is already compensated in Step 1.5.
-
-    # Step 3: Reorder - place subtree at new position
-    reordered: Node = reorder_tree_toward_destination(
-        source_tree=collapsed,
+    # =========================================================================
+    # Phase 2: Reorder (compute always, add frames conditionally)
+    # =========================================================================
+    reordered_tree: Node = reorder_tree_toward_destination(
+        source_tree=collapsed_tree,
         destination_tree=destination_tree,
         current_pivot_edge=current_pivot_edge,
         moving_subtree_partition=subtree_partition,
@@ -359,126 +349,137 @@ def build_microsteps_for_selection(
         copy=True,
     )
 
-    # For reorder step, use collapse_movers as we are still in "collapsed" state technically?
-    # Actually, reordering is the bridge. Let's stick with collapse_movers for now as
-    # visual consistency with previous steps is usually desired.
-    _add_step(
-        trees,
-        edges,
-        reordered,
-        current_pivot_edge,
-        subtree_partition,
-        subtree_tracker,
-        partition_group=collapse_movers,
-    )
+    # Detect if reorder actually changed anything (returns same object if no change)
+    has_reorder_change = reordered_tree is not collapsed_tree
 
-    logger.debug(f"[StepExecutor] After Reorder: {len(reordered.to_splits())} splits")
+    if has_reorder_change:
+        # Add reorder frames: before and after
+        if not has_collapse_work:
+            # Need to show pre-reorder state (collapsed_tree wasn't added yet)
+            _append_frame(
+                trees,
+                edges,
+                collapsed_tree.deep_copy(),
+                current_pivot_edge,
+                subtree_partition,
+                subtree_tracker,
+                partition_group=collapse_movers,
+            )
+        _append_frame(
+            trees,
+            edges,
+            reordered_tree.deep_copy(),
+            current_pivot_edge,
+            subtree_partition,
+            subtree_tracker,
+            partition_group=collapse_movers,
+        )
+        logger.debug(
+            f"[StepExecutor] After Reorder: {len(reordered_tree.to_splits())} splits"
+        )
+    else:
+        # No reorder change - ensure we have a copy for chaining
+        reordered_tree = collapsed_tree.deep_copy()
 
+    # =========================================================================
+    # Early exit if no further work
+    # =========================================================================
+    if not is_first_mover and not has_expand_work:
+        # No expand or snap work - return reordered state
+        if not trees:
+            # No frames at all - still return a copy
+            return [], [], reordered_tree, []
+        return trees, edges, reordered_tree, subtree_tracker
+
+    # =========================================================================
+    # Phase 3: Expand/Graft (compute and add frames conditionally)
+    # =========================================================================
     destination_weights: Dict[Partition, float] = destination_tree.to_weighted_splits()
 
-    reordered_mean: Node = reordered.deep_copy()
+    if has_expand_work:
+        grafted_zero_weights: Node = create_subtree_grafted_tree(
+            base_tree=reordered_tree,
+            ref_path_to_build=expand_paths,
+            copy=True,
+        )
 
-    # Calculate movers for Expand phase (Destination side)
-    expand_movers = find_siblings_with_shared_parent_in_path(
-        current_mover=subtree_partition,
-        current_path=expand_path,
-        all_movers=all_mover_partitions or [],
-        parent_map=dest_parent_map,  # Destination context for expand
-    )
+        # Restore ordering after graft
+        grafted_zero_weights.reorder_taxa(list(reordered_tree.get_current_order()))
 
-    # Step 4: Expand Up - graft new branches onto the mean tree
-    # New branches will have length 0, effectively separating Expansion from Mean calc.
-    logger.debug(
-        f"[StepExecutor] Subtree {subtree_partition} expanding {len(expand_path)} splits"
-    )
-    if len(expand_path) > 0:
-        logger.debug(f"  Expand details: {[tuple(s.indices) for s in expand_path]}")
+        # Preserve non-mover positions after graft
+        align_to_source_order(
+            grafted_zero_weights,
+            source_order=list(reordered_tree.get_current_order()),
+            moving_taxa=subtree_partition.taxa,
+        )
 
-    pre_snap_reordered: Node = create_subtree_grafted_tree(
-        base_tree=reordered_mean,
-        ref_path_to_build=expand_path,
-        copy=True,
-    )
+        # Base for snap (copy before weights applied)
+        grafted_tree: Node = grafted_zero_weights.deep_copy()
 
-    pre_snap_reordered.reorder_taxa(list(reordered.get_current_order()))
+        # Capture final order BEFORE applying weights (more defensive)
+        # Grafting may introduce new ordering that collapsed consensus doesn't have
+        final_order = list(grafted_tree.get_current_order())
 
-    # Use align_to_source_order to preserve non-mover positions after graft
-    align_to_source_order(
-        pre_snap_reordered,
-        source_order=list(reordered.get_current_order()),
-        moving_taxa=subtree_partition.taxa,
-    )
+        # Normalize all earlier frames to match the grafted ordering
+        # This ensures consistent leaf order across collapse -> reorder -> expand -> snap
+        grafted_zero_weights.reorder_taxa(final_order)
+        reordered_tree.reorder_taxa(final_order)
 
-    # Align ordering once after graft so both microsteps share identical layout
-    snapped_tree: Node = pre_snap_reordered.deep_copy()
+        # Apply weights to snap tree (doesn't change ordering)
+        finalize_branch_weights(
+            tree=grafted_tree,
+            current_pivot_edge=current_pivot_edge,
+            expand_path=expand_paths,
+            is_first_mover=is_first_mover,
+            source_weights=source_weights,
+            destination_weights=destination_weights,
+        )
 
-    # Normalize to final snapped ordering
-    final_order = list(snapped_tree.get_current_order())
-    pre_snap_reordered.reorder_taxa(final_order)
+        # Add expand frame (grafted with zero weights)
+        _append_frame(
+            trees,
+            edges,
+            grafted_zero_weights.deep_copy(),
+            current_pivot_edge,
+            subtree_partition,
+            subtree_tracker,
+            partition_group=expand_movers,
+        )
 
-    reordered.reorder_taxa(list(pre_snap_reordered.get_current_order()))
+        logger.debug(
+            f"[StepExecutor] After Expand: {len(grafted_zero_weights.to_splits())} splits"
+        )
+    else:
+        # No expand work - snap operates on reordered tree directly
+        # (reordered_tree is already a fresh copy we own)
+        grafted_tree = reordered_tree
 
-    # Step 5: Snap - apply weights based on split type
-    # - Shared splits (in both source and dest): Average ONCE on first mover only
-    # - Expand splits (new in dest): Set to destination weight
-    # - Pivot edge: Average on first mover only
+        # Apply weights to snap tree
+        finalize_branch_weights(
+            tree=grafted_tree,
+            current_pivot_edge=current_pivot_edge,
+            expand_path=expand_paths,
+            is_first_mover=is_first_mover,
+            source_weights=source_weights,
+            destination_weights=destination_weights,
+        )
 
-    apply_snap_weights(
-        tree=snapped_tree,
-        current_pivot_edge=current_pivot_edge,
-        expand_path=expand_path,
-        is_first_mover=is_first_mover,
-        source_weights=source_weights,
-        destination_weights=destination_weights,
-    )
-
-    _add_step(
+    # =========================================================================
+    # Phase 4: Snap frame
+    # =========================================================================
+    _append_frame(
         trees,
         edges,
-        pre_snap_reordered,
+        grafted_tree.deep_copy(),
         current_pivot_edge,
         subtree_partition,
         subtree_tracker,
-        partition_group=expand_movers,  # Use expand group
+        partition_group=expand_movers,
     )
 
-    _add_step(
-        trees,
-        edges,
-        pre_snap_reordered,
-        current_pivot_edge,
-        subtree_partition,
-        subtree_tracker,
-        partition_group=expand_movers,  # Use expand group
-    )
+    logger.debug(f"[StepExecutor] After Snap: {len(grafted_tree.to_splits())} splits")
 
-    logger.debug(
-        f"[StepExecutor] After Expand: {len(pre_snap_reordered.to_splits())} splits"
-    )
-
-    _add_step(
-        trees,
-        edges,
-        snapped_tree,
-        current_pivot_edge,
-        subtree_partition,
-        subtree_tracker,
-        partition_group=expand_movers,  # Use expand group
-    )
-
-    _add_step(
-        trees,
-        edges,
-        snapped_tree,
-        current_pivot_edge,
-        subtree_partition,
-        subtree_tracker,
-        partition_group=expand_movers,  # Use expand group
-    )
-
-    logger.debug(f"[StepExecutor] After Snap: {len(snapped_tree.to_splits())} splits")
-
-    return trees, edges, snapped_tree, subtree_tracker
+    return trees, edges, grafted_tree, subtree_tracker
 
 
 # ============================================================================
@@ -486,7 +487,7 @@ def build_microsteps_for_selection(
 # ============================================================================
 
 
-def apply_stepwise_plan_for_edge(
+def execute_pivot_edge_plan(
     current_base_tree: Node,
     destination_tree: Node,
     source_tree: Node,
@@ -497,7 +498,7 @@ def apply_stepwise_plan_for_edge(
     dest_parent_map: Optional[Dict[Partition, Partition]] = None,
 ) -> Tuple[List[Node], List[Optional[Partition]], Node, List[List[Partition]]]:
     """
-    Executes the stepwise plan for one pivot edge across all selections.
+    Execute the interpolation plan for one pivot edge across all subtrees.
 
     Args:
         current_base_tree: The current tree state (interpolation state)
@@ -544,10 +545,7 @@ def apply_stepwise_plan_for_edge(
     selection_items = list(selections.items())
     total_selections = len(selection_items)
 
-    last_subtree_partition: Optional[Partition] = None
-
     for i, (subtree, selection) in enumerate(selection_items):
-        last_subtree_partition = subtree
         is_first_mover = i == 0
         is_last_mover = i == total_selections - 1
 
@@ -555,7 +553,7 @@ def apply_stepwise_plan_for_edge(
         selection_with_subtree: Dict[str, Any] = {**selection, "subtree": subtree}
 
         step_trees, step_edges, interpolation_state, step_subtree_tracker = (
-            build_microsteps_for_selection(
+            build_frames_for_subtree(
                 interpolation_state=interpolation_state,
                 destination_tree=destination_tree,
                 current_pivot_edge=current_pivot_edge,
@@ -574,18 +572,8 @@ def apply_stepwise_plan_for_edge(
         edges.extend(step_edges)
         subtree_tracker.extend(step_subtree_tracker)
 
-    # Add final destination state for this pivot edge as requested
-    if last_subtree_partition is not None:
-        _add_step(
-            trees,
-            edges,
-            interpolation_state,
-            current_pivot_edge,
-            last_subtree_partition,
-            subtree_tracker,
-        )
-    elif not trees:
-        # No selections means no work to do for this pivot edge (reordering only).
+    # Handle edge case: no selections means no work to do for this pivot edge
+    if not trees:
         # Add the current state as a pass-through step so interpolation can continue.
         trees.append(interpolation_state.deep_copy())
         edges.append(current_pivot_edge)

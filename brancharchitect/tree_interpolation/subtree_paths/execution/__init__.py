@@ -1,10 +1,10 @@
 """Execution layer for subtree-path interpolation."""
 
-from .step_executor import build_microsteps_for_selection, apply_stepwise_plan_for_edge
+from .pivot_edge_interpolation_frame_builder import build_frames_for_subtree, execute_pivot_edge_plan
 from .reordering import reorder_tree_toward_destination
 
 __all__ = [
-    "build_microsteps_for_selection",
-    "apply_stepwise_plan_for_edge",
+    "build_frames_for_subtree",
+    "execute_pivot_edge_plan",
     "reorder_tree_toward_destination",
 ]
