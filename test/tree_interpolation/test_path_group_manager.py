@@ -1373,7 +1373,7 @@ class TestSharedCollapsePriorityPreserved:
             all_expand,
             collapse_by_subtree,
             expand_by_subtree,
-            subtree_a,  # active_changing_edge
+            subtree_a,  # pivot_edge
             use_path_grouping=True,
         )
 

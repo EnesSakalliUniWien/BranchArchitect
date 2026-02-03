@@ -14,9 +14,9 @@ from .planning import (
     PivotSplitRegistry,
     log_final_plans,
 )
-from .execution.step_executor import apply_stepwise_plan_for_edge
+from .execution.pivot_edge_interpolation_frame_builder import execute_pivot_edge_plan
 from .execution import (
-    build_microsteps_for_selection,
+    build_frames_for_subtree,
     reorder_tree_toward_destination,
 )
 from .analysis import (
@@ -27,8 +27,8 @@ from .analysis import (
 __all__ = [
     # Main interpolation functions
     "create_interpolation_for_active_split_sequence",
-    "apply_stepwise_plan_for_edge",
-    "build_microsteps_for_selection",
+    "execute_pivot_edge_plan",
+    "build_frames_for_subtree",
     # Path planning and state management
     "build_edge_plan",
     "PivotSplitRegistry",

@@ -13,8 +13,10 @@ import concurrent.futures
 import glob
 import logging
 import os
+import platform
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -227,6 +229,44 @@ def infer_trees_parallel(
     return master_tree_file
 
 
+def _get_fasttree_exe() -> str:
+    """
+    Determine the path to the FastTree executable.
+    Prioritizes environment variable > Bundled binary (frozen) > System PATH.
+    """
+    # 1. Environment variable override
+    if "FASTTREE_PATH" in os.environ:
+        return os.environ["FASTTREE_PATH"]
+
+    # 2. Check for bundled binary in PyInstaller frozen app
+    if getattr(sys, "frozen", False):
+        if hasattr(sys, "_MEIPASS"):
+            # One-file mode
+            base_path = Path(sys._MEIPASS)
+        else:
+            # One-dir mode (macOS/Linux executable location)
+            base_path = Path(sys.executable).parent
+
+        system = platform.system().lower()
+        if system == "darwin":
+            platform_dir = "darwin"
+            exe_name = "fasttree"
+        elif system == "windows":
+            platform_dir = "win32"
+            exe_name = "fasttree.exe"
+        else:
+            platform_dir = "linux"
+            exe_name = "fasttree"
+
+        bundled_exe = base_path / "bin" / platform_dir / exe_name
+
+        if bundled_exe.exists():
+            return str(bundled_exe)
+
+    # 3. Fallback to system PATH
+    return "fasttree"
+
+
 def run_fasttree(
     alignment_file: str,
     config: FastTreeConfig | None = None,
@@ -252,7 +292,8 @@ def run_fasttree(
     # Build command with options:
     # -nt: nucleotide data (DNA, not protein)
     # Additional options from config (GTR, gamma, noml)
-    cmd = ["fasttree", "-nt", "-quiet", *config.build_command_args(), alignment_file]
+    fasttree_executable = _get_fasttree_exe()
+    cmd = [fasttree_executable, "-nt", "-quiet", *config.build_command_args(), alignment_file]
 
     try:
         # Run FastTree and capture its output (the Newick tree)

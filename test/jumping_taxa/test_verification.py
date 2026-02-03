@@ -2,7 +2,6 @@ import pytest
 import os
 import json
 from pathlib import Path
-from brancharchitect.tree import Node
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.jumping_taxa.verification import verify_jumping_taxa_solution
 
@@ -20,8 +19,10 @@ class TestJumpingTaxaVerifier:
         # Pruning B (index 1) leaves (A,C) which matches ((A,C))
         tree1 = parse_newick("((A,B),C);")
         tree2 = parse_newick("((A,C),B);", encoding=tree1.taxa_encoding)
-        if isinstance(tree1, list): tree1 = tree1[0]
-        if isinstance(tree2, list): tree2 = tree2[0]
+        if isinstance(tree1, list):
+            tree1 = tree1[0]
+        if isinstance(tree2, list):
+            tree2 = tree2[0]
 
         candidate_taxa = ["B"]
         report = verify_jumping_taxa_solution(tree1, tree2, candidate_taxa)
@@ -38,21 +39,28 @@ class TestJumpingTaxaVerifier:
         # Pruning only A leaves ((B),(C,D)) vs ((C),(B,D)) -> mismatch
         tree1 = parse_newick("((A,B),(C,D));")
         tree2 = parse_newick("((A,C),(B,D));", encoding=tree1.taxa_encoding)
-        if isinstance(tree1, list): tree1 = tree1[0]
-        if isinstance(tree2, list): tree2 = tree2[0]
+        if isinstance(tree1, list):
+            tree1 = tree1[0]
+        if isinstance(tree2, list):
+            tree2 = tree2[0]
 
         candidate_taxa = ["A"]
         report = verify_jumping_taxa_solution(tree1, tree2, candidate_taxa)
 
         assert report["success"] is False
-        assert "Pruned trees are distinct (not isomorphic). Conflict remains." in report["errors"]
+        assert (
+            "Pruned trees are distinct (not isomorphic). Conflict remains."
+            in report["errors"]
+        )
 
     def test_verify_unknown_taxa_warning(self):
         """Test warning generation when candidate taxon is missing."""
         tree1 = parse_newick("((A,B),C);")
         tree2 = parse_newick("((A,B),C);", encoding=tree1.taxa_encoding)
-        if isinstance(tree1, list): tree1 = tree1[0]
-        if isinstance(tree2, list): tree2 = tree2[0]
+        if isinstance(tree1, list):
+            tree1 = tree1[0]
+        if isinstance(tree2, list):
+            tree2 = tree2[0]
 
         candidate_taxa = ["Z"]  # Z does not exist
         report = verify_jumping_taxa_solution(tree1, tree2, candidate_taxa)
@@ -66,8 +74,10 @@ class TestJumpingTaxaVerifier:
         """Test that identical trees require no jumping taxa."""
         tree1 = parse_newick("((A,B),C);")
         tree2 = parse_newick("((A,B),C);", encoding=tree1.taxa_encoding)
-        if isinstance(tree1, list): tree1 = tree1[0]
-        if isinstance(tree2, list): tree2 = tree2[0]
+        if isinstance(tree1, list):
+            tree1 = tree1[0]
+        if isinstance(tree2, list):
+            tree2 = tree2[0]
 
         candidate_taxa = []
         report = verify_jumping_taxa_solution(tree1, tree2, candidate_taxa)
@@ -86,6 +96,7 @@ def get_json_test_files():
                 if file.endswith(".json"):
                     json_files.append(os.path.join(root, file))
     return sorted(json_files)
+
 
 @pytest.mark.parametrize("json_path", get_json_test_files())
 def test_verify_json_fixtures(json_path):
@@ -108,9 +119,11 @@ def test_verify_json_fixtures(json_path):
     # Parse Trees
     try:
         t1 = parse_newick(data["tree1"])
-        if isinstance(t1, list): t1 = t1[0]
+        if isinstance(t1, list):
+            t1 = t1[0]
         t2 = parse_newick(data["tree2"], encoding=t1.taxa_encoding)
-        if isinstance(t2, list): t2 = t2[0]
+        if isinstance(t2, list):
+            t2 = t2[0]
     except Exception as e:
         pytest.fail(f"Failed to parse trees in {json_path}: {e}")
 
@@ -127,7 +140,7 @@ def test_verify_json_fixtures(json_path):
         report = verify_jumping_taxa_solution(t1, t2, candidate_taxa)
 
         if not report["success"]:
-            failures.append(f"Solution #{i+1} failed: {report['errors']}")
+            failures.append(f"Solution #{i + 1} failed: {report['errors']}")
 
     if failures:
         # We explicitly fail the test if verification fails

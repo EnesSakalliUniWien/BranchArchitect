@@ -1,7 +1,5 @@
 from typing import Dict, List, IO, Any
-import xml.etree.ElementTree as ET
 from brancharchitect.parser.newick_parser import parse_newick
-from brancharchitect.plot.circular_tree import generate_multiple_circular_trees_svg
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
 import json
@@ -34,15 +32,6 @@ def read_newick(
 def write_json(tree: Node, path: str):
     with open(path, mode="w") as f:
         dump_json(tree, f)
-
-
-def write_svg(tree: Node, path: str, ignore_branch_lengths: bool = False):
-    svg_element, _ = generate_multiple_circular_trees_svg(
-        [tree], ignore_branch_lengths=ignore_branch_lengths
-    )
-    svg_bytes = ET.tostring(svg_element, encoding="utf-8", xml_declaration=True)
-    with open(path, mode="wb") as f:
-        f.write(svg_bytes)
 
 
 def serialize_tree_list_to_json(tree_list: List[Node]) -> List[Dict[str, Any]]:

@@ -41,7 +41,7 @@ class PivotSplitRegistry:
         all_expand_splits: PartitionSet[Partition],
         collapse_splits_by_subtree: Mapping[Partition, AbstractSet[Partition]],
         expand_splits_by_subtree: Mapping[Partition, AbstractSet[Partition]],
-        active_changing_edge: Partition,
+        pivot_edge: Partition,
         use_path_grouping: bool = True,
     ):
         """
@@ -52,10 +52,10 @@ class PivotSplitRegistry:
             all_expand_splits: All unique splits in tree2 pivot edge (not in tree1)
             collapse_splits_by_subtree: Initial collapse splits assigned to each subtree
             expand_splits_by_subtree: Initial expand splits assigned to each subtree
-            active_changing_edge: The edge being processed
+            pivot_edge: The edge being processed
             use_path_grouping: Whether to use path-based grouping for subtree ordering
         """
-        self.encoding = active_changing_edge.encoding
+        self.encoding = pivot_edge.encoding
         self.processed_subtrees: Set[Partition] = set()
 
         # Initialize ownership trackers for collapse and expand splits

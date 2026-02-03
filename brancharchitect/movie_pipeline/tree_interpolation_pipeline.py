@@ -2,8 +2,9 @@
 
 from typing import List, Optional, Dict, Tuple, Callable, Any
 import logging
+import sys
 import time
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, parallel_config
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.movie_pipeline.types import (
@@ -316,12 +317,24 @@ class TreeInterpolationPipeline:
         n_pairs = len(trees) - 1
         self.logger.info(f"Precomputing solutions for {n_pairs} pairs using joblib...")
 
-        # Use joblib.Parallel with loky backend (default) for efficient parallelization
-        # n_jobs=-1 uses all available cores
-        results = Parallel(n_jobs=-1)(
-            delayed(_parallel_solve_pair)(trees[i], trees[i + 1])
-            for i in range(n_pairs)
-        )
+        # Detect if running in PyInstaller frozen executable
+        is_frozen = getattr(sys, 'frozen', False)
+
+        if is_frozen:
+            # In frozen executables, multiprocessing spawn doesn't work reliably
+            # due to how PyInstaller packages the application. Run sequentially
+            # to ensure stability. Performance impact is acceptable for typical
+            # tree counts in interactive usage.
+            self.logger.info("Frozen executable detected, running lattice solver sequentially")
+            results = []
+            for i in range(n_pairs):
+                results.append(_parallel_solve_pair(trees[i], trees[i + 1]))
+        else:
+            # In development, use default loky backend for best performance
+            results = Parallel(n_jobs=-1)(
+                delayed(_parallel_solve_pair)(trees[i], trees[i + 1])
+                for i in range(n_pairs)
+            )
 
         # Process results and log any errors
         sols: List[Optional[Dict[Partition, List[Partition]]]] = []

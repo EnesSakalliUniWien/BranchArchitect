@@ -1,8 +1,6 @@
 from itertools import pairwise
 from typing import Dict, List, Callable, Tuple, Optional, Any
-from concurrent.futures import ProcessPoolExecutor, as_completed
 import numpy as np
-from tqdm import tqdm
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
@@ -132,40 +130,6 @@ def compute_tree_pair_component_paths(
             paths_i.append(path_i)
             paths_j.append(path_j)
     return (i, j, components, pivot_edges_for_components, paths_i, paths_j)
-
-
-def compute_pairwise_pivot_edge_paths(
-    trees: List[Node],
-) -> List[Tuple[int, int, Any, Any, List[List[Node]], List[List[Node]]]]:
-    """Compute pivot-edge solutions and component paths for every unique tree pair.
-
-    Returns a list of (i, j, components, pivot_edges, paths_i, paths_j) tuples for
-    each successful pair (i > j), leveraging `compute_tree_pair_component_paths`
-    in parallel.
-    """
-    for tree in tqdm(trees, desc="Preparing trees for parallel processing"):
-        tree.to_splits()
-        tree.build_split_index()
-
-    pair_args = [
-        (i, j, trees[i], trees[j]) for i in range(len(trees)) for j in range(i)
-    ]
-    # Profile the parallel computation
-    results: List[Tuple[int, int, Any, Any, List[List[Node]], List[List[Node]]]] = []
-    with ProcessPoolExecutor() as executor:
-        future_to_pair = {
-            executor.submit(compute_tree_pair_component_paths, *arg): (arg[0], arg[1])
-            for arg in pair_args
-        }
-        for f in tqdm(as_completed(future_to_pair), total=len(future_to_pair)):
-            pair_indices = future_to_pair[f]
-            res = f.result()
-            if res is None:
-                raise RuntimeError(
-                    f"compute_pair unexpectedly returned None for pair {pair_indices}"
-                )
-            results.append(res)
-    return results
 
 
 def calculate_normalised_matrix(

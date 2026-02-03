@@ -132,7 +132,7 @@ class TestIncompatibilityDetection:
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
             expand_splits_by_subtree={},
-            active_changing_edge=Partition((0,), encoding),
+            pivot_edge=Partition((0,), encoding),
         )
 
         # Find incompatible splits
@@ -176,7 +176,7 @@ class TestIncompatibilityDetection:
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
             expand_splits_by_subtree={},
-            active_changing_edge=Partition((0,), encoding),
+            pivot_edge=Partition((0,), encoding),
         )
 
         incompatible = find_incompatible_splits(expand_splits, collapse_splits)
@@ -194,7 +194,7 @@ class TestIncompatibilityDetection:
             all_expand_splits=PartitionSet(encoding=encoding),
             collapse_splits_by_subtree={},
             expand_splits_by_subtree={},
-            active_changing_edge=Partition((0,), encoding),
+            pivot_edge=Partition((0,), encoding),
         )
 
         # Empty expand splits
@@ -227,7 +227,7 @@ class TestIncompatibilityDetection:
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
             expand_splits_by_subtree={},
-            active_changing_edge=Partition((0,), encoding),
+            pivot_edge=Partition((0,), encoding),
         )
 
         incompatible = find_incompatible_splits(expand_splits, collapse_splits)
@@ -281,7 +281,7 @@ class TestRealTreeScenarios:
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
             expand_splits_by_subtree={},
-            active_changing_edge=Partition((0,), encoding),
+            pivot_edge=Partition((0,), encoding),
         )
 
         incompatible = find_incompatible_splits(expand_splits, collapse_splits)
@@ -314,7 +314,7 @@ class TestRealTreeScenarios:
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
             expand_splits_by_subtree={},
-            active_changing_edge=Partition((0,), encoding),
+            pivot_edge=Partition((0,), encoding),
         )
 
         incompatible = find_incompatible_splits(expand_splits, collapse_splits)
@@ -349,7 +349,7 @@ class TestRealTreeScenarios:
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
             expand_splits_by_subtree={},
-            active_changing_edge=Partition((0,), encoding),
+            pivot_edge=Partition((0,), encoding),
         )
 
         incompatible = find_incompatible_splits(expand_splits, collapse_splits)
@@ -392,7 +392,7 @@ class TestCollapseBeforeExpand:
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
             expand_splits_by_subtree={},
-            active_changing_edge=Partition((0,), encoding),
+            pivot_edge=Partition((0,), encoding),
         )
 
         # Find what must be collapsed
@@ -436,7 +436,7 @@ class TestCollapseBeforeExpand:
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
             expand_splits_by_subtree={},
-            active_changing_edge=Partition((0,), encoding),
+            pivot_edge=Partition((0,), encoding),
         )
 
         # Find all incompatibilities

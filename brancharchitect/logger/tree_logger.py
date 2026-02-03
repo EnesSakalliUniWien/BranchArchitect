@@ -4,7 +4,10 @@ from typing import Any, List, Optional
 
 from brancharchitect.logger.base_logger import AlgorithmLogger
 from brancharchitect.tree import Node
-from brancharchitect.plot.tree_plot import plot_rectangular_tree_pair
+
+# Optional plotting support - commented out since we removed plotting dependencies
+# from brancharchitect.plot.tree_plot import plot_rectangular_tree_pair
+
 from brancharchitect.logger.html_content import (
     COMPARE_TREE_SPLIT_CSS,
     TABLE_SPLIT_JS,
@@ -28,13 +31,19 @@ class TreeLogger(AlgorithmLogger):
     ):
         """Log visual comparison of two trees - rectangular layout only."""
         self.subsection(title)
-        svg_content = plot_rectangular_tree_pair(
-            node_one, node_two, vertical_leaf_labels=vertical_taxon_labels
-        )
-        # Prefer PNG embedding in HTML; fallback to inline SVG on failure
-        success = self.add_png_from_svg(svg_content)
-        if not success:
-            self.add_svg(svg_content)
+        
+        # Plotting functionality disabled - dependencies removed
+        self.add_html("<p><em>Tree plotting disabled - plotting dependencies not available</em></p>")
+        return
+        
+        # # Original plotting code - commented out since we removed plotting dependencies
+        # svg_content = plot_rectangular_tree_pair(
+        #     node_one, node_two, vertical_leaf_labels=vertical_taxon_labels
+        # )
+        # # Prefer PNG embedding in HTML; fallback to inline SVG on failure
+        # success = self.add_png_from_svg(svg_content)
+        # if not success:
+        #     self.add_svg(svg_content)
 
     def compare_tree_splits(
         self,

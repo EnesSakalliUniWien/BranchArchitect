@@ -18,7 +18,7 @@ from typing import Dict, List, Optional
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
-from .execution.step_executor import apply_stepwise_plan_for_edge
+from .execution.pivot_edge_interpolation_frame_builder import execute_pivot_edge_plan
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -238,7 +238,7 @@ def create_interpolation_for_active_split_sequence(
             dest_parent_maps.get(current_pivot_edge) if dest_parent_maps else None
         )
 
-        step_trees, step_edges, new_state, step_subtrees = apply_stepwise_plan_for_edge(
+        step_trees, step_edges, new_state, step_subtrees = execute_pivot_edge_plan(
             current_base_tree=current_base_tree,
             destination_tree=destination_tree,
             source_tree=source_tree,
