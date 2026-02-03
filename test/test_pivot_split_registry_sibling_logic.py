@@ -48,7 +48,7 @@ class TestPivotSplitRegistrySiblingLogic(unittest.TestCase):
             all_expand_splits=self.all_expand_splits,
             collapse_splits_by_subtree={},
             expand_splits_by_subtree=self.expand_by_subtree,
-            active_changing_edge=self.dummy_pivot,
+            pivot_edge=self.dummy_pivot,
             use_path_grouping=True,
         )
 

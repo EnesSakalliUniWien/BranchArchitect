@@ -3,7 +3,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 import os
-from typing import Optional
+from typing import Optional, cast
 from flask import Request
 from werkzeug.datastructures import FileStorage
 
@@ -25,6 +25,7 @@ class TreeDataRequest:
         True  # Use gamma rate heterogeneity (accounts for rate variation across sites)
     )
     use_pseudo: bool = False  # Use pseudocounts (recommended for gappy alignments)
+    no_ml: bool = True  # Always use no-ML to produce fully bifurcating trees
 
 
 def get_msa_content(msa_file: Optional[FileStorage]) -> Optional[str]:
@@ -43,8 +44,8 @@ def get_msa_content(msa_file: Optional[FileStorage]) -> Optional[str]:
 
 def parse_tree_data_request(request: Request) -> TreeDataRequest:
     """Parses and validates the incoming request for tree data processing."""
-    tree_file = request.files.get("treeFile")
-    msa_file = request.files.get("msaFile")
+    tree_file = cast(Optional[FileStorage], request.files.get("treeFile"))
+    msa_file = cast(Optional[FileStorage], request.files.get("msaFile"))
 
     # We need at least one of the two files
     if (not tree_file or not tree_file.filename) and (
@@ -75,6 +76,7 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
     use_gtr = use_gtr_raw == "on"
     use_gamma = use_gamma_raw == "on"
     use_pseudo = use_pseudo_raw == "on"
+    no_ml = request.form.get("noMl", "on") == "on"
 
     msa_content = get_msa_content(msa_file)
 
@@ -95,4 +97,5 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
         use_gtr=use_gtr,
         use_gamma=use_gamma,
         use_pseudo=use_pseudo,
+        no_ml=no_ml,
     )

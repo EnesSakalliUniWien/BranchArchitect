@@ -56,6 +56,7 @@ def _run_msa_analysis_and_interpolate(
     use_gtr: bool = True,
     use_gamma: bool = True,
     use_pseudo: bool = False,
+    no_ml: bool = True,
     progress_callback: Optional[Callable[[float, str], None]] = None,
 ) -> Dict[str, Any]:
     """Run the MSA → tree pipeline and return the normal response structure.
@@ -68,6 +69,7 @@ def _run_msa_analysis_and_interpolate(
         use_gtr: Use GTR (General Time Reversible) model for tree inference.
         use_gamma: Use gamma rate heterogeneity for tree inference.
         use_pseudo: Use pseudocounts for sequences with gaps/little overlap.
+        no_ml: Disable ML NNI updates to produce strictly bifurcating trees.
         progress_callback: Optional callback for progress reporting.
 
     Returns:
@@ -93,7 +95,7 @@ def _run_msa_analysis_and_interpolate(
             use_gtr=use_gtr,
             use_gamma=use_gamma,
             use_pseudo=use_pseudo,
-            no_ml=True,  # Always use no-ML to produce fully bifurcating trees
+            no_ml=no_ml,
         )
 
         report(
@@ -212,6 +214,7 @@ def treedata() -> Union[Response, Tuple[dict[str, Any], int]]:
                 use_gtr=req_data.use_gtr,
                 use_gamma=req_data.use_gamma,
                 use_pseudo=req_data.use_pseudo,
+                no_ml=req_data.no_ml,
             )
 
             log.info(
@@ -303,6 +306,7 @@ def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
                             use_gtr=req_data.use_gtr,
                             use_gamma=req_data.use_gamma,
                             use_pseudo=req_data.use_pseudo,
+                            no_ml=req_data.no_ml,
                             progress_callback=_make_progress_callback(channel, 10, 85),
                         )
 

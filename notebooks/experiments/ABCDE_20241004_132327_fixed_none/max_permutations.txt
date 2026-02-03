@@ -1,6 +1,0 @@
-B,A,O,D,C,E
-B,O,A,D,C,E
-B,A,D,O,C,E
-O,B,A,D,C,E
-B,A,D,C,E,O
-B,A,D,C,O,E
