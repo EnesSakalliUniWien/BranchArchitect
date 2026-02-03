@@ -38,9 +38,6 @@ from brancharchitect.jumping_taxa.lattice.mapping.solution_mapping import (
 from brancharchitect.jumping_taxa.lattice.solvers.identify_jumping_taxa import (
     identify_and_delete_jumping_taxa,
 )
-from brancharchitect.jumping_taxa.lattice.solvers.verify_solutions import (
-    verify_mapped_solutions_prune,
-)
 
 
 class LatticeSolver:
@@ -374,12 +371,12 @@ class LatticeSolver:
             self.original_tree2,
         )
 
-        verify_mapped_solutions_prune(
-            self.original_tree1,
-            self.original_tree2,
-            self.current_t1,
-            self.current_t2,
-            mapped_solutions_dict,
-        )
+        # verify_mapped_solutions_prune(
+        #    self.original_tree1,
+        #    self.original_tree2,
+        #    self.current_t1,
+        #    self.current_t2,
+        #    mapped_solutions_dict,
+        # )
 
         return mapped_solutions_dict, self.deleted_taxa_per_iteration

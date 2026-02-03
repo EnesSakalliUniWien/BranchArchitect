@@ -3,7 +3,7 @@ Integration-style tests for anchor_order using repository Newick fixtures.
 
 Files:
 - current_testfiles/small_example.newick (first two trees)
-- test-data/reverse_test_tree_moving_updwards.tree (two trees)
+- test/data/reverse_test_tree_moving_updwards.tree (two trees)
 """
 
 from brancharchitect.parser.newick_parser import parse_newick
@@ -29,7 +29,7 @@ def test_anchor_order_small_example_contiguous_outgroup():
     On the small example trees, O1 and O2 are an outgroup in both.
     After derive_order_for_pair, O1 and O2 should remain contiguous in t1.
     """
-    t1, t2 = _parse_two_trees_from_file("test-data/current_testfiles/small_example.newick")
+    t1, t2 = _parse_two_trees_from_file("test/data/current_testfiles/small_example.newick")
 
     # Run ordering
     derive_order_for_pair(t1, t2)
@@ -44,7 +44,7 @@ def test_anchor_order_reverse_tree_outgroup_contiguous():
     After derive_order_for_pair, O1 and O2 remain adjacent in t1.
     """
     t1, t2 = _parse_two_trees_from_file(
-        "test-data/reverse_test_tree_moving_updwards.tree"
+        "test/data/reverse_test_tree_moving_updwards.tree"
     )
 
     derive_order_for_pair(t1, t2)

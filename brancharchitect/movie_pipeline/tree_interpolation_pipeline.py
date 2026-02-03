@@ -52,6 +52,26 @@ def _parallel_solve_pair(
         return None, str(e)
 
 
+def _report_progress(
+    callback: Optional[Callable[[float, str], None]], pct: float, msg: str
+) -> None:
+    """Report progress if callback is provided."""
+    if callback:
+        callback(pct, msg)
+
+
+def _create_interpolation_callback(
+    callback: Callable[[float, str], None],
+) -> Callable[[float, str], None]:
+    """Create a sub-callback that maps interpolation progress (0-100) to (30-80)."""
+
+    def _mapped_callback(pct: float, msg: str) -> None:
+        mapped = 30 + (pct / 100.0) * 50
+        callback(mapped, msg)
+
+    return _mapped_callback
+
+
 class TreeInterpolationPipeline:
     """
     Coordinates the full workflow for processing and interpolating phylogenetic trees.
@@ -96,11 +116,6 @@ class TreeInterpolationPipeline:
             An InterpolationResult object containing all interpolated trees,
             metadata, and analysis results.
         """
-
-        def report(pct: float, msg: str) -> None:
-            if progress_callback:
-                progress_callback(pct, msg)
-
         start_time = time.time()
 
         processed_trees: Node | List[Node] = trees
@@ -112,17 +127,17 @@ class TreeInterpolationPipeline:
         self._ensure_shared_taxa_encoding(processed_trees)
         self._check_for_identical_trees(processed_trees)
         if len(processed_trees) == 1:
-            report(10, "Rooting single tree...")
+            _report_progress(progress_callback, 10, "Rooting single tree...")
             processed_trees = self._apply_rooting_if_enabled(processed_trees)
             return create_single_tree_result(processed_trees)
 
-        report(5, "Rooting trees...")
+        _report_progress(progress_callback, 5, "Rooting trees...")
         processed_trees = self._apply_rooting_if_enabled(processed_trees)
 
-        report(10, "Precomputing solutions...")
+        _report_progress(progress_callback, 10, "Precomputing solutions...")
         precomputed_pair_solutions = self._precompute_pair_solutions(processed_trees)
 
-        report(20, "Optimizing tree order...")
+        _report_progress(progress_callback, 20, "Optimizing tree order...")
         t_opt_start = time.perf_counter()
         processed_trees = self._optimize_tree_order(
             processed_trees,
@@ -135,17 +150,14 @@ class TreeInterpolationPipeline:
             f"Leaf order optimization took {time.perf_counter() - t_opt_start:.3f}s"
         )
 
-        report(30, "Interpolating sequence...")
+        _report_progress(progress_callback, 30, "Interpolating sequence...")
 
         # Create a sub-callback for interpolation (30-80%)
-        interp_callback: Optional[Callable[[float, str], None]] = None
-        if progress_callback:
-
-            def _interp_callback(pct: float, msg: str) -> None:
-                mapped = 30 + (pct / 100.0) * 50
-                progress_callback(mapped, msg)
-
-            interp_callback = _interp_callback
+        interp_callback: Optional[Callable[[float, str], None]] = (
+            _create_interpolation_callback(progress_callback)
+            if progress_callback
+            else None
+        )
 
         seq_result = self._interpolate_tree_sequence(
             processed_trees,
@@ -154,7 +166,7 @@ class TreeInterpolationPipeline:
         )
 
         self.logger.info("Calculating distance metrics...")
-        report(80, "Calculating distance metrics...")
+        _report_progress(progress_callback, 80, "Calculating distance metrics...")
         t_dist_start = time.perf_counter()
         distances = self._calculate_distances(processed_trees)
         self.logger.info(
@@ -252,9 +264,11 @@ class TreeInterpolationPipeline:
         ).build(trees, progress_callback=progress_callback)
 
         original_tree_global_indices = result.get_original_tree_indices()
+
         pair_solutions, pair_ranges = result.build_pair_solutions(
             original_tree_global_indices, logger=self.logger
         )
+
         tree_metadata = self._create_global_tree_metadata(
             result.current_pivot_edge_tracking, original_tree_global_indices
         )
@@ -340,19 +354,11 @@ class TreeInterpolationPipeline:
         sols: List[Optional[Dict[Partition, List[Partition]]]] = []
 
         for i, result_tuple in enumerate(results):
-            if result_tuple is None:
-                self.logger.error(
-                    f"Parallel execution returned None for pair {i}-{i + 1}."
-                )
-                sols.append(None)
-                continue
-
-            # Explicit unpacking to satisfy type checker if it thinks tuple could be None
             solution_dict, error_msg = result_tuple
-
             if error_msg:
                 self.logger.error(
-                    f"Failed to compute lattice solution for pair {i}-{i + 1}. Error: {error_msg}"
+                    f"Failed to compute lattice solution for pair {i}-{i + 1}. "
+                    f"Error: {error_msg}"
                 )
                 sols.append(None)
             else:

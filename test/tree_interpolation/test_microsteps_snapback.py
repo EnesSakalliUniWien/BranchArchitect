@@ -1,7 +1,7 @@
 import pytest
 from brancharchitect.tree import Node
-from brancharchitect.tree_interpolation.subtree_paths.execution.step_executor import (
-    build_microsteps_for_selection,
+from brancharchitect.tree_interpolation.subtree_paths.execution.pivot_edge_interpolation_frame_builder import (
+    build_frames_for_subtree,
 )
 from brancharchitect.elements.partition import Partition
 
@@ -32,7 +32,7 @@ def test_microsteps_snapback_consistency():
     # Verify initial order is A, C, B
     assert list(reordered.get_current_order()) == ["A", "C", "B"]
 
-    # 2. Define inputs for build_microsteps_for_selection
+    # 2. Define inputs for build_frames_for_subtree
     # We need to mock the inputs since we are testing the logic flow
 
     # Destination tree (has the split)
@@ -54,7 +54,7 @@ def test_microsteps_snapback_consistency():
     }
 
     # 3. Run microsteps (we need to mock the intermediate functions or rely on them working)
-    # Since build_microsteps_for_selection calls other complex functions,
+    # Since build_frames_for_subtree calls other complex functions,
     # we might just test the logic we changed: create_subtree_grafted_tree result.
 
     # However, we can't easily mock inside the function.
@@ -63,7 +63,7 @@ def test_microsteps_snapback_consistency():
     # If we don't force it, it should adopt a valid order (e.g. ["A", "B", "C"]).
 
     try:
-        trees, edges, final_tree, subtree_tracker = build_microsteps_for_selection(
+        trees, edges, final_tree, subtree_tracker = build_frames_for_subtree(
             interpolation_state=reordered,  # Use reordered as start state for simplicity
             destination_tree=dest,
             current_pivot_edge=pivot,

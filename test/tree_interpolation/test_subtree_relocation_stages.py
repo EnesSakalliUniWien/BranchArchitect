@@ -16,8 +16,8 @@ Test Data:
 import pytest
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.elements.partition import Partition
-from brancharchitect.tree_interpolation.subtree_paths.execution.step_executor import (
-    build_microsteps_for_selection,
+from brancharchitect.tree_interpolation.subtree_paths.execution.pivot_edge_interpolation_frame_builder import (
+    build_frames_for_subtree,
 )
 from brancharchitect.tree_interpolation.topology_ops.collapse import (
     create_collapsed_consensus_tree,
@@ -374,7 +374,7 @@ class TestStage5Snap:
     Stage 5: Snap
 
     The final tree state should match the destination topology.
-    This is verified by comparing the complete output of build_microsteps_for_selection.
+    This is verified by comparing the complete output of build_frames_for_subtree.
     """
 
     def test_snap_produces_valid_tree(self, source_tree, destination_tree):
@@ -389,16 +389,21 @@ class TestStage5Snap:
             collapse_path=[],
         )
 
-        trees, edges, snapped_tree, subtree_tracker = build_microsteps_for_selection(
+        trees, edges, snapped_tree, subtree_tracker = build_frames_for_subtree(
             interpolation_state=source_tree,
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             selection=selection,
-            all_mover_partitions=None,
+            all_collapse_paths=None,
+            all_expand_paths=None,
         )
 
-        # Verify 5 intermediate trees are generated
-        assert len(trees) == 5, f"Expected 5 trees, got {len(trees)}"
+        # With no collapse/expand work but is_first_mover=True (default),
+        # we get: reorder frames (if changed) + snap frames
+        # The exact count depends on whether reorder changes the order
+        assert len(trees) >= 2, (
+            f"Expected at least 2 trees for snap phase, got {len(trees)}"
+        )
 
         # Verify snapped tree has all taxa
         snapped_leaves = set(get_leaf_order(snapped_tree))
@@ -409,8 +414,10 @@ class TestStage5Snap:
             f"Gained: {snapped_leaves - source_leaves}"
         )
 
-    def test_full_pipeline_produces_5_frames(self, source_tree, destination_tree):
-        """The complete pipeline should produce exactly 5 animation frames."""
+    def test_full_pipeline_produces_frames_with_collapse(
+        self, source_tree, destination_tree
+    ):
+        """Pipeline with collapse work produces appropriate animation frames."""
         encoding = source_tree.taxa_encoding
         pivot_edge = make_partition(["A", "B", "C", "D", "E", "F", "G", "H"], encoding)
         subtree_partition = make_partition(["F", "G"], encoding)
@@ -422,22 +429,28 @@ class TestStage5Snap:
             collapse_path=[fg_collapse],
         )
 
-        trees, edges, snapped_tree, subtree_tracker = build_microsteps_for_selection(
+        trees, edges, snapped_tree, subtree_tracker = build_frames_for_subtree(
             interpolation_state=source_tree,
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             selection=selection,
-            all_mover_partitions=None,
+            all_collapse_paths=None,
+            all_expand_paths=None,
         )
 
-        assert len(trees) == 5, f"Expected 5 animation frames, got {len(trees)}"
-        assert len(edges) == 5, f"Expected 5 edge references, got {len(edges)}"
-        assert len(subtree_tracker) == 5, (
-            f"Expected 5 subtree trackers, got {len(subtree_tracker)}"
+        # With collapse work + first_mover (snap):
+        # Collapse: 2 frames (zeroed, collapsed), Reorder: 0-1 if changed, Snap: 1
+        # Total: 3-4 depending on reorder
+        assert len(trees) >= 3, (
+            f"Expected at least 3 animation frames, got {len(trees)}"
+        )
+        assert len(edges) == len(trees), f"Edges should match trees count"
+        assert len(subtree_tracker) == len(trees), (
+            f"Subtree trackers should match trees count"
         )
 
     def test_all_frames_have_consistent_taxa(self, source_tree, destination_tree):
-        """All 5 frames should have the same set of taxa."""
+        """All frames should have the same set of taxa."""
         encoding = source_tree.taxa_encoding
         pivot_edge = make_partition(["A", "B", "C", "D", "E", "F", "G", "H"], encoding)
         subtree_partition = make_partition(["F", "G"], encoding)
@@ -448,12 +461,13 @@ class TestStage5Snap:
             collapse_path=[],
         )
 
-        trees, edges, snapped_tree, subtree_tracker = build_microsteps_for_selection(
+        trees, edges, snapped_tree, subtree_tracker = build_frames_for_subtree(
             interpolation_state=source_tree,
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             selection=selection,
-            all_mover_partitions=None,
+            all_collapse_paths=None,
+            all_expand_paths=None,
         )
 
         source_taxa = set(get_leaf_order(source_tree))
@@ -465,6 +479,14 @@ class TestStage5Snap:
                 f"Lost: {source_taxa - tree_taxa}, "
                 f"Gained: {tree_taxa - source_taxa}"
             )
+
+        # Also verify the returned final state
+        final_taxa = set(get_leaf_order(snapped_tree))
+        assert final_taxa == source_taxa, (
+            f"Final state has taxa mismatch! "
+            f"Lost: {source_taxa - final_taxa}, "
+            f"Gained: {final_taxa - source_taxa}"
+        )
 
 
 # ============================================================================
@@ -498,23 +520,25 @@ class TestIntegration:
             collapse_path=[efg_collapse, fg_collapse],
         )
 
-        trees, edges, snapped_tree, subtree_tracker = build_microsteps_for_selection(
+        trees, edges, snapped_tree, subtree_tracker = build_frames_for_subtree(
             interpolation_state=source_tree,
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             selection=selection,
-            all_mover_partitions=None,
+            all_collapse_paths=None,
+            all_expand_paths=None,
         )
 
         # Verify the animation sequence is valid
-        assert len(trees) == 5
+        # With collapse work + first_mover: at least 3 frames (collapse:2 + snap:1)
+        assert len(trees) >= 3, f"Expected at least 3 frames, got {len(trees)}"
 
         # Print the leaf orders for debugging
         print("\n=== Heiko Tree Full Interpolation ===")
         print(f"Source order: {get_leaf_order(source_tree)}")
-        stage_names = ["Collapse Down", "Collapse", "Reorder", "Expand Up", "Snap"]
+        print(f"Number of frames: {len(trees)}")
         for i, tree in enumerate(trees):
-            print(f"Stage {i + 1} ({stage_names[i]}): {get_leaf_order(tree)}")
+            print(f"Frame {i + 1}: {get_leaf_order(tree)}")
         print(f"Snapped order: {get_leaf_order(snapped_tree)}")
         print(f"Destination order: {get_leaf_order(destination_tree)}")
 

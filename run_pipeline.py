@@ -16,7 +16,7 @@ def main():
     # Define variables for testing
     enable_rooting = False
     trees: Node | List[Node] = read_newick(
-        "./test-data/current_testfiles/small_example.newick",
+        "./test/data/current_testfiles/small_example.newick",
         treat_zero_as_epsilon=True,
     )
 

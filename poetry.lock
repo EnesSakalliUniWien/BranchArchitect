@@ -1601,6 +1601,25 @@ files = [
 ]
 
 [[package]]
+name = "joblib-stubs"
+version = "1.5.3.1.20260117"
+description = "joblib stubs"
+optional = false
+python-versions = ">=3.11"
+groups = ["dev"]
+files = [
+    {file = "joblib_stubs-1.5.3.1.20260117-py3-none-any.whl", hash = "sha256:ef9f570617b232263c8166f5b4351a5dcc90669d8b07e7e2cd7b25c3b0f26d5f"},
+    {file = "joblib_stubs-1.5.3.1.20260117.tar.gz", hash = "sha256:d420f9e26636df01e1bda851bf5bce9a8dbd6db84f08afe1dfdb963e6651e724"},
+]
+
+[package.dependencies]
+typing-extensions = ">=4.4.0"
+
+[package.extras]
+mypy = ["mypy (>=1.19.1)"]
+mypy-strict = ["mypy (==1.19.1)", "mypy (>=1.19.1)"]
+
+[[package]]
 name = "json5"
 version = "0.12.1"
 description = "A Python implementation of the JSON5 data format."

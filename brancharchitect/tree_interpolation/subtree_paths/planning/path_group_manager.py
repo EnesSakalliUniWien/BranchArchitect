@@ -67,6 +67,7 @@ class PathGroupManager:
         # Computed on initialization
         self._overlap_graph: Dict[Partition, Set[Partition]] = {}
         self._containment_edges: Set[Tuple[Partition, Partition]] = set()
+        self._successors: Dict[Partition, List[Partition]] = {}
         self._groups: List[Set[Partition]] = []
         self._subtree_to_group: Dict[Partition, int] = {}
 
@@ -96,33 +97,34 @@ class PathGroupManager:
         - Whether one path is contained in the other (proper subset)
         """
         subtrees = list(self._expand_paths.keys())
+        # Pre-convert paths to frozen sets for fast set operations
+        paths = {s: frozenset(self._expand_paths[s]) for s in subtrees}
 
-        # Initialize overlap graph for all subtrees
+        # Initialize graphs for all subtrees
         for subtree in subtrees:
             self._overlap_graph[subtree] = set()
+            self._successors[subtree] = []
 
         # Check all pairs
         for i, subtree_a in enumerate(subtrees):
-            path_a = self._expand_paths[subtree_a]
-            path_a_set = set(path_a) if path_a else set()
+            path_a = paths[subtree_a]
 
             for subtree_b in subtrees[i + 1 :]:
-                path_b = self._expand_paths[subtree_b]
-                path_b_set = set(path_b) if path_b else set()
+                path_b = paths[subtree_b]
 
                 # Check overlap (non-empty intersection)
-                intersection = path_a_set & path_b_set
-                if intersection:
+                if not path_a.isdisjoint(path_b):
                     self._overlap_graph[subtree_a].add(subtree_b)
                     self._overlap_graph[subtree_b].add(subtree_a)
 
                 # Check containment (proper subset)
-                # A is contained in B if A ⊂ B (proper subset)
-                if path_a_set and path_b_set:
-                    if path_a_set < path_b_set:  # A is proper subset of B
+                if path_a and path_b:
+                    if path_a < path_b:  # A is proper subset of B
                         self._containment_edges.add((subtree_a, subtree_b))
-                    elif path_b_set < path_a_set:  # B is proper subset of A
+                        self._successors[subtree_a].append(subtree_b)
+                    elif path_b < path_a:  # B is proper subset of A
                         self._containment_edges.add((subtree_b, subtree_a))
+                        self._successors[subtree_b].append(subtree_a)
 
     def has_overlap(self, subtree_a: Partition, subtree_b: Partition) -> bool:
         """
@@ -333,11 +335,7 @@ class PathGroupManager:
         if not self._containment_edges:
             return None
 
-        # Build adjacency list for containment (contained -> containers)
-        adj: Dict[Partition, List[Partition]] = {s: [] for s in self._expand_paths}
-        for contained, container in self._containment_edges:
-            adj[contained].append(container)
-
+        # Use pre-computed successors (contained -> containers)
         visited: Set[Partition] = set()
         rec_stack: Set[Partition] = set()
 
@@ -345,7 +343,7 @@ class PathGroupManager:
             visited.add(node)
             rec_stack.add(node)
 
-            for neighbor in adj.get(node, []):
+            for neighbor in self._successors.get(node, []):
                 if neighbor in rec_stack:
                     # Found cycle
                     cycle_start = path.index(neighbor) if neighbor in path else 0
@@ -414,22 +412,22 @@ class PathGroupManager:
         _, _, subtree = heapq.heappop(self._ready_queue)
 
         # Update in-degrees for dependents (containers that depend on this subtree)
-        for contained, container in self._containment_edges:
-            if contained == subtree:
-                self._in_degree[container] -= 1
-                if self._in_degree[container] == 0:
-                    # Container is now ready - add to queue if in current group
-                    if (
-                        self._subtree_to_group.get(container)
-                        == self._current_group_index
-                    ):
-                        if container not in processed:
-                            path_size = len(self._expand_paths.get(container, set()))
-                            # Use bitmask for deterministic tie-breaking
-                            tie_breaker = container.bitmask
-                            heapq.heappush(
-                                self._ready_queue, (path_size, tie_breaker, container)
-                            )
+        # Optimized: only check successors of the selected subtree
+        for container in self._successors.get(subtree, []):
+            self._in_degree[container] -= 1
+            if self._in_degree[container] == 0:
+                # Container is now ready - add to queue if in current group
+                if (
+                    self._subtree_to_group.get(container)
+                    == self._current_group_index
+                ):
+                    if container not in processed:
+                        path_size = len(self._expand_paths.get(container, set()))
+                        # Use bitmask for deterministic tie-breaking
+                        tie_breaker = container.bitmask
+                        heapq.heappush(
+                            self._ready_queue, (path_size, tie_breaker, container)
+                        )
 
         return subtree
 

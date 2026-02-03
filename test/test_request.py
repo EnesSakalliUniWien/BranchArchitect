@@ -6,7 +6,7 @@ import pytest
 FLASK_APP_URL = "http://127.0.0.1:5002/treedata"
 
 # Path to the test MSA file
-MSA_FILE_PATH = "test-data/test_msa.fasta"
+MSA_FILE_PATH = "test/data/test_msa.fasta"
 
 # Parameters for the analysis
 WINDOW_SIZE = 100

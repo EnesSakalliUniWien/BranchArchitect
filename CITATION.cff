@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+title: BranchArchitect
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Enes
+    family-names: Sakalli
+    affiliation: University of Vienna
+    orcid: ''  # Add your ORCID if available
+repository-code: 'https://github.com/EnesSakalliUniWien/BranchArchitect'
+url: 'https://github.com/EnesSakalliUniWien/BranchArchitect'
+abstract: >-
+  BranchArchitect is a phylogenetic tree transformation engine that
+  interpolates between trees via a geodesic path in tree space. It powers
+  the Phylo-Movies web visualization experience by decomposing trees into
+  splits (bipartitions) and resolving conflicts through pivotal subtree
+  rearrangements.
+keywords:
+  - phylogenetics
+  - tree interpolation
+  - visualization
+  - bioinformatics
+  - geodesic path
+  - tree space
+license: MIT
+version: 0.64.0
+date-released: '2026-02-03'

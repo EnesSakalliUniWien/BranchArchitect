@@ -1,30 +1,38 @@
 /env
 /__pycache__
-__pycache__
 dist
 .ipynb_checkpoints/
-data
+/data
+!test/data/
 order_optimisation_notebooks
 annotation_names.txt
 optimise_tree_order.py
 TreeCmp_v2.0-b76
-output/test_debug
-test/output
-test/rooting/test_outputs
+
+# Anchoring root directories
+/output/
+/results/
+/logs/
+/reports/
+/assets/
+/misc/
+
+# Test outputs (allow test/data/ but ignore generated logs)
+/test/output/debug_logs/
+/test/rooting/test_outputs
 
 # Type stub files
 *.pyi
 .env
-docs
-logs
+/docs
 backend.log
 backend_startup.log
-reports
-misc
 package-lock.json
 .DS_Store
 sss.newick
 .hypothesis
 .kiro
-output
 .github/copilot-instructions.md
+brancharchitect/__pycache__
+*.pyc
+.github

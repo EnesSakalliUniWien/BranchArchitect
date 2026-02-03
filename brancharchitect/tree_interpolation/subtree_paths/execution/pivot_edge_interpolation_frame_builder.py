@@ -9,124 +9,25 @@ from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree_interpolation.topology_ops.collapse import (
     create_collapsed_consensus_tree,
 )
+
 from brancharchitect.tree_interpolation.topology_ops.weights import (
     apply_zero_branch_lengths,
+    finalize_branch_weights,
 )
+
 from brancharchitect.tree_interpolation.topology_ops.expand import (
     create_subtree_grafted_tree,
 )
 from ..planning import build_edge_plan
 from .reordering import reorder_tree_toward_destination, align_to_source_order
+from .sibling_grouping import (
+    compute_sibling_groups,
+    get_collapse_splits,
+    get_expand_splits,
+    get_group_for_mover,
+)
 
 logger = logging.getLogger(__name__)
-
-
-# ============================================================================
-# Weight Application Functions
-# ============================================================================
-
-
-def set_expand_splits_to_dest_weight(
-    tree: Node,
-    expand_splits: List[Partition],
-    destination_weights: Dict[Partition, float],
-) -> None:
-    """
-    Set expand splits (new in destination) to their destination weight.
-
-    Expand splits don't exist in the source tree, so there's nothing to average -
-    we simply set them to their final destination weight.
-
-    Args:
-        tree: The tree to modify (mutated in place)
-        expand_splits: List of splits that are new in the destination
-        destination_weights: Weights from the destination tree
-    """
-    for split in expand_splits:
-        node = tree.find_node_by_split(split)
-        if node is not None:
-            node.length = destination_weights.get(split, 0.0)
-
-
-def average_weights_under_pivot(
-    tree: Node,
-    pivot_node: Node,
-    expand_set: set[Partition],
-    source_weights: Optional[Dict[Partition, float]],
-    destination_weights: Dict[Partition, float],
-) -> None:
-    """
-    Average branch weights for all splits under the pivot edge.
-
-    For the first mover, we process ALL splits under the pivot:
-    - Expand splits (new in destination): set to destination weight
-    - Shared splits (in both trees): average (source + dest) / 2
-
-    Args:
-        tree: The tree to modify (mutated in place)
-        pivot_node: The node representing the pivot edge
-        expand_set: Set of splits that are expand (new) splits
-        source_weights: Weights from the original source tree
-        destination_weights: Weights from the destination tree
-    """
-    splits_under_pivot = list(pivot_node.to_splits(with_leaves=True))
-
-    for split in splits_under_pivot:
-        node = tree.find_node_by_split(split)
-        if node is None:
-            continue
-
-        if split in expand_set:
-            # Expand split: set to destination weight
-            node.length = destination_weights.get(split, 0.0)
-        else:
-            # Shared split: average (source + dest) / 2
-            src_weight = (
-                source_weights.get(split, node.length or 0.0)
-                if source_weights
-                else (node.length or 0.0)
-            )
-            dest_weight = destination_weights.get(split, 0.0)
-            node.length = (src_weight + dest_weight) / 2.0
-
-
-def finalize_branch_weights(
-    tree: Node,
-    current_pivot_edge: Partition,
-    expand_path: List[Partition],
-    is_first_mover: bool,
-    source_weights: Optional[Dict[Partition, float]],
-    destination_weights: Dict[Partition, float],
-) -> None:
-    """
-    Finalize branch weights during the snap phase.
-
-    Weight application strategy:
-    - First mover: Average all shared splits under pivot, set expand splits to dest weight
-    - Subsequent movers: Only set their expand splits to destination weight
-                         (shared splits were already averaged by first mover)
-
-    Args:
-        tree: The tree to modify (mutated in place)
-        current_pivot_edge: The pivot edge being processed
-        expand_path: List of splits to expand for this mover
-        is_first_mover: Whether this is the first mover for this pivot
-        source_weights: Weights from the original source tree
-        destination_weights: Weights from the destination tree
-    """
-    pivot_node = tree.find_node_by_split(current_pivot_edge)
-
-    if is_first_mover:
-        # First mover: Average all shared splits under pivot + pivot edge itself
-        if pivot_node is not None:
-            expand_set = set(expand_path)
-            average_weights_under_pivot(
-                tree, pivot_node, expand_set, source_weights, destination_weights
-            )
-    else:
-        # Subsequent movers: Only set expand splits to destination weight
-        # Shared splits were already averaged by the first mover
-        set_expand_splits_to_dest_weight(tree, expand_path, destination_weights)
 
 
 # ============================================================================
@@ -134,49 +35,13 @@ def finalize_branch_weights(
 # ============================================================================
 
 
-def find_sibling_movers(
-    current_mover: Partition,
-    current_path: List[Partition],
-    all_movers: List[Partition],
-    parent_map: Optional[Dict[Partition, Partition]],
-) -> List[Partition]:
-    """
-    Find sibling movers that share the same parent in the source/dest tree,
-    ONLY if that parent is also present in the current mover's path.
-
-    This ensures that when a parent node moves (is in the path), all its children
-    (the siblings) are tracked and moved together in the same microstep group.
-    """
-    if not parent_map:
-        return [current_mover]
-
-    my_parent = parent_map.get(current_mover)
-
-    # Critical Check: The parent MUST be in the path for this grouping to apply.
-    # If the parent isn't moving (not in path), then these siblings are moving independently
-    # through a static parent structure, so they should NOT be grouped.
-    if not my_parent or my_parent not in current_path:
-        return [current_mover]
-
-    # Find all movers that share this same parent
-    siblings = [
-        m for m in all_movers if m != current_mover and parent_map.get(m) == my_parent
-    ]
-
-    # Return self + siblings, sorted for deterministic behavior
-    group = [current_mover] + siblings
-    # Sort by size first (descending) then bitmask for stability
-    return sorted(group, key=lambda p: (-p.size, p.bitmask))
-
-
 def _append_frame(
     trees: List[Node],
     edges: List[Optional[Partition]],
     tree: Node,
     edge: Optional[Partition],
-    subtree: Partition,
-    subtree_tracker: Optional[List[List[Partition]]] = None,
-    partition_group: Optional[List[Partition]] = None,
+    subtree_tracker: List[List[Partition]],
+    partition_group: List[Partition],
 ) -> None:
     """Append an animation frame to the output lists.
 
@@ -185,19 +50,12 @@ def _append_frame(
         edges: List to append the edge to
         tree: The tree to add
         edge: The edge to add
-        subtree: The primary subtree partition for this step (legacy)
-        subtree_tracker: Optional list to track subtree partitions per step
-        partition_group: Optional list of all partitions moving in this step
+        subtree_tracker: List to track subtree partitions per step
+        partition_group: List of all partitions moving in this step
     """
     trees.append(tree)
     edges.append(edge)
-    if subtree_tracker is not None:
-        # If a group is provided (shared parent case), track the whole group.
-        # Otherwise track the single subtree as a list of 1.
-        if partition_group is not None:
-            subtree_tracker.append(partition_group)
-        else:
-            subtree_tracker.append([subtree])
+    subtree_tracker.append(partition_group)
 
 
 def build_frames_for_subtree(
@@ -213,6 +71,8 @@ def build_frames_for_subtree(
     source_weights: Optional[Dict[Partition, float]] = None,
     source_tree: Optional[Node] = None,
     step_progress: float = 0.5,
+    collapse_sibling_groups: Optional[Dict[Partition, List[Partition]]] = None,
+    expand_sibling_groups: Optional[Dict[Partition, List[Partition]]] = None,
 ) -> Tuple[List[Node], List[Optional[Partition]], Node, List[List[Partition]]]:
     """
     Build animation frames for a single subtree/mover under an active-changing edge.
@@ -271,27 +131,26 @@ def build_frames_for_subtree(
     )
 
     # =========================================================================
-    # Determine mover groups for tracking
+    # Determine mover groups for tracking (use pre-computed phase-specific groups)
     # =========================================================================
-    collapse_movers = find_sibling_movers(
-        current_mover=subtree_partition,
-        current_path=collapse_paths,
-        all_movers=all_mover_partitions or [],
-        parent_map=source_parent_map,
-    )
-    expand_movers = find_sibling_movers(
-        current_mover=subtree_partition,
-        current_path=expand_paths,
-        all_movers=all_mover_partitions or [],
-        parent_map=dest_parent_map,
-    )
+    # Collapse phase: use source parent grouping
+    collapse_movers: List[Partition] = [subtree_partition]
+    if collapse_sibling_groups:
+        collapse_movers = get_group_for_mover(subtree_partition, collapse_sibling_groups)
+
+    # Expand phase: use dest parent grouping
+    expand_movers: List[Partition] = [subtree_partition]
+    if expand_sibling_groups:
+        expand_movers = get_group_for_mover(subtree_partition, expand_sibling_groups)
 
     # =========================================================================
     # Phase 1: Collapse (compute always, add frames conditionally)
     # =========================================================================
     if has_collapse_work:
         zeroed_tree: Node = interpolation_state.deep_copy()
+
         apply_zero_branch_lengths(zeroed_tree, PartitionSet(set(collapse_paths)))
+
         collapsed_tree: Node = create_collapsed_consensus_tree(
             zeroed_tree,
             current_pivot_edge,
@@ -299,33 +158,22 @@ def build_frames_for_subtree(
             destination_tree=destination_tree,
         )
 
-        # Add collapse frames
-        _append_frame(
-            trees,
-            edges,
-            interpolation_state.deep_copy(),
-            current_pivot_edge,
-            subtree_partition,
-            subtree_tracker,
-            partition_group=collapse_movers,
-        )
         _append_frame(
             trees,
             edges,
             zeroed_tree,
             current_pivot_edge,
-            subtree_partition,
             subtree_tracker,
-            partition_group=collapse_movers,
+            collapse_movers,
         )
+
         _append_frame(
             trees,
             edges,
             collapsed_tree.deep_copy(),
             current_pivot_edge,
-            subtree_partition,
             subtree_tracker,
-            partition_group=collapse_movers,
+            collapse_movers,
         )
 
         logger.debug(
@@ -343,9 +191,9 @@ def build_frames_for_subtree(
         destination_tree=destination_tree,
         current_pivot_edge=current_pivot_edge,
         moving_subtree_partition=subtree_partition,
-        all_mover_partitions=all_mover_partitions,
         source_parent_map=source_parent_map,
         dest_parent_map=dest_parent_map,
+        all_mover_partitions=all_mover_partitions,
         copy=True,
     )
 
@@ -356,23 +204,23 @@ def build_frames_for_subtree(
         # Add reorder frames: before and after
         if not has_collapse_work:
             # Need to show pre-reorder state (collapsed_tree wasn't added yet)
+
             _append_frame(
                 trees,
                 edges,
                 collapsed_tree.deep_copy(),
                 current_pivot_edge,
-                subtree_partition,
                 subtree_tracker,
-                partition_group=collapse_movers,
+                collapse_movers,
             )
+
         _append_frame(
             trees,
             edges,
             reordered_tree.deep_copy(),
             current_pivot_edge,
-            subtree_partition,
             subtree_tracker,
-            partition_group=collapse_movers,
+            collapse_movers,
         )
         logger.debug(
             f"[StepExecutor] After Reorder: {len(reordered_tree.to_splits())} splits"
@@ -403,10 +251,9 @@ def build_frames_for_subtree(
             copy=True,
         )
 
-        # Restore ordering after graft
         grafted_zero_weights.reorder_taxa(list(reordered_tree.get_current_order()))
 
-        # Preserve non-mover positions after graft
+        # Use align_to_source_order to preserve non-mover positions after graft
         align_to_source_order(
             grafted_zero_weights,
             source_order=list(reordered_tree.get_current_order()),
@@ -423,7 +270,9 @@ def build_frames_for_subtree(
         # Normalize all earlier frames to match the grafted ordering
         # This ensures consistent leaf order across collapse -> reorder -> expand -> snap
         grafted_zero_weights.reorder_taxa(final_order)
-        reordered_tree.reorder_taxa(final_order)
+
+        if trees:
+            trees[-1].reorder_taxa(final_order)
 
         # Apply weights to snap tree (doesn't change ordering)
         finalize_branch_weights(
@@ -441,9 +290,8 @@ def build_frames_for_subtree(
             edges,
             grafted_zero_weights.deep_copy(),
             current_pivot_edge,
-            subtree_partition,
             subtree_tracker,
-            partition_group=expand_movers,
+            expand_movers,
         )
 
         logger.debug(
@@ -452,7 +300,16 @@ def build_frames_for_subtree(
     else:
         # No expand work - snap operates on reordered tree directly
         # (reordered_tree is already a fresh copy we own)
-        grafted_tree = reordered_tree
+        grafted_tree = reordered_tree.deep_copy()
+
+        # CRITICAL: Always normalize ordering even without expand
+        # The original algorithm always did this regardless of expand path length.
+        # Skipping this causes "snapbacks" where leaf order jumps between frames.
+        final_order = list(grafted_tree.get_current_order())
+
+        # Reorder the reordered_tree copy that was added to the list
+        if trees:
+            trees[-1].reorder_taxa(final_order)
 
         # Apply weights to snap tree
         finalize_branch_weights(
@@ -472,9 +329,8 @@ def build_frames_for_subtree(
         edges,
         grafted_tree.deep_copy(),
         current_pivot_edge,
-        subtree_partition,
         subtree_tracker,
-        partition_group=expand_movers,
+        expand_movers,
     )
 
     logger.debug(f"[StepExecutor] After Snap: {len(grafted_tree.to_splits())} splits")
@@ -509,8 +365,6 @@ def execute_pivot_edge_plan(
         collapse_paths_for_pivot_edge: Paths for partitions that will be collapsed
         source_parent_map: Maps each mover -> its parent in source tree
         dest_parent_map: Maps each mover -> its parent in destination tree
-        edge_progress_start: Progress value at the start of this edge's processing (0.0-1.0)
-        edge_progress_end: Progress value at the end of this edge's processing (0.0-1.0)
 
     Returns:
         Tuple of (trees, edges, interpolation_state, subtree_tracker)
@@ -541,6 +395,18 @@ def execute_pivot_edge_plan(
         | set(list(collapse_paths_for_pivot_edge.keys()))
     )
 
+    # Pre-compute sibling groups ONCE before processing any movers.
+    # Phase-specific: collapse uses source parents, expand uses dest parents.
+    collapse_splits = get_collapse_splits(collapse_paths_for_pivot_edge)
+    expand_splits = get_expand_splits(expand_paths_for_pivot_edge)
+    collapse_sibling_groups, expand_sibling_groups = compute_sibling_groups(
+        all_mover_partitions,
+        collapse_splits,
+        expand_splits,
+        source_parent_map,
+        dest_parent_map,
+    )
+
     # We iterate over items to track first/last mover status
     selection_items = list(selections.items())
     total_selections = len(selection_items)
@@ -565,6 +431,8 @@ def execute_pivot_edge_plan(
                 is_last_mover=is_last_mover,
                 source_weights=source_weights,
                 source_tree=source_tree,
+                collapse_sibling_groups=collapse_sibling_groups,
+                expand_sibling_groups=expand_sibling_groups,
             )
         )
 
