@@ -16,7 +16,7 @@ Related modules:
 
 from __future__ import annotations
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
 
@@ -161,3 +161,106 @@ def apply_reference_weights_to_path(
         node: Node | None = tree.find_node_by_split(ref_split)
         if node is not None:
             node.length = reference_weights.get(ref_split, 1)
+
+
+def set_expand_splits_to_dest_weight(
+    tree: Node,
+    expand_splits: List[Partition],
+    destination_weights: Dict[Partition, float],
+) -> None:
+    """
+    Set expand splits (new in destination) to their destination weight.
+
+    Expand splits don't exist in the source tree, so there's nothing to average -
+    we simply set them to their final destination weight.
+
+    Args:
+        tree: The tree to modify (mutated in place)
+        expand_splits: List of splits that are new in the destination
+        destination_weights: Weights from the destination tree
+    """
+    for split in expand_splits:
+        node = tree.find_node_by_split(split)
+        if node is not None:
+            node.length = destination_weights.get(split, 0.0)
+
+
+def average_weights_under_pivot(
+    tree: Node,
+    pivot_node: Node,
+    expand_set: set[Partition],
+    source_weights: Optional[Dict[Partition, float]],
+    destination_weights: Dict[Partition, float],
+) -> None:
+    """
+    Average branch weights for all splits under the pivot edge.
+
+    For the first mover, we process ALL splits under the pivot:
+    - Expand splits (new in destination): set to destination weight
+    - Shared splits (in both trees): average (source + dest) / 2
+
+    Args:
+        tree: The tree to modify (mutated in place)
+        pivot_node: The node representing the pivot edge
+        expand_set: Set of splits that are expand (new) splits
+        source_weights: Weights from the original source tree
+        destination_weights: Weights from the destination tree
+    """
+    splits_under_pivot = list(pivot_node.to_splits(with_leaves=True))
+
+    for split in splits_under_pivot:
+        node = tree.find_node_by_split(split)
+        if node is None:
+            continue
+
+        if split in expand_set:
+            # Expand split: set to destination weight
+            node.length = destination_weights.get(split, 0.0)
+        else:
+            # Shared split: average (source + dest) / 2
+            src_weight = (
+                source_weights.get(split, node.length or 0.0)
+                if source_weights
+                else (node.length or 0.0)
+            )
+            dest_weight = destination_weights.get(split, 0.0)
+            node.length = (src_weight + dest_weight) / 2.0
+
+
+def finalize_branch_weights(
+    tree: Node,
+    current_pivot_edge: Partition,
+    expand_path: List[Partition],
+    is_first_mover: bool,
+    source_weights: Optional[Dict[Partition, float]],
+    destination_weights: Dict[Partition, float],
+) -> None:
+    """
+    Finalize branch weights during the snap phase.
+
+    Weight application strategy:
+    - First mover: Average all shared splits under pivot, set expand splits to dest weight
+    - Subsequent movers: Only set their expand splits to destination weight
+                         (shared splits were already averaged by first mover)
+
+    Args:
+        tree: The tree to modify (mutated in place)
+        current_pivot_edge: The pivot edge being processed
+        expand_path: List of splits to expand for this mover
+        is_first_mover: Whether this is the first mover for this pivot
+        source_weights: Weights from the original source tree
+        destination_weights: Weights from the destination tree
+    """
+    pivot_node = tree.find_node_by_split(current_pivot_edge)
+
+    if is_first_mover:
+        # First mover: Average all shared splits under pivot + pivot edge itself
+        if pivot_node is not None and source_weights is not None:
+            expand_set = set(expand_path)
+            average_weights_under_pivot(
+                tree, pivot_node, expand_set, source_weights, destination_weights
+            )
+    else:
+        # Subsequent movers: Only set expand splits to destination weight
+        # Shared splits were already averaged by the first mover
+        set_expand_splits_to_dest_weight(tree, expand_path, destination_weights)

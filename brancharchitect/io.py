@@ -5,6 +5,10 @@ from brancharchitect.elements.partition import Partition
 import json
 from typing import Optional
 from brancharchitect.uuid_encoder import UUIDEncoder
+import orjson
+
+# Threshold for parallel serialization (below this, sequential is faster)
+_PARALLEL_THRESHOLD = 50
 
 
 def dump_json(tree: Node, f: IO[str]):
@@ -42,10 +46,15 @@ def serialize_tree_list_to_json(tree_list: List[Node]) -> List[Dict[str, Any]]:
     return serialized_tree_list
 
 
-def write_tree_dictionaries_to_json(tree_list: list[Node], file_name: str):
+def _tree_to_dict(tree: Node) -> Dict[str, Any]:
+    """Helper function for parallel serialization."""
+    return tree.to_dict()
+
+
+def write_tree_dictionaries_to_json(tree_list: list[Node], file_name: str) -> None:
     serialized_tree_list = serialize_tree_list_to_json(tree_list)
-    with open(file_name, "w") as f:
-        json.dump(serialized_tree_list, f, cls=UUIDEncoder)
+    with open(file_name, "wb") as f:
+        f.write(orjson.dumps(serialized_tree_list))
 
 
 def serialize_subtree_tracking(

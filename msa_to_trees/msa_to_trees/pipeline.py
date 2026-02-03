@@ -207,8 +207,9 @@ def infer_trees_parallel(
         output_tree_filename if output_tree_filename else f"{uuid4().hex}.newick"
     )
 
+    all_fasta_files: list[str] = glob.glob(str(windows_dir / "*.fasta"))
     fasta_files = sorted(
-        glob.glob(str(windows_dir / "*.fasta")), key=lambda x: int(Path(x).stem)
+        all_fasta_files, key=lambda x: int(Path(x).stem)
     )
 
     # Use ProcessPoolExecutor to run FastTree in parallel

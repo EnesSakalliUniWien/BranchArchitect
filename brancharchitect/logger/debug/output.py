@@ -1,7 +1,7 @@
 import os
 from . import jt_logger, format_set
 from brancharchitect.logger.html_content import DEBUG_PAGE_CSS
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from brancharchitect.tree import Node
 from datetime import datetime
 from pathlib import Path
@@ -199,14 +199,14 @@ def create_debug_index(verbose: bool = False):
 
     # Use the project root instead of the current file's directory
     project_root = Path(__file__).parent.parent.parent.parent
-    output_dir = project_root / "output" / "test_debug"
+    output_dir = project_root / "test" / "output" / "debug_logs"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if verbose:
         print(f"Creating index in: {output_dir}")
 
-    # Gather debug HTML files in 'output/test_debug'
-    debug_files = []
+    # Gather debug HTML files in 'test/output/debug_logs'
+    debug_files: List[Dict[str, Any]] = []
     for file in output_dir.glob("*.html"):
         if file.name.lower() == "index.html":
             continue  # skip existing index

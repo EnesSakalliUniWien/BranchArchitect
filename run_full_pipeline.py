@@ -16,7 +16,7 @@ from typing import List
 
 def main(input_fasta):
     # 1. MSA -> Trees
-    output_dir = Path("output/full_run")
+    output_dir = Path("results/full_run")
     if output_dir.exists():
         import shutil
 

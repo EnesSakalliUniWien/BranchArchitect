@@ -2,7 +2,7 @@
 Complex reordering tests using real example trees from the repository:
 
 - current_testfiles/small_example.newick: first two trees are used as source/destination
-- test-data/reverse_test_tree_moving_updwards.tree: tests upward-moving scenario
+- test/data/reverse_test_tree_moving_updwards.tree: tests upward-moving scenario
 
 We validate that running interpolate_subtree_order step-by-step for the
 moving subtrees (from compute_pivot_solutions_with_deletions) preserves anchor order and
@@ -56,7 +56,7 @@ def _is_contiguous_block(order: List[str], block: Set[str]) -> bool:
 
 def test_reordering_small_example_stepwise():
     """Stepwise reordering on small_example.newick preserves anchors and blocks movers."""
-    lines = _read_newick_lines("test-data/current_testfiles/small_example.newick")
+    lines = _read_newick_lines("test/data/current_testfiles/small_example.newick")
     assert len(lines) >= 2, "Expected at least two trees in small_example.newick"
 
     src = parse_newick(lines[0])
@@ -94,7 +94,7 @@ def test_reordering_small_example_stepwise():
 
 def test_pair_interpolation_matches_destination_order_small_example():
     """Full pair interpolation should end exactly on the destination ordering."""
-    lines = _read_newick_lines("test-data/current_testfiles/small_example.newick")
+    lines = _read_newick_lines("test/data/current_testfiles/small_example.newick")
     assert len(lines) >= 2, "Expected at least two trees in small_example.newick"
 
     src = parse_newick(lines[0])
@@ -120,7 +120,7 @@ def test_reordering_reverse_upwards_from_file():
     Use reverse_test_tree_moving_updwards.tree to verify block movement upwards.
     Movers should become contiguous and anchor order is preserved.
     """
-    lines = _read_newick_lines("test-data/reverse_test_tree_moving_updwards.tree")
+    lines = _read_newick_lines("test/data/reverse_test_tree_moving_updwards.tree")
     assert len(lines) == 2
 
     src = parse_newick(lines[0])
