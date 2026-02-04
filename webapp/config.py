@@ -1,6 +1,7 @@
 """Configuration for the Flask application."""
 
 import os
+import secrets
 import sys
 import platform
 from pathlib import Path
