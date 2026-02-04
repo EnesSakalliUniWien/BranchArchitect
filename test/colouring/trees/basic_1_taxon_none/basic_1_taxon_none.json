@@ -1,1 +1,0 @@
-{"tree1": "((((A1,A2),(A3,A4)),X),((B1,B2),(B3,B4)));", "tree2": "(((A1,A2),(A3,A4)),((B1,B2),(B3,B4)),X);", "solutions": [[["A1", "A2", "A3", "A4"]], [["B1", "B2", "B3", "B4"]], [["X"]]], "comment": "Single taxa jumps into S-edge (None case)"}

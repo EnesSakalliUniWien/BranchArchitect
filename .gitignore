@@ -1,15 +1,47 @@
+# Python
 /env
 /__pycache__
-dist
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Jupyter
 .ipynb_checkpoints/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+
+# Project-specific data directories
 /data
 !test/data/
-order_optimisation_notebooks
-annotation_names.txt
-optimise_tree_order.py
-TreeCmp_v2.0-b76
 
-# Anchoring root directories
+# Output directories
 /output/
 /results/
 /logs/
@@ -17,22 +49,42 @@ TreeCmp_v2.0-b76
 /assets/
 /misc/
 
-# Test outputs (allow test/data/ but ignore generated logs)
+# Test outputs
 /test/output/debug_logs/
 /test/rooting/test_outputs
 
 # Type stub files
 *.pyi
-.env
+
+# Documentation (if auto-generated)
 /docs
+
+# Log files
 backend.log
 backend_startup.log
+*.log
+
+# Misc
 package-lock.json
-.DS_Store
 sss.newick
 .hypothesis
 .kiro
-.github/copilot-instructions.md
-brancharchitect/__pycache__
-*.pyc
+.mypy_cache/
+.pytest_cache/
+
+# Legacy/deprecated files
+order_optimisation_notebooks
+annotation_names.txt
+optimise_tree_order.py
+TreeCmp_v2.0-b76
+
+# Notebook outputs and generated files
+notebooks/experiments/
+notebooks/paper_plots/media/
+notebooks/paper_plots/manim_output/
+notebooks/paper_plots/*.pdf
+notebooks/paper_plots/*.png
+notebooks/paper_plots/*.svg
+notebooks/recombination_scenarios/*.pdf
+notebooks/recombination_scenarios/*.png
 .github
