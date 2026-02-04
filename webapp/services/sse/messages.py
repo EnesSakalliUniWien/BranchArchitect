@@ -82,9 +82,10 @@ def sse_response(
                 yield format_sse_message({'count': i})
         return sse_response(generate())
     """
+    # Note: "Connection" is a hop-by-hop header forbidden by PEP 3333 (WSGI)
+    # Waitress/WSGI handles connection management automatically
     default_headers = {
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
         "X-Accel-Buffering": "no",  # Disable nginx buffering
     }
 

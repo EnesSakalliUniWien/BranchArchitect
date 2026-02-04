@@ -180,15 +180,6 @@ class TreeInterpolationSequence:
             }
             tree_pair_solutions[pair_key] = pair_solution
 
-            if logger:
-                logger.debug(
-                    "[pair_solutions] pair=%s range=[%d,%d] splits=%d",
-                    pair_key,
-                    start,
-                    end,
-                    len(split_change_events),
-                )
-
         return tree_pair_solutions, pair_ranges
 
     @staticmethod
