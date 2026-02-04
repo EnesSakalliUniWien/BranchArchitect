@@ -33,7 +33,8 @@ def main():
     pipeline = TreeInterpolationPipeline(config=config)
     processed_data: InterpolationResult = pipeline.process_trees(trees=trees)
 
-    print(f"Number of input trees: {len(trees)}")
+    for i, tree in enumerate(processed_data.interpolated_trees):
+        print(f"Frame {i}: {tree.to_newick()[:80]}...")
 
 
 if __name__ == "__main__":

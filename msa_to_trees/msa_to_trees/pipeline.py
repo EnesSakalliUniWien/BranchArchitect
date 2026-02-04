@@ -208,9 +208,7 @@ def infer_trees_parallel(
     )
 
     all_fasta_files: list[str] = glob.glob(str(windows_dir / "*.fasta"))
-    fasta_files = sorted(
-        all_fasta_files, key=lambda x: int(Path(x).stem)
-    )
+    fasta_files = sorted(all_fasta_files, key=lambda x: int(Path(x).stem))
 
     # Use ProcessPoolExecutor to run FastTree in parallel
     max_workers = os.cpu_count()
