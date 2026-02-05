@@ -123,20 +123,15 @@ def build_frames_for_subtree(
     has_collapse_work = len(collapse_paths) > 0
     has_expand_work = len(expand_paths) > 0
 
-    logger.debug(
-        f"[StepExecutor] Subtree {subtree_partition}: "
-        f"collapse_paths={[tuple(s.indices) for s in collapse_paths]}, "
-        f"expand_paths={[tuple(s.indices) for s in expand_paths]}, "
-        f"is_first_mover={is_first_mover}"
-    )
-
     # =========================================================================
     # Determine mover groups for tracking (use pre-computed phase-specific groups)
     # =========================================================================
     # Collapse phase: use source parent grouping
     collapse_movers: List[Partition] = [subtree_partition]
     if collapse_sibling_groups:
-        collapse_movers = get_group_for_mover(subtree_partition, collapse_sibling_groups)
+        collapse_movers = get_group_for_mover(
+            subtree_partition, collapse_sibling_groups
+        )
 
     # Expand phase: use dest parent grouping
     expand_movers: List[Partition] = [subtree_partition]
@@ -176,9 +171,6 @@ def build_frames_for_subtree(
             collapse_movers,
         )
 
-        logger.debug(
-            f"[StepExecutor] After Collapse: {len(collapsed_tree.to_splits())} splits"
-        )
     else:
         # No collapse work - start from a copy of input
         collapsed_tree = interpolation_state.deep_copy()
@@ -221,9 +213,6 @@ def build_frames_for_subtree(
             current_pivot_edge,
             subtree_tracker,
             collapse_movers,
-        )
-        logger.debug(
-            f"[StepExecutor] After Reorder: {len(reordered_tree.to_splits())} splits"
         )
     else:
         # No reorder change - ensure we have a copy for chaining
@@ -294,9 +283,6 @@ def build_frames_for_subtree(
             expand_movers,
         )
 
-        logger.debug(
-            f"[StepExecutor] After Expand: {len(grafted_zero_weights.to_splits())} splits"
-        )
     else:
         # No expand work - snap operates on reordered tree directly
         # (reordered_tree is already a fresh copy we own)
@@ -332,8 +318,6 @@ def build_frames_for_subtree(
         subtree_tracker,
         expand_movers,
     )
-
-    logger.debug(f"[StepExecutor] After Snap: {len(grafted_tree.to_splits())} splits")
 
     return trees, edges, grafted_tree, subtree_tracker
 

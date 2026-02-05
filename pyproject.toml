@@ -10,16 +10,14 @@ include = ["brancharchitect/**/*.pyi"]
 [tool.poetry.dependencies]
 python = "^3.11"
 numpy = "^1.26.4"
-pandas = "^2.0.0"
-matplotlib = "^3.7.0"
-plotly = "^5.0.0"
-seaborn = "^0.12.0"
 tabulate = "^0.9.0"
 scikit-bio = "^0.6.3"
+typing-extensions = "^4.12.0"  # Explicit dependency for type hints
+werkzeug = "^3.0.0"  # Flask dependency, used directly in webapp
 
 # Optional dependencies for advanced plotting features
 cairosvg = {version = "^2.8.2", optional = true}
-# pycairo = {version = "^1.28.0", optional = true}  # Commented out - unused
+plotly = {version = "^5.0.0", optional = true}
 biopython = "^1.86"
 flask = "^3.1.2"
 flask-cors = "^6.0.1"
@@ -30,7 +28,7 @@ flask-compress = "^1.23"
 waitress = "^3.0.2"
 
 [tool.poetry.extras]
-plotting = ["cairosvg"]
+plotting = ["cairosvg", "plotly"]
 
 
 [tool.poetry.group.test.dependencies]
@@ -39,19 +37,26 @@ hypothesis = "^6.100.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest-timeout = "^2.3.1"
-ipykernel = "^6.29.4"
 pytest-html = "^3.2.0"
-
-# --- Add these two lines to enable static type checks in tests ---
+requests = "^2.31.0"  # For test_request.py
 mypy = "^1.5.1"
 pytest-mypy = "^0.10.3"
-notebook = "^7.5.1"
 hypothesis = "^6.149.0"
 deptry = "^0.12.0"
+
+[tool.poetry.group.build.dependencies]
+pyinstaller = {version = "^6.0.0", python = ">=3.11,<3.15"}  # For bundling the Flask server into Electron app
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.deptry]
+# Ignore DEP004: test files importing dev dependencies (expected)
+ignore = ["DEP004"]
+# split_alignment is a submodule of msa_to_trees, not an external dependency
+ignore_notebooks = true
+per_rule_ignores = {DEP001 = ["split_alignment"]}
 
 [tool.mypy]
 python_version = "3.11"

@@ -11,6 +11,7 @@
 
 # Virtual environments
 .venv/
+.venv-build/
 venv/
 ENV/
 

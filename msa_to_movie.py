@@ -65,11 +65,11 @@ def main(input_fasta: str) -> None:
 
     print(f"\nResults:")
     print(f"  Input trees: {len(trees)}")
-    print(f"  Interpolated frames: {len(result.interpolated_trees)}")
+    print(f"  Interpolated frames: {len(result['interpolated_trees'])}")
 
     # Print first and last frame as Newick
-    print(f"\nFirst frame: {result.interpolated_trees[0].to_newick()[:80]}...")
-    print(f"Last frame:  {result.interpolated_trees[-1].to_newick()[:80]}...")
+    print(f"\nFirst frame: {result['interpolated_trees'][0].to_newick()[:80]}...")
+    print(f"Last frame:  {result['interpolated_trees'][-1].to_newick()[:80]}...")
 
 
 if __name__ == "__main__":
