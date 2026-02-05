@@ -44,6 +44,9 @@ pytest-mypy = "^0.10.3"
 hypothesis = "^6.149.0"
 deptry = "^0.12.0"
 
+[tool.poetry.group.build.dependencies]
+pyinstaller = {version = "^6.0.0", python = ">=3.11,<3.15"}  # For bundling the Flask server into Electron app
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

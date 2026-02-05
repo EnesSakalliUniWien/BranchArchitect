@@ -30,11 +30,19 @@ done
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_ROOT"
 
-# Navigate to the webapp directory for Flask backend
-cd "$PROJECT_ROOT/webapp"
+# Check if Poetry is installed
+if ! command -v poetry &> /dev/null; then
+  echo "[backend] ERROR: Poetry is not installed."
+  echo "[backend] Please install Poetry using one of these methods:"
+  echo "[backend]   - Official installer: curl -sSL https://install.python-poetry.org | python3 -"
+  echo "[backend]   - Homebrew (macOS):  brew install poetry"
+  echo "[backend]   - pipx:              pipx install poetry"
+  echo "[backend] After installing, restart your terminal and run this script again."
+  exit 1
+fi
 
-# Install dependencies with poetry
-echo "[backend] Installing webapp dependencies with poetry..."
+# Install dependencies with poetry from project root (includes scikit-bio and all scientific deps)
+echo "[backend] Installing dependencies with poetry..."
 if ! poetry install; then
   echo "[backend] ERROR: Poetry install failed. Check your dependencies and lock file."
   exit 1
@@ -57,7 +65,7 @@ export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
 # export DYLD_LIBRARY_PATH="/opt/homebrew/lib:$DYLD_LIBRARY_PATH"
 
 # Check if run.py exists before starting backend
-if [ ! -f "run.py" ]; then
+if [ ! -f "$PROJECT_ROOT/webapp/run.py" ]; then
   echo "[backend] ERROR: run.py not found in webapp directory."
   exit 1
 fi

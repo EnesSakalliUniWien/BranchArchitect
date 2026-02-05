@@ -210,15 +210,25 @@ def infer_trees_parallel(
     all_fasta_files: list[str] = glob.glob(str(windows_dir / "*.fasta"))
     fasta_files = sorted(all_fasta_files, key=lambda x: int(Path(x).stem))
 
-    # Use ProcessPoolExecutor to run FastTree in parallel
-    max_workers = os.cpu_count()
+    # Detect if running in PyInstaller frozen executable
+    is_frozen = getattr(sys, "frozen", False)
 
-    # Create a partial function with config bound
-    fasttree_runner = partial(run_fasttree, config=config)
+    if is_frozen:
+        # In frozen executables, multiprocessing spawn doesn't work reliably
+        # due to how PyInstaller packages the application. Run sequentially
+        # to ensure stability. Performance impact is acceptable for typical
+        # alignment sizes in interactive usage.
+        results = [run_fasttree(f, config) for f in fasta_files]
+    else:
+        # Use ProcessPoolExecutor to run FastTree in parallel
+        max_workers = os.cpu_count()
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Map returns results in the order of the input iterable
-        results = list(executor.map(fasttree_runner, fasta_files))
+        # Create a partial function with config bound
+        fasttree_runner = partial(run_fasttree, config=config)
+
+        with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+            # Map returns results in the order of the input iterable
+            results = list(executor.map(fasttree_runner, fasta_files))
 
     # Write all trees to the master file
     with open(master_tree_file, "w") as f:
