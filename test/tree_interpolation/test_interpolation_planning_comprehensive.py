@@ -485,7 +485,7 @@ class TestBuilderIncompatibilityHandling(unittest.TestCase):
         self.part_AC = Partition((0, 2), self.encoding)  # Incompatible with part_AB
         self.part_ABCD = Partition((0, 1, 2, 3), self.encoding)
 
-        # Trees: source has (A,B) clade, destination has (A,C) clade
+        # Trees: source has (A,B) subtree, destination has (A,C) subtree
         taxa_order = ["A", "B", "C", "D"]
         self.tree_AB = parse_newick(
             "((A,B),(C,D));", order=taxa_order, encoding=self.encoding

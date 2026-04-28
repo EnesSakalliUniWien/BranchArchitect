@@ -99,7 +99,7 @@ def _run_msa_analysis_and_interpolate(
         )
 
         report(
-            20,
+            10,
             f"Running tree inference pipeline with {fasttree_config.description} model...",
         )
 
@@ -119,6 +119,8 @@ def _run_msa_analysis_and_interpolate(
 
         tree_file_path = pipeline_result.tree_file_path
 
+        report(40, "Tree inference complete.")
+
         # Log dropped taxa information
         if pipeline_result.has_dropped_taxa:
             log.warning(
@@ -126,7 +128,7 @@ def _run_msa_analysis_and_interpolate(
                 f"due to invalid data in some windows: {pipeline_result.dropped_taxa[:5]}..."
             )
             report(
-                30,
+                42,
                 f"Note: {len(pipeline_result.dropped_taxa)} taxa dropped (gaps/ambiguous in some windows)",
             )
 
@@ -135,7 +137,7 @@ def _run_msa_analysis_and_interpolate(
                 "Analysis script finished but did not produce the expected tree file."
             )
 
-        report(60, "Processing generated trees...")
+        report(45, "Processing generated trees...")
 
         with open(tree_file_path, "r", encoding="utf-8") as f:
             tree_content = f.read()
@@ -145,9 +147,9 @@ def _run_msa_analysis_and_interpolate(
             f"{pipeline_result.kept_taxa} taxa. Running interpolation service."
         )
 
-        # Create a sub-callback that maps 60-100 range
+        # Create a sub-callback that maps handle_tree_content's 0-100 into 45-95
         tree_progress_callback = _create_sub_progress_callback(
-            progress_callback, 60, 100
+            progress_callback, 45, 95
         )
 
         response_data = handle_tree_content(

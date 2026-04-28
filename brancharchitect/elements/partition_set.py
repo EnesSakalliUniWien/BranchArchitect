@@ -450,18 +450,18 @@ class PartitionSet(Generic[T], MutableSet[T]):
 
         MATHEMATICAL DEFINITION:
             Returns True iff ∃s ∈ self: partition ⊆ s
-            where ⊆ is the subset relation on partitions (clades)
+            where ⊆ is the subset relation on partitions (subtrees)
 
         BITWISE IMPLEMENTATION:
             partition ⊆ s ⟺ (partition.bitmask & s.bitmask) == partition.bitmask
             This checks if all taxa in partition are also in s.
 
         PHYLOGENETIC INTERPRETATION:
-            Returns True if the clade represented by partition is nested within
-            (descendant of) at least one clade in this PartitionSet.
+            Returns True if the subtree represented by partition is nested within
+            (descendant of) at least one subtree in this PartitionSet.
 
         Args:
-            partition: The partition (clade) to check for coverage.
+            partition: The partition (subtree) to check for coverage.
                       Can be a Partition object, tuple of indices, or single int.
 
         Returns:

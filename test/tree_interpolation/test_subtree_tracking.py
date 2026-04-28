@@ -233,9 +233,7 @@ class TestSerializationDeterminism(unittest.TestCase):
 
     def test_serialization_produces_sorted_list(self):
         """Test that serialization produces sorted list of indices."""
-        from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
-            TreeInterpolationPipeline,
-        )
+        from brancharchitect.io import serialize_subtree_tracking
 
         encoding = {"A": 0, "B": 1, "C": 2, "D": 3}
 
@@ -243,44 +241,33 @@ class TestSerializationDeterminism(unittest.TestCase):
         part1 = Partition((2, 0, 1), encoding)  # Unsorted input
         part2 = Partition((3, 1), encoding)
 
-        pipeline = TreeInterpolationPipeline()
-
         # Serialize
-        result = pipeline._serialize_subtree_tracking([part1, part2, None])
+        result = serialize_subtree_tracking([[part1, part2], None])
 
         # Check sorted
-        self.assertEqual(result[0], [0, 1, 2])  # Should be sorted
-        self.assertEqual(result[1], [1, 3])  # Should be sorted
-        self.assertIsNone(result[2])  # None stays None
+        self.assertEqual(result[0], [[0, 1, 2], [1, 3]])  # Should be sorted
+        self.assertIsNone(result[1])  # None stays None
 
     def test_serialization_is_deterministic(self):
         """Test that serializing the same partition multiple times gives identical results."""
-        from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
-            TreeInterpolationPipeline,
-        )
+        from brancharchitect.io import serialize_subtree_tracking
 
         encoding = {"A": 0, "B": 1, "C": 2, "D": 3}
         part = Partition((2, 0, 3), encoding)
 
-        pipeline = TreeInterpolationPipeline()
-
         # Serialize multiple times
-        results = [pipeline._serialize_subtree_tracking([part])[0] for _ in range(5)]
+        results = [serialize_subtree_tracking([[part]])[0] for _ in range(5)]
 
         # All results should be identical
         for result in results:
             self.assertEqual(result, results[0])
-            self.assertEqual(result, [0, 2, 3])
+            self.assertEqual(result, [[0, 2, 3]])
 
     def test_none_serialization(self):
         """Test that None values are preserved during serialization."""
-        from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
-            TreeInterpolationPipeline,
-        )
+        from brancharchitect.io import serialize_subtree_tracking
 
-        pipeline = TreeInterpolationPipeline()
-
-        result = pipeline._serialize_subtree_tracking([None, None, None])
+        result = serialize_subtree_tracking([None, None, None])
 
         self.assertEqual(result, [None, None, None])
 
@@ -307,7 +294,7 @@ class TestAPIResponseStructure(unittest.TestCase):
             sorted_leaves=["A", "B", "C"],
             tree_pair_solutions={},
             pivot_edge_tracking=[None, [0, 1], [0, 1], None],
-            subtree_tracking=[None, [2], [2], None],
+            subtree_tracking=[None, [[2]], [[2]], None],
             file_name="test.nwk",
             window_size=1,
             window_step_size=1,
@@ -319,10 +306,10 @@ class TestAPIResponseStructure(unittest.TestCase):
 
         # Verify subtree_tracking is in response
         self.assertIn("subtree_tracking", result)
-        self.assertEqual(result["subtree_tracking"], [None, [2], [2], None])
+        self.assertEqual(result["subtree_tracking"], [None, [[2]], [[2]], None])
 
-    def test_subtree_tracking_format_matches_pivot_edge_tracking(self):
-        """Test that subtree_tracking has same format as pivot_edge_tracking."""
+    def test_subtree_tracking_runs_parallel_to_pivot_edge_tracking(self):
+        """Test that subtree_tracking aligns with pivot_edge_tracking."""
         from webapp.services.trees.movie_data import MovieData
         from webapp.services.trees.frontend_builder import assemble_frontend_dict
 
@@ -334,7 +321,7 @@ class TestAPIResponseStructure(unittest.TestCase):
             sorted_leaves=["A", "B", "C", "D"],
             tree_pair_solutions={},
             pivot_edge_tracking=[None, [0, 1], None],
-            subtree_tracking=[None, [2, 3], None],
+            subtree_tracking=[None, [[2, 3]], None],
             file_name="test.nwk",
             window_size=1,
             window_step_size=1,
@@ -349,7 +336,7 @@ class TestAPIResponseStructure(unittest.TestCase):
             len(result["subtree_tracking"]), len(result["pivot_edge_tracking"])
         )
 
-        # Both should have same structure: List[Optional[List[int]]]
+        # Pivot entries are List[int]; subtree entries are List[List[int]].
         for i in range(len(result["subtree_tracking"])):
             pivot_val = result["pivot_edge_tracking"][i]
             subtree_val = result["subtree_tracking"][i]

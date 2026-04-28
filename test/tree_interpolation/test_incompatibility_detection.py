@@ -252,9 +252,9 @@ class TestRealTreeScenarios:
             "D2": 6,
         }
 
-    def test_scenario_overlapping_clades(self, simple_encoding):
+    def test_scenario_overlapping_subtrees(self, simple_encoding):
         """
-        Test realistic scenario: overlapping clades that must be collapsed.
+        Test realistic scenario: overlapping subtrees that must be collapsed.
 
         Tree 1 has: ((A1, A2), (B, C1))
         Tree 2 has: ((A2, B), (C1, C2))
@@ -292,9 +292,9 @@ class TestRealTreeScenarios:
         assert collapse_b_c1 in incompatible  # Overlaps at B
         assert collapse_c1_c2 not in incompatible  # Disjoint
 
-    def test_scenario_nested_clades_compatible(self, simple_encoding):
+    def test_scenario_nested_subtrees_compatible(self, simple_encoding):
         """
-        Test that nested clades are compatible.
+        Test that nested subtrees are compatible.
 
         If Tree 1 has ((A1, A2, B)) and we want to expand (A1, A2),
         the nested structure should be compatible.

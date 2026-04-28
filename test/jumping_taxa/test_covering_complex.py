@@ -103,7 +103,7 @@ class TestCoveringComplexCases(unittest.TestCase):
 
         Solution: {A,B,C,D}
         -> In Tree1: this is ABCD (exists)
-        -> In Tree2: this does NOT exist as a single clade
+        -> In Tree2: this does NOT exist as a single subtree
 
         Common minimal covers: {AB} and {CD} (since ABCD doesn't exist in both)
         """

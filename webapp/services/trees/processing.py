@@ -30,6 +30,20 @@ ProgressCallback = Callable[[float, str], None]
 CHUNKED_STREAMING_THRESHOLD = 500
 
 
+def _sub_progress(
+    parent: Optional[ProgressCallback], start: float, end: float
+) -> Optional[ProgressCallback]:
+    """Create a sub-callback that maps 0-100 into [start, end] on the parent."""
+    if parent is None:
+        return None
+
+    def callback(pct: float, msg: str) -> None:
+        mapped = start + (pct / 100.0) * (end - start)
+        parent(mapped, msg)
+
+    return callback
+
+
 def handle_tree_content(
     tree_content: str,
     filename: str = "uploaded_file",
@@ -81,7 +95,7 @@ def handle_tree_content(
         return _create_empty_response(filename)
 
     logger.info(f"Successfully parsed {len(trees)} trees")
-    report(20, f"Parsed {len(trees)} trees, computing interpolation...")
+    report(10, f"Parsed {len(trees)} trees, computing interpolation...")
 
     # Process trees through the pipeline
     config = PipelineConfig(
@@ -93,11 +107,14 @@ def handle_tree_content(
     )
 
     pipeline = TreeInterpolationPipeline(config=config)
+    # Map pipeline's 0-100 progress into the 10-75 range so it doesn't
+    # conflict with the surrounding report() calls.
+    pipeline_callback = _sub_progress(progress_callback, 10, 75)
     result: InterpolationResult = pipeline.process_trees(
-        trees, progress_callback=progress_callback
+        trees, progress_callback=pipeline_callback
     )
 
-    report(70, "Processing MSA data...")
+    report(75, "Processing MSA data...")
 
     # Process MSA data if available
     from webapp.services.msa import process_msa_data
@@ -211,7 +228,7 @@ def handle_tree_content_streaming(
         return assemble_frontend_metadata(empty_movie_data), [], False
 
     logger.info(f"Successfully parsed {len(trees)} trees")
-    report(20, f"Parsed {len(trees)} trees, computing interpolation...")
+    report(10, f"Parsed {len(trees)} trees, computing interpolation...")
 
     config = PipelineConfig(
         enable_rooting=enable_rooting,
@@ -222,9 +239,12 @@ def handle_tree_content_streaming(
     )
 
     pipeline = TreeInterpolationPipeline(config=config)
-    result = pipeline.process_trees(trees, progress_callback=progress_callback)
+    # Map pipeline's 0-100 progress into the 10-75 range so it doesn't
+    # conflict with the surrounding report() calls.
+    pipeline_callback = _sub_progress(progress_callback, 10, 75)
+    result = pipeline.process_trees(trees, progress_callback=pipeline_callback)
 
-    report(70, "Processing MSA data...")
+    report(75, "Processing MSA data...")
 
     msa_data = process_msa_data(
         msa_content=msa_content,

@@ -104,7 +104,7 @@ def test_three_movers_same_side():
 
 
 def test_subtree_edge_application():
-    """Applying to a subtree pivot reorders only the pivot clade."""
+    """Applying to a subtree pivot reorders only the pivot subtree."""
     t1, t2 = _pair(
         "(((A:1,B:1),(C:1,D:1)),(E:1,F:1));",
         "(((C:1,D:1),(A:1,B:1)),(E:1,F:1));",

@@ -439,7 +439,7 @@ class Node:
         """
         Convert a tuple of taxon names to a Partition using this tree's taxa_encoding.
 
-        This is the preferred API over the legacy `_index` helper.
+        This is the preferred API for name-based partition lookup.
         """
         try:
             indices = tuple(sorted(self.taxa_encoding[name] for name in names))

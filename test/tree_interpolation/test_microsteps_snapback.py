@@ -39,9 +39,9 @@ def test_microsteps_snapback_consistency():
     dest = Node()
     dest.taxa_encoding = reordered.taxa_encoding
     # ((A, B), C)
-    ab_clade = Node()
-    ab_clade.children = [Node(name="A", length=0.1), Node(name="B", length=0.1)]
-    dest.children = [ab_clade, Node(name="C", length=0.1)]  # Pivot edge (dummy)
+    ab_subtree = Node()
+    ab_subtree.children = [Node(name="A", length=0.1), Node(name="B", length=0.1)]
+    dest.children = [ab_subtree, Node(name="C", length=0.1)]  # Pivot edge (dummy)
     pivot = Partition((0, 1, 2), reordered.taxa_encoding)  # Root
 
     # Selection with expand path
