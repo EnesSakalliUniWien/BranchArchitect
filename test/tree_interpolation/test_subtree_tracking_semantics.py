@@ -5,7 +5,7 @@ from brancharchitect.tree_interpolation.subtree_paths.execution.pivot_edge_inter
 )
 
 
-def test_reorder_frames_track_all_movers_shifted_by_global_reorder():
+def test_reorder_tracking_group_does_not_make_all_group_members_move():
     source = parse_newick("(A:1,M1:1,M2:1,B:1);")
     destination = parse_newick("(A:1,B:1,M1:1,M2:1);")
     destination.initialize_split_indices(source.taxa_encoding)
@@ -30,5 +30,5 @@ def test_reorder_frames_track_all_movers_shifted_by_global_reorder():
     )
 
     assert len(trees) >= 2
-    assert list(trees[1].get_current_order()) == ["A", "B", "M1", "M2"]
+    assert list(trees[1].get_current_order()) == ["A", "M2", "B", "M1"]
     assert all(group == [mover, sibling] for group in subtree_tracker)

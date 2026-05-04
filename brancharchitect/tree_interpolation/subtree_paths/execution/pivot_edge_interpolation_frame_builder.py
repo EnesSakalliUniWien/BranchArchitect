@@ -206,7 +206,9 @@ def build_frames_for_subtree(
         moving_subtree_partition=subtree_partition,
         source_parent_map=source_parent_map,
         dest_parent_map=dest_parent_map,
-        all_mover_partitions=all_mover_partitions,
+        # Context only: these movers are unstable non-anchors, but only
+        # subtree_partition moves during this microstep.
+        unstable_mover_partitions=all_mover_partitions,
         copy=True,
     )
 

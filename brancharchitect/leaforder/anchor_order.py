@@ -184,58 +184,45 @@ def _get_solution_mappings(
     return mapped_t1, mapped_t2
 
 
-def _leaf_anchor_splits(
-    src_node: Node,
-    destination_taxa: set[str],
-) -> PartitionSet[Partition]:
-    """Return source leaf splits that are present in the destination subtree."""
-    leaf_splits = PartitionSet(encoding=src_node.taxa_encoding)
-    for leaf in src_node.get_leaves():
-        if leaf.name in destination_taxa and leaf.split_indices:
-            leaf_splits.add(leaf.split_indices)
-    return leaf_splits
-
-
-def _common_splits_in_subtree(
+def _stable_anchor_splits_in_subtree(
     edge: Partition,
     src_node: Node,
     dst_node: Node,
-    destination_taxa: set[str],
     common_splits: Optional[PartitionSet[Partition]] = None,
 ) -> PartitionSet[Partition]:
-    """Return common splits in this subtree, including leaf anchors."""
-    source_splits_with_leaves = src_node.to_splits(with_leaves=True)
+    """Return stable structural anchors available under edge.
+
+    When common_splits is precomputed by the optimizer, it represents shared
+    structural splits for propagation. Do not add every matching leaf here:
+    leaves are useful as a local fallback, but as precomputed root anchors they
+    turn a pure visual rotation into a forced destination-order rewrite.
+    """
     if common_splits is None:
-        common_splits_with_leaves = source_splits_with_leaves.intersection(
+        stable_anchor_splits = src_node.to_splits(with_leaves=True).intersection(
             dst_node.to_splits(with_leaves=True)
         )
     else:
-        common_splits_with_leaves = common_splits | _leaf_anchor_splits(
-            src_node, destination_taxa
-        )
-        common_splits_with_leaves = common_splits_with_leaves.intersection(
-            source_splits_with_leaves
+        stable_anchor_splits = common_splits.intersection(
+            src_node.to_splits(with_leaves=True)
         )
 
-    return common_splits_with_leaves - {edge}
+    return stable_anchor_splits - {edge}
 
 
-def _get_anchor_blocks_and_movers(
+def _get_stable_anchor_blocks_and_movers(
     edge: Partition,
     src_node: Node,
     dst_node: Node,
     solution_to_source: Dict[Partition, Partition],
     solution_to_destination: Dict[Partition, Partition],
-    destination_taxa: set[str],
     t1: Node,
     common_splits: Optional[PartitionSet[Partition]] = None,
 ) -> Tuple[List[Tuple[str, ...]], List[Partition]]:
-    """Identify stable anchor blocks and jumping mover partitions."""
-    common_splits_in_subtree = _common_splits_in_subtree(
+    """Identify stable anchor blocks and mover partitions for this edge."""
+    stable_anchor_splits = _stable_anchor_splits_in_subtree(
         edge,
         src_node,
         dst_node,
-        destination_taxa,
         common_splits=common_splits,
     )
 
@@ -252,7 +239,7 @@ def _get_anchor_blocks_and_movers(
     )
 
     # CRITICAL: Separate stable anchors from jumping movers.
-    stable_common_splits = common_splits_in_subtree - moving_solution_set
+    stable_common_splits = stable_anchor_splits - moving_solution_set
 
     # Use maximal_elements() to get maximal stable subtrees
     stable_common_splits: PartitionSet[Partition] = (
@@ -260,13 +247,13 @@ def _get_anchor_blocks_and_movers(
     )
 
     # Build blocks: stable common splits preserve their current order
-    anchor_blocks: List[Tuple[str, ...]] = []
+    stable_anchor_blocks: List[Tuple[str, ...]] = []
     for cs in stable_common_splits:
         node = t1.find_node_by_split(cs)
         if node:
-            anchor_blocks.append(tuple(node.get_current_order()))
+            stable_anchor_blocks.append(tuple(node.get_current_order()))
 
-    return anchor_blocks, mover_partitions
+    return stable_anchor_blocks, mover_partitions
 
 
 def _assign_anchor_keys(
@@ -396,7 +383,7 @@ def derive_order_for_pair(
 
     1. Calculates solution mappings if not provided.
     2. Applies `blocked_order_and_apply` to each differing edge.
-    3. Applies `blocked_order_and_apply` to the root to handle global structure.
+    3. Aligns root-level common blocks only after actual differing-edge work.
     """
     if mappings_t1 is None or mappings_t2 is None:
         mappings_t1, mappings_t2 = _get_solution_mappings(
@@ -425,21 +412,22 @@ def derive_order_for_pair(
             common_splits=common_splits,
         )
 
-    # Align root-level common blocks once, including pairs with no differing edges.
-    all_taxa_indices = tuple(sorted(t1.taxa_encoding.values()))
-    root_partition = Partition(all_taxa_indices, t1.taxa_encoding)
-    blocked_order_and_apply(
-        root_partition,
-        {},  # No solution-to-source mappings
-        {},  # No solution-to-destination mappings
-        t1,
-        t2,
-        mover_weight_policy=mover_weight_policy,
-        anchor_weight_policy=anchor_weight_policy,
-        circular=circular,
-        circular_boundary_policy=circular_boundary_policy,
-        common_splits=common_splits,
-    )
+        # Align root-level common blocks after each differing edge. If there are
+        # no differing edges, preserve each tree's existing visual order.
+        all_taxa_indices = tuple(sorted(t1.taxa_encoding.values()))
+        root_partition = Partition(all_taxa_indices, t1.taxa_encoding)
+        blocked_order_and_apply(
+            root_partition,
+            {},  # No solution-to-source mappings
+            {},  # No solution-to-destination mappings
+            t1,
+            t2,
+            mover_weight_policy=mover_weight_policy,
+            anchor_weight_policy=anchor_weight_policy,
+            circular=circular,
+            circular_boundary_policy=circular_boundary_policy,
+            common_splits=common_splits,
+        )
 
 
 def blocked_order_and_apply(
@@ -481,13 +469,12 @@ def blocked_order_and_apply(
     source_index = {taxon: i for i, taxon in enumerate(src_current_order)}
 
     # Include leaves (trivial splits) to ensure we capture ALL common taxa
-    anchor_blocks, mover_partitions = _get_anchor_blocks_and_movers(
+    stable_anchor_blocks, mover_partitions = _get_stable_anchor_blocks_and_movers(
         edge,
         src_node,
         dst_node,
         solution_to_source,
         solution_to_destination,
-        set(destination_index),
         t1,
         common_splits=common_splits,
     )
@@ -499,7 +486,7 @@ def blocked_order_and_apply(
     dst_taxon_sort_key: Dict[str, Tuple[int, int, int]] = {}
 
     _assign_anchor_keys(
-        anchor_blocks,
+        stable_anchor_blocks,
         source_index,
         destination_index,
         anchor_weight_policy,

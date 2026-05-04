@@ -4,7 +4,6 @@ import logging
 from typing import Optional, Set, Tuple
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.elements.split_semantics import unrooted_difference_within_pivot
 from brancharchitect.tree import Node
 
 logger = logging.getLogger(__name__)
@@ -33,18 +32,12 @@ def get_unique_splits_for_current_pivot_edge_subtree(
         )
         original_expand_splits: PartitionSet[Partition] = to_be_created_node.to_splits()
 
-        to_be_collapsed_splits = unrooted_difference_within_pivot(
-            original_collapse_splits,
-            original_expand_splits,
-            current_pivot_edge,
-            max_complement_ratio=2,
-        )
-        to_be_expanded_splits = unrooted_difference_within_pivot(
-            original_expand_splits,
-            original_collapse_splits,
-            current_pivot_edge,
-            max_complement_ratio=2,
-        )
+        # The interpolation executor operates on rooted clades, not unrooted
+        # bipartition equivalence classes. A split and its complement may
+        # describe the same unrooted edge, but they are different nodes in the
+        # rooted topology and must be collapsed/expanded explicitly.
+        to_be_collapsed_splits = original_collapse_splits - original_expand_splits
+        to_be_expanded_splits = original_expand_splits - original_collapse_splits
 
         return to_be_collapsed_splits, to_be_expanded_splits
     else:

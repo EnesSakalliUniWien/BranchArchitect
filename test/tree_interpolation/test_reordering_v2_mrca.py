@@ -15,7 +15,6 @@ from brancharchitect.jumping_taxa.lattice.mapping.minimum_cover_mappings import 
     map_solution_elements_via_parent,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -167,7 +166,7 @@ class TestReorderWithMRCA:
             destination_tree=dest,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=mover_ef,
-            all_mover_partitions=[mover_ef],
+            unstable_mover_partitions=[mover_ef],
             source_parent_map=None,  # No MRCA info
             dest_parent_map=None,  # No MRCA info
             copy=True,
@@ -201,7 +200,7 @@ class TestReorderWithMRCA:
             destination_tree=dest,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=mover_ef,
-            all_mover_partitions=[mover_ef],
+            unstable_mover_partitions=[mover_ef],
             source_parent_map=mapped_t1[pivot_edge],
             dest_parent_map=mapped_t2[pivot_edge],
             copy=True,
@@ -231,7 +230,7 @@ class TestReorderWithMRCA:
             destination_tree=dest,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=mover_ef,
-            all_mover_partitions=[mover_ef],
+            unstable_mover_partitions=[mover_ef],
             copy=True,
         )
 
@@ -257,7 +256,7 @@ class TestReorderWithMRCA:
             destination_tree=dest,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=mover,
-            all_mover_partitions=[mover],
+            unstable_mover_partitions=[mover],
             copy=True,
         )
 
@@ -268,8 +267,8 @@ class TestReorderWithMRCA:
             f"Gained: {result_taxa - source_taxa}"
         )
 
-    def test_reorder_with_no_anchors(self):
-        """When all taxa are movers, should use destination order."""
+    def test_reorder_with_no_anchors_preserves_active_block_order(self):
+        """When the active mover is all taxa, keep the block's current order."""
         encoding = {"M1": 0, "M2": 1, "M3": 2}
 
         source = parse_newick("(M1,M2,M3);", encoding=encoding)
@@ -286,15 +285,39 @@ class TestReorderWithMRCA:
             destination_tree=dest,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=mover,
-            all_mover_partitions=[mover],
+            unstable_mover_partitions=[mover],
             copy=True,
         )
 
         result_order = list(result.get_current_order())
 
-        # With no anchors, should follow destination order
-        # (or at least not crash)
-        assert set(result_order) == {"M1", "M2", "M3"}
+        assert result_order == ["M1", "M2", "M3"]
+
+    def test_reorder_with_no_anchors_moves_only_active_block(self):
+        """Without anchors, inactive movers stay ordered while the active mover moves."""
+        encoding = {"M1": 0, "M2": 1, "M3": 2}
+
+        source = parse_newick("(M1,M2,M3);", encoding=encoding)
+        source.reorder_taxa(["M1", "M2", "M3"])
+
+        dest = parse_newick("(M1,M2,M3);", encoding=encoding)
+        dest.reorder_taxa(["M3", "M1", "M2"])
+
+        pivot_edge = Partition((0, 1, 2), encoding)
+        m1 = Partition((0,), encoding)
+        m2 = Partition((1,), encoding)
+        m3 = Partition((2,), encoding)
+
+        result = reorder_tree_toward_destination(
+            source_tree=source,
+            destination_tree=dest,
+            current_pivot_edge=pivot_edge,
+            moving_subtree_partition=m3,
+            unstable_mover_partitions=[m1, m2, m3],
+            copy=True,
+        )
+
+        assert list(result.get_current_order()) == ["M3", "M1", "M2"]
 
     def test_reorder_returns_copy_when_change_needed(self):
         """When copy=True and reordering occurs, result should be a new tree."""
@@ -317,7 +340,7 @@ class TestReorderWithMRCA:
             destination_tree=dest,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=mover,
-            all_mover_partitions=[mover],
+            unstable_mover_partitions=[mover],
             copy=True,
         )
 
@@ -337,8 +360,8 @@ class TestReorderWithMRCA:
 class TestMultipleMoverReordering:
     """Test reordering with multiple simultaneous movers."""
 
-    def test_other_movers_stay_at_source_position(self):
-        """Other movers (not current) should stay at their source positions."""
+    def test_context_movers_do_not_move_during_current_mover_step(self):
+        """Only moving_subtree_partition moves; context movers remain at source rank."""
         encoding = {"A": 0, "B": 1, "M1": 2, "M2": 3, "C": 4}
 
         source = parse_newick("(A,B,M1,M2,C);", encoding=encoding)
@@ -356,7 +379,7 @@ class TestMultipleMoverReordering:
             destination_tree=dest,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=current_mover,
-            all_mover_partitions=[current_mover, other_mover],
+            unstable_mover_partitions=[current_mover, other_mover],
             copy=True,
         )
 
@@ -365,7 +388,42 @@ class TestMultipleMoverReordering:
         # M1 should move toward destination
         # M2 should stay at source position (stability)
         # Anchors: A, B, C
-        assert result_order == ["A", "B", "M1", "M2", "C"]
+        assert result_order == ["A", "M2", "B", "M1", "C"]
+
+    def test_sequential_mover_steps_converge_without_reversing_movers(self):
+        """Later mover steps must not reverse movers already placed in the same bucket."""
+        encoding = {"A": 0, "B": 1, "M1": 2, "M2": 3, "C": 4}
+
+        source = parse_newick("(A,B,M1,M2,C);", encoding=encoding)
+        source.reorder_taxa(["A", "M1", "M2", "B", "C"])
+
+        dest = parse_newick("(A,B,M1,M2,C);", encoding=encoding)
+        dest.reorder_taxa(["A", "B", "M1", "M2", "C"])
+
+        pivot_edge = Partition((0, 1, 2, 3, 4), encoding)
+        m1 = Partition((2,), encoding)
+        m2 = Partition((3,), encoding)
+        mover_context = [m1, m2]
+
+        step1 = reorder_tree_toward_destination(
+            source_tree=source,
+            destination_tree=dest,
+            current_pivot_edge=pivot_edge,
+            moving_subtree_partition=m1,
+            unstable_mover_partitions=mover_context,
+            copy=True,
+        )
+        assert list(step1.get_current_order()) == ["A", "M2", "B", "M1", "C"]
+
+        step2 = reorder_tree_toward_destination(
+            source_tree=step1,
+            destination_tree=dest,
+            current_pivot_edge=pivot_edge,
+            moving_subtree_partition=m2,
+            unstable_mover_partitions=mover_context,
+            copy=True,
+        )
+        assert list(step2.get_current_order()) == ["A", "B", "M1", "M2", "C"]
 
     def test_diverging_movers_separate_correctly(self, diverging_trees):
         """Diverging movers should end up at their respective destination parents."""
@@ -386,7 +444,7 @@ class TestMultipleMoverReordering:
             destination_tree=dest,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=m1,
-            all_mover_partitions=[m1, m2],
+            unstable_mover_partitions=[m1, m2],
             source_parent_map=mapped_t1[pivot_edge],
             dest_parent_map=mapped_t2[pivot_edge],
             copy=True,

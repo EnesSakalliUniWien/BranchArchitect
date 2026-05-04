@@ -432,7 +432,7 @@ class TestEdgeCases(unittest.TestCase):
             t2,
             root_partition,
             movers_partition,
-            all_mover_partitions=[movers_partition],
+            unstable_mover_partitions=[movers_partition],
             copy=True,
         )
 

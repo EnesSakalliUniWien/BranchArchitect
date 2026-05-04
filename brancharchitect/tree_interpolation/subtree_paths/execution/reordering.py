@@ -20,33 +20,34 @@ def reorder_tree_toward_destination(
     destination_tree: Node,
     current_pivot_edge: Partition,
     moving_subtree_partition: Partition,
-    all_mover_partitions: Optional[List[Partition]] = None,
+    unstable_mover_partitions: Optional[List[Partition]] = None,
     source_parent_map: Optional[Dict[Partition, Partition]] = None,
     dest_parent_map: Optional[Dict[Partition, Partition]] = None,
     copy: bool = True,  # whether to copy the tree first
 ) -> Node:
     """
-    Reorders a subtree by moving a specific jumping-taxa block to its
-    correct position relative to stable anchor taxa.
+    Reorder one interpolation microstep.
 
-    MRCA-aware algorithm (when parent maps provided):
-    1. Uses destination parent position to determine block placement
-    2. Falls back to first-occurrence method if no parent maps
+    Contract:
+    - moving_subtree_partition is the only block that moves in this call.
+    - unstable_mover_partitions is context for anchor selection only: taxa in
+      those partitions are not stable anchors, but they do not move unless they
+      are also moving_subtree_partition.
 
     Block-aware algorithm:
-    1. Treats each mover partition as a cohesive BLOCK (not individual taxa)
-    2. Uses taxa NOT in any mover block as anchors
-    3. Places the moving block at its destination position
-    4. Preserves other mover blocks at their SOURCE positions (stability)
-    5. Preserves SOURCE order within the moving block
+    1. Treats the current mover as a cohesive block.
+    2. Uses taxa outside all unstable movers as anchors.
+    3. Places the current mover at its destination position.
+    4. Preserves inactive mover taxa at their current/source anchor ranks.
+    5. Preserves source order within the current mover block.
 
     Args:
         source_tree: The source tree to reorder
         destination_tree: The destination tree to match
         current_pivot_edge: The pivot edge partition
-        moving_subtree_partition: The partition of the moving subtree (block)
-        all_mover_partitions: List of all moving subtree Partitions (blocks).
-                              Used to identify stable anchor taxa.
+        moving_subtree_partition: The only subtree partition that moves now.
+        unstable_mover_partitions: All mover partitions for this pivot edge.
+                                   Used only to exclude unstable taxa from anchors.
         source_parent_map: Maps each mover -> its parent in source tree (MRCA).
         dest_parent_map: Maps each mover -> its parent in destination tree (MRCA).
         copy: If True, copy the tree first. If False, modify in place.
@@ -67,105 +68,97 @@ def reorder_tree_toward_destination(
         )
         return source_tree  # No modification needed, return original
 
-    source_order = list(source_subtree.get_current_order())
-    destination_order = list(dest_subtree.get_current_order())
+    current_order = list(source_subtree.get_current_order())
+    target_order = list(dest_subtree.get_current_order())
 
-    # Current mover block's taxa
-    current_mover_taxa = set(moving_subtree_partition.taxa)
+    active_mover_taxa = set(moving_subtree_partition.taxa)
 
     # If no movers, keep subtree stable.
-    if not current_mover_taxa:
+    if not active_mover_taxa:
         return source_tree  # No modification needed, return original
 
     # Validate leaf-set/encoding compatibility under the active edge
-    if set(source_order) != set(destination_order):
+    if set(current_order) != set(target_order):
         raise ValueError(
             "Encoding mismatch between source and destination under pivot edge: "
             "leaf sets differ"
         )
 
     # If jumping-taxa leaves aren't in the source order, something is wrong.
-    if not current_mover_taxa.issubset(set(source_order)):
+    if not active_mover_taxa.issubset(set(current_order)):
         logger.warning("Jumping taxa leaves not in source order; skipping reordering.")
         return source_tree  # No modification needed, return original
 
-    logger.debug(f"Reordering for mover block {current_mover_taxa}")
-    logger.debug(f"Source Order: {source_order}")
-    logger.debug(f"Destination Order: {destination_order}")
+    logger.debug(f"Reordering active mover block {active_mover_taxa}")
+    logger.debug(f"Current order: {current_order}")
+    logger.debug(f"Target order: {target_order}")
 
-    # Build the set of ALL unstable taxa (all mover blocks combined)
-    all_mover_taxa: set[str] = set()
-    if all_mover_partitions:
-        for partition in all_mover_partitions:
-            all_mover_taxa.update(partition.taxa)
-    else:
-        # Fallback: only current mover is unstable
-        all_mover_taxa = current_mover_taxa
+    mover_context = list(unstable_mover_partitions or [moving_subtree_partition])
+    if all(p.bitmask != moving_subtree_partition.bitmask for p in mover_context):
+        mover_context.append(moving_subtree_partition)
 
-    mover_blocks: list[Partition] = []
-    seen_mover_masks: set[int] = set()
-    for mover in all_mover_partitions or [moving_subtree_partition]:
-        if mover.bitmask in seen_mover_masks:
-            continue
-        seen_mover_masks.add(mover.bitmask)
-        mover_blocks.append(mover)
+    unstable_mover_taxa: set[str] = set()
+    for partition in mover_context:
+        unstable_mover_taxa.update(partition.taxa)
+    inactive_mover_taxa = unstable_mover_taxa - active_mover_taxa
 
-    if moving_subtree_partition.bitmask not in seen_mover_masks:
-        mover_blocks.append(moving_subtree_partition)
+    # Stable anchors are taxa that are not part of any mover for this pivot edge.
+    anchor_taxa = [taxon for taxon in current_order if taxon not in unstable_mover_taxa]
+    active_mover_order = [
+        taxon for taxon in current_order if taxon in active_mover_taxa
+    ]
+    target_position = {taxon: index for index, taxon in enumerate(target_order)}
 
-    # 1. Identify ANCHOR taxa (stable, not in any mover block)
-    anchor_taxa = [taxon for taxon in source_order if taxon not in all_mover_taxa]
-
-    # Quick optimization: if no anchors, use destination order for current mover
+    # No anchors: keep inactive movers at their current rank and insert only the
+    # active mover block relative to them using target order.
     if not anchor_taxa:
-        if len(mover_blocks) == 1:
-            new_order = [t for t in destination_order if t in all_mover_taxa]
-        else:
-            source_block_orders = {
-                mover.bitmask: [t for t in source_order if t in mover.taxa]
-                for mover in mover_blocks
-            }
-            block_by_taxon = {
-                taxon: mover.bitmask for mover in mover_blocks for taxon in mover.taxa
-            }
-            emitted_blocks: set[int] = set()
-            new_order = []
-            for taxon in destination_order:
-                block_id = block_by_taxon.get(taxon)
-                if block_id is None or block_id in emitted_blocks:
-                    continue
-                new_order.extend(source_block_orders[block_id])
-                emitted_blocks.add(block_id)
+        new_order = [taxon for taxon in current_order if taxon in inactive_mover_taxa]
+        insert_at = _target_bucket_insert_index(
+            bucket_taxa=new_order,
+            active_mover_order=active_mover_order,
+            target_position=target_position,
+        )
+        new_order[insert_at:insert_at] = active_mover_order
     else:
         # 2. Block-aware bucketing
         #
-        # Key insight: place every mover block at its destination anchor rank.
-        # Blocks sharing a destination slot keep their current/source order, so serial
-        # mover processing cannot reverse them on later calls.
+        # Key insight: only the active mover gets a destination anchor rank.
+        # Inactive movers stay at their current anchor ranks so later microsteps
+        # can move them explicitly.
 
         # Buckets: buckets[i] holds taxa that go immediately BEFORE anchor i
         # buckets[len(anchors)] holds taxa that go AFTER the last anchor
         buckets: List[List[str]] = [[] for _ in range(len(anchor_taxa) + 1)]
 
-        mover_block_entries: list[tuple[int, int, List[str]]] = []
-        source_positions = {taxon: idx for idx, taxon in enumerate(source_order)}
-        for mover in mover_blocks:
-            block_taxa = set(mover.taxa)
-            block_in_source = [t for t in source_order if t in block_taxa]
-            if not block_in_source:
-                continue
-            block_dest_rank = _compute_destination_rank_from_order(
-                destination_order=destination_order,
-                anchor_taxa=anchor_taxa,
-                current_mover_taxa=block_taxa,
-            )
-            first_source_position = min(source_positions[t] for t in block_in_source)
-            mover_block_entries.append(
-                (block_dest_rank, first_source_position, block_in_source)
-            )
+        anchor_set = set(anchor_taxa)
+        inactive_anchor_rank_by_taxon: dict[str, int] = {}
+        current_anchor_rank = 0
+        for taxon in current_order:
+            if taxon in anchor_set:
+                current_anchor_rank += 1
+            elif taxon in inactive_mover_taxa:
+                inactive_anchor_rank_by_taxon[taxon] = current_anchor_rank
 
-        for block_dest_rank, _, block_in_source in sorted(mover_block_entries):
-            buckets[block_dest_rank].extend(block_in_source)
+        active_destination_rank = _compute_destination_rank_from_order(
+            destination_order=target_order,
+            anchor_taxa=anchor_taxa,
+            current_mover_taxa=active_mover_taxa,
+        )
+
+        for taxon in current_order:
+            if taxon in inactive_mover_taxa:
+                buckets[inactive_anchor_rank_by_taxon.get(taxon, 0)].append(taxon)
+
+        # If inactive movers already occupy the target bucket, insert the active
+        # mover on the target-order side of those inactive movers. The inactive
+        # movers keep their current anchor rank; only the active block is placed.
+        active_bucket = buckets[active_destination_rank]
+        insert_at = _target_bucket_insert_index(
+            bucket_taxa=active_bucket,
+            active_mover_order=active_mover_order,
+            target_position=target_position,
+        )
+        active_bucket[insert_at:insert_at] = active_mover_order
 
         # 3. Reconstruct the new order
         new_order = []
@@ -179,7 +172,7 @@ def reorder_tree_toward_destination(
         new_order.extend(buckets[len(anchor_taxa)])
 
     # If reordering does nothing, keep original tree
-    if new_order == source_order:
+    if new_order == current_order:
         logger.debug("New order identical to source order -> No change.")
         return source_tree  # No change needed, return original
 
@@ -193,10 +186,25 @@ def reorder_tree_toward_destination(
             # This uses recursive reorder_taxa to properly order the subtree structure
             subtree_node_to_reorder.reorder_taxa(new_order)
         except ValueError as e:
-            raise ValueError(
-                "Failed to reorder with 'Move the Block' strategy"
-            ) from e
+            raise ValueError("Failed to reorder with 'Move the Block' strategy") from e
     return new_tree
+
+
+def _target_bucket_insert_index(
+    bucket_taxa: List[str],
+    active_mover_order: List[str],
+    target_position: Dict[str, int],
+) -> int:
+    """Return where the active mover block belongs inside a shared anchor bucket."""
+    if not active_mover_order:
+        return len(bucket_taxa)
+
+    active_target_position = min(target_position[taxon] for taxon in active_mover_order)
+    return sum(
+        1
+        for taxon in bucket_taxa
+        if target_position.get(taxon, len(target_position)) < active_target_position
+    )
 
 
 def _compute_destination_rank_from_order(

@@ -20,13 +20,14 @@ class MockNode:
         return MockSubNode()
 
 
-def test_get_unique_splits_handles_complements():
+def test_get_unique_splits_keeps_pivot_complements_as_rooted_changes():
     # 5 Taxa: A, B, C, D, E. Indices: 0, 1, 2, 3, 4.
     encoding = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
 
     # Source has split {A, B} -> Indices {0, 1}
     # Destination has split {C, D, E} -> Indices {2, 3, 4}
-    # These are COMPLEMENTS in a 5-taxon universe. They represent the SAME unrooted split.
+    # These are complements in a 5-taxon universe, but the interpolation topology
+    # planner works with rooted clades. They must remain explicit changes.
 
     src_p = Partition((0, 1), encoding)
     dst_p = Partition((2, 3, 4), encoding)
@@ -45,12 +46,11 @@ def test_get_unique_splits_handles_complements():
         src_tree, dst_tree, pivot
     )
 
-    # Expectation: logic should identify them as equivalent and remove them from "Unique"
-    assert len(unique_src) == 0, f"Expected 0 unique source splits, got {unique_src}"
-    assert len(unique_dst) == 0, f"Expected 0 unique dest splits, got {unique_dst}"
+    assert src_p in unique_src
+    assert dst_p in unique_dst
 
 
-def test_get_unique_splits_handles_complements_inside_pivot_scope():
+def test_get_unique_splits_keeps_balanced_pivot_complements_as_rooted_changes():
     encoding = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5}
 
     src_p = Partition((0, 1), encoding)
@@ -64,8 +64,8 @@ def test_get_unique_splits_handles_complements_inside_pivot_scope():
         src_tree, dst_tree, pivot
     )
 
-    assert len(unique_src) == 0, f"Expected 0 unique source splits, got {unique_src}"
-    assert len(unique_dst) == 0, f"Expected 0 unique dest splits, got {unique_dst}"
+    assert src_p in unique_src
+    assert dst_p in unique_dst
 
 
 def test_get_unique_splits_keeps_unbalanced_pivot_complements():

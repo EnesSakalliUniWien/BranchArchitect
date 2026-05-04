@@ -258,7 +258,7 @@ class TestStage3Reorder:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=moving_subtree,
-            all_mover_partitions=None,
+            unstable_mover_partitions=None,
             copy=True,
         )
 
@@ -283,7 +283,7 @@ class TestStage3Reorder:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=moving_subtree,
-            all_mover_partitions=all_movers,
+            unstable_mover_partitions=all_movers,
             copy=True,
         )
 
@@ -304,7 +304,7 @@ class TestStage3Reorder:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             moving_subtree_partition=moving_subtree,
-            all_mover_partitions=None,
+            unstable_mover_partitions=None,
             copy=True,
         )
 

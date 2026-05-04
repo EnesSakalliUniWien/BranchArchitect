@@ -108,20 +108,20 @@ def test_blocked_order_extremes_two_movers_same_side():
     assert set(o2[1:-2]) == anchor_taxa
 
 
-def test_derive_order_for_pair_no_differences_root_alignment():
+def test_derive_order_for_pair_no_differences_preserves_visual_order():
     """
-    When there are no differing edges between trees, derive_order_for_pair
-    still applies ordering at the root.
+    When there are no differing edges between trees, derive_order_for_pair must
+    not rewrite either tree's existing visual order.
     """
     t1, t2 = _pair("((A:1,B:1):1,(C:1,D:1):1);", "((C:1,D:1):1,(A:1,B:1):1);")
 
     derive_order_for_pair(t1, t2, anchor_weight_policy="destination")
 
-    assert list(t1.get_current_order()) == ["C", "D", "A", "B"]
+    assert list(t1.get_current_order()) == ["A", "B", "C", "D"]
     assert list(t2.get_current_order()) == ["C", "D", "A", "B"]
 
 
-def test_precomputed_common_splits_preserves_leaf_anchor_alignment():
+def test_precomputed_common_splits_does_not_promote_leaf_anchors():
     t1, t2 = _pair("(A:1,B:1,C:1,D:1);", "(D:1,C:1,B:1,A:1);")
     common_splits = get_common_splits(t1, t2)
 
@@ -132,5 +132,5 @@ def test_precomputed_common_splits_preserves_leaf_anchor_alignment():
         common_splits=common_splits,
     )
 
-    assert list(t1.get_current_order()) == ["D", "C", "B", "A"]
+    assert list(t1.get_current_order()) == ["A", "B", "C", "D"]
     assert list(t2.get_current_order()) == ["D", "C", "B", "A"]
