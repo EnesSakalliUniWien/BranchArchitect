@@ -25,7 +25,7 @@ from typing import Union, Tuple
 import tempfile
 import os
 import shutil  # Added for temporary directory cleanup
-from msa_to_trees.pipeline import run_pipeline, FastTreeConfig
+from msa_to_trees.pipeline import run_pipeline, IQTreeConfig
 
 bp = Blueprint("main", __name__)
 
@@ -87,24 +87,23 @@ def _run_msa_analysis_and_interpolate(
         report(0, "Starting MSA analysis...")
         log.info("[msa_analysis] Starting MSA analysis...")
 
-        # Output directory for intermediate files (FastTree requires file I/O)
+        # Output directory for intermediate files (IQ-TREE requires file I/O)
         analysis_output_dir = os.path.join(temp_dir, "output")
 
-        # Create FastTree configuration
-        fasttree_config = FastTreeConfig(
+        # Create IQ-TREE configuration
+        tree_inference_config = IQTreeConfig(
             use_gtr=use_gtr,
             use_gamma=use_gamma,
-            use_pseudo=use_pseudo,
-            no_ml=no_ml,
         )
 
         report(
             10,
-            f"Running tree inference pipeline with {fasttree_config.description} model...",
+            f"Running tree inference pipeline with {tree_inference_config.description} model...",
         )
 
         log.info(
-            f"[msa_analysis] Running analysis pipeline with {fasttree_config.description} model..."
+            "[msa_analysis] Running analysis pipeline with "
+            f"{tree_inference_config.description} model..."
         )
 
         # Pass MSA content directly - no need to write input file to disk
@@ -113,7 +112,7 @@ def _run_msa_analysis_and_interpolate(
             output_directory=analysis_output_dir,
             window_size=window_size,
             step_size=window_step,
-            fasttree_config=fasttree_config,
+            fasttree_config=tree_inference_config,
             msa_content=msa_content,  # In-memory content for webservice
         )
 
@@ -169,7 +168,7 @@ def _run_msa_analysis_and_interpolate(
             "dropped_taxa": pipeline_result.dropped_taxa,
             "dropped_taxa_count": len(pipeline_result.dropped_taxa),
             "num_trees_generated": pipeline_result.num_windows,
-            "model_used": fasttree_config.description,
+            "model_used": tree_inference_config.description,
         }
 
         if pipeline_result.has_dropped_taxa:
@@ -481,7 +480,14 @@ def stream_progress(channel_id: str) -> Response:
         )
 
     log.info(f"[stream] Client connected to channel: {channel_id}")
-    return sse_response(channel.stream())
+
+    def stream_and_cleanup() -> Generator[str, None, None]:
+        try:
+            yield from channel.stream()
+        finally:
+            channels.remove(channel_id)
+
+    return sse_response(stream_and_cleanup())
 
 
 @bp.route("/stream/test")

@@ -1,6 +1,6 @@
 """Core type definitions for phylogenetic analysis."""
 
-from typing import List, Dict, TypedDict
+from typing import List, Dict, NotRequired, TypedDict
 from brancharchitect.elements.partition import Partition
 
 
@@ -20,6 +20,9 @@ class TreePairSolution(TypedDict):
 
     # Aggregated occurrences per changing split within this pair
     split_change_events: List["SplitChangeEvent"]
+
+    # Per-SPR movement context, including path hops and branch lengths
+    spr_move_events: NotRequired[List["SprMoveEvent"]]
 
     # Global indices of the source and destination trees in the complete interpolated sequence
     source_tree_global_index: int
@@ -47,3 +50,26 @@ class SplitChangeEvent(TypedDict):
     step_range: tuple[int, int]
     source_tree_global_index: int
     destination_tree_global_index: int
+
+
+class SprPathSegment(TypedDict):
+    """One split traversed by an SPR collapse or expand path."""
+
+    split: Partition
+    branch_length: float
+
+
+class SprMoveEvent(TypedDict):
+    """Path summary for one SPR mover within a tree-pair interpolation."""
+
+    pivot_edge: Partition
+    moving_subtree: Partition
+    step_range: tuple[int, int]
+    collapse_path: List[SprPathSegment]
+    expand_path: List[SprPathSegment]
+    collapse_hops: int
+    expand_hops: int
+    total_hops: int
+    collapse_branch_length: float
+    expand_branch_length: float
+    total_branch_length: float

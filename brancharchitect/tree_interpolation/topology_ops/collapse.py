@@ -134,7 +134,6 @@ def collapse_zero_length_branches_for_node(
     # Rebuild split indices & caches once after topology edits
     root = node.get_root()
     root.initialize_split_indices(root.taxa_encoding)
-    root.invalidate_caches(propagate_up=True)
 
 
 def _calculate_consensus_tree(node: Node, split_dict: Dict[Partition, float]) -> Node:
@@ -256,8 +255,9 @@ def create_collapsed_consensus_tree(
     down_phase_tree: Node,
     pivot_edge: Partition,
     tol: float = 0,  # small tolerance for numeric stability
-    destination_tree: Node
-    | None = None,  # to preserve splits that exist in destination
+    destination_tree: (
+        Node | None
+    ) = None,  # to preserve splits that exist in destination
     copy: bool = True,  # whether to copy the tree first
 ) -> Node:
     """

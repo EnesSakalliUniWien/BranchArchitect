@@ -7,6 +7,8 @@ specifically the "move the block" reordering algorithm that moves a subtree
 block to its destination position relative to stable anchor taxa.
 """
 
+import pytest
+
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
@@ -69,6 +71,28 @@ def test_reorder_simple_case():
         f"Expected ['C', 'A', 'B'], got {result_order}"
     )
     print("✅ PASSED: C moved to front, A-B order preserved")
+
+
+def test_reorder_taxa_failure_raises(monkeypatch):
+    """A failed reorder must not be reported to callers as a no-op."""
+    source_tree, dest_tree, encoding = _setup_tree_pair(
+        "(A:0.1,B:0.2,C:0.3);",
+        "(C:0.3,A:0.1,B:0.2);",
+    )
+
+    def fail_reorder(*args, **kwargs):
+        raise ValueError("synthetic reorder failure")
+
+    monkeypatch.setattr(Node, "reorder_taxa", fail_reorder)
+
+    with pytest.raises(ValueError, match="Failed to reorder"):
+        reorder_tree_toward_destination(
+            source_tree=source_tree,
+            destination_tree=dest_tree,
+            current_pivot_edge=source_tree.split_indices,
+            moving_subtree_partition=Partition((encoding["C"],), encoding),
+            copy=True,
+        )
 
 
 def test_reorder_move_to_middle():
@@ -173,7 +197,7 @@ def test_reorder_with_nested_tree():
 
     # Active edge is the root split (all taxa)
     active_edge = source_tree.split_indices
-    # Moving subtree is the (A,B) subtree
+    # Moving subtree is the (A,B) clade
     # Find the split for (A,B)
     ab_split = None
     for node in source_tree.traverse():
@@ -199,7 +223,7 @@ def test_reorder_with_nested_tree():
     assert result_order == ["C", "D", "A", "B"], (
         f"Expected ['C', 'D', 'A', 'B'], got {result_order}"
     )
-    print("✅ PASSED: A-B subtree moved to end")
+    print("✅ PASSED: A-B clade moved to end")
 
 
 def test_reorder_preserves_internal_block_order():
@@ -270,11 +294,11 @@ def test_reorder_with_subtree_as_active_edge():
 
     # Setup trees with shared encoding
     source_tree, dest_tree, encoding = _setup_tree_pair(
-        "((A:0.1,B:0.2,C:0.3):0.5,D:0.4);",  # Source tree: ((A,B,C),D) - focus on reordering within (A,B,C) subtree
-        "((C:0.3,A:0.1,B:0.2):0.5,D:0.4);",  # Destination: ((C,A,B),D) - C moved within the subtree
+        "((A:0.1,B:0.2,C:0.3):0.5,D:0.4);",  # Source tree: ((A,B,C),D) - focus on reordering within (A,B,C) clade
+        "((C:0.3,A:0.1,B:0.2):0.5,D:0.4);",  # Destination: ((C,A,B),D) - C moved within the clade
     )
 
-    # Find the (A,B,C) subtree as active edge
+    # Find the (A,B,C) clade as active edge
     active_edge = None
     for node in source_tree.traverse():
         node_taxa = set(leaf.name for leaf in node.get_leaves())
@@ -297,7 +321,7 @@ def test_reorder_with_subtree_as_active_edge():
     result_order = list(result_tree.get_current_order())
     print(f"Result order: {result_order}")
 
-    # Within the (A,B,C) subtree, C should move to front
+    # Within the (A,B,C) clade, C should move to front
     assert result_order == ["C", "A", "B", "D"], (
         f"Expected ['C', 'A', 'B', 'D'], got {result_order}"
     )
@@ -380,13 +404,13 @@ def test_reorder_complex_phylogenetic_tree():
     # Setup trees with shared encoding
     source_tree, dest_tree, encoding = _setup_tree_pair(
         "(((A:0.1,B:0.2):0.3,(C:0.2,D:0.3):0.4):0.5,((E:0.1,F:0.2):0.3,G:0.4):0.5);",  # Source: More complex nested structure
-        "(((E:0.1,F:0.2):0.3,G:0.4):0.5,((A:0.1,B:0.2):0.3,(C:0.2,D:0.3):0.4):0.5);",  # Destination: Rearrange E,F,G subtree relative to A,B,C,D subtree
+        "(((E:0.1,F:0.2):0.3,G:0.4):0.5,((A:0.1,B:0.2):0.3,(C:0.2,D:0.3):0.4):0.5);",  # Destination: Rearrange E,F,G clade relative to A,B,C,D clade
     )
 
     # Active edge is root (all 7 taxa)
     active_edge = source_tree.split_indices
 
-    # Find the (E,F,G) subtree split
+    # Find the (E,F,G) clade split
     efg_split = None
     for node in source_tree.traverse():
         node_taxa = set(leaf.name for leaf in node.get_leaves())
@@ -423,7 +447,7 @@ def test_reorder_preserves_tree_structure():
     )
 
     active_edge = source_tree.split_indices
-    # Moving the (A,B) subtree
+    # Moving the (A,B) clade
     ab_split = None
     for node in source_tree.traverse():
         node_taxa = set(leaf.name for leaf in node.get_leaves())

@@ -2,11 +2,9 @@
 Semantics test: the solution (mapping key) should be treated as the mover,
 and the mapped partition (mapping value) should act as anchor guidance.
 
-This expresses the intended logic even if current implementation differs.
-Marked xfail until the implementation is aligned.
+This expresses the intended logic.
 """
 
-import pytest
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.elements.partition import Partition
 from brancharchitect.leaforder.anchor_order import blocked_order_and_apply
@@ -17,7 +15,6 @@ def _pivot_edge_full(tree):
     return Partition(tuple(sorted(enc.values())), enc)
 
 
-@pytest.mark.xfail(reason="Current implementation treats mapped values as movers, not solution keys")
 def test_solution_keys_are_movers_block_moves_as_one_extreme():
     """
     Given mapping (solution -> mapped), the SOLUTION (key) is the mover.
@@ -43,6 +40,9 @@ def test_solution_keys_are_movers_block_moves_as_one_extreme():
 
     order1 = list(t1.get_current_order())
     # Expect A and B together at one extreme if solution block is moved as one
-    assert order1[:2] == ["A", "B"] or order1[:2] == ["B", "A"] or \
-           order1[-2:] == ["A", "B"] or order1[-2:] == ["B", "A"]
-
+    assert (
+        order1[:2] == ["A", "B"]
+        or order1[:2] == ["B", "A"]
+        or order1[-2:] == ["A", "B"]
+        or order1[-2:] == ["B", "A"]
+    )

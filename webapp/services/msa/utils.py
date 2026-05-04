@@ -100,7 +100,7 @@ def infer_window_parameters(num_trees: int, alignment_length: int) -> WindowPara
     return WindowParameters(window_size, step_size)
 
 
-def msa_to_dict(msa_content: str) -> Dict[str, str]:
+def msa_to_dict(msa_content: str) -> Optional[Dict[str, str]]:
     """
     Parse MSA content (FASTA) into a dictionary.
 
@@ -108,13 +108,14 @@ def msa_to_dict(msa_content: str) -> Dict[str, str]:
         msa_content: Raw MSA content in FASTA format.
 
     Returns:
-        Dictionary mapping sequence IDs to sequences.
+        Dictionary mapping sequence IDs to sequences, or None when parsing fails.
     """
     try:
         msa = skbio.io.read(StringIO(msa_content), format="fasta")  # type: ignore
-        return {seq.metadata["id"]: str(seq) for seq in msa}  # type: ignore
+        parsed = {seq.metadata["id"]: str(seq) for seq in msa}  # type: ignore
+        return parsed or None
     except Exception:
-        return {}
+        return None
 
 
 def process_msa_data(
@@ -182,6 +183,8 @@ def process_msa_data(
         overlapping = step_size < window_size
 
     msa_dict = msa_to_dict(msa_content)
+    if msa_dict is None and logger:
+        logger.warning("Could not parse MSA sequence data")
 
     return {
         "inferred_window_size": effective_window_size,

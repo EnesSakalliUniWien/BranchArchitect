@@ -152,18 +152,17 @@ class PartitionSet(Generic[T], MutableSet[T]):
         return cast(Iterable[T], self._bitmask_to_partition.values())
 
     def __contains__(self, x: object) -> bool:
-        # Fast path for Partition (most common case) - direct bitmask lookup
         if isinstance(x, Partition):
-            return x.bitmask in self._bitmask_set
-        elif isinstance(x, (tuple, int)):
-            try:
-                bitmask, _ = self._element_to_bitmask_and_partition(
-                    cast(Union[Partition, Tuple[int, ...], int], x)
-                )
-                return bitmask in self._bitmask_set
-            except ValueError:
-                # If encoding doesn't match, element is not in this set
-                raise
+            if x.bitmask not in self._bitmask_set:
+                return False
+            self._element_to_bitmask_and_partition(x)
+            return True
+
+        if isinstance(x, (tuple, int)):
+            bitmask, _ = self._element_to_bitmask_and_partition(
+                cast(Union[Tuple[int, ...], int], x)
+            )
+            return bitmask in self._bitmask_set
         return False
 
     def __iter__(self) -> Iterator[T]:
@@ -450,18 +449,18 @@ class PartitionSet(Generic[T], MutableSet[T]):
 
         MATHEMATICAL DEFINITION:
             Returns True iff ∃s ∈ self: partition ⊆ s
-            where ⊆ is the subset relation on partitions (subtrees)
+            where ⊆ is the subset relation on partitions (clades)
 
         BITWISE IMPLEMENTATION:
             partition ⊆ s ⟺ (partition.bitmask & s.bitmask) == partition.bitmask
             This checks if all taxa in partition are also in s.
 
         PHYLOGENETIC INTERPRETATION:
-            Returns True if the subtree represented by partition is nested within
-            (descendant of) at least one subtree in this PartitionSet.
+            Returns True if the clade represented by partition is nested within
+            (descendant of) at least one clade in this PartitionSet.
 
         Args:
-            partition: The partition (subtree) to check for coverage.
+            partition: The partition (clade) to check for coverage.
                       Can be a Partition object, tuple of indices, or single int.
 
         Returns:

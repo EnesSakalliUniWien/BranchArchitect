@@ -86,3 +86,23 @@ def test_circular_between_anchor_blocks_boundary_is_on_anchors():
     assert order1[-1] not in mover_taxa and order1[0] not in mover_taxa
     assert order2[-1] not in mover_taxa and order2[0] not in mover_taxa
 
+
+def test_circular_largest_mover_policy_allows_no_movers():
+    t1, t2 = _pair(
+        "(A:1,B:1,C:1);",
+        "(A:1,B:1,C:1);",
+    )
+    edge = _edge_full(t1)
+
+    blocked_order_and_apply(
+        edge,
+        {},
+        {},
+        t1,
+        t2,
+        circular=True,
+        circular_boundary_policy="largest_mover_at_zero",
+    )
+
+    assert list(t1.get_current_order()) == ["A", "B", "C"]
+    assert list(t2.get_current_order()) == ["A", "B", "C"]

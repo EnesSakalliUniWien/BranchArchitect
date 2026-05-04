@@ -62,7 +62,7 @@ class Partition:
         Partition represents a subset of taxa as a tuple of integer indices.
 
         **TERMINOLOGY NOTE**:
-        In this codebase, a 'Partition' represents a **Taxon Cluster** (Subtree) or a
+        In this codebase, a 'Partition' represents a **Taxon Cluster** (Clade) or a
         **Phylogenetic Split** (Bipartition). It corresponds to a single vertex in the
         Cluster Containment Lattice. It is **NOT** a mathematical partition of a set (collection of disjoint subsets).
 

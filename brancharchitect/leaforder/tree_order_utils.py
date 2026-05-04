@@ -5,7 +5,6 @@ from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
 
-
 ##################################################
 #           Classification Logic
 ##################################################
@@ -13,7 +12,10 @@ from brancharchitect.elements.partition import Partition
 
 def _ensure_split_indices(tree: Node) -> None:
     """Ensure split_indices are initialized for all nodes in the tree."""
-    tree.initialize_split_indices(tree.taxa_encoding)
+    if tree.split_indices is None:
+        tree.initialize_split_indices(tree.taxa_encoding)
+    elif tree._split_index is None:
+        tree.build_split_index()
 
 
 def _classify_node_optimized(

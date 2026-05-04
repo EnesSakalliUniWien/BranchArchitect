@@ -81,7 +81,7 @@ def identify_and_delete_jumping_taxa(
                 count_removed_ops += 1
             else:
                 raise ValueError(
-                    f"Solution partition {part} does not correspond to a valid subtree in the current tree structure "
+                    f"Solution partition {part} does not correspond to a valid subtree/clade in the current tree structure "
                     f"and strict subtree deletion is enforced. (Tree encoding size: {len(tree.taxa_encoding)})"
                 )
 

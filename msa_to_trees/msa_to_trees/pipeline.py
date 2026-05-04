@@ -1,7 +1,7 @@
 """
 A Python script to automate a sliding window phylogenetic analysis.
 1. It generates overlapping window alignments from a single input MSA.
-2. It then runs FastTree on each window to generate a phylogenetic tree.
+2. It then runs the configured inference engine on each window to generate a phylogenetic tree.
 3. Finally, it concatenates all resulting trees into a single output file.
 
 Taxa consistency is enforced: only taxa with valid (non-gap/ambiguous) data
@@ -15,6 +15,7 @@ import logging
 import os
 import platform
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -77,6 +78,55 @@ class FastTreeConfig:
         if self.no_ml:
             args.append("-noml")
         return args
+
+
+@dataclass(frozen=True)
+class IQTreeConfig:
+    """
+    Configuration for IQ-TREE model settings.
+
+    IQ-TREE is bundled in frozen application builds. Set IQTREE_PATH to
+    override executable discovery, otherwise iqtree3, iqtree2, or iqtree is
+    used from PATH.
+    """
+
+    use_gtr: bool = True
+    use_gamma: bool = True
+    threads: int = 1
+    model: str | None = None
+
+    @property
+    def description(self) -> str:
+        return f"IQ-TREE {self.model_name}"
+
+    @property
+    def model_name(self) -> str:
+        if self.model:
+            return self.model
+        base_model = "GTR" if self.use_gtr else "JC"
+        if self.use_gamma:
+            return f"{base_model}+G"
+        return base_model
+
+    def build_command_args(self, alignment_file: str, prefix: Path) -> list[str]:
+        """Build IQ-TREE command line arguments for this configuration."""
+        return [
+            "-s",
+            alignment_file,
+            "-st",
+            "DNA",
+            "-m",
+            self.model_name,
+            "-nt",
+            str(self.threads),
+            "-quiet",
+            "-redo",
+            "-pre",
+            str(prefix),
+        ]
+
+
+TreeInferenceConfig = FastTreeConfig | IQTreeConfig
 
 
 # BioPython is required for this script
@@ -185,16 +235,16 @@ def infer_trees_parallel(
     windows_dir: Path,
     trees_dir: Path,
     output_tree_filename: str | None,
-    config: FastTreeConfig,
+    config: TreeInferenceConfig,
 ) -> Path:
     """
-    Run FastTree in parallel on all window alignments.
+    Run tree inference in parallel on all window alignments.
 
     Args:
         windows_dir: Directory containing window FASTA files.
         trees_dir: Directory to store tree files.
         output_tree_filename: Optional custom filename for output tree file.
-        config: FastTree model configuration.
+        config: Tree inference model configuration.
 
     Returns:
         Path to the master tree file containing all trees.
@@ -218,17 +268,19 @@ def infer_trees_parallel(
         # due to how PyInstaller packages the application. Run sequentially
         # to ensure stability. Performance impact is acceptable for typical
         # alignment sizes in interactive usage.
-        results = [run_fasttree(f, config) for f in fasta_files]
+        results = [_run_tree_inference(f, config) for f in fasta_files]
     else:
-        # Use ProcessPoolExecutor to run FastTree in parallel
+        # Use ProcessPoolExecutor to run tree inference in parallel
         max_workers = os.cpu_count()
 
         # Create a partial function with config bound
-        fasttree_runner = partial(run_fasttree, config=config)
+        inference_runner = partial(_run_tree_inference, config=config)
 
-        with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=max_workers
+        ) as executor:
             # Map returns results in the order of the input iterable
-            results = list(executor.map(fasttree_runner, fasta_files))
+            results = list(executor.map(inference_runner, fasta_files))
 
     # Write all trees to the master file
     with open(master_tree_file, "w") as f:
@@ -236,6 +288,13 @@ def infer_trees_parallel(
             f.write(tree_newick)
 
     return master_tree_file
+
+
+def _run_tree_inference(alignment_file: str, config: TreeInferenceConfig) -> str:
+    """Run the configured tree inference engine for one alignment."""
+    if isinstance(config, IQTreeConfig):
+        return run_iqtree(alignment_file, config)
+    return run_fasttree(alignment_file, config)
 
 
 def _get_fasttree_exe() -> str:
@@ -276,6 +335,43 @@ def _get_fasttree_exe() -> str:
     return "fasttree"
 
 
+def _get_iqtree_exe() -> str:
+    """
+    Determine the path to the IQ-TREE executable.
+    Prioritizes environment variable > bundled binary > common system PATH executable names.
+    """
+    if "IQTREE_PATH" in os.environ:
+        return os.environ["IQTREE_PATH"]
+
+    if getattr(sys, "frozen", False):
+        if hasattr(sys, "_MEIPASS"):
+            base_path = Path(sys._MEIPASS)
+        else:
+            base_path = Path(sys.executable).parent
+
+        system = platform.system().lower()
+        if system == "darwin":
+            platform_dir = "darwin"
+            exe_names = ("iqtree3", "iqtree2")
+        elif system == "windows":
+            platform_dir = "win32"
+            exe_names = ("iqtree3.exe", "iqtree2.exe")
+        else:
+            platform_dir = "linux"
+            exe_names = ("iqtree3", "iqtree2")
+
+        for exe_name in exe_names:
+            bundled_exe = base_path / "bin" / platform_dir / exe_name
+            if bundled_exe.exists():
+                return str(bundled_exe)
+
+    for executable in ("iqtree3", "iqtree2", "iqtree"):
+        resolved = shutil.which(executable)
+        if resolved:
+            return resolved
+    return "iqtree3"
+
+
 def run_fasttree(
     alignment_file: str,
     config: FastTreeConfig | None = None,
@@ -302,7 +398,13 @@ def run_fasttree(
     # -nt: nucleotide data (DNA, not protein)
     # Additional options from config (GTR, gamma, noml)
     fasttree_executable = _get_fasttree_exe()
-    cmd = [fasttree_executable, "-nt", "-quiet", *config.build_command_args(), alignment_file]
+    cmd = [
+        fasttree_executable,
+        "-nt",
+        "-quiet",
+        *config.build_command_args(),
+        alignment_file,
+    ]
 
     try:
         # Run FastTree and capture its output (the Newick tree)
@@ -315,6 +417,44 @@ def run_fasttree(
         raise RuntimeError("FastTree command not found. Please install FastTree.")
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"FastTree failed on {alignment_file}: {e.stderr}")
+
+
+def run_iqtree(
+    alignment_file: str,
+    config: IQTreeConfig | None = None,
+) -> str:
+    """
+    Runs IQ-TREE on a single alignment file and returns the Newick tree string.
+
+    IQ-TREE writes its tree to <prefix>.treefile, so this runner creates a
+    deterministic per-window prefix next to the alignment and reads that file.
+    """
+    if config is None:
+        config = IQTreeConfig()
+
+    env = os.environ.copy()
+    env["OMP_NUM_THREADS"] = str(config.threads)
+
+    alignment_path = Path(alignment_file)
+    prefix = alignment_path.parent / f"{alignment_path.stem}.iqtree"
+    iqtree_executable = _get_iqtree_exe()
+    cmd = [
+        iqtree_executable,
+        *config.build_command_args(alignment_file, prefix),
+    ]
+
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True, env=env)
+        treefile = Path(f"{prefix}.treefile")
+        if not treefile.exists():
+            raise RuntimeError(
+                f"IQ-TREE finished but did not produce expected tree file: {treefile}"
+            )
+        return treefile.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise RuntimeError("IQ-TREE command not found. Please install IQ-TREE.")
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"IQ-TREE failed on {alignment_file}: {e.stderr}")
 
 
 def load_alignment(
@@ -357,7 +497,7 @@ def run_pipeline(
     window_size: int,
     step_size: int,
     output_tree_filename: Optional[str] = None,
-    fasttree_config: FastTreeConfig | None = None,
+    fasttree_config: TreeInferenceConfig | None = None,
     progress_callback: Optional[Callable[[str], None]] = None,
     msa_content: str | None = None,
 ) -> PipelineResult:
@@ -374,7 +514,7 @@ def run_pipeline(
         window_size: Size of sliding window.
         step_size: Step size for sliding window.
         output_tree_filename: Optional custom filename for the output tree file.
-        fasttree_config: FastTree model configuration. Defaults to FastTreeConfig().
+        fasttree_config: Tree inference configuration. Defaults to IQTreeConfig().
         progress_callback: Optional callback for logging messages (for webapp integration).
         msa_content: Raw MSA content as a string. If provided, input_file is not read
                      (webservice use case - avoids unnecessary disk I/O).
@@ -383,7 +523,7 @@ def run_pipeline(
         PipelineResult with path to tree file and info about dropped taxa.
     """
     if fasttree_config is None:
-        fasttree_config = FastTreeConfig()
+        fasttree_config = IQTreeConfig()
 
     def log(msg: str) -> None:
         """Log message to both logger and optional callback."""
@@ -450,7 +590,10 @@ def run_pipeline(
     )
 
     # --- Step 4: Infer Trees for each Window ---
-    log(f"Running FastTree ({fasttree_config.description}) on {num_windows} windows...")
+    log(
+        f"Running tree inference ({fasttree_config.description}) "
+        f"on {num_windows} windows..."
+    )
 
     try:
         master_tree_file = infer_trees_parallel(
@@ -480,7 +623,7 @@ def run_pipeline(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Run a sliding window analysis using FastTree.",
+        description="Run a sliding window tree inference analysis.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -512,6 +655,12 @@ if __name__ == "__main__":
 
     # Model options
     model_group = parser.add_argument_group("model options")
+    model_group.add_argument(
+        "--engine",
+        choices=("fasttree", "iqtree"),
+        default="iqtree",
+        help="Tree inference engine to use.",
+    )
     model_group.add_argument(
         "--gtr",
         dest="use_gtr",
@@ -554,12 +703,18 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Create FastTree configuration from CLI arguments
-    fasttree_config = FastTreeConfig(
-        use_gtr=args.use_gtr,
-        use_gamma=args.use_gamma,
-        no_ml=args.no_ml,
-    )
+    # Create tree inference configuration from CLI arguments
+    if args.engine == "iqtree":
+        fasttree_config = IQTreeConfig(
+            use_gtr=args.use_gtr,
+            use_gamma=args.use_gamma,
+        )
+    else:
+        fasttree_config = FastTreeConfig(
+            use_gtr=args.use_gtr,
+            use_gamma=args.use_gamma,
+            no_ml=args.no_ml,
+        )
 
     # For CLI, add a print callback
     def cli_progress(msg: str) -> None:

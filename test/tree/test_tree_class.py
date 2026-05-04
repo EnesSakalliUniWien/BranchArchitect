@@ -84,9 +84,9 @@ def test_deep_copy():
     tree = create_linear_tree(["A", "B", "C"])
     copy_tree = tree.deep_copy()
     assert copy_tree is not tree, "deep_copy should create a distinct object"
-    assert copy_tree.get_current_order() == tree.get_current_order(), (
-        "Copied tree should have same structure and leaves"
-    )
+    assert (
+        copy_tree.get_current_order() == tree.get_current_order()
+    ), "Copied tree should have same structure and leaves"
 
 
 # 4. Test to_dict
@@ -103,9 +103,9 @@ def test_to_newick():
     newick_str = tree.to_newick(lengths=False)
     assert newick_str.endswith(";"), "Newick string should end with semicolon"
     # Just a basic check, exact structure depends on implementation
-    assert "(" in newick_str and "A" in newick_str, (
-        "Newick should represent tree structure"
-    )
+    assert (
+        "(" in newick_str and "A" in newick_str
+    ), "Newick should represent tree structure"
 
 
 # 7. Test get_current_order
@@ -132,6 +132,17 @@ def test_initialize_split_indices():
     for leaf in leaves:
         assert len(leaf.split_indices) == 1, "Each leaf should have exactly one index"
         assert leaf.name in leaf_names, "Leaf name should be recognized"
+
+
+def test_initialize_split_indices_keeps_split_index_available():
+    tree = create_balanced_tree()
+    order = ["A", "B", "C", "D", "E", "F", "G"]
+    encoding = {name: idx for idx, name in enumerate(order)}
+
+    tree.initialize_split_indices(encoding)
+
+    assert tree._split_index is not None
+    assert tree.find_node_by_split(tree.split_indices) is tree
 
 
 # 10. Test traverse
@@ -195,9 +206,9 @@ def test_to_hierarchy():
     tree = create_balanced_tree()
     h = tree.to_hierarchy()
     assert isinstance(h, dict), "Hierarchy should be a dictionary"
-    assert "name" in h and "children" in h, (
-        "Hierarchy should contain 'name' and 'children'"
-    )
+    assert (
+        "name" in h and "children" in h
+    ), "Hierarchy should contain 'name' and 'children'"
 
 
 # 18. Test swap_children
@@ -319,3 +330,28 @@ def test_find_node_split_after_deletion():
 
     node = tree1.find_node_by_split((4,))
     assert node.split_indices == (4,), "Node should be found by split indices"
+
+
+def test_delete_taxa_rebuilds_split_index_once(monkeypatch):
+    tree, _ = parse_newick("((A,B),C,(D,E),(F,G));" + "((A,B),C,(D,E),(F,G));")
+    encoding = {
+        name: idx for idx, name in enumerate(["A", "B", "C", "D", "E", "F", "G"])
+    }
+    tree.initialize_split_indices(encoding=encoding)
+
+    original_build_split_index = type(tree).build_split_index
+    root_build_calls = 0
+
+    def counted_build_split_index(self):
+        nonlocal root_build_calls
+        if self is tree:
+            root_build_calls += 1
+        return original_build_split_index(self)
+
+    monkeypatch.setattr(type(tree), "build_split_index", counted_build_split_index)
+
+    tree.delete_taxa([3])
+
+    assert root_build_calls == 1
+    assert tree._split_index is not None
+    assert tree.find_node_by_split((4,)) is not None

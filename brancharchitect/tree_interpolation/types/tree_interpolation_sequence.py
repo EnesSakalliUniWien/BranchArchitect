@@ -6,7 +6,6 @@ process, including result containers and intermediate data representations.
 """
 
 from __future__ import annotations
-import logging
 from dataclasses import dataclass, field
 from itertools import groupby
 from typing import Optional, Dict, List, Sequence, Tuple
@@ -14,7 +13,7 @@ from typing import Optional, Dict, List, Sequence, Tuple
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
 from .pair_key import PairKey
-from .tree_pair_solution import TreePairSolution, SplitChangeEvent
+from .tree_pair_solution import SprMoveEvent, TreePairSolution, SplitChangeEvent
 from .tree_meta_data import TreeMetadata
 
 MappingDict = dict[Partition, dict[Partition, Partition]]
@@ -53,6 +52,10 @@ def _empty_tree_metadata() -> list[TreeMetadata]:
     return []
 
 
+def _empty_spr_move_events() -> list[list[SprMoveEvent]]:
+    return []
+
+
 @dataclass
 class TreeInterpolationSequence:
     """
@@ -76,9 +79,9 @@ class TreeInterpolationSequence:
 
     Attributes:
         interpolated_trees: Complete sequence of all trees (originals + interpolated)
-        mapping_one: Target-to-atom solution mappings for each tree pair
+        solution_to_destination_maps: Destination-side solution-to-atom mappings for each tree pair
             (outer key = pivot edge, inner key = solution partition)
-        mapping_two: Reference-to-atom solution mappings for each tree pair
+        solution_to_source_maps: Source-side solution-to-atom mappings for each tree pair
             (outer key = pivot edge, inner key = solution partition)
         active_changing_split_tracking: S-edge applied for each tree (None for originals/classical)
         pair_interpolated_tree_counts: Total interpolated trees generated per pair
@@ -99,8 +102,12 @@ class TreeInterpolationSequence:
 
     # Core interpolation results
     interpolated_trees: list[Node] = field(default_factory=_empty_node_list)
-    mapping_one: list[MappingDict] = field(default_factory=_empty_mapping_list)
-    mapping_two: list[MappingDict] = field(default_factory=_empty_mapping_list)
+    solution_to_destination_maps: list[MappingDict] = field(
+        default_factory=_empty_mapping_list
+    )
+    solution_to_source_maps: list[MappingDict] = field(
+        default_factory=_empty_mapping_list
+    )
     current_pivot_edge_tracking: list[Optional[Partition]] = field(
         default_factory=_empty_partition_list
     )
@@ -115,6 +122,9 @@ class TreeInterpolationSequence:
     )
     tree_pair_solutions: Dict[str, TreePairSolution] = field(
         default_factory=_empty_pair_solutions
+    )
+    spr_move_events_list: list[list[SprMoveEvent]] = field(
+        default_factory=_empty_spr_move_events
     )
     tree_metadata: list[TreeMetadata] = field(default_factory=_empty_tree_metadata)
     pair_interpolation_ranges: list[list[int]] = field(
@@ -133,7 +143,7 @@ class TreeInterpolationSequence:
         return len(self.pair_interpolated_tree_counts)
 
     def get_pair_ranges(self, original_tree_indices: list[int]) -> list[list[int]]:
-        """Compute global index ranges [start, end] for each pair's interpolated trees."""
+        """Compute source/destination delimiter ranges [start, end] for each pair."""
         pair_count = len(self.jumping_subtree_solutions_list)
         if len(original_tree_indices) < pair_count + 1:
             raise IndexError(
@@ -146,7 +156,6 @@ class TreeInterpolationSequence:
     def build_pair_solutions(
         self,
         original_tree_indices: list[int],
-        logger: Optional[logging.Logger] = None,
     ) -> Tuple[Dict[str, TreePairSolution], List[List[int]]]:
         """Build keyed TreePairSolution dict and pair ranges from the sequence data."""
         pair_ranges = self.get_pair_ranges(original_tree_indices)
@@ -171,12 +180,19 @@ class TreeInterpolationSequence:
                 "jumping_subtree_solutions": self.jumping_subtree_solutions_list[
                     pair_index
                 ],
-                "solution_to_destination_map": self.mapping_one[pair_index],
-                "solution_to_source_map": self.mapping_two[pair_index],
+                "solution_to_destination_map": self.solution_to_destination_maps[
+                    pair_index
+                ],
+                "solution_to_source_map": self.solution_to_source_maps[pair_index],
                 "split_change_events": split_change_events,
                 "source_tree_global_index": source_global_idx,
                 "destination_tree_global_index": destination_global_idx,
                 "interpolation_start_global_index": source_global_idx + 1,
+                "spr_move_events": (
+                    self.spr_move_events_list[pair_index]
+                    if pair_index < len(self.spr_move_events_list)
+                    else []
+                ),
             }
             tree_pair_solutions[pair_key] = pair_solution
 

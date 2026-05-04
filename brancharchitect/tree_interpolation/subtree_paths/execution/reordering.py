@@ -102,60 +102,70 @@ def reorder_tree_toward_destination(
         # Fallback: only current mover is unstable
         all_mover_taxa = current_mover_taxa
 
-    # Other mover blocks' taxa (not the current mover)
-    other_mover_taxa = all_mover_taxa - current_mover_taxa
+    mover_blocks: list[Partition] = []
+    seen_mover_masks: set[int] = set()
+    for mover in all_mover_partitions or [moving_subtree_partition]:
+        if mover.bitmask in seen_mover_masks:
+            continue
+        seen_mover_masks.add(mover.bitmask)
+        mover_blocks.append(mover)
+
+    if moving_subtree_partition.bitmask not in seen_mover_masks:
+        mover_blocks.append(moving_subtree_partition)
 
     # 1. Identify ANCHOR taxa (stable, not in any mover block)
     anchor_taxa = [taxon for taxon in source_order if taxon not in all_mover_taxa]
 
     # Quick optimization: if no anchors, use destination order for current mover
     if not anchor_taxa:
-        # Use destination order for current mover, then other movers in source order
-        new_order = [t for t in destination_order if t in current_mover_taxa]
-        # Append other movers in their source order
-        new_order.extend([t for t in source_order if t in other_mover_taxa])
+        if len(mover_blocks) == 1:
+            new_order = [t for t in destination_order if t in all_mover_taxa]
+        else:
+            source_block_orders = {
+                mover.bitmask: [t for t in source_order if t in mover.taxa]
+                for mover in mover_blocks
+            }
+            block_by_taxon = {
+                taxon: mover.bitmask for mover in mover_blocks for taxon in mover.taxa
+            }
+            emitted_blocks: set[int] = set()
+            new_order = []
+            for taxon in destination_order:
+                block_id = block_by_taxon.get(taxon)
+                if block_id is None or block_id in emitted_blocks:
+                    continue
+                new_order.extend(source_block_orders[block_id])
+                emitted_blocks.add(block_id)
     else:
         # 2. Block-aware bucketing
         #
-        # Key insight: We place the ENTIRE current mover block at the position
-        # determined by where its taxa appear in the destination (relative to anchors).
-        # Other mover blocks stay at their SOURCE positions (stability).
-
-        anchor_set = set(anchor_taxa)
-
-        # Compute anchor rank for each OTHER mover taxon based on SOURCE
-        # (preserves their relative positions)
-        other_mover_source_ranks: dict[str, int] = {}
-        source_rank = 0
-        for taxon in source_order:
-            if taxon in anchor_set:
-                source_rank += 1
-            elif taxon in other_mover_taxa:
-                other_mover_source_ranks[taxon] = source_rank
-
-        # Find the BLOCK's destination rank
-        # Use destination-order scanning logic (previously V1 fallback) which is robust for
-        # both sibling reordering and global placement relative to anchors.
-        block_dest_rank = _compute_destination_rank_from_order(
-            destination_order=destination_order,
-            anchor_taxa=anchor_taxa,
-            current_mover_taxa=current_mover_taxa,
-        )
+        # Key insight: place every mover block at its destination anchor rank.
+        # Blocks sharing a destination slot keep their current/source order, so serial
+        # mover processing cannot reverse them on later calls.
 
         # Buckets: buckets[i] holds taxa that go immediately BEFORE anchor i
         # buckets[len(anchors)] holds taxa that go AFTER the last anchor
         buckets: List[List[str]] = [[] for _ in range(len(anchor_taxa) + 1)]
 
-        # Place ENTIRE current mover block at its destination rank
-        # But preserve SOURCE order within the block (internal structure stays same)
-        current_mover_in_source = [t for t in source_order if t in current_mover_taxa]
-        buckets[block_dest_rank].extend(current_mover_in_source)
+        mover_block_entries: list[tuple[int, int, List[str]]] = []
+        source_positions = {taxon: idx for idx, taxon in enumerate(source_order)}
+        for mover in mover_blocks:
+            block_taxa = set(mover.taxa)
+            block_in_source = [t for t in source_order if t in block_taxa]
+            if not block_in_source:
+                continue
+            block_dest_rank = _compute_destination_rank_from_order(
+                destination_order=destination_order,
+                anchor_taxa=anchor_taxa,
+                current_mover_taxa=block_taxa,
+            )
+            first_source_position = min(source_positions[t] for t in block_in_source)
+            mover_block_entries.append(
+                (block_dest_rank, first_source_position, block_in_source)
+            )
 
-        # Place OTHER mover taxa at their SOURCE ranks (stability)
-        for taxon in source_order:
-            if taxon in other_mover_taxa:
-                rank = other_mover_source_ranks.get(taxon, 0)
-                buckets[rank].append(taxon)
+        for block_dest_rank, _, block_in_source in sorted(mover_block_entries):
+            buckets[block_dest_rank].extend(block_in_source)
 
         # 3. Reconstruct the new order
         new_order = []
@@ -183,8 +193,9 @@ def reorder_tree_toward_destination(
             # This uses recursive reorder_taxa to properly order the subtree structure
             subtree_node_to_reorder.reorder_taxa(new_order)
         except ValueError as e:
-            logger.error(f"Failed to reorder with 'Move the Block' strategy: {e}")
-            return source_tree  # Return original on failure
+            raise ValueError(
+                "Failed to reorder with 'Move the Block' strategy"
+            ) from e
     return new_tree
 
 

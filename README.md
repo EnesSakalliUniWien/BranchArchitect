@@ -26,20 +26,24 @@ If you use BranchArchitect in your research, please cite the software using the 
 ### MSA → Trees (Sliding Window)
 
 ```python
-from msa_to_trees import run_pipeline, FastTreeConfig
+from msa_to_trees import run_pipeline, IQTreeConfig
 
-# Generate trees from MSA using sliding windows + FastTree
+# Generate trees from MSA using sliding windows + IQ-TREE
 result = run_pipeline(
     input_file="alignment.fasta",
     output_directory="./output",
     window_size=1000,
     step_size=250,
-    fasttree_config=FastTreeConfig(use_gtr=True)
+    fasttree_config=IQTreeConfig(use_gtr=True, use_gamma=True)
 )
 
 # Output: ./output/combined_trees.newick (one tree per line)
-print(f"Trees written to: {result.tree_file}")
+print(f"Trees written to: {result.tree_file_path}")
 ```
+
+Packaged builds bundle IQ-TREE under `bin/<platform>`. For source/dev runs,
+install `iqtree3`, `iqtree2`, or `iqtree` on your PATH, or set
+`IQTREE_PATH=/path/to/iqtree3`.
 
 ### Trees → Interpolation
 
@@ -116,7 +120,7 @@ poetry run python run_pipeline.py        # Demo pipeline
 ```
 BranchArchitect/
 ├── brancharchitect/        # Core library (tree.py, parser/, jumping_taxa/)
-├── msa_to_trees/           # MSA → Trees pipeline (sliding window + FastTree)
+├── msa_to_trees/           # MSA → Trees pipeline (sliding window + IQ-TREE/FastTree)
 ├── webapp/                 # Flask web application
 ├── examples/               # Example scripts (msa_to_movie.py)
 ├── test/                   # Test suite

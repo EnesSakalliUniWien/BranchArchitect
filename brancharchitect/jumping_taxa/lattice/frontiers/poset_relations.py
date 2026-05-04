@@ -42,7 +42,7 @@ def has_nesting_relationship(
     Check if two bottom sets have a nesting (subset) relationship.
 
     Returns True iff: left ⊆ right ∨ right ⊆ left (comparable in poset order).
-    Phylogenetically, nesting indicates one subtree contained in another,
+    Phylogenetically, nesting indicates one clade contained in another,
     requiring jumping taxa to reconcile tree topologies.
 
     Examples:

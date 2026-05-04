@@ -824,52 +824,29 @@ def build_edge_plan(
         splits = _gather_subtree_splits(state, subtree)
 
         # ========================================================================
-        # 2. TABULA RASA STRATEGY
+        # 2. STEPWISE COLLAPSE STRATEGY
         # ========================================================================
-        # First subtree may collapse everything (tabula rasa) only if there are
-        # actual collapses at this pivot edge. Otherwise, respect per-subtree
-        # assignments even for the first subtree.
+        # Each subtree collapses its assigned splits plus any globally incompatible
+        # splits needed for its planned expansions. This avoids the old tabula-rasa
+        # behavior where the first subtree collapsed the whole pivot.
         is_first_subtree = not state.first_subtree_processed
 
         collapse_path: PartitionSet[Partition]
-        incompatible: PartitionSet[Partition] = PartitionSet(encoding=state.encoding)
-        if is_first_subtree:
-            all_collapse_splits = state.get_tabula_rasa_collapse_splits()
-            if len(all_collapse_splits) > 0:
-                collapse_path = all_collapse_splits
-            else:
-                # Compute incompatibilities for this subtree's planned expands
-                # NOTE: Don't include contingent_expand here - they haven't been consumed yet!
-                prospective_expand = (
-                    splits["last_user_expand"] | splits["unique_expand"]
-                )
-                incompatible = find_incompatible_splits(
-                    prospective_expand, state.all_collapsible_splits
-                )
+        # Compute incompatibilities for this subtree's planned expands.
+        # NOTE: Don't include contingent_expand here - they haven't been consumed yet!
+        prospective_expand = splits["last_user_expand"] | splits["unique_expand"]
+        incompatible = find_incompatible_splits(
+            prospective_expand, state.all_collapsible_splits
+        )
 
-                collapse_path = build_collapse_path(
-                    splits["shared_collapse"],
-                    splits["unique_collapse"],
-                    incompatible,
-                )
-        else:
-            # Subsequent subtrees: only their assigned splits
-            # Compute incompatibilities for this subtree's planned expands
-            # NOTE: Don't include contingent_expand here - they haven't been consumed yet!
-            prospective_expand = splits["last_user_expand"] | splits["unique_expand"]
-            incompatible = find_incompatible_splits(
-                prospective_expand, state.all_collapsible_splits
-            )
+        collapse_path = build_collapse_path(
+            splits["shared_collapse"],
+            splits["unique_collapse"],
+            incompatible,
+        )
 
-            collapse_path = build_collapse_path(
-                splits["shared_collapse"],
-                splits["unique_collapse"],
-                incompatible,
-            )
-
-        # After determining the actual collapse path (including tabula rasa or
-        # incompatibility collapses), consume contingent splits that fit within
-        # ANY collapsed region.
+        # After determining the actual collapse path, consume contingent splits
+        # that fit within ANY collapsed region.
         extra_contingent = state.consume_contingent_expand_splits_for_subtree(
             subtree=subtree, collapsed_splits=collapse_path
         )
@@ -892,7 +869,7 @@ def build_edge_plan(
             plans, state, subtree, collapse_path, expand_path
         )
 
-        # Update the global state - pass the actual collapse_path for TABULA RASA handling
+        # Update the global state with the actual stepwise collapse path
         _update_state(
             state,
             subtree,

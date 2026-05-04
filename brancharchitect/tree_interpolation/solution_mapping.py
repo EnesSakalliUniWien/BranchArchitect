@@ -25,10 +25,10 @@ def generate_solution_mappings(
     Uses parent relationships to determine where each solution element is attached
     in the source and destination trees.
     """
-    mapping_one, mapping_two = map_solution_elements_via_parent(
+    source_map, destination_map = map_solution_elements_via_parent(
         solutions,
         source,
         destination,
     )
 
-    return mapping_one, mapping_two
+    return source_map, destination_map

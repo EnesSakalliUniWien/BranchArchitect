@@ -100,6 +100,9 @@ def _boundary_largest_mover_at_zero(
     Returns:
         Index of first taxon in the largest mover block (0 if no movers)
     """
+    if not mover_blocks:
+        return 0
+
     # Choose largest mover (by size; then by indices for determinism)
     largest = sorted(mover_blocks, key=lambda p: (-len(p.indices), p.indices))[0]
     block_taxa = set(largest.taxa)
@@ -181,43 +184,75 @@ def _get_solution_mappings(
     return mapped_t1, mapped_t2
 
 
-def _get_stable_and_moving_components(
+def _leaf_anchor_splits(
+    src_node: Node,
+    destination_taxa: set[str],
+) -> PartitionSet[Partition]:
+    """Return source leaf splits that are present in the destination subtree."""
+    leaf_splits = PartitionSet(encoding=src_node.taxa_encoding)
+    for leaf in src_node.get_leaves():
+        if leaf.name in destination_taxa and leaf.split_indices:
+            leaf_splits.add(leaf.split_indices)
+    return leaf_splits
+
+
+def _common_splits_in_subtree(
     edge: Partition,
     src_node: Node,
     dst_node: Node,
-    sources: Dict[Partition, Partition],
-    destinations: Dict[Partition, Partition],
-    source_index: Dict[str, int],
+    destination_taxa: set[str],
+    common_splits: Optional[PartitionSet[Partition]] = None,
+) -> PartitionSet[Partition]:
+    """Return common splits in this subtree, including leaf anchors."""
+    source_splits_with_leaves = src_node.to_splits(with_leaves=True)
+    if common_splits is None:
+        common_splits_with_leaves = source_splits_with_leaves.intersection(
+            dst_node.to_splits(with_leaves=True)
+        )
+    else:
+        common_splits_with_leaves = common_splits | _leaf_anchor_splits(
+            src_node, destination_taxa
+        )
+        common_splits_with_leaves = common_splits_with_leaves.intersection(
+            source_splits_with_leaves
+        )
+
+    return common_splits_with_leaves - {edge}
+
+
+def _get_anchor_blocks_and_movers(
+    edge: Partition,
+    src_node: Node,
+    dst_node: Node,
+    solution_to_source: Dict[Partition, Partition],
+    solution_to_destination: Dict[Partition, Partition],
+    destination_taxa: set[str],
     t1: Node,
     common_splits: Optional[PartitionSet[Partition]] = None,
 ) -> Tuple[List[Tuple[str, ...]], List[Partition]]:
     """Identify stable anchor blocks and jumping mover partitions."""
-    # Include leaves (trivial splits) to ensure we capture ALL common taxa
-    if common_splits is not None:
-        # Optimization: Reuse precomputed common splits
-        # Stable splits must be in both common_splits AND the source subtree
-        stable_common_candidates = common_splits.intersection(
-            src_node.to_splits(with_leaves=True)
-        )
-        common_splits_in_subtree = stable_common_candidates - {edge}
-    else:
-        # Fallback: Compute intersection locally
-        common_splits_in_subtree = src_node.to_splits(with_leaves=True).intersection(
-            dst_node.to_splits(with_leaves=True)
-        ) - {edge}
+    common_splits_in_subtree = _common_splits_in_subtree(
+        edge,
+        src_node,
+        dst_node,
+        destination_taxa,
+        common_splits=common_splits,
+    )
 
     # Collect ALL jumping-taxa partitions using SOLUTION KEYS (mapping keys)
     # These represent the jumping partitions; exclude the pivot edge itself
-    jumping_taxa_partitions_set = set(sources.keys()) | set(destinations.keys())
-    jumping_taxa_partitions_set = {p for p in jumping_taxa_partitions_set if p != edge}
+    moving_solution_set = set(solution_to_source.keys()) | set(
+        solution_to_destination.keys()
+    )
+    moving_solution_set = {p for p in moving_solution_set if p != edge}
     # Convert to sorted list for deterministic iteration order
     # Sort by DESCENDING size so larger groups move first
-    jumping_taxa_partitions = sorted(
-        jumping_taxa_partitions_set, key=lambda p: (-len(p.indices), p.indices)
+    mover_partitions = sorted(
+        moving_solution_set, key=lambda p: (-len(p.indices), p.indices)
     )
 
     # CRITICAL: Separate stable anchors from jumping movers.
-    stable_common_splits = common_splits_in_subtree - jumping_taxa_partitions_set
+    stable_common_splits = common_splits_in_subtree - moving_solution_set
 
     # Use maximal_elements() to get maximal stable subtrees
     stable_common_splits: PartitionSet[Partition] = (
@@ -225,13 +260,13 @@ def _get_stable_and_moving_components(
     )
 
     # Build blocks: stable common splits preserve their current order
-    source_blocked: List[Tuple[str, ...]] = []
+    anchor_blocks: List[Tuple[str, ...]] = []
     for cs in stable_common_splits:
         node = t1.find_node_by_split(cs)
         if node:
-            source_blocked.append(tuple(node.get_current_order()))
+            anchor_blocks.append(tuple(node.get_current_order()))
 
-    return source_blocked, jumping_taxa_partitions
+    return anchor_blocks, mover_partitions
 
 
 def _assign_anchor_keys(
@@ -264,7 +299,7 @@ def _assign_anchor_keys(
 
 def _assign_mover_keys(
     edge: Partition,
-    jumping_taxa_partitions: List[Partition],
+    mover_partitions: List[Partition],
     mover_weight_policy: str,
     source_index: Dict[str, int],
     destination_index: Dict[str, int],
@@ -273,9 +308,9 @@ def _assign_mover_keys(
 ) -> None:
     """Assign sort keys for jumping mover partitions (Band 0/2)."""
     mover_assignments = _cached_mover_assignments(
-        edge, jumping_taxa_partitions, mover_weight_policy
+        edge, mover_partitions, mover_weight_policy
     )
-    for jumping_partition in jumping_taxa_partitions:
+    for jumping_partition in mover_partitions:
         src_band, dst_band, rank = mover_assignments[tuple(jumping_partition.indices)]
 
         # Within-block order : tree-local
@@ -300,7 +335,7 @@ def _handle_circular_rotation(
     edge: Partition,
     sorted_src_taxa: List[str],
     sorted_dest_taxa: List[str],
-    jumping_taxa_partitions: List[Partition],
+    mover_partitions: List[Partition],
     src_taxon_sort_key: Dict[str, Tuple[int, int, int]],
     dst_taxon_sort_key: Dict[str, Tuple[int, int, int]],
     circular_boundary_policy: str,
@@ -309,10 +344,10 @@ def _handle_circular_rotation(
     edge_key = tuple(edge.indices)
     if circular_boundary_policy == "largest_mover_at_zero":
         src_cut_candidate = _boundary_largest_mover_at_zero(
-            sorted_src_taxa, jumping_taxa_partitions
+            sorted_src_taxa, mover_partitions
         )
         dst_cut_candidate = _boundary_largest_mover_at_zero(
-            sorted_dest_taxa, jumping_taxa_partitions
+            sorted_dest_taxa, mover_partitions
         )
     else:
         src_cut_candidate = _boundary_between_anchor_blocks(
@@ -390,27 +425,27 @@ def derive_order_for_pair(
             common_splits=common_splits,
         )
 
-        # Create a root partition for the entire tree (all taxa)
-        all_taxa_indices = tuple(sorted(t1.taxa_encoding.values()))
-        root_partition = Partition(all_taxa_indices, t1.taxa_encoding)
-        blocked_order_and_apply(
-            root_partition,
-            {},  # No sources
-            {},  # No destinations
-            t1,
-            t2,
-            mover_weight_policy=mover_weight_policy,
-            anchor_weight_policy=anchor_weight_policy,
-            circular=circular,
-            circular_boundary_policy=circular_boundary_policy,
-            common_splits=common_splits,
-        )
+    # Align root-level common blocks once, including pairs with no differing edges.
+    all_taxa_indices = tuple(sorted(t1.taxa_encoding.values()))
+    root_partition = Partition(all_taxa_indices, t1.taxa_encoding)
+    blocked_order_and_apply(
+        root_partition,
+        {},  # No solution-to-source mappings
+        {},  # No solution-to-destination mappings
+        t1,
+        t2,
+        mover_weight_policy=mover_weight_policy,
+        anchor_weight_policy=anchor_weight_policy,
+        circular=circular,
+        circular_boundary_policy=circular_boundary_policy,
+        common_splits=common_splits,
+    )
 
 
 def blocked_order_and_apply(
     edge: Partition,
-    sources: Dict[Partition, Partition],
-    destinations: Dict[Partition, Partition],
+    solution_to_source: Dict[Partition, Partition],
+    solution_to_destination: Dict[Partition, Partition],
     t1: Node,
     t2: Node,
     mover_weight_policy: str = "decreasing",
@@ -446,13 +481,13 @@ def blocked_order_and_apply(
     source_index = {taxon: i for i, taxon in enumerate(src_current_order)}
 
     # Include leaves (trivial splits) to ensure we capture ALL common taxa
-    source_blocked, jumping_taxa_partitions = _get_stable_and_moving_components(
+    anchor_blocks, mover_partitions = _get_anchor_blocks_and_movers(
         edge,
         src_node,
         dst_node,
-        sources,
-        destinations,
-        source_index,
+        solution_to_source,
+        solution_to_destination,
+        set(destination_index),
         t1,
         common_splits=common_splits,
     )
@@ -464,7 +499,7 @@ def blocked_order_and_apply(
     dst_taxon_sort_key: Dict[str, Tuple[int, int, int]] = {}
 
     _assign_anchor_keys(
-        source_blocked,
+        anchor_blocks,
         source_index,
         destination_index,
         anchor_weight_policy,
@@ -475,7 +510,7 @@ def blocked_order_and_apply(
     # Assign banded tuple keys to jumping partitions using deterministic alternation
     _assign_mover_keys(
         edge,
-        jumping_taxa_partitions,
+        mover_partitions,
         mover_weight_policy,
         source_index,
         destination_index,
@@ -501,7 +536,7 @@ def blocked_order_and_apply(
             edge,
             sorted_src_taxa,
             sorted_dest_taxa,
-            jumping_taxa_partitions,
+            mover_partitions,
             src_taxon_sort_key,
             dst_taxon_sort_key,
             circular_boundary_policy,

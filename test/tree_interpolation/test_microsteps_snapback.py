@@ -1,9 +1,8 @@
 import pytest
 from brancharchitect.tree import Node
-from brancharchitect.tree_interpolation.subtree_paths.execution.pivot_edge_interpolation_frame_builder import (
-    build_frames_for_subtree,
-)
+import brancharchitect.tree_interpolation.subtree_paths.execution.pivot_edge_interpolation_frame_builder as frame_builder
 from brancharchitect.elements.partition import Partition
+from brancharchitect.parser.newick_parser import parse_newick
 
 
 def test_microsteps_snapback_consistency():
@@ -39,9 +38,9 @@ def test_microsteps_snapback_consistency():
     dest = Node()
     dest.taxa_encoding = reordered.taxa_encoding
     # ((A, B), C)
-    ab_subtree = Node()
-    ab_subtree.children = [Node(name="A", length=0.1), Node(name="B", length=0.1)]
-    dest.children = [ab_subtree, Node(name="C", length=0.1)]  # Pivot edge (dummy)
+    ab_clade = Node()
+    ab_clade.children = [Node(name="A", length=0.1), Node(name="B", length=0.1)]
+    dest.children = [ab_clade, Node(name="C", length=0.1)]  # Pivot edge (dummy)
     pivot = Partition((0, 1, 2), reordered.taxa_encoding)  # Root
 
     # Selection with expand path
@@ -63,7 +62,7 @@ def test_microsteps_snapback_consistency():
     # If we don't force it, it should adopt a valid order (e.g. ["A", "B", "C"]).
 
     try:
-        trees, edges, final_tree, subtree_tracker = build_frames_for_subtree(
+        trees, edges, final_tree, subtree_tracker = frame_builder.build_frames_for_subtree(
             interpolation_state=reordered,  # Use reordered as start state for simplicity
             destination_tree=dest,
             current_pivot_edge=pivot,
@@ -85,6 +84,40 @@ def test_microsteps_snapback_consistency():
 
     except Exception as e:
         pytest.fail(f"Microsteps failed: {e}")
+
+
+def test_frame_builder_does_not_mutate_appended_frames(monkeypatch):
+    """A frame's order should be final at append time, not rewritten later."""
+    source = parse_newick("(A:1,B:1,C:1,D:1);")
+    destination = parse_newick("((A:1,B:1):1,C:1,D:1);", encoding=source.taxa_encoding)
+
+    encoding = source.taxa_encoding
+    pivot = Partition(tuple(sorted(encoding.values())), encoding)
+    mover = Partition((encoding["A"], encoding["C"]), encoding)
+    split_ab = Partition((encoding["A"], encoding["B"]), encoding)
+
+    appended_orders = []
+    original_append_frame = frame_builder._append_frame
+
+    def record_append(trees, edges, tree, edge, subtree_tracker, partition_group):
+        original_append_frame(trees, edges, tree, edge, subtree_tracker, partition_group)
+        appended_orders.append(list(trees[-1].get_current_order()))
+
+    monkeypatch.setattr(frame_builder, "_append_frame", record_append)
+
+    trees, _edges, _final_tree, _subtree_tracker = frame_builder.build_frames_for_subtree(
+        interpolation_state=source,
+        destination_tree=destination,
+        current_pivot_edge=pivot,
+        selection={
+            "subtree": mover,
+            "collapse": {"path_segment": []},
+            "expand": {"path_segment": [split_ab]},
+        },
+    )
+
+    final_orders = [list(tree.get_current_order()) for tree in trees]
+    assert appended_orders == final_orders
 
 
 if __name__ == "__main__":

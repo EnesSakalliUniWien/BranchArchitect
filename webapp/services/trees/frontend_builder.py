@@ -27,7 +27,6 @@ from webapp.services.serialization import (
 )
 from webapp.services.trees.movie_data import MovieData
 
-
 # =============================================================================
 # Main Entry Points
 # =============================================================================
@@ -362,8 +361,46 @@ def _serialize_tree_pair_solutions(
                 )
             item["split_change_events"] = events_ser
 
+        if "spr_move_events" in solution:
+            item["spr_move_events"] = _serialize_spr_move_events(
+                solution["spr_move_events"]
+            )
+
         serialized[pair_key] = item
 
+    return serialized
+
+
+def _serialize_spr_path(path: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [
+        {
+            "split": serialize_partition_to_indices(segment["split"]),
+            "branch_length": segment["branch_length"],
+        }
+        for segment in path
+    ]
+
+
+def _serialize_spr_move_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    serialized: List[Dict[str, Any]] = []
+    for event in events:
+        serialized.append(
+            {
+                "pivot_edge": serialize_partition_to_indices(event["pivot_edge"]),
+                "moving_subtree": serialize_partition_to_indices(
+                    event["moving_subtree"]
+                ),
+                "step_range": list(event["step_range"]),
+                "collapse_path": _serialize_spr_path(event["collapse_path"]),
+                "expand_path": _serialize_spr_path(event["expand_path"]),
+                "collapse_hops": event["collapse_hops"],
+                "expand_hops": event["expand_hops"],
+                "total_hops": event["total_hops"],
+                "collapse_branch_length": event["collapse_branch_length"],
+                "expand_branch_length": event["expand_branch_length"],
+                "total_branch_length": event["total_branch_length"],
+            }
+        )
     return serialized
 
 

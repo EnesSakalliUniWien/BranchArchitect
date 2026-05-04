@@ -276,9 +276,6 @@ class Node:
         # Invalidate all caches, including splits cache, after tree modification
         self.invalidate_caches(propagate_up=True)
 
-    # Shared empty dict for deep_copy optimization (avoids creating new empty dicts)
-    _EMPTY_VALUES: Dict[str, Any] = {}
-
     # ------------------------------------------------------------------------
     # deep_copy (optimized iterative version to avoid function call overhead)
     # ------------------------------------------------------------------------
@@ -291,7 +288,7 @@ class Node:
         new_node = object.__new__(type(self))
         new_node.name = self.name
         new_node.length = self.length if self.length is not None else 0.0
-        new_node.values = self.values.copy() if self.values else Node._EMPTY_VALUES
+        new_node.values = self.values.copy() if self.values else {}
         new_node.split_indices = self.split_indices
         new_node.taxa_encoding = self.taxa_encoding
         new_node.parent = None
@@ -403,12 +400,12 @@ class Node:
             ValueError: If initialization fails due to invalid encoding or tree structure
         """
         self._initialize_split_indices(encoding)
-        # Build split index ONCE at the root after all nodes are initialized
-        # This avoids O(N²) complexity from calling it at every node
-        self.build_split_index()
         # Invalidate all caches to ensure fresh state after initialization
         # This is important because tree construction may have set stale caches
         self.invalidate_caches(propagate_up=False, propagate_down=True)
+        # Build split index ONCE at the root after all nodes are initialized
+        # and stale caches have been cleared.
+        self.build_split_index()
 
     # ------------------------------------------------------------------------
     # traversal, fix_child_order, to_hierarchy, etc.
@@ -439,7 +436,7 @@ class Node:
         """
         Convert a tuple of taxon names to a Partition using this tree's taxa_encoding.
 
-        This is the preferred API for name-based partition lookup.
+        This is the preferred API over the legacy `_index` helper.
         """
         try:
             indices = tuple(sorted(self.taxa_encoding[name] for name in names))
@@ -451,9 +448,9 @@ class Node:
 
     def fix_child_order(self) -> None:
         self.children.sort(
-            key=lambda node: min(node.split_indices)
-            if node.split_indices
-            else float("inf")
+            key=lambda node: (
+                min(node.split_indices) if node.split_indices else float("inf")
+            )
         )
         for child in self.children:
             child.fix_child_order()
@@ -866,6 +863,7 @@ class Node:
 
         # Update order and reinitialize indices
         self._initialize_split_indices(self.taxa_encoding)
+        self.invalidate_caches(propagate_up=True)
         self.build_split_index()  # Rebuild index after deletion
 
         # Debug: Log the leaves after deletion
@@ -885,11 +883,6 @@ class Node:
         except Exception:
             pass
 
-        # Clear all caches
-        self._split_index = None  # Force rebuild of split index
-        # Rebuild split index with new indices
-        self.build_split_index()
-        self.invalidate_caches(propagate_up=True)
         return self
 
     def _delete_taxa_internal(self, deletion_mask: int) -> Self:

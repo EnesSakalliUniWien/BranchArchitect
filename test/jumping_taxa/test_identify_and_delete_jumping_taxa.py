@@ -25,7 +25,7 @@ class TestIdentifyAndDeleteJumpingTaxa:
         partition = Partition(frozenset({0, 1}), tree1.taxa_encoding)
         solver = LatticeSolver(tree1, tree2)
 
-        # Expect ValueError because {A,B} is not a subtree in tree2
+        # Expect ValueError because {A,B} is not a clade in tree2
         with pytest.raises(ValueError, match="does not correspond to a valid subtree"):
             identify_and_delete_jumping_taxa(
                 solver.current_t1,
@@ -76,7 +76,7 @@ class TestIdentifyAndDeleteJumpingTaxa:
         # Mock pivot edge for dict key
         dummy_pivot = Partition(frozenset({0}), tree1.taxa_encoding)
 
-        # Expect strict error because {A,B} is not a subtree in tree2
+        # Expect strict error because {A,B} is not a clade in tree2
         with pytest.raises(ValueError, match="does not correspond to a valid subtree"):
             identify_and_delete_jumping_taxa(
                 solver.current_t1,

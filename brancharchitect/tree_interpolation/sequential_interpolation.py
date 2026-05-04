@@ -16,6 +16,7 @@ from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.utils import iter_consecutive_pairs
 from brancharchitect.tree_interpolation.types import (
+    SprMoveEvent,
     TreeInterpolationSequence,
     TreePairInterpolation,
 )
@@ -77,6 +78,7 @@ class SequentialInterpolationBuilder:
         self.target_mappings: List[Dict[Partition, Dict[Partition, Partition]]] = []
         self.current_pivot_edge_tracking: List[Optional[Partition]] = []
         self.current_subtree_tracking: List[Optional[List[Partition]]] = []
+        self.spr_move_events: List[List[SprMoveEvent]] = []
         self.pair_tree_counts: List[int] = []
         self.jumping_subtree_solutions: List[Dict[Partition, List[Partition]]] = []
 
@@ -119,6 +121,7 @@ class SequentialInterpolationBuilder:
         self.current_subtree_tracking.extend(
             interpolation_result.current_subtree_tracking
         )
+        self.spr_move_events.append(interpolation_result.spr_move_events)
 
         self.pair_tree_counts.append(interpolated_tree_count)
 
@@ -126,15 +129,15 @@ class SequentialInterpolationBuilder:
             interpolation_result.jumping_subtree_solutions or {}
         )
 
-        # Build and store solution-to-atom mappings (destination/source) for this pair
+        # Build and store solution-to-atom mappings (source/destination) for this pair
         if interpolation_result.jumping_subtree_solutions:
-            destination_map, source_map = generate_solution_mappings(
+            source_map, destination_map = generate_solution_mappings(
                 interpolation_result.jumping_subtree_solutions,
                 destination=t2,
                 source=t1,
             )
-            self.source_mappings.append(destination_map)
-            self.target_mappings.append(source_map)
+            self.source_mappings.append(source_map)
+            self.target_mappings.append(destination_map)
         else:
             self.source_mappings.append({})
             self.target_mappings.append({})
@@ -167,10 +170,11 @@ class SequentialInterpolationBuilder:
 
         return TreeInterpolationSequence(
             interpolated_trees=self.interpolated_trees,
-            mapping_one=self.source_mappings,
-            mapping_two=self.target_mappings,
+            solution_to_destination_maps=self.target_mappings,
+            solution_to_source_maps=self.source_mappings,
             current_pivot_edge_tracking=self.current_pivot_edge_tracking,
             current_subtree_tracking=self.current_subtree_tracking,
+            spr_move_events_list=self.spr_move_events,
             pair_interpolated_tree_counts=self.pair_tree_counts,
             jumping_subtree_solutions_list=self.jumping_subtree_solutions,
         )
@@ -179,7 +183,6 @@ class SequentialInterpolationBuilder:
         self,
         trees: List[Node],
         progress_callback: Optional[Callable[[float, str], None]] = None,
-        enable_tabula_rasa: bool = False,
     ) -> TreeInterpolationSequence:
         """Build sequential interpolations between consecutive tree pairs."""
         if len(trees) < 2:
@@ -196,6 +199,7 @@ class SequentialInterpolationBuilder:
         self._add_delimiter_frame(trees[0])
 
         total_pairs = len(trees) - 1
+        final_resolved_tree: Optional[Node] = None
         for pair in iter_consecutive_pairs(trees):
             pair_index, source, target, is_first, is_last = pair
 
@@ -219,6 +223,7 @@ class SequentialInterpolationBuilder:
                 pair_index,
                 precomputed_solution,
             )
+            final_resolved_tree = resolved_tree
 
             # Add the resolved tree as the delimiter for the next pair
             # This ensures: last frame of pair N = first frame of pair N+1
@@ -226,6 +231,8 @@ class SequentialInterpolationBuilder:
                 self._add_delimiter_frame(resolved_tree)
 
         # Use the final resolved tree as the last delimiter to maintain sequence continuity
-        self._add_delimiter_frame(self.interpolated_trees[-1])
+        if final_resolved_tree is None:
+            raise RuntimeError("Interpolation did not process any tree pairs")
+        self._add_delimiter_frame(final_resolved_tree)
 
         return self._finalize_sequence(len(trees))

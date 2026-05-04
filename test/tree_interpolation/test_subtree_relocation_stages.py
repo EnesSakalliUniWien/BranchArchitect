@@ -394,8 +394,6 @@ class TestStage5Snap:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             selection=selection,
-            all_collapse_paths=None,
-            all_expand_paths=None,
         )
 
         # With no collapse/expand work but is_first_mover=True (default),
@@ -434,8 +432,6 @@ class TestStage5Snap:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             selection=selection,
-            all_collapse_paths=None,
-            all_expand_paths=None,
         )
 
         # With collapse work + first_mover (snap):
@@ -466,8 +462,6 @@ class TestStage5Snap:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             selection=selection,
-            all_collapse_paths=None,
-            all_expand_paths=None,
         )
 
         source_taxa = set(get_leaf_order(source_tree))
@@ -525,8 +519,6 @@ class TestIntegration:
             destination_tree=destination_tree,
             current_pivot_edge=pivot_edge,
             selection=selection,
-            all_collapse_paths=None,
-            all_expand_paths=None,
         )
 
         # Verify the animation sequence is valid

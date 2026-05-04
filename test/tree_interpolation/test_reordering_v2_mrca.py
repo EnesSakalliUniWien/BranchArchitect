@@ -365,8 +365,7 @@ class TestMultipleMoverReordering:
         # M1 should move toward destination
         # M2 should stay at source position (stability)
         # Anchors: A, B, C
-        assert "M1" in result_order
-        assert "M2" in result_order
+        assert result_order == ["A", "B", "M1", "M2", "C"]
 
     def test_diverging_movers_separate_correctly(self, diverging_trees):
         """Diverging movers should end up at their respective destination parents."""

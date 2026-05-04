@@ -18,6 +18,7 @@ from typing import Dict, List, Optional
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
+from brancharchitect.tree_interpolation.types import SprMoveEvent
 from .execution.pivot_edge_interpolation_frame_builder import execute_pivot_edge_plan
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -156,9 +157,9 @@ def calculate_subtree_paths(
             if subtree in source_splits:
                 destination_partitions.discard(subtree)
 
-            destination_subtree_paths[current_pivot_edge][subtree] = (
-                destination_partitions
-            )
+            destination_subtree_paths[current_pivot_edge][
+                subtree
+            ] = destination_partitions
             source_subtree_paths[current_pivot_edge][subtree] = source_partitions
 
         # Add residual splits to the first subtree's collapse path (if any)
@@ -177,6 +178,22 @@ def calculate_subtree_paths(
     return destination_subtree_paths, source_subtree_paths
 
 
+def _offset_spr_move_events(
+    events: List[SprMoveEvent], step_offset: int
+) -> List[SprMoveEvent]:
+    """Convert pivot-local SPR event ranges to pair-local ranges."""
+    offset_events: List[SprMoveEvent] = []
+    for event in events:
+        step_start, step_end = event["step_range"]
+        offset_events.append(
+            {
+                **event,
+                "step_range": (step_start + step_offset, step_end + step_offset),
+            }
+        )
+    return offset_events
+
+
 def create_interpolation_for_active_split_sequence(
     source_tree: Node,
     destination_tree: Node,
@@ -189,6 +206,7 @@ def create_interpolation_for_active_split_sequence(
     List[Node],
     List[Optional[Partition]],
     List[Optional[List[Partition]]],
+    List[SprMoveEvent],
 ]:
     """
     Create an interpolation sequence from source to destination tree for pivot edges (active-changing splits).
@@ -205,6 +223,7 @@ def create_interpolation_for_active_split_sequence(
     interpolation_sequence: List[Node] = []
     processed_pivot_edge_tracking: List[Optional[Partition]] = []
     processed_subtree_tracking: List[Optional[List[Partition]]] = []
+    spr_move_events: List[SprMoveEvent] = []
 
     interpolation_state: Node = source_tree.deep_copy()
 
@@ -238,7 +257,14 @@ def create_interpolation_for_active_split_sequence(
             dest_parent_maps.get(current_pivot_edge) if dest_parent_maps else None
         )
 
-        step_trees, step_edges, new_state, step_subtrees = execute_pivot_edge_plan(
+        step_offset = len(interpolation_sequence)
+        (
+            step_trees,
+            step_edges,
+            new_state,
+            step_subtrees,
+            step_spr_move_events,
+        ) = execute_pivot_edge_plan(
             current_base_tree=current_base_tree,
             destination_tree=destination_tree,
             source_tree=source_tree,
@@ -253,6 +279,9 @@ def create_interpolation_for_active_split_sequence(
             interpolation_sequence.extend(step_trees)
             processed_pivot_edge_tracking.extend(step_edges)
             processed_subtree_tracking.extend(step_subtrees)
+            spr_move_events.extend(
+                _offset_spr_move_events(step_spr_move_events, step_offset)
+            )
 
             interpolation_state = new_state
         else:
@@ -275,6 +304,7 @@ def create_interpolation_for_active_split_sequence(
         interpolation_sequence,
         processed_pivot_edge_tracking,
         processed_subtree_tracking,
+        spr_move_events,
     )
 
 

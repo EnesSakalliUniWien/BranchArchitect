@@ -118,7 +118,7 @@ def main():
         {"E": ["E"], "F": ["F"], "G": ["G"]}
     ))
 
-    # Test 3: bird_trees - single mover but large subtrees
+    # Test 3: bird_trees - single mover but large clades
     results.append(test_case(
         "bird_trees (1 mover: Ostrich)",
         "(Emu,(((((((BrushTurkey,Chicken),(magpiegoose,duck)),((LBPenguin,GaviaStellata),(oystercatcher,turnstone))),(GreatRhea,LesserRhea)),Ostrich),(((lbmoa,EasternMoa),Dinornis),((Alligator,Caiman),(ECtinamou,(Gtinamou,Crypturellus))))),(BrownKiwi,(LSKiwi,gskiwi))),Cassowary);",

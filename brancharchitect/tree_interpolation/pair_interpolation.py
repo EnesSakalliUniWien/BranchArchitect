@@ -32,6 +32,7 @@ from brancharchitect.tree_interpolation.subtree_paths.pivot_sequence_orchestrato
 from brancharchitect.tree_interpolation.types import (
     TreePairInterpolation,
 )
+
 # distance_metrics import removed (metrics no longer used here)
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -53,9 +54,6 @@ def _unify_encodings(src: Node, dst: Node) -> None:
     dst.taxa_encoding = enc
     # Re-initialize split indices for the destination to use the new encoding
     dst.initialize_split_indices(enc)
-    dst.build_split_index()
-    # Invalidate caches to ensure no stale partitions with old encoding remain
-    dst.invalidate_caches(propagate_down=True)
 
 
 def process_tree_pair_interpolation(
@@ -121,6 +119,7 @@ def process_tree_pair_interpolation(
         sequence_trees,
         current_pivot_edge_tracking,
         current_subtree_tracking,
+        spr_move_events,
     ) = create_interpolation_for_active_split_sequence(
         source_tree=source_tree,
         destination_tree=destination_tree,
@@ -149,4 +148,5 @@ def process_tree_pair_interpolation(
         current_pivot_edge_tracking=current_pivot_edge_tracking,
         jumping_subtree_solutions=jumping_subtree_solutions,
         current_subtree_tracking=current_subtree_tracking,
+        spr_move_events=spr_move_events,
     )

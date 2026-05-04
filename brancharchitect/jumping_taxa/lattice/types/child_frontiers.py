@@ -39,7 +39,7 @@ class ChildFrontiers:
     and proper overlap conflicts between tree topologies.
 
     Attributes:
-        shared_top_splits: Frontier splits shared by both trees (maximal common subtrees).
+        shared_top_splits: Frontier splits shared by both trees (maximal common clades).
         bottom_partition_map: Maps unique splits → covered frontier splits.
     """
 

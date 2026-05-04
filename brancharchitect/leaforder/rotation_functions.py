@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 import logging
 
 # Assuming these imports point to valid modules in your project structure
@@ -71,11 +71,14 @@ def optimize_unique_splits(
     tree1: Node,
     tree2: Node,
     destination_order: tuple[str, ...],
-    rotated_splits: PartitionSet[Partition] = PartitionSet(),
+    rotated_splits: Optional[PartitionSet[Partition]] = None,
 ) -> bool:
     """
     For each 'unique' split in tree2, attempt a local reversal.
     """
+    if rotated_splits is None:
+        rotated_splits = PartitionSet()
+
     # Step 1: Find all splits that are in tree2 but not tree1.
     unique2: PartitionSet[Partition] = get_unique_splits(tree1, tree2)
 

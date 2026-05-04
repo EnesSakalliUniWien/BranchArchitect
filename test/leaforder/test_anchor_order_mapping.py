@@ -57,7 +57,7 @@ def test_blocked_order_singleton_solutions_move_as_singletons():
     (stable frontiers) are preserved. Use a star tree to validate order shape.
     All movers go to the same side: left in t1, right in t2.
     """
-    # Use a star tree to avoid internal subtree structure affecting the test
+    # Use a star tree to avoid internal clade structure affecting the test
     t1 = parse_newick("(A:1,B:1,C:1,D:1);")
     t2 = parse_newick("(A:1,B:1,C:1,D:1);", list(t1.get_current_order()))
 

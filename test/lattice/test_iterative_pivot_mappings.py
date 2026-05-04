@@ -33,11 +33,11 @@ def _build_identical_small_tree():
 def _build_different_trees():
     """Build two trees with topological difference.
 
-    T1: (((A,B),C),(D,E)) - C is sibling to subtree (A,B)
+    T1: (((A,B),C),(D,E)) - C is sibling to clade (A,B)
     T2: ((A,(B,C)),(D,E)) - C has moved to be sibling of B under A's parent
 
     Common splits: root, (D,E), (A,B,C)
-    Pivot edge: The (A,B,C) subtree has different internal structure.
+    Pivot edge: The (A,B,C) clade has different internal structure.
     """
     trees = parse_newick("(((A,B),C),(D,E));((A,(B,C)),(D,E));")
     return trees[0], trees[1]

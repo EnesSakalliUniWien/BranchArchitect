@@ -16,7 +16,7 @@ from brancharchitect.tree_interpolation.topology_ops.expand import (
     apply_split_simple,
     SplitApplicationError,
 )
-
+from brancharchitect.tree_interpolation.topology_ops import expand
 
 # =============================================================================
 # Test Data: Known tree structures for property testing
@@ -123,6 +123,28 @@ def get_incompatible_split_for_tree(tree: Node) -> Partition:
     return None
 
 
+def test_apply_split_no_rebuild_retries_with_actual_complement(monkeypatch):
+    tree = create_test_tree("(A,B,C,D);", ["A", "B", "C", "D"])
+    split = Partition(
+        (tree.taxa_encoding["A"], tree.taxa_encoding["C"]), tree.taxa_encoding
+    )
+    calls = []
+
+    def fail_apply(split_arg, node_arg):
+        calls.append(split_arg)
+        return False
+
+    monkeypatch.setattr(expand, "_apply_split_at_node", fail_apply)
+
+    assert expand._apply_split_no_rebuild(split, tree) is False
+    assert calls == [
+        split,
+        Partition(
+            (tree.taxa_encoding["B"], tree.taxa_encoding["D"]), tree.taxa_encoding
+        ),
+    ]
+
+
 # =============================================================================
 # Property 1: Split Application Correctness
 # Validates: Requirements 1.1, 1.2, 3.2
@@ -154,9 +176,9 @@ class TestSplitApplicationCorrectness:
         apply_split_simple(compatible_split, tree)
 
         # Verify split is now present
-        assert compatible_split in tree.to_splits(), (
-            f"Split {list(compatible_split.indices)} not in tree after application"
-        )
+        assert (
+            compatible_split in tree.to_splits()
+        ), f"Split {list(compatible_split.indices)} not in tree after application"
 
     def test_split_application_with_real_trees(self):
         """Test with realistic tree structures from small_example."""
@@ -227,9 +249,9 @@ class TestSplitApplicationIdempotence:
 
         # Verify tree is unchanged
         new_split_set = set(tree.to_splits())
-        assert original_split_set == new_split_set, (
-            "Split set changed after applying existing split"
-        )
+        assert (
+            original_split_set == new_split_set
+        ), "Split set changed after applying existing split"
 
     def test_multiple_applications_are_idempotent(self):
         """Applying the same split multiple times is idempotent."""
@@ -309,9 +331,9 @@ class TestNoAutomaticConflictResolution:
 
         error_str = str(exc_info.value)
         # Should contain taxa names
-        assert any(name in error_str for name in taxa_order), (
-            f"Error message should contain taxa names: {error_str}"
-        )
+        assert any(
+            name in error_str for name in taxa_order
+        ), f"Error message should contain taxa names: {error_str}"
 
 
 # =============================================================================
@@ -393,9 +415,9 @@ class TestCollapsePathCorrectness:
         collapsible_splits = [
             s for s in original_splits if len(s.indices) < all_taxa_count
         ]
-        assert len(collapsible_splits) >= 1, (
-            "Tree should have collapsible internal splits"
-        )
+        assert (
+            len(collapsible_splits) >= 1
+        ), "Tree should have collapsible internal splits"
         split_to_collapse = collapsible_splits[0]
 
         # Execute collapse path
@@ -403,9 +425,9 @@ class TestCollapsePathCorrectness:
 
         # Verify the split is no longer in the tree
         new_splits = tree.to_splits()
-        assert split_to_collapse not in new_splits, (
-            f"Split {split_to_collapse.indices} should have been collapsed"
-        )
+        assert (
+            split_to_collapse not in new_splits
+        ), f"Split {split_to_collapse.indices} should have been collapsed"
 
     def test_collapse_preserves_destination_splits(self):
         """Collapsing preserves splits that exist in destination tree."""
@@ -433,9 +455,9 @@ class TestCollapsePathCorrectness:
 
         # Verify the split is preserved (because it exists in destination)
         new_splits = tree.to_splits()
-        assert split_to_collapse in new_splits, (
-            f"Split {split_to_collapse.indices} should be preserved (exists in destination)"
-        )
+        assert (
+            split_to_collapse in new_splits
+        ), f"Split {split_to_collapse.indices} should be preserved (exists in destination)"
 
     def test_collapse_empty_path_is_noop(self):
         """Collapsing an empty path does not change the tree."""
@@ -453,9 +475,9 @@ class TestCollapsePathCorrectness:
         execute_collapse_path(tree, [], destination_tree=None)
 
         new_splits = set(tree.to_splits())
-        assert original_splits == new_splits, (
-            "Empty collapse path should not change tree"
-        )
+        assert (
+            original_splits == new_splits
+        ), "Empty collapse path should not change tree"
 
     def test_collapse_multiple_splits(self):
         """Collapsing multiple splits removes all of them."""
@@ -484,9 +506,9 @@ class TestCollapsePathCorrectness:
         # Verify all non-root splits are removed
         new_splits = tree.to_splits()
         for split in non_root_splits:
-            assert split not in new_splits, (
-                f"Split {split.indices} should have been collapsed"
-            )
+            assert (
+                split not in new_splits
+            ), f"Split {split.indices} should have been collapsed"
 
 
 # =============================================================================
@@ -537,9 +559,9 @@ class TestRoundTripTopologyCorrectness:
         # Verify all expand splits are present
         result_splits = working_tree.to_splits()
         for split in expand_path:
-            assert split in result_splits, (
-                f"Expand split {split.indices} should be in result tree"
-            )
+            assert (
+                split in result_splits
+            ), f"Expand split {split.indices} should be in result tree"
 
     def test_execute_path_removes_collapse_only_splits(self):
         """Execute path removes splits that are only in collapse path."""
@@ -576,9 +598,9 @@ class TestRoundTripTopologyCorrectness:
         expand_set = set(expand_path)
         for split in collapse_path:
             if split not in expand_set:
-                assert split not in result_splits, (
-                    f"Collapse-only split {split.indices} should not be in result tree"
-                )
+                assert (
+                    split not in result_splits
+                ), f"Collapse-only split {split.indices} should not be in result tree"
 
     def test_execute_path_with_empty_paths(self):
         """Execute path with empty paths is a no-op."""
@@ -632,9 +654,9 @@ class TestRoundTripTopologyCorrectness:
             result_node = working_tree.find_node_by_split(split)
             dest_node = dest_tree.find_node_by_split(split)
             if result_node is not None and dest_node is not None:
-                assert result_node.length == dest_node.length, (
-                    f"Weight for split {split.indices} should match destination"
-                )
+                assert (
+                    result_node.length == dest_node.length
+                ), f"Weight for split {split.indices} should match destination"
 
 
 # =============================================================================

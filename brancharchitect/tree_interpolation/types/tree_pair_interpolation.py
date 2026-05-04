@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
+from .tree_pair_solution import SprMoveEvent
 
 
 @dataclass
@@ -21,6 +22,7 @@ class TreePairInterpolation:
     current_subtree_tracking: List[Optional[List[Partition]]] = field(
         default_factory=list
     )
+    spr_move_events: List[SprMoveEvent] = field(default_factory=list)
     jumping_subtree_solutions: Dict[Partition, List[Partition]] = field(
         default_factory=dict
     )

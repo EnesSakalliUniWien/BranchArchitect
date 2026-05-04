@@ -31,8 +31,7 @@ def test_get_unique_splits_handles_complements():
     src_p = Partition((0, 1), encoding)
     dst_p = Partition((2, 3, 4), encoding)
 
-    # Pivot Edge (dummy)
-    pivot = Partition((0,), encoding)
+    pivot = Partition((0, 1, 2, 3, 4), encoding)
 
     src_splits = PartitionSet({src_p}, encoding=encoding)
     dst_splits = PartitionSet({dst_p}, encoding=encoding)
@@ -51,6 +50,42 @@ def test_get_unique_splits_handles_complements():
     assert len(unique_dst) == 0, f"Expected 0 unique dest splits, got {unique_dst}"
 
 
+def test_get_unique_splits_handles_complements_inside_pivot_scope():
+    encoding = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5}
+
+    src_p = Partition((0, 1), encoding)
+    dst_p = Partition((2, 3), encoding)
+    pivot = Partition((0, 1, 2, 3), encoding)
+
+    src_tree = MockNode(PartitionSet({src_p}, encoding=encoding))
+    dst_tree = MockNode(PartitionSet({dst_p}, encoding=encoding))
+
+    unique_src, unique_dst = get_unique_splits_for_current_pivot_edge_subtree(
+        src_tree, dst_tree, pivot
+    )
+
+    assert len(unique_src) == 0, f"Expected 0 unique source splits, got {unique_src}"
+    assert len(unique_dst) == 0, f"Expected 0 unique dest splits, got {unique_dst}"
+
+
+def test_get_unique_splits_keeps_unbalanced_pivot_complements():
+    encoding = {name: index for index, name in enumerate("ABCDEFGH")}
+
+    src_p = Partition((0, 1, 2, 3, 4, 5), encoding)
+    dst_p = Partition((6, 7), encoding)
+    pivot = Partition(tuple(range(8)), encoding)
+
+    src_tree = MockNode(PartitionSet({src_p}, encoding=encoding))
+    dst_tree = MockNode(PartitionSet({dst_p}, encoding=encoding))
+
+    unique_src, unique_dst = get_unique_splits_for_current_pivot_edge_subtree(
+        src_tree, dst_tree, pivot
+    )
+
+    assert src_p in unique_src
+    assert dst_p in unique_dst
+
+
 def test_get_unique_splits_keeps_truly_unique():
     encoding = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
 
@@ -60,7 +95,7 @@ def test_get_unique_splits_keeps_truly_unique():
     src_p = Partition((0, 1), encoding)
     dst_p = Partition((0, 2), encoding)  # {A, C} -> {0, 2}
 
-    pivot = Partition((0,), encoding)
+    pivot = Partition((0, 1, 2, 3, 4), encoding)
 
     src_splits = PartitionSet({src_p}, encoding=encoding)
     dst_splits = PartitionSet({dst_p}, encoding=encoding)

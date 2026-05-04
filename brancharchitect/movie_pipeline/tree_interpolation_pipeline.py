@@ -266,7 +266,7 @@ class TreeInterpolationPipeline:
         original_tree_global_indices = result.get_original_tree_indices()
 
         pair_solutions, pair_ranges = result.build_pair_solutions(
-            original_tree_global_indices, logger=self.logger
+            original_tree_global_indices
         )
 
         tree_metadata = self._create_global_tree_metadata(
@@ -332,14 +332,21 @@ class TreeInterpolationPipeline:
         self.logger.info(f"Precomputing solutions for {n_pairs} pairs using joblib...")
 
         # Detect if running in PyInstaller frozen executable
-        is_frozen = getattr(sys, 'frozen', False)
+        is_frozen = getattr(sys, "frozen", False)
 
-        if is_frozen:
+        if is_frozen or n_pairs == 1:
             # In frozen executables, multiprocessing spawn doesn't work reliably
             # due to how PyInstaller packages the application. Run sequentially
             # to ensure stability. Performance impact is acceptable for typical
             # tree counts in interactive usage.
-            self.logger.info("Frozen executable detected, running lattice solver sequentially")
+            if is_frozen:
+                self.logger.info(
+                    "Frozen executable detected, running lattice solver sequentially"
+                )
+            else:
+                self.logger.info(
+                    "Single tree pair detected, running lattice solver sequentially"
+                )
             results = []
             for i in range(n_pairs):
                 results.append(_parallel_solve_pair(trees[i], trees[i + 1]))
@@ -464,4 +471,4 @@ class TreeInterpolationPipeline:
             return rooted_trees
         except Exception as e:
             self.logger.error(f"Rooting failed: {e}")
-            return trees
+            raise RuntimeError(f"Rooting failed: {e}") from e

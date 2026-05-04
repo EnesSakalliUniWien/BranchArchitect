@@ -14,12 +14,13 @@ from brancharchitect.leaforder.anchor_order import (
     blocked_order_and_apply,
     derive_order_for_pair,
 )
+from brancharchitect.leaforder.split_analysis import get_common_splits
 
 
 def _pair(src: str, dst: str):
     s = parse_newick(src)
     d = parse_newick(dst)
-    d.taxa_encoding = s.taxa_encoding
+    d.initialize_split_indices(s.taxa_encoding)
     return s, d
 
 
@@ -110,10 +111,26 @@ def test_blocked_order_extremes_two_movers_same_side():
 def test_derive_order_for_pair_no_differences_root_alignment():
     """
     When there are no differing edges between trees, derive_order_for_pair
-    still applies ordering at the root without errors.
+    still applies ordering at the root.
     """
-    t1, t2 = _pair("(A:1,B:1,C:1);", "(A:1,B:1,C:1);")
-    # Should not raise and should leave order unchanged
-    derive_order_for_pair(t1, t2)
-    assert list(t1.get_current_order()) == ["A", "B", "C"]
-    assert list(t2.get_current_order()) == ["A", "B", "C"]
+    t1, t2 = _pair("((A:1,B:1):1,(C:1,D:1):1);", "((C:1,D:1):1,(A:1,B:1):1);")
+
+    derive_order_for_pair(t1, t2, anchor_weight_policy="destination")
+
+    assert list(t1.get_current_order()) == ["C", "D", "A", "B"]
+    assert list(t2.get_current_order()) == ["C", "D", "A", "B"]
+
+
+def test_precomputed_common_splits_preserves_leaf_anchor_alignment():
+    t1, t2 = _pair("(A:1,B:1,C:1,D:1);", "(D:1,C:1,B:1,A:1);")
+    common_splits = get_common_splits(t1, t2)
+
+    derive_order_for_pair(
+        t1,
+        t2,
+        anchor_weight_policy="destination",
+        common_splits=common_splits,
+    )
+
+    assert list(t1.get_current_order()) == ["D", "C", "B", "A"]
+    assert list(t2.get_current_order()) == ["D", "C", "B", "A"]
