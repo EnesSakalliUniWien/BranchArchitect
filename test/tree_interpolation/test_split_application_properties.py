@@ -123,26 +123,22 @@ def get_incompatible_split_for_tree(tree: Node) -> Partition:
     return None
 
 
-def test_apply_split_no_rebuild_retries_with_actual_complement(monkeypatch):
-    tree = create_test_tree("(A,B,C,D);", ["A", "B", "C", "D"])
+def test_apply_split_no_rebuild_does_not_apply_rooted_complement():
+    tree = create_test_tree("((A,B),C,D,E);", ["A", "B", "C", "D", "E"])
     split = Partition(
         (tree.taxa_encoding["A"], tree.taxa_encoding["C"]), tree.taxa_encoding
     )
-    calls = []
-
-    def fail_apply(split_arg, node_arg):
-        calls.append(split_arg)
-        return False
-
-    monkeypatch.setattr(expand, "_apply_split_at_node", fail_apply)
+    complement = Partition(
+        (
+            tree.taxa_encoding["B"],
+            tree.taxa_encoding["D"],
+            tree.taxa_encoding["E"],
+        ),
+        tree.taxa_encoding,
+    )
 
     assert expand._apply_split_no_rebuild(split, tree) is False
-    assert calls == [
-        split,
-        Partition(
-            (tree.taxa_encoding["B"], tree.taxa_encoding["D"]), tree.taxa_encoding
-        ),
-    ]
+    assert complement not in tree.to_splits()
 
 
 # =============================================================================

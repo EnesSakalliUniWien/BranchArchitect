@@ -80,11 +80,12 @@ def apply_split_simple(split: Partition, node: Node) -> None:
         both trees are parsed with the same encoding at the start.
     """
     # Check if split is already present - idempotent operation
-    if split in node.to_splits():
+    split_index = _get_tree_split_index(node)
+    if split in split_index:
         return
 
     # Find the correct parent node where this split should be applied
-    _apply_split_at_node(split, node)
+    _apply_split_at_node(split, node, split_index)
 
     # Refresh split indices after modification
     root = node.get_root()
@@ -100,84 +101,131 @@ def apply_split_simple(split: Partition, node: Node) -> None:
         )
 
 
-def _apply_split_at_node(split: Partition, node: Node) -> bool:
+def _get_tree_split_index(node: Node) -> dict[Partition, Node]:
+    """Return this tree's cached split index, building it only when needed."""
+    root = node.get_root()
+    if root._split_index is None:
+        root.build_split_index()
+    if root._split_index is None:
+        return {}
+    return root._split_index
+
+
+def _is_subset_mask(child_mask: int, parent_mask: int) -> bool:
+    return (child_mask & ~parent_mask) == 0
+
+
+def _find_split_application_parent(
+    split: Partition, split_index: dict[Partition, Node]
+) -> Node | None:
     """
-    Recursively find and apply split at the correct node.
+    Find the narrowest existing node that can receive `split`.
+
+    A valid parent strictly contains the new split and has at least two direct
+    children whose clades fit inside the new split. Those children can then be
+    grouped under the new internal node.
+    """
+    split_mask = split.bitmask
+    best_parent: Node | None = None
+    best_parent_size = float("inf")
+
+    for candidate in split_index.values():
+        candidate_mask = candidate.split_indices.bitmask
+        if candidate_mask == split_mask:
+            continue
+        if not _is_subset_mask(split_mask, candidate_mask):
+            continue
+
+        reassigned_child_count = 0
+        for child in candidate.children:
+            if _is_subset_mask(child.split_indices.bitmask, split_mask):
+                reassigned_child_count += 1
+                if reassigned_child_count > 1:
+                    break
+
+        if reassigned_child_count <= 1:
+            continue
+
+        candidate_size = candidate.split_indices.size
+        if candidate_size < best_parent_size:
+            best_parent = candidate
+            best_parent_size = candidate_size
+
+    return best_parent
+
+
+def _apply_split_to_parent(split: Partition, parent: Node) -> Node:
+    split_mask = split.bitmask
+    remaining_children: list[Node] = []
+    reassigned_children: list[Node] = []
+
+    for child in parent.children:
+        if _is_subset_mask(child.split_indices.bitmask, split_mask):
+            reassigned_children.append(child)
+        else:
+            remaining_children.append(child)
+
+    new_node = Node(
+        name="",
+        split_indices=split,
+        children=reassigned_children,
+        length=0,
+        taxa_encoding=parent.taxa_encoding,
+    )
+    parent.children = remaining_children
+    new_node.parent = parent
+    parent.children.append(new_node)
+    parent.invalidate_caches(propagate_up=True, propagate_down=False)
+    return new_node
+
+
+def _apply_split_at_node(
+    split: Partition, node: Node, split_index: dict[Partition, Node] | None = None
+) -> bool:
+    """
+    Find and apply split at the correct node.
 
     Returns True if split was applied at this node or a descendant.
     """
-    split_indices = set(split.indices)
+    if split_index is None:
+        split_index = _get_tree_split_index(node)
 
-    # Check if split_indices is a proper subset of node.split_indices
-    if split_indices < set(node.split_indices):
-        remaining_children: list[Node] = []
-        reassigned_children: list[Node] = []
+    parent = _find_split_application_parent(split, split_index)
+    if parent is None:
+        return False
 
-        for child in node.children:
-            child_split_set = set(child.split_indices)
-            if child_split_set.issubset(split_indices):
-                reassigned_children.append(child)
-            else:
-                remaining_children.append(child)
-
-        # Create new node if we have multiple children to reassign
-        if len(reassigned_children) > 1:
-            new_node = Node(
-                name="",
-                split_indices=split,
-                children=reassigned_children,
-                length=0,
-                taxa_encoding=node.taxa_encoding,
-            )
-            node.children = remaining_children
-            # Use append_child to properly set parent pointer
-            node.append_child(new_node)
-            return True
-
-    # Recursively try children
-    for child in node.children:
-        if child.children and _apply_split_at_node(split, child):
-            return True
-
-    return False
+    new_node = _apply_split_to_parent(split, parent)
+    split_index[new_node.split_indices] = new_node
+    return True
 
 
-def _apply_split_no_rebuild(split: Partition, node: Node) -> bool:
+def _apply_split_no_rebuild(
+    split: Partition, node: Node, split_index: dict[Partition, Node] | None = None
+) -> bool:
     """
     Apply a split without rebuilding indices. Used for batch operations.
 
     Returns True if split was applied, False if it already exists or cannot be applied.
 
     Existing-split checks use exact rooted splits only. If the requested split
-    cannot be applied directly, the actual complement partition is tried as a
-    topology-building fallback.
+    cannot be applied directly, the operation fails without trying the complement
+    because rooted interpolation treats a split and its complement as different
+    tree nodes.
     """
     # Check if the EXACT split is already present - idempotent operation
     # Note: We do NOT check for complement here because in rooted trees,
     # a split and its complement represent different nodes in the tree.
-    for n in node.traverse():
-        if same_rooted_split(n.split_indices, split):
-            # Split already exists - no action needed
-            return False
-
-    split_set = set(split.indices)
+    if split_index is None:
+        split_index = _get_tree_split_index(node)
+    if split in split_index and same_rooted_split(
+        split_index[split].split_indices, split
+    ):
+        # Split already exists - no action needed
+        return False
 
     # Try applying direct split
-    if _apply_split_at_node(split, node):
+    if _apply_split_at_node(split, node, split_index):
         return True
-
-    encoding = node.taxa_encoding
-    all_indices = set(encoding.values())
-    complement_indices = all_indices - split_set
-
-    if complement_indices:
-        complement_split = Partition(tuple(sorted(complement_indices)), encoding)
-        complement_mask = complement_split.bitmask
-        complement_exists = any(
-            n.split_indices.bitmask == complement_mask for n in node.traverse()
-        )
-        if not complement_exists and _apply_split_at_node(complement_split, node):
-            return True
 
     return False
 
@@ -215,11 +263,12 @@ def execute_expand_path(
 
     # Sort by partition size (largest first), tie-break by bitmask for determinism
     sorted_path = sorted(expand_path, key=lambda p: (-len(p.indices), p.bitmask))
+    split_index = _get_tree_split_index(tree)
 
     # Apply each split WITHOUT rebuilding indices (batch mode)
     applied_any = False
     for split in sorted_path:
-        if _apply_split_no_rebuild(split, tree):
+        if _apply_split_no_rebuild(split, tree, split_index):
             applied_any = True
 
     # Rebuild indices ONCE after all splits are applied
@@ -268,15 +317,13 @@ def create_subtree_grafted_tree(
     )
 
     grafted_tree = base_tree.deep_copy() if copy else base_tree
-
-    # Get base tree splits once for checking
-    base_splits = base_tree.to_splits() if copy else grafted_tree.to_splits()
+    split_index = _get_tree_split_index(grafted_tree)
 
     # Apply splits in batch mode (no index rebuild per split)
     applied_any = False
     for ref_split in sorted_ref_path:
-        if ref_split not in base_splits:
-            if _apply_split_no_rebuild(ref_split, grafted_tree):
+        if ref_split not in split_index:
+            if _apply_split_no_rebuild(ref_split, grafted_tree, split_index):
                 applied_any = True
             else:
                 logger.warning(

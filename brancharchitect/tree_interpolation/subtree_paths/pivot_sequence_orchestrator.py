@@ -214,11 +214,10 @@ def create_interpolation_for_active_split_sequence(
     Strategy (modular and stepwise):
       1) Calculate subtree paths once for destination and source.
       2) For each current_pivot_edge on the current interpolation state:
-         - If the current_pivot_edge is missing in either tree, run classical fallback.
-         - Else, try stepwise plan:
-             a) Iterate selections (individual/whole per rule).
-             b) Apply micro-steps per selection.
-           If no selections are produced, RAISE ERROR (strict validation).
+         - Build a stepwise plan.
+         - Iterate selections (individual/whole per rule).
+         - Apply micro-steps per selection.
+         - If no selections are produced, raise an error (strict validation).
     """
     interpolation_sequence: List[Node] = []
     processed_pivot_edge_tracking: List[Optional[Partition]] = []

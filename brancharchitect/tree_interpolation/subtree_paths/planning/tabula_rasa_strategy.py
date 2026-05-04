@@ -10,18 +10,17 @@ def get_tabula_rasa_collapse_splits(
     state: "PivotSplitRegistry",
 ) -> PartitionSet[Partition]:
     """
-    Get ALL collapse splits for tabula rasa strategy.
+    Legacy helper for the old clean-slate collapse strategy.
 
-    If this is the first subtree, return all collapsible splits to perform a "Big Bang"
-    collapse (clearing the canvas).
-    Otherwise return empty set.
+    The active planner uses stepwise collapse paths. This module remains only for
+    compatibility with experimental callers.
 
     Side Effects:
         - Sets state.first_subtree_processed to True.
     """
     if not state.first_subtree_processed:
         state.first_subtree_processed = True
-        # Return ALL collapse splits - complete tabula rasa
+        # Return ALL collapse splits - legacy clean-slate behavior.
         return state.all_collapsible_splits.copy()
 
     return PartitionSet(encoding=state.encoding)

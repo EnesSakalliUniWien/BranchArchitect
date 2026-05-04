@@ -22,6 +22,7 @@ from typing import AbstractSet, Dict, FrozenSet, List, Mapping, Optional, Set, T
 from brancharchitect.elements.partition import Partition
 
 logger = logging.getLogger(__name__)
+_MISSING_VISUAL_ORDER = 10**12
 
 
 class PathGroupManager:
@@ -49,6 +50,7 @@ class PathGroupManager:
         expand_splits_by_subtree: Mapping[Partition, AbstractSet[Partition]],
         encoding: Dict[str, int],
         enabled: bool = True,
+        subtree_order_key: Optional[Mapping[Partition, Tuple[int, ...]]] = None,
     ) -> None:
         """
         Initialize path group manager.
@@ -57,11 +59,15 @@ class PathGroupManager:
             expand_splits_by_subtree: Mapping of subtree -> expand path splits
             encoding: Taxa encoding dictionary
             enabled: Whether path-based grouping is enabled
+            subtree_order_key: Optional visual order key for equal-priority subtrees
         """
         self.encoding = encoding
         self.enabled = enabled
         self._expand_paths: Mapping[Partition, AbstractSet[Partition]] = (
             expand_splits_by_subtree
+        )
+        self._subtree_order_key: Mapping[Partition, Tuple[int, ...]] = (
+            subtree_order_key or {}
         )
 
         # Computed on initialization
@@ -73,7 +79,7 @@ class PathGroupManager:
 
         # Topological sort state
         self._in_degree: Dict[Partition, int] = {}
-        self._ready_queue: List[Tuple[int, int, Partition]] = []  # Min-heap
+        self._ready_queue: List[Tuple[int, Tuple[int, ...], Partition]] = []
 
         # Track current group being processed
         self._current_group_index: int = 0
@@ -87,6 +93,15 @@ class PathGroupManager:
     # ========================================================================
     # Relationship Detection
     # ========================================================================
+
+    def _tie_breaker(self, subtree: Partition) -> Tuple[int, ...]:
+        if not self._subtree_order_key:
+            return (subtree.bitmask,)
+
+        order_key = self._subtree_order_key.get(subtree)
+        if order_key is None:
+            return (_MISSING_VISUAL_ORDER, subtree.bitmask)
+        return (*order_key, subtree.bitmask)
 
     def _compute_relationships(self) -> None:
         """
@@ -225,8 +240,7 @@ class PathGroupManager:
             groups_dict.values(),
             key=lambda g: (
                 min(len(self._expand_paths.get(s, set())) for s in g),
-                # Tie-breaker: lexicographic ordering of smallest subtree indices
-                min(str(sorted(list(s.indices))) for s in g),
+                min(self._tie_breaker(s) for s in g),
             ),
         )
 
@@ -318,11 +332,10 @@ class PathGroupManager:
         group = self._groups[group_index]
         for subtree in group:
             if self._in_degree.get(subtree, 0) == 0:
-                # Use (path_size, lexicographic_key, subtree) for heap ordering
+                # Use (path_size, tie_breaker, subtree) for heap ordering
                 # Positive size in min-heap implies Shortest Path First
                 path_size = len(self._expand_paths.get(subtree, set()))
-                # Use bitmask for deterministic tie-breaking instead of string conversion
-                tie_breaker = subtree.bitmask
+                tie_breaker = self._tie_breaker(subtree)
                 heapq.heappush(self._ready_queue, (path_size, tie_breaker, subtree))
 
     def _detect_cycle(self) -> Optional[List[Partition]]:
@@ -417,14 +430,10 @@ class PathGroupManager:
             self._in_degree[container] -= 1
             if self._in_degree[container] == 0:
                 # Container is now ready - add to queue if in current group
-                if (
-                    self._subtree_to_group.get(container)
-                    == self._current_group_index
-                ):
+                if self._subtree_to_group.get(container) == self._current_group_index:
                     if container not in processed:
                         path_size = len(self._expand_paths.get(container, set()))
-                        # Use bitmask for deterministic tie-breaking
-                        tie_breaker = container.bitmask
+                        tie_breaker = self._tie_breaker(container)
                         heapq.heappush(
                             self._ready_queue, (path_size, tie_breaker, container)
                         )

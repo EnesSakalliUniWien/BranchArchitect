@@ -29,6 +29,7 @@ from .sibling_grouping import (
 )
 
 logger = logging.getLogger(__name__)
+_MISSING_VISUAL_ORDER = 10**12
 
 
 # ============================================================================
@@ -70,6 +71,7 @@ def build_frames_for_subtree(
     is_first_mover: bool = True,
     is_last_mover: bool = True,
     source_weights: Optional[Dict[Partition, float]] = None,
+    destination_weights: Optional[Dict[Partition, float]] = None,
     source_tree: Optional[Node] = None,
     step_progress: float = 0.5,
     collapse_sibling_groups: Optional[Dict[Partition, List[Partition]]] = None,
@@ -232,8 +234,9 @@ def build_frames_for_subtree(
             reorder_movers,
         )
     else:
-        # No reorder change - ensure we have a copy for chaining
-        reordered_tree = collapsed_tree.deep_copy()
+        # No reorder change: collapsed_tree is already a private copy for this
+        # microstep, and any emitted collapsed frame owns its own copy.
+        reordered_tree = collapsed_tree
 
     # =========================================================================
     # Early exit if no further work
@@ -249,7 +252,8 @@ def build_frames_for_subtree(
     # =========================================================================
     # Phase 3: Expand/Graft (compute and add frames conditionally)
     # =========================================================================
-    destination_weights: Dict[Partition, float] = destination_tree.to_weighted_splits()
+    if destination_weights is None:
+        destination_weights = destination_tree.to_weighted_splits()
 
     if has_expand_work:
         grafted_zero_weights: Node = create_subtree_grafted_tree(
@@ -294,7 +298,7 @@ def build_frames_for_subtree(
         _append_frame(
             trees,
             edges,
-            grafted_zero_weights.deep_copy(),
+            grafted_zero_weights,
             current_pivot_edge,
             subtree_tracker,
             expand_movers,
@@ -406,6 +410,46 @@ def _build_spr_move_event(
     }
 
 
+def _build_destination_mover_order_key(
+    destination_tree: Node,
+    current_pivot_edge: Partition,
+    mover_partitions: set[Partition],
+) -> Dict[Partition, Tuple[int, ...]]:
+    destination_subtree = destination_tree.find_node_by_split(current_pivot_edge)
+    destination_order = (
+        destination_subtree.get_current_order()
+        if destination_subtree is not None
+        else destination_tree.get_current_order()
+    )
+    position_by_taxon = {taxon: index for index, taxon in enumerate(destination_order)}
+    fallback_position = len(position_by_taxon)
+
+    order_key: Dict[Partition, Tuple[int, ...]] = {}
+    for mover in mover_partitions:
+        positions = sorted(
+            position_by_taxon[taxon]
+            for taxon in mover.taxa
+            if taxon in position_by_taxon
+        )
+        if not positions:
+            order_key[mover] = (
+                fallback_position,
+                fallback_position,
+                fallback_position,
+                0,
+            )
+            continue
+
+        order_key[mover] = (
+            positions[0],
+            positions[-1],
+            sum(positions),
+            len(positions),
+        )
+
+    return order_key
+
+
 def execute_pivot_edge_plan(
     current_base_tree: Node,
     destination_tree: Node,
@@ -443,6 +487,14 @@ def execute_pivot_edge_plan(
     subtree_tracker: List[List[Partition]] = []
     spr_move_events: List[SprMoveEvent] = []
     interpolation_state: Node = current_base_tree
+    mover_partition_set = set(expand_paths_for_pivot_edge) | set(
+        collapse_paths_for_pivot_edge
+    )
+    subtree_order_key = _build_destination_mover_order_key(
+        destination_tree,
+        current_pivot_edge,
+        mover_partition_set,
+    )
 
     selections: Dict[Partition, Dict[str, Any]] = build_edge_plan(
         expand_paths_for_pivot_edge,
@@ -450,6 +502,7 @@ def execute_pivot_edge_plan(
         source_tree,  # Use original source tree for split computation, NOT interpolation state
         destination_tree,
         current_pivot_edge=current_pivot_edge,
+        subtree_order_key=subtree_order_key,
     )
 
     # Calculate source weights once using the ORIGINAL source tree
@@ -462,9 +515,8 @@ def execute_pivot_edge_plan(
     # from the plan (Passenger subtrees handled by Drivers).
     # Using selections.keys() would miss these passengers, causing split grouping logic to fail.
     all_mover_partitions: List[Partition] = sorted(
-        set(list(expand_paths_for_pivot_edge.keys()))
-        | set(list(collapse_paths_for_pivot_edge.keys())),
-        key=lambda p: p.bitmask,
+        mover_partition_set,
+        key=lambda p: (*subtree_order_key.get(p, (_MISSING_VISUAL_ORDER,)), p.bitmask),
     )
 
     # Pre-compute sibling groups ONCE before processing any movers.
@@ -503,6 +555,7 @@ def execute_pivot_edge_plan(
                 is_first_mover=is_first_mover,
                 is_last_mover=is_last_mover,
                 source_weights=source_weights,
+                destination_weights=destination_weights,
                 source_tree=source_tree,
                 collapse_sibling_groups=collapse_sibling_groups,
                 expand_sibling_groups=expand_sibling_groups,

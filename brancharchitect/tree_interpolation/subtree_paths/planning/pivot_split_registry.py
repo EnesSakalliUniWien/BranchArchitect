@@ -12,6 +12,20 @@ from ..analysis.split_analysis import (
 from brancharchitect.tree import Node
 
 logger = logging.getLogger(__name__)
+_MISSING_VISUAL_ORDER = 10**12
+
+
+def _order_key_for_subtree(
+    subtree: Partition,
+    subtree_order_key: Optional[Mapping[Partition, Tuple[int, ...]]],
+) -> Tuple[int, ...]:
+    if not subtree_order_key:
+        return (subtree.bitmask,)
+
+    order_key = subtree_order_key.get(subtree)
+    if order_key is None:
+        return (_MISSING_VISUAL_ORDER, subtree.bitmask)
+    return (*order_key, subtree.bitmask)
 
 
 # ============================================================================
@@ -43,6 +57,7 @@ class PivotSplitRegistry:
         expand_splits_by_subtree: Mapping[Partition, AbstractSet[Partition]],
         pivot_edge: Partition,
         use_path_grouping: bool = True,
+        subtree_order_key: Optional[Mapping[Partition, Tuple[int, ...]]] = None,
     ):
         """
         Initialize the interpolation state.
@@ -54,9 +69,13 @@ class PivotSplitRegistry:
             expand_splits_by_subtree: Initial expand splits assigned to each subtree
             pivot_edge: The edge being processed
             use_path_grouping: Whether to use path-based grouping for subtree ordering
+            subtree_order_key: Optional visual order key for equal-priority subtrees
         """
         self.encoding = pivot_edge.encoding
         self.processed_subtrees: Set[Partition] = set()
+        self._subtree_order_key: Mapping[Partition, Tuple[int, ...]] = (
+            subtree_order_key or {}
+        )
 
         # Initialize ownership trackers for collapse and expand splits
         self.collapse_tracker = SplitClaimTracker(self.encoding)
@@ -66,7 +85,7 @@ class PivotSplitRegistry:
         # Use intersection (&) to ensure we only claim splits that are globally valid
         # This filters out "shared splits" that exist in both trees but appear in local paths
         for subtree, splits in collapse_splits_by_subtree.items():
-            valid_splits = PartitionSet(
+            valid_splits: PartitionSet[Partition] = PartitionSet(
                 splits={s for s in splits if s in all_collapse_splits},
                 encoding=self.encoding,
             )
@@ -79,8 +98,9 @@ class PivotSplitRegistry:
             )
             self.expand_tracker.claim_batch(valid_splits, subtree)
 
-        # CRITICAL: Claim any expand split that CONTAINS a subtree's taxa (Parent),
-        # AND any split that is a SIBLING (child of a Parent, disjoint from subtree).
+        # CRITICAL: Claim any expand split that CONTAINS a subtree's taxa.
+        # Disjoint sibling splits remain contingent and are consumed only after
+        # a collapse creates compatible space.
         self._claim_related_expand_splits(expand_splits_by_subtree, all_expand_splits)
 
         # Store original full sets for incompatibility checks and final cleanup
@@ -92,7 +112,7 @@ class PivotSplitRegistry:
             encoding=self.encoding
         )
 
-        # Track first subtree for tabula rasa strategy
+        # Track first subtree for stepwise bookkeeping.
         self.first_subtree_processed: bool = False
 
         # Initialize path group manager for topological ordering
@@ -110,11 +130,15 @@ class PivotSplitRegistry:
                 expand_splits_by_subtree=full_expand_splits,
                 encoding=self.encoding,
                 enabled=True,
+                subtree_order_key=self._subtree_order_key,
             )
 
     # ------------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------------
+
+    def _tie_breaker(self, subtree: Partition) -> Tuple[int, ...]:
+        return _order_key_for_subtree(subtree, self._subtree_order_key)
 
     def _claim_related_expand_splits(
         self,
@@ -208,10 +232,9 @@ class PivotSplitRegistry:
 
         This method encapsulates all path computation logic:
         1. Gathers split categories (shared/unique collapse, last-user/unique expand)
-        2. Applies tabula rasa strategy for first subtree
-        3. Computes incompatible splits that must be collapsed
-        4. Consumes contingent expand splits that fit in collapsed regions
-        5. Handles last subtree cleanup (remaining splits)
+        2. Computes incompatible splits that must be collapsed
+        3. Consumes contingent expand splits that fit in collapsed regions
+        4. Handles last subtree cleanup (remaining splits)
 
         Args:
             subtree: The subtree to compute paths for
@@ -289,7 +312,8 @@ class PivotSplitRegistry:
         Stepwise Strategy:
         - Each subtree collapses ONLY its assigned splits + incompatible splits.
         - This produces smoother animations (incremental changes) compared to
-          Tabula Rasa (which collapsed everything at once for the first subtree).
+          the old clean-slate strategy that collapsed everything on the first
+          subtree.
 
         The collapse path is the union of:
         1. shared_collapse: Splits shared with other subtrees (first to process wins)
@@ -310,7 +334,7 @@ class PivotSplitRegistry:
         Returns:
             The collapse path for this subtree
         """
-        # Mark first subtree as processed for bookkeeping (even without Tabula Rasa)
+        # Mark first subtree as processed for stepwise bookkeeping.
         if not self.first_subtree_processed:
             self.first_subtree_processed = True
 
@@ -398,7 +422,7 @@ class PivotSplitRegistry:
            expand path relationships
         3. Fallback: select subtree with smallest expand path
 
-        Tie-breaker: lexicographic ordering of indices
+        Tie-breaker: optional visual order key, then bitmask
         """
         unprocessed = self.get_remaining_subtrees()
         if not unprocessed:
@@ -436,8 +460,7 @@ class PivotSplitRegistry:
         candidates = []
         for subtree in unprocessed:
             shared_collapse = self.collapse_tracker.get_shared_resources(subtree)
-            # Use bitmask for deterministic tie-breaking
-            tie_breaker = subtree.bitmask
+            tie_breaker = self._tie_breaker(subtree)
 
             if shared_collapse:
                 priority = (0, -len(shared_collapse), tie_breaker)
@@ -462,15 +485,14 @@ class PivotSplitRegistry:
         - Subtrees with MORE/LARGER expand splits are processed LAST
         - They become the "last owner" and apply the shared splits
 
-        Tie-breaker: total expand path size, then lexicographic ordering.
+        Tie-breaker: total expand path size, optional visual order key, then bitmask.
         """
         candidates = []
         for sub in unprocessed:
             # We want SMALLEST first.
             shared_expand_count = len(self.expand_tracker.get_shared_resources(sub))
             total_expand_count = len(self.expand_tracker.get_resources(sub))
-            # Use bitmask for deterministic tie-breaking
-            tie_breaker = sub.bitmask
+            tie_breaker = self._tie_breaker(sub)
 
             # Primary: shared expand count (smallest first)
             # Secondary: total expand count (smallest first)
@@ -487,31 +509,17 @@ class PivotSplitRegistry:
 
     def get_tabula_rasa_collapse_splits(self) -> PartitionSet[Partition]:
         """
-        DEPRECATED: Get ALL collapse splits for tabula rasa (clean slate) strategy.
+        DEPRECATED: Get ALL collapse splits for the old clean-slate strategy.
 
-        NOTE: This method is no longer used by _compute_collapse_path().
-        The stepwise strategy replaces Tabula Rasa for smoother animations.
-        This method is kept for backwards compatibility and the backup file
-        pivot_split_registry_tabula_rasa.py.
-
-        The first subtree collapses EVERYTHING from the source tree to create
-        a blank canvas. Then we rebuild the tree from scratch by expanding splits
-        step by step. This ensures no incorrect tree structure carries over.
-
-        Strategy: First subtree gets ALL collapse splits, regardless of which
-        subtree they were originally assigned to. Subsequent subtrees get none
-        (they only handle their assigned splits).
-
-        Note: This method is idempotent - calling it multiple times after the
-        first call returns empty. The first call that returns splits also marks
-        the first subtree as processed.
+        The active planner uses stepwise collapse paths instead. This helper is
+        kept only for compatibility with old tests or experimental callers.
 
         Returns:
             ALL collapse splits if first subtree not yet processed, empty otherwise.
         """
         if not self.first_subtree_processed:
             self.first_subtree_processed = True
-            # Return ALL collapse splits - complete tabula rasa
+            # Legacy clean-slate behavior.
             return self.all_collapsible_splits.copy()
         return PartitionSet(encoding=self.encoding)
 
@@ -519,11 +527,8 @@ class PivotSplitRegistry:
         """
         Mark that the first subtree has been processed.
 
-        After the first subtree collapses everything (tabula rasa), subsequent
-        subtrees only handle their assigned splits.
-
-        Note: This is now called automatically by get_tabula_rasa_collapse_splits(),
-        but kept for explicit marking when tabula rasa returns empty (no collapses).
+        The stepwise planner uses this as bookkeeping so the first processed
+        subtree is tracked even when it has no collapse work.
         """
         self.first_subtree_processed = True
 
@@ -552,13 +557,13 @@ class PivotSplitRegistry:
 
         if not collapsed_splits:
             # If nothing was collapsed, allow claiming any unassigned expands.
-            contingent_set = PartitionSet(
+            contingent_without_collapse: PartitionSet[Partition] = PartitionSet(
                 {s for s in self.all_expand_splits if s not in tracked_resources},
                 encoding=self.encoding,
             )
-            for split in contingent_set:
+            for split in contingent_without_collapse:
                 self.expand_tracker.claim(split, subtree)
-            return contingent_set
+            return contingent_without_collapse
 
         # Identify contingent splits: those NOT in expand_tracker (unclaimed)
         # and fit spatially within collapsed regions
@@ -741,6 +746,7 @@ def build_edge_plan(
     collapse_tree: Node,
     expand_tree: Node,
     current_pivot_edge: Partition,
+    subtree_order_key: Optional[Mapping[Partition, Tuple[int, ...]]] = None,
 ) -> OrderedDict[Partition, Dict[str, Any]]:
     """Build execution plan for a pivot edge by assigning splits to subtrees.
 
@@ -763,10 +769,12 @@ def build_edge_plan(
     # (e.g., contingent splits from jumping taxa, cross-branch splits). Assign any
     # unassigned expands to the LAST subtree as fallback. This aligns better with
     # the "Expand Last" strategy, preventing premature creation by the first subtree.
-    claimed_expands = PartitionSet(
-        set().union(*expand_splits_by_subtree.values())
-        if expand_splits_by_subtree
-        else set(),
+    claimed_expands: PartitionSet[Partition] = PartitionSet(
+        (
+            set().union(*expand_splits_by_subtree.values())
+            if expand_splits_by_subtree
+            else set()
+        ),
         encoding=all_expand_splits.encoding,
     )
 
@@ -775,7 +783,10 @@ def build_edge_plan(
     if unassigned_expands:
         # Assign to the LAST subtree instead of the first (deterministic ordering).
         target_subtree = (
-            max(expand_splits_by_subtree.keys(), key=lambda p: p.bitmask)
+            max(
+                expand_splits_by_subtree.keys(),
+                key=lambda p: _order_key_for_subtree(p, subtree_order_key),
+            )
             if expand_splits_by_subtree
             else current_pivot_edge
         )
@@ -801,6 +812,7 @@ def build_edge_plan(
         collapse_splits_by_subtree,
         expand_splits_by_subtree,
         current_pivot_edge,
+        subtree_order_key=subtree_order_key,
     )
 
     logger.debug(
