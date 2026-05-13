@@ -11,7 +11,7 @@ import pstats
 import sys
 import time
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -28,6 +28,14 @@ DEFAULT_INPUTS = (
     "test/data/current_testfiles/small_example_cli.newick",
 )
 
+PROFILE_FIXTURES = {
+    "default": tuple(PROJECT_ROOT / path for path in DEFAULT_INPUTS),
+    "norovirus": (
+        PROJECT_ROOT
+        / "test/data/profiling/norovirus_window_2500_step_1500_fasttree.newick",
+    ),
+}
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -36,8 +44,17 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "paths",
         nargs="*",
-        default=DEFAULT_INPUTS,
-        help="Tree files to profile. Defaults to focus.tree and small_example_cli.newick.",
+        help="Tree files to profile. Defaults to the 'default' profiling fixture.",
+    )
+    parser.add_argument(
+        "--fixture",
+        action="append",
+        choices=sorted(PROFILE_FIXTURES),
+        default=[],
+        help=(
+            "Named checked-in profiling fixture to include. Use 'norovirus' "
+            "for the reproducible norovirus run."
+        ),
     )
     parser.add_argument(
         "--repeat",
@@ -83,6 +100,15 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _resolve_input_paths(paths: Sequence[str], fixtures: Sequence[str]) -> list[Path]:
+    selected_fixtures = fixtures or ([] if paths else ["default"])
+    resolved: list[Path] = []
+    for fixture in selected_fixtures:
+        resolved.extend(PROFILE_FIXTURES[fixture])
+    resolved.extend(Path(path) for path in paths)
+    return resolved
+
+
 def _load_trees(path: Path) -> list[Node]:
     lines = [line.strip() for line in path.read_text().splitlines() if line.strip()]
     return [parse_newick(line) for line in lines]
@@ -99,7 +125,7 @@ def _iter_pairs(
 
 
 def run_profile(
-    paths: list[str], repeat: int, max_pairs: int | None
+    paths: Sequence[str | Path], repeat: int, max_pairs: int | None
 ) -> tuple[int, int]:
     parsed_files = [(Path(path), _load_trees(Path(path))) for path in paths]
     total_pairs = 0
@@ -124,15 +150,16 @@ def run_profile(
 def main() -> None:
     args = _parse_args()
     logging.disable(logging.CRITICAL)
+    paths = _resolve_input_paths(args.paths, args.fixture)
 
     start = time.perf_counter()
     if args.no_profile:
-        total_pairs, total_frames = run_profile(args.paths, args.repeat, args.max_pairs)
+        total_pairs, total_frames = run_profile(paths, args.repeat, args.max_pairs)
         stats_output = ""
     else:
         profiler = cProfile.Profile()
         total_pairs, total_frames = profiler.runcall(
-            run_profile, args.paths, args.repeat, args.max_pairs
+            run_profile, paths, args.repeat, args.max_pairs
         )
         stats_stream = io.StringIO()
         pstats.Stats(profiler, stream=stats_stream).strip_dirs().sort_stats(

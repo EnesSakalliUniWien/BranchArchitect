@@ -22,3 +22,16 @@ def test_iter_pairs_honors_max_pairs():
         (0, trees[0], trees[1]),
         (1, trees[1], trees[2]),
     ]
+
+
+def test_resolve_inputs_supports_checked_in_norovirus_fixture():
+    profile_interpolation = _load_profile_module()
+
+    paths = profile_interpolation._resolve_input_paths(
+        paths=[],
+        fixtures=["norovirus"],
+    )
+
+    assert paths == [profile_interpolation.PROFILE_FIXTURES["norovirus"][0]]
+    assert paths[0].is_file()
+    assert Path("/tmp") not in paths[0].parents
