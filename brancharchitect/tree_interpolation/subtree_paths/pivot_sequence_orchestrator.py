@@ -221,7 +221,7 @@ def create_interpolation_for_active_split_sequence(
     """
     interpolation_sequence: List[Node] = []
     processed_pivot_edge_tracking: List[Optional[Partition]] = []
-    processed_subtree_tracking: List[Optional[List[Partition]]] = []
+    processed_subtree_highlights: List[Optional[List[Partition]]] = []
     spr_move_events: List[SprMoveEvent] = []
 
     interpolation_state: Node = source_tree.deep_copy()
@@ -232,11 +232,8 @@ def create_interpolation_for_active_split_sequence(
     )
 
     for current_pivot_edge in target_pivot_edges:
-        current_base_tree: Node = interpolation_state.deep_copy()
-
-        # Ensure split indices are initialized for the copied tree
-        # deep_copy preserves split_indices per node, but _split_index cache needs rebuild
-        current_base_tree.build_split_index()
+        # interpolation_state is private chaining state; emitted frames own snapshots.
+        current_base_tree: Node = interpolation_state
 
         # Paths for this current_pivot_edge (kept separate for destination/source)
         # Keep as PartitionSet[Partition] - no conversion needed
@@ -261,7 +258,7 @@ def create_interpolation_for_active_split_sequence(
             step_trees,
             step_edges,
             new_state,
-            step_subtrees,
+            step_highlights,
             step_spr_move_events,
         ) = execute_pivot_edge_plan(
             current_base_tree=current_base_tree,
@@ -277,7 +274,7 @@ def create_interpolation_for_active_split_sequence(
         if step_trees:
             interpolation_sequence.extend(step_trees)
             processed_pivot_edge_tracking.extend(step_edges)
-            processed_subtree_tracking.extend(step_subtrees)
+            processed_subtree_highlights.extend(step_highlights)
             spr_move_events.extend(
                 _offset_spr_move_events(step_spr_move_events, step_offset)
             )
@@ -302,7 +299,7 @@ def create_interpolation_for_active_split_sequence(
     return (
         interpolation_sequence,
         processed_pivot_edge_tracking,
-        processed_subtree_tracking,
+        processed_subtree_highlights,
         spr_move_events,
     )
 

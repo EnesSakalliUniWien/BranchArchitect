@@ -24,6 +24,8 @@ class TreeDataRequest:
     use_gamma: bool = (
         True  # Use gamma rate heterogeneity (accounts for rate variation across sites)
     )
+    tree_inference_engine: str = "iqtree"
+    iqtree_fast_search: bool = True
     use_pseudo: bool = False  # Use pseudocounts (recommended for gappy alignments)
     no_ml: bool = True  # Always use no-ML to produce fully bifurcating trees
 
@@ -73,9 +75,13 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
     use_gtr_raw = request.form.get("useGtr", "on")
     use_gamma_raw = request.form.get("useGamma", "on")
     use_pseudo_raw = request.form.get("usePseudo", "")
+    tree_inference_engine = request.form.get("treeInferenceEngine", "iqtree")
+    if tree_inference_engine not in {"iqtree", "fasttree"}:
+        raise ValueError("Invalid tree inference engine.")
     use_gtr = use_gtr_raw == "on"
     use_gamma = use_gamma_raw == "on"
     use_pseudo = use_pseudo_raw == "on"
+    iqtree_fast_search = request.form.get("iqtreeFastSearch", "on") == "on"
     no_ml = request.form.get("noMl", "on") == "on"
 
     msa_content = get_msa_content(msa_file)
@@ -96,6 +102,8 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
         msa_content=msa_content,
         use_gtr=use_gtr,
         use_gamma=use_gamma,
+        tree_inference_engine=tree_inference_engine,
+        iqtree_fast_search=iqtree_fast_search,
         use_pseudo=use_pseudo,
         no_ml=no_ml,
     )

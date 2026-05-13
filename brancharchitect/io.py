@@ -61,13 +61,13 @@ def serialize_subtree_tracking(
     tracking: Optional[List[Optional[List[Partition]]]],
 ) -> List[Optional[List[List[int]]]]:
     """
-    Serialize partition tracking to index arrays for JSON serialization.
+    Serialize per-frame subtree highlight groups to index arrays.
 
     Converts each grouped list of Partitions to a list of sorted lists of integer indices.
     None values remain None.
 
     Args:
-        tracking: List of Optional[List[Partition]] from the interpolation sequence
+        tracking: Legacy-named highlight groups from the interpolation sequence
 
     Returns:
         List of Optional[List[List[int]]] suitable for JSON serialization

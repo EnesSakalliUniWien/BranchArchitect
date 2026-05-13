@@ -109,8 +109,8 @@ class TreeInterpolationSequence:
     current_pivot_edge_tracking: list[Optional[Partition]] = field(
         default_factory=_empty_partition_list
     )
-    # Tracks which subtree is being moved for each tree in the sequence
-    # Parallel to current_pivot_edge_tracking: None for original trees, Partition for interpolated
+    # Legacy public name for per-frame visual/highlight groups.
+    # Parallel to current_pivot_edge_tracking: None for originals, grouped Partitions for interpolated frames.
     current_subtree_tracking: list[Optional[list[Partition]]] = field(
         default_factory=list
     )

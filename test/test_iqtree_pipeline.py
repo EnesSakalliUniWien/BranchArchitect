@@ -22,11 +22,21 @@ def test_iqtree_config_builds_dna_model_and_output_prefix() -> None:
         "GTR+G",
         "-nt",
         "1",
+        "-fast",
         "-quiet",
         "-redo",
         "-pre",
         "/tmp/window_0",
     ]
+
+
+def test_iqtree_config_can_disable_fast_search() -> None:
+    IQTreeConfig = pipeline.IQTreeConfig
+    config = IQTreeConfig(fast_search=False)
+
+    args = config.build_command_args("window.fasta", Path("/tmp/window_0"))
+
+    assert "-fast" not in args
 
 
 def test_iqtree_config_is_exported_from_package() -> None:

@@ -25,7 +25,7 @@ from typing import Union, Tuple
 import tempfile
 import os
 import shutil  # Added for temporary directory cleanup
-from msa_to_trees.pipeline import run_pipeline, IQTreeConfig
+from msa_to_trees.pipeline import run_pipeline, FastTreeConfig, IQTreeConfig
 
 bp = Blueprint("main", __name__)
 
@@ -53,8 +53,10 @@ def _run_msa_analysis_and_interpolate(
     window_size: int,
     window_step: int,
     enable_rooting: bool,
+    tree_inference_engine: str = "iqtree",
     use_gtr: bool = True,
     use_gamma: bool = True,
+    iqtree_fast_search: bool = True,
     use_pseudo: bool = False,
     no_ml: bool = True,
     progress_callback: Optional[Callable[[float, str], None]] = None,
@@ -90,11 +92,19 @@ def _run_msa_analysis_and_interpolate(
         # Output directory for intermediate files (IQ-TREE requires file I/O)
         analysis_output_dir = os.path.join(temp_dir, "output")
 
-        # Create IQ-TREE configuration
-        tree_inference_config = IQTreeConfig(
-            use_gtr=use_gtr,
-            use_gamma=use_gamma,
-        )
+        if tree_inference_engine == "fasttree":
+            tree_inference_config = FastTreeConfig(
+                use_gtr=use_gtr,
+                use_gamma=use_gamma,
+                use_pseudo=use_pseudo,
+                no_ml=no_ml,
+            )
+        else:
+            tree_inference_config = IQTreeConfig(
+                use_gtr=use_gtr,
+                use_gamma=use_gamma,
+                fast_search=iqtree_fast_search,
+            )
 
         report(
             10,
@@ -212,8 +222,10 @@ def treedata() -> Union[Response, Tuple[dict[str, Any], int]]:
                 window_size=req_data.window_size,
                 window_step=req_data.window_step,
                 enable_rooting=req_data.enable_rooting,
+                tree_inference_engine=req_data.tree_inference_engine,
                 use_gtr=req_data.use_gtr,
                 use_gamma=req_data.use_gamma,
+                iqtree_fast_search=req_data.iqtree_fast_search,
                 use_pseudo=req_data.use_pseudo,
                 no_ml=req_data.no_ml,
             )
@@ -304,8 +316,10 @@ def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
                             window_size=req_data.window_size,
                             window_step=req_data.window_step,
                             enable_rooting=req_data.enable_rooting,
+                            tree_inference_engine=req_data.tree_inference_engine,
                             use_gtr=req_data.use_gtr,
                             use_gamma=req_data.use_gamma,
+                            iqtree_fast_search=req_data.iqtree_fast_search,
                             use_pseudo=req_data.use_pseudo,
                             no_ml=req_data.no_ml,
                             progress_callback=_make_progress_callback(channel, 10, 85),

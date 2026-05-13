@@ -18,7 +18,7 @@ Related modules:
 
 from __future__ import annotations
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree import Node
@@ -44,7 +44,7 @@ def _collapse_iterative(
     root: Node,
     tol: float,
     destination_splits: Optional[PartitionSet[Partition]],
-) -> None:
+) -> Tuple[bool, Set[Partition]]:
     """
     Collapse zero-length branches using iterative post-order traversal.
 
@@ -55,7 +55,13 @@ def _collapse_iterative(
         root: Root node to process
         tol: Tolerance for considering a branch as zero-length
         destination_splits: Set of splits to preserve
+
+    Returns:
+        Tuple of (changed, removed split keys).
     """
+    changed = False
+    removed_splits: Set[Partition] = set()
+
     # 1. Generate post-order traversal sequence
     # stack1 is for traversal, stack2 accumulates nodes in reverse post-order
     stack1: List[Node] = [root]
@@ -101,6 +107,7 @@ def _collapse_iterative(
             else:
                 # Splice grandchildren into current level
                 # Note: grandchildren are already processed because of post-order
+                removed_splits.add(ch.split_indices)
                 for g in ch.children:
                     g.parent = cur
                     new_children.append(g)
@@ -108,6 +115,10 @@ def _collapse_iterative(
 
         if local_change:
             cur.children = new_children
+            cur.invalidate_caches(propagate_up=True, propagate_down=False)
+            changed = True
+
+    return changed, removed_splits
 
 
 def collapse_zero_length_branches_for_node(
@@ -128,12 +139,21 @@ def collapse_zero_length_branches_for_node(
             set(destination_tree.to_splits()), encoding=destination_tree.taxa_encoding
         )
 
-    # Single pass iterative post-order traversal handles all collapses
-    _collapse_iterative(node, tol, destination_splits)
-
-    # Rebuild split indices & caches once after topology edits
     root = node.get_root()
-    root.initialize_split_indices(root.taxa_encoding)
+    split_index = root._split_index
+
+    # Single pass iterative post-order traversal handles all collapses
+    changed, removed_splits = _collapse_iterative(node, tol, destination_splits)
+
+    # Refresh lookup after topology edits. Collapsing removes internal nodes but
+    # leaves retained node split masks unchanged, so an existing index can be
+    # repaired by deleting only the removed split keys.
+    if changed and split_index is not None:
+        for split in removed_splits:
+            split_index.pop(split, None)
+        root._split_index = split_index
+    elif changed or root._split_index is None:
+        root.build_split_index()
 
 
 def _calculate_consensus_tree(node: Node, split_dict: Dict[Partition, float]) -> Node:

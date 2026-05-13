@@ -60,10 +60,16 @@ class SprPathSegment(TypedDict):
 
 
 class SprMoveEvent(TypedDict):
-    """Path summary for one SPR mover within a tree-pair interpolation."""
+    """Path summary for one SPR mover within a tree-pair interpolation.
+
+    driver_subtree is the planner-selected subtree that physically moves for
+    this SPR event. highlight_group is the visual context used by per-frame
+    current_subtree_tracking and may include related non-driver subtrees.
+    """
 
     pivot_edge: Partition
-    moving_subtree: Partition
+    driver_subtree: Partition
+    highlight_group: List[Partition]
     step_range: tuple[int, int]
     collapse_path: List[SprPathSegment]
     expand_path: List[SprPathSegment]

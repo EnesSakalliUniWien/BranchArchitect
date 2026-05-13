@@ -258,32 +258,18 @@ def align_to_source_order(
     order_index = {name: i for i, name in enumerate(source_order)}
     n = len(source_order)
 
-    def get_node_sort_key(node: Node) -> tuple[float, int]:
-        """
-        Compute a sort key for a node based on its leaves' positions in source_order.
-
-        Strategy: Use weighted average of leaf positions, with non-moving taxa
-        weighted much higher to preserve their positions.
-
-        Returns a tuple (weighted_avg, min_non_mover_idx) for tie-breaking:
-        - Primary: weighted average of positions
-        - Secondary: minimum index among non-moving taxa (or first leaf if all movers)
-        """
-        leaves = node.get_leaves()
-        if not leaves:
+    def sort_key_for_leaf_names(leaf_names: List[str]) -> tuple[float, int]:
+        if not leaf_names:
             return (float("inf"), n)
-
         total_weight = 0.0
         weighted_sum = 0.0
-        min_non_mover_idx = n  # Track minimum index for tie-breaking
+        min_non_mover_idx = n
 
-        for leaf in leaves:
-            idx = order_index.get(leaf.name, n)
-            if leaf.name in moving_taxa:
-                # Moving taxa get low weight - they should adapt
+        for leaf_name in leaf_names:
+            idx = order_index.get(leaf_name, n)
+            if leaf_name in moving_taxa:
                 weight = 1.0
             else:
-                # Non-moving taxa get high weight - they should stay put
                 weight = 100.0
                 min_non_mover_idx = min(min_non_mover_idx, idx)
 
@@ -291,30 +277,37 @@ def align_to_source_order(
             total_weight += weight
 
         weighted_avg = weighted_sum / total_weight if total_weight > 0 else float("inf")
-
-        # If no non-movers, use first leaf index as tie-breaker
-        if min_non_mover_idx == n and leaves:
-            min_non_mover_idx = order_index.get(leaves[0].name, n)
+        if min_non_mover_idx == n:
+            min_non_mover_idx = order_index.get(leaf_names[0], n)
 
         return (weighted_avg, min_non_mover_idx)
 
-    def reorder_node(node: Node) -> bool:
-        """Recursively reorder children. Returns True if any change occurred."""
+    def reorder_node(node: Node) -> tuple[bool, List[str], tuple[float, int]]:
+        """Recursively reorder children and return changed flag, leaves, sort key."""
         if not node.children:
-            return False
+            leaf_names = [node.name]
+            return False, leaf_names, sort_key_for_leaf_names(leaf_names)
 
         changed = False
+        child_data: List[tuple[Node, List[str], tuple[float, int]]] = []
         for child in node.children:
-            changed = reorder_node(child) or changed
+            child_changed, child_leaf_names, child_sort_key = reorder_node(child)
+            changed = child_changed or changed
+            child_data.append((child, child_leaf_names, child_sort_key))
 
-        # Sort children by weighted position
-        sorted_children = sorted(node.children, key=get_node_sort_key)
+        sorted_child_data = sorted(child_data, key=lambda item: item[2])
+        sorted_children = [child for child, _leaf_names, _sort_key in sorted_child_data]
 
         if sorted_children != node.children:
             node.children = sorted_children
             changed = True
 
-        return changed
+        leaf_names: List[str] = []
+        for _child, child_leaf_names, _sort_key in sorted_child_data:
+            leaf_names.extend(child_leaf_names)
 
-    if reorder_node(tree):
+        return changed, leaf_names, sort_key_for_leaf_names(leaf_names)
+
+    changed, _leaf_names, _sort_key = reorder_node(tree)
+    if changed:
         tree.invalidate_caches(propagate_up=True)

@@ -311,9 +311,8 @@ class PivotSplitRegistry:
 
         Stepwise Strategy:
         - Each subtree collapses ONLY its assigned splits + incompatible splits.
-        - This produces smoother animations (incremental changes) compared to
-          the old clean-slate strategy that collapsed everything on the first
-          subtree.
+        - This produces smoother animations by keeping topology changes
+          incremental per subtree.
 
         The collapse path is the union of:
         1. shared_collapse: Splits shared with other subtrees (first to process wins)
@@ -506,22 +505,6 @@ class PivotSplitRegistry:
     # ============================================================================
     # 6. Compatibility/Incompatibility Logic
     # ============================================================================
-
-    def get_tabula_rasa_collapse_splits(self) -> PartitionSet[Partition]:
-        """
-        DEPRECATED: Get ALL collapse splits for the old clean-slate strategy.
-
-        The active planner uses stepwise collapse paths instead. This helper is
-        kept only for compatibility with old tests or experimental callers.
-
-        Returns:
-            ALL collapse splits if first subtree not yet processed, empty otherwise.
-        """
-        if not self.first_subtree_processed:
-            self.first_subtree_processed = True
-            # Legacy clean-slate behavior.
-            return self.all_collapsible_splits.copy()
-        return PartitionSet(encoding=self.encoding)
 
     def mark_first_subtree_processed(self) -> None:
         """
@@ -839,8 +822,7 @@ def build_edge_plan(
         # 2. STEPWISE COLLAPSE STRATEGY
         # ========================================================================
         # Each subtree collapses its assigned splits plus any globally incompatible
-        # splits needed for its planned expansions. This avoids the old tabula-rasa
-        # behavior where the first subtree collapsed the whole pivot.
+        # splits needed for its planned expansions.
         is_first_subtree = not state.first_subtree_processed
 
         collapse_path: PartitionSet[Partition]

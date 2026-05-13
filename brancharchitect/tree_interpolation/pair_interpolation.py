@@ -118,7 +118,7 @@ def process_tree_pair_interpolation(
     (
         sequence_trees,
         current_pivot_edge_tracking,
-        current_subtree_tracking,
+        current_subtree_highlights,
         spr_move_events,
     ) = create_interpolation_for_active_split_sequence(
         source_tree=source_tree,
@@ -147,6 +147,6 @@ def process_tree_pair_interpolation(
         trees=sequence_trees,
         current_pivot_edge_tracking=current_pivot_edge_tracking,
         jumping_subtree_solutions=jumping_subtree_solutions,
-        current_subtree_tracking=current_subtree_tracking,
+        current_subtree_tracking=current_subtree_highlights,
         spr_move_events=spr_move_events,
     )

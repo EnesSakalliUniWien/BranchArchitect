@@ -39,6 +39,22 @@ def test_reorder_taxa_raises_on_wrong_permutation_set():
         pass
 
 
+def test_reorder_taxa_noop_returns_before_strategy_work():
+    """
+    A no-op reorder is common during interpolation frame normalization. It should
+    validate the permutation, then return without entering strategy-specific
+    traversal work.
+    """
+    t = parse_newick("((A:1,B:1):1,(C:1,D:1):1);")
+
+    class StrategySentinel:
+        def __eq__(self, other):
+            raise AssertionError("strategy should not be consulted for no-op reorder")
+
+    t.reorder_taxa(list(t.get_current_order()), strategy=StrategySentinel())
+    assert list(t.get_current_order()) == ["A", "B", "C", "D"]
+
+
 def test_subtree_reordering_keeps_outside_unchanged():
     """
     Reordering a subtree should not reorder siblings outside that subtree.
@@ -81,4 +97,3 @@ def test_reorder_tie_breaker_determinism_on_equal_minima():
     t.reorder_taxa(perm)
     # Deterministic order: (A,B) comes before (C,D) due to tie-breaker
     assert list(t.get_current_order()) == ["A", "B", "C", "D"]
-

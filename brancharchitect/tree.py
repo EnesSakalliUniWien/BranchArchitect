@@ -279,40 +279,38 @@ class Node:
     # ------------------------------------------------------------------------
     # deep_copy (optimized iterative version to avoid function call overhead)
     # ------------------------------------------------------------------------
-    def _create_shallow_node_copy(self) -> Self:
-        """Create a shallow copy of this node without copying children.
-
-        Internal helper for deep_copy - creates node with all attributes
-        but children list is empty.
-        """
-        new_node = object.__new__(type(self))
-        new_node.name = self.name
-        new_node.length = self.length if self.length is not None else 0.0
-        new_node.values = self.values.copy() if self.values else {}
-        new_node.split_indices = self.split_indices
-        new_node.taxa_encoding = self.taxa_encoding
-        new_node.parent = None
-        new_node.depth = None
-        new_node.list_index = None
-        new_node._split_index = None
-        new_node._cached_subtree_order = None
-        new_node._cached_subtree_cost = None
-        new_node._cache_valid = False
-        new_node._traverse_cache = None
-        new_node._splits_cache = None
-        new_node._splits_with_leaves_cache = None
-        new_node._leaves_cache = None
-        new_node.children = []
-        return new_node
-
-    def deep_copy(self) -> Self:
+    def deep_copy(self, *, build_split_index: bool = True) -> Self:
         """Create a deep copy of this subtree using iterative stack-based traversal.
 
         This iterative approach eliminates Python function call overhead,
         providing ~2-3x speedup for large trees compared to recursive version.
+        When build_split_index is False, the copied tree keeps the usual lazy
+        lookup behavior and builds the root split index on first lookup.
         """
+        object_new = object.__new__
+
         # Create root copy
-        root_copy = self._create_shallow_node_copy()
+        root_copy = object_new(type(self))
+        root_copy.name = self.name
+        root_copy.length = self.length if self.length is not None else 0.0
+        root_copy.values = self.values.copy() if self.values else {}
+        root_copy.split_indices = self.split_indices
+        root_copy.taxa_encoding = self.taxa_encoding
+        root_copy.parent = None
+        root_copy.depth = None
+        root_copy.list_index = None
+        root_copy._cached_subtree_order = None
+        root_copy._cached_subtree_cost = None
+        root_copy._cache_valid = False
+        root_copy._traverse_cache = None
+        root_copy._splits_cache = None
+        root_copy._splits_with_leaves_cache = None
+        root_copy._leaves_cache = None
+        root_copy.children = []
+        root_split_index: Dict[Partition, Self] | None = (
+            {root_copy.split_indices: root_copy} if build_split_index else None
+        )
+        root_copy._split_index = root_split_index
 
         # Stack holds (original_node, copy_node) pairs to process
         stack: list[tuple[Self, Self]] = [(self, root_copy)]
@@ -322,9 +320,27 @@ class Node:
 
             # Process all children of current node
             for child in original.children:
-                child_copy = child._create_shallow_node_copy()
+                child_copy = object_new(type(child))
+                child_copy.name = child.name
+                child_copy.length = child.length if child.length is not None else 0.0
+                child_copy.values = child.values.copy() if child.values else {}
+                child_copy.split_indices = child.split_indices
+                child_copy.taxa_encoding = child.taxa_encoding
                 child_copy.parent = copy
+                child_copy.depth = None
+                child_copy.list_index = None
+                child_copy._split_index = None
+                child_copy._cached_subtree_order = None
+                child_copy._cached_subtree_cost = None
+                child_copy._cache_valid = False
+                child_copy._traverse_cache = None
+                child_copy._splits_cache = None
+                child_copy._splits_with_leaves_cache = None
+                child_copy._leaves_cache = None
+                child_copy.children = []
                 copy.children.append(child_copy)
+                if root_split_index is not None:
+                    root_split_index[child_copy.split_indices] = child_copy
 
                 # Only add to stack if child has children to process
                 if child.children:
@@ -509,6 +525,9 @@ class Node:
             raise ValueError(
                 "Permutation must include all taxa in the tree.", permutation, tree_taxa
             )
+
+        if tuple(permutation) == self.get_current_order():
+            return
 
         # 2. Map taxon names to their desired target index
         target_indices = {name: i for i, name in enumerate(permutation)}

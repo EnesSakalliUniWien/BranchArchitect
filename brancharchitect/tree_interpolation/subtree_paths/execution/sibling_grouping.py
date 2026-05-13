@@ -1,8 +1,8 @@
 """
 Sibling Grouping for Interpolation Frame Building.
 
-Pre-computes which movers should be animated together based on shared
-moving parents. Uses simple set membership - no complex data structures needed.
+Pre-computes which movers should be highlighted together based on shared
+phase-changing parents. Uses simple set membership - no complex data structures needed.
 
 Phase-specific grouping:
 - Collapse phase: group by source parent (if parent is collapsing)
@@ -25,10 +25,12 @@ def compute_sibling_groups(
     dest_parent_map: Optional[Dict[Partition, Partition]],
 ) -> Tuple[Dict[Partition, List[Partition]], Dict[Partition, List[Partition]]]:
     """
-    Pre-compute which movers should be animated together, per phase.
+    Pre-compute which movers should be highlighted together, per phase.
 
-    Collapse phase: siblings grouped by shared SOURCE parent (if collapsing).
-    Expand phase: siblings grouped by shared DEST parent (if expanding).
+    Collapse phase: siblings grouped by shared SOURCE parent if that parent collapses.
+    Expand phase: siblings grouped by shared DEST parent if that parent expands.
+    The groups are visual context for frames, not proof that every sibling is
+    the active physical mover in every microstep.
 
     Args:
         all_mover_partitions: All movers for this pivot edge.
@@ -39,8 +41,8 @@ def compute_sibling_groups(
 
     Returns:
         Tuple of (collapse_groups, expand_groups):
-        - collapse_groups: Dict mapping mover -> siblings for collapse phase
-        - expand_groups: Dict mapping mover -> siblings for expand phase
+        - collapse_groups: Dict mapping mover -> highlighted siblings for collapse phase
+        - expand_groups: Dict mapping mover -> highlighted siblings for expand phase
     """
     if not all_mover_partitions:
         return {}, {}
@@ -66,7 +68,7 @@ def _build_phase_groups(
     Args:
         all_mover_partitions: All movers for this pivot edge.
         parent_map: Maps each mover -> its parent in the relevant tree.
-        moving_splits: Splits that are moving in this phase.
+        moving_splits: Splits that change in this phase.
 
     Returns:
         Dict mapping each mover -> its sibling group (sorted list).
@@ -75,7 +77,7 @@ def _build_phase_groups(
         # No parent info: everyone is a singleton
         return {m: [m] for m in all_mover_partitions}
 
-    # Group movers by their moving parent
+    # Group movers by their phase-changing parent.
     parent_to_movers: Dict[Partition, List[Partition]] = {}
 
     for mover in all_mover_partitions:
@@ -92,7 +94,7 @@ def _build_phase_groups(
         for mover in sorted_siblings:
             result[mover] = sorted_siblings
 
-    # Movers without moving parents get themselves as singleton groups
+    # Movers without phase-changing parents get themselves as singleton groups.
     for mover in all_mover_partitions:
         if mover not in result:
             result[mover] = [mover]
@@ -134,4 +136,3 @@ def get_group_for_mover(
     Falls back to [mover] if not found in pre-computed groups.
     """
     return sibling_groups.get(mover, [mover])
-

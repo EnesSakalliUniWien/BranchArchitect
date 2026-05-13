@@ -94,6 +94,7 @@ class IQTreeConfig:
     use_gamma: bool = True
     threads: int = 1
     model: str | None = None
+    fast_search: bool = True
 
     @property
     def description(self) -> str:
@@ -110,7 +111,7 @@ class IQTreeConfig:
 
     def build_command_args(self, alignment_file: str, prefix: Path) -> list[str]:
         """Build IQ-TREE command line arguments for this configuration."""
-        return [
+        args = [
             "-s",
             alignment_file,
             "-st",
@@ -119,11 +120,18 @@ class IQTreeConfig:
             self.model_name,
             "-nt",
             str(self.threads),
-            "-quiet",
-            "-redo",
-            "-pre",
-            str(prefix),
         ]
+        if self.fast_search:
+            args.append("-fast")
+        args.extend(
+            [
+                "-quiet",
+                "-redo",
+                "-pre",
+                str(prefix),
+            ]
+        )
+        return args
 
 
 TreeInferenceConfig = FastTreeConfig | IQTreeConfig
@@ -688,6 +696,19 @@ if __name__ == "__main__":
         help="Disable gamma rate heterogeneity.",
     )
     model_group.add_argument(
+        "--fast",
+        dest="fast_search",
+        action="store_true",
+        default=True,
+        help="Use IQ-TREE fast search mode.",
+    )
+    model_group.add_argument(
+        "--thorough",
+        dest="fast_search",
+        action="store_false",
+        help="Disable IQ-TREE fast search mode.",
+    )
+    model_group.add_argument(
         "--noml",
         dest="no_ml",
         action="store_true",
@@ -708,6 +729,7 @@ if __name__ == "__main__":
         fasttree_config = IQTreeConfig(
             use_gtr=args.use_gtr,
             use_gamma=args.use_gamma,
+            fast_search=args.fast_search,
         )
     else:
         fasttree_config = FastTreeConfig(

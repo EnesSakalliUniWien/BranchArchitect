@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.parser.newick_parser import parse_newick
@@ -5,6 +7,7 @@ from brancharchitect.tree_interpolation.subtree_paths.planning import (
     pivot_split_registry,
 )
 from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
+    PivotSplitRegistry,
     build_edge_plan,
 )
 
@@ -79,3 +82,10 @@ def test_build_edge_plan_uses_visual_order_for_equal_priority_movers(monkeypatch
     )
 
     assert next(iter(plan)) == subtree_d
+
+
+def test_stepwise_planner_exposes_no_tabula_rasa_api():
+    planning_dir = Path(pivot_split_registry.__file__).parent
+
+    assert not hasattr(PivotSplitRegistry, "get_tabula_rasa_collapse_splits")
+    assert not (planning_dir / "tabula_rasa_strategy.py").exists()

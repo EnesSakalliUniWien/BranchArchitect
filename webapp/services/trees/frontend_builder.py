@@ -387,9 +387,13 @@ def _serialize_spr_move_events(events: List[Dict[str, Any]]) -> List[Dict[str, A
         serialized.append(
             {
                 "pivot_edge": serialize_partition_to_indices(event["pivot_edge"]),
-                "moving_subtree": serialize_partition_to_indices(
-                    event["moving_subtree"]
+                "driver_subtree": serialize_partition_to_indices(
+                    event["driver_subtree"]
                 ),
+                "highlight_group": [
+                    serialize_partition_to_indices(partition)
+                    for partition in event["highlight_group"]
+                ],
                 "step_range": list(event["step_range"]),
                 "collapse_path": _serialize_spr_path(event["collapse_path"]),
                 "expand_path": _serialize_spr_path(event["expand_path"]),

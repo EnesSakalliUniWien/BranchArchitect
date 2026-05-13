@@ -89,6 +89,140 @@ def test_partition_set_operator():
     assert intersection.encoding == lookup
 
 
+def test_partition_set_fast_operations_reject_different_encoding():
+    left_encoding = {"A": 0, "B": 1}
+    right_encoding = {"X": 0, "Y": 1}
+    left = PartitionSet({Partition((0,), left_encoding)}, encoding=left_encoding)
+    right = PartitionSet({Partition((0,), right_encoding)}, encoding=right_encoding)
+
+    with pytest.raises(ValueError, match="different encoding"):
+        left.union(right)
+    with pytest.raises(ValueError, match="different encoding"):
+        left.intersection(right)
+    with pytest.raises(ValueError, match="different encoding"):
+        left.difference(right)
+    with pytest.raises(ValueError, match="different encoding"):
+        left.symmetric_difference(right)
+    with pytest.raises(ValueError, match="different encoding"):
+        left.issubset(right)
+    with pytest.raises(ValueError, match="different encoding"):
+        left.geometric_intersection(right)
+
+
+def test_partition_set_union_validates_encoding_after_empty_receiver_adopts_metadata():
+    left_encoding = {"A": 0, "B": 1}
+    right_encoding = {"X": 0, "Y": 1}
+    left = PartitionSet({Partition((0,), left_encoding)}, encoding=left_encoding)
+    right = PartitionSet({Partition((0,), right_encoding)}, encoding=right_encoding)
+
+    with pytest.raises(ValueError, match="different encoding"):
+        PartitionSet().union(left, right)
+
+
+def test_partition_set_union_inherits_encoding_from_nonempty_other():
+    encoding = {"A": 0, "B": 1}
+    split = Partition((0,), encoding)
+
+    result = PartitionSet().union(PartitionSet({split}, encoding=encoding))
+
+    assert result.encoding == encoding
+    assert split in result
+
+
+def test_partition_set_union_inherits_encoding_from_empty_encoded_other():
+    encoding = {"A": 0, "B": 1}
+
+    result = PartitionSet().union(PartitionSet(encoding=encoding))
+
+    assert result.encoding == encoding
+    assert result.order == tuple(encoding.keys())
+
+
+def test_bottoms_with_min_size_avoids_intermediate_partition_set_construction():
+    class CountingPartitionSet(PartitionSet):
+        constructions = 0
+
+        def __init__(self, *args, **kwargs):
+            type(self).constructions += 1
+            super().__init__(*args, **kwargs)
+
+    encoding = {"A": 0, "B": 1, "C": 2, "D": 3}
+    partitions = {
+        Partition((0,), encoding),
+        Partition((1,), encoding),
+        Partition((0, 1), encoding),
+        Partition((2, 3), encoding),
+        Partition((0, 1, 2), encoding),
+    }
+    partition_set = CountingPartitionSet(partitions, encoding=encoding)
+
+    CountingPartitionSet.constructions = 0
+    result = partition_set.bottoms(min_size=2)
+
+    assert CountingPartitionSet.constructions == 1
+    assert {partition.bitmask for partition in result} == {
+        Partition((2, 3), encoding).bitmask
+    }
+
+
+def test_bottoms_under_avoids_intermediate_partition_set_construction():
+    class CountingPartitionSet(PartitionSet):
+        constructions = 0
+
+        def __init__(self, *args, **kwargs):
+            type(self).constructions += 1
+            super().__init__(*args, **kwargs)
+
+    encoding = {"A": 0, "B": 1, "C": 2, "D": 3}
+    partitions = {
+        Partition((0,), encoding),
+        Partition((1,), encoding),
+        Partition((0, 1), encoding),
+        Partition((0, 1, 2), encoding),
+        Partition((2, 3), encoding),
+    }
+    partition_set = CountingPartitionSet(partitions, encoding=encoding)
+    upper = Partition((0, 1, 2), encoding)
+
+    CountingPartitionSet.constructions = 0
+    result = partition_set.bottoms_under(upper)
+
+    assert CountingPartitionSet.constructions == 1
+    assert {partition.bitmask for partition in result} == {
+        Partition((0,), encoding).bitmask,
+        Partition((1,), encoding).bitmask,
+    }
+
+
+def test_minimals_over_avoids_intermediate_partition_set_construction():
+    class CountingPartitionSet(PartitionSet):
+        constructions = 0
+
+        def __init__(self, *args, **kwargs):
+            type(self).constructions += 1
+            super().__init__(*args, **kwargs)
+
+    encoding = {"A": 0, "B": 1, "C": 2, "D": 3}
+    partitions = {
+        Partition((0,), encoding),
+        Partition((0, 1), encoding),
+        Partition((0, 2), encoding),
+        Partition((0, 1, 2), encoding),
+        Partition((0, 1, 2, 3), encoding),
+    }
+    partition_set = CountingPartitionSet(partitions, encoding=encoding)
+    lower = Partition((0,), encoding)
+
+    CountingPartitionSet.constructions = 0
+    result = partition_set.minimals_over(lower, exclude={Partition((0,), encoding)})
+
+    assert CountingPartitionSet.constructions == 1
+    assert {partition.bitmask for partition in result} == {
+        Partition((0, 1), encoding).bitmask,
+        Partition((0, 2), encoding).bitmask,
+    }
+
+
 def test_partition_set_discard():
     """Test that discard does not raise an exception when the element is not in the set."""
     lookup = {"A": 0, "B": 1, "C": 2, "D": 3}

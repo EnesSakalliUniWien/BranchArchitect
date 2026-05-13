@@ -1,8 +1,19 @@
+from collections import Counter
+import inspect
+
 import pytest
 from brancharchitect.tree import Node
 import brancharchitect.tree_interpolation.subtree_paths.execution.pivot_edge_interpolation_frame_builder as frame_builder
 from brancharchitect.elements.partition import Partition
 from brancharchitect.parser.newick_parser import parse_newick
+
+
+def test_frame_builder_api_has_no_unused_legacy_parameters():
+    parameters = inspect.signature(frame_builder.build_frames_for_subtree).parameters
+
+    assert "is_last_mover" not in parameters
+    assert "source_tree" not in parameters
+    assert "step_progress" not in parameters
 
 
 def test_microsteps_snapback_consistency():
@@ -118,6 +129,336 @@ def test_frame_builder_does_not_mutate_appended_frames(monkeypatch):
 
     final_orders = [list(tree.get_current_order()) for tree in trees]
     assert appended_orders == final_orders
+
+
+def test_joint_expand_group_is_not_treated_as_stable_anchor(monkeypatch):
+    """Inactive sibling movers in the same expand group should not anchor graft alignment."""
+    source = parse_newick("(B:1,C:1,A:1,D:1);")
+    destination = parse_newick("(C:1,(A:1,B:1):1,D:1);", encoding=source.taxa_encoding)
+
+    encoding = source.taxa_encoding
+    pivot = Partition(tuple(sorted(encoding.values())), encoding)
+    mover_a = Partition((encoding["A"],), encoding)
+    mover_b = Partition((encoding["B"],), encoding)
+    split_ab = Partition((encoding["A"], encoding["B"]), encoding)
+    moving_taxa_calls = []
+    original_align_to_source_order = frame_builder.align_to_source_order
+
+    def record_align_to_source_order(tree, source_order, moving_taxa=None):
+        moving_taxa_calls.append(set(moving_taxa or set()))
+        return original_align_to_source_order(tree, source_order, moving_taxa)
+
+    monkeypatch.setattr(
+        frame_builder, "align_to_source_order", record_align_to_source_order
+    )
+
+    trees, _edges, final_tree, subtree_tracker = frame_builder.build_frames_for_subtree(
+        interpolation_state=source,
+        destination_tree=destination,
+        current_pivot_edge=pivot,
+        selection={
+            "subtree": mover_a,
+            "collapse": {"path_segment": []},
+            "expand": {"path_segment": [split_ab]},
+        },
+        all_mover_partitions=[mover_a, mover_b],
+        expand_sibling_groups={mover_a: [mover_a, mover_b], mover_b: [mover_a, mover_b]},
+    )
+
+    assert moving_taxa_calls == [{"A", "B"}]
+    assert all(
+        [partition.taxa for partition in group] == [mover_a.taxa, mover_b.taxa]
+        for group in subtree_tracker
+    )
+    assert list(trees[-1].get_current_order()) == list(final_tree.get_current_order())
+
+
+def test_reorder_snap_reuses_owned_working_trees_without_extra_snapshots(monkeypatch):
+    """Owned working trees can be handed to pending frames without extra copies."""
+    source = parse_newick("(A:1,B:1,C:1,D:1);")
+    destination = parse_newick("(A:1,C:1,B:1,D:1);", encoding=source.taxa_encoding)
+    destination.reorder_taxa(["A", "C", "B", "D"])
+
+    encoding = source.taxa_encoding
+    pivot = Partition(tuple(sorted(encoding.values())), encoding)
+    mover = Partition((encoding["B"],), encoding)
+
+    copy_counts = Counter()
+    original_deep_copy = Node.deep_copy
+
+    def counted_deep_copy(self, *args, **kwargs):
+        copy_counts[kwargs.get("build_split_index", True)] += 1
+        return original_deep_copy(self, *args, **kwargs)
+
+    monkeypatch.setattr(Node, "deep_copy", counted_deep_copy)
+
+    trees, _edges, _final_tree, _subtree_tracker = frame_builder.build_frames_for_subtree(
+        interpolation_state=source,
+        destination_tree=destination,
+        current_pivot_edge=pivot,
+        selection={
+            "subtree": mover,
+            "collapse": {"path_segment": []},
+            "expand": {"path_segment": []},
+        },
+    )
+
+    assert [list(tree.get_current_order()) for tree in trees] == [
+        ["A", "B", "C", "D"],
+        ["A", "C", "B", "D"],
+        ["A", "C", "B", "D"],
+    ]
+    assert copy_counts[True] == 2
+    assert copy_counts[False] == 2
+
+
+def test_collapse_reorder_reuses_owned_working_tree_without_extra_snapshot(monkeypatch):
+    """Collapse frames own snapshots, so the collapsed working tree can be reordered."""
+    source = parse_newick("((A:1,B:1):1,C:1,D:1);")
+    destination = parse_newick("(C:1,A:1,B:1,D:1);", encoding=source.taxa_encoding)
+    destination.reorder_taxa(["C", "A", "B", "D"])
+
+    encoding = source.taxa_encoding
+    pivot = Partition(tuple(sorted(encoding.values())), encoding)
+    mover = Partition((encoding["C"],), encoding)
+    split_ab = Partition((encoding["A"], encoding["B"]), encoding)
+
+    copy_count = 0
+    original_deep_copy = Node.deep_copy
+
+    def counted_deep_copy(self, *args, **kwargs):
+        nonlocal copy_count
+        copy_count += 1
+        return original_deep_copy(self, *args, **kwargs)
+
+    monkeypatch.setattr(Node, "deep_copy", counted_deep_copy)
+
+    trees, _edges, _final_tree, _subtree_tracker = frame_builder.build_frames_for_subtree(
+        interpolation_state=source,
+        destination_tree=destination,
+        current_pivot_edge=pivot,
+        selection={
+            "subtree": mover,
+            "collapse": {"path_segment": [split_ab]},
+            "expand": {"path_segment": []},
+        },
+        all_mover_partitions=[mover],
+    )
+
+    assert [list(tree.get_current_order()) for tree in trees] == [
+        ["A", "B", "C", "D"],
+        ["A", "B", "C", "D"],
+        ["C", "A", "B", "D"],
+        ["C", "A", "B", "D"],
+    ]
+    assert copy_count == 5
+
+
+def test_expand_snap_avoids_indexed_copy_for_snap_source(monkeypatch):
+    """The zero-weight expand frame is snapshotted before mutating the owned tree."""
+    source = parse_newick("(A:1,B:1,C:1,D:1);")
+    destination = parse_newick(
+        "((A:2,B:2):2,C:2,D:2);", encoding=source.taxa_encoding
+    )
+
+    encoding = source.taxa_encoding
+    pivot = Partition(tuple(sorted(encoding.values())), encoding)
+    mover = Partition((encoding["A"], encoding["C"]), encoding)
+    split_ab = Partition((encoding["A"], encoding["B"]), encoding)
+
+    copy_counts = Counter()
+    original_deep_copy = Node.deep_copy
+
+    def counted_deep_copy(self, *args, **kwargs):
+        copy_counts[kwargs.get("build_split_index", True)] += 1
+        return original_deep_copy(self, *args, **kwargs)
+
+    monkeypatch.setattr(Node, "deep_copy", counted_deep_copy)
+
+    trees, _edges, final_tree, _subtree_tracker = frame_builder.build_frames_for_subtree(
+        interpolation_state=source,
+        destination_tree=destination,
+        current_pivot_edge=pivot,
+        selection={
+            "subtree": mover,
+            "collapse": {"path_segment": []},
+            "expand": {"path_segment": [split_ab]},
+        },
+    )
+
+    assert trees[-2] is not final_tree
+    assert trees[-1] is not final_tree
+    assert copy_counts[True] == 1
+    assert copy_counts[False] == 4
+
+
+def test_expand_grafts_private_working_tree_without_copy(monkeypatch):
+    """If no pending frame aliases the working tree, grafting can mutate it."""
+    source = parse_newick("(A:1,B:1,C:1,D:1);")
+    destination = parse_newick(
+        "((A:2,B:2):2,C:2,D:2);", encoding=source.taxa_encoding
+    )
+
+    encoding = source.taxa_encoding
+    pivot = Partition(tuple(sorted(encoding.values())), encoding)
+    split_ab = Partition((encoding["A"], encoding["B"]), encoding)
+
+    copy_counts = Counter()
+    original_deep_copy = Node.deep_copy
+
+    def counted_deep_copy(self, *args, **kwargs):
+        copy_counts[kwargs.get("build_split_index", True)] += 1
+        return original_deep_copy(self, *args, **kwargs)
+
+    monkeypatch.setattr(Node, "deep_copy", counted_deep_copy)
+
+    trees, _edges, final_tree, _subtree_tracker = frame_builder.build_frames_for_subtree(
+        interpolation_state=source,
+        destination_tree=destination,
+        current_pivot_edge=pivot,
+        selection={
+            "subtree": split_ab,
+            "collapse": {"path_segment": []},
+            "expand": {"path_segment": [split_ab]},
+        },
+    )
+
+    assert trees[-2] is not final_tree
+    assert trees[-1] is not final_tree
+    assert copy_counts[True] == 1
+    assert copy_counts[False] == 2
+
+
+def test_early_return_final_state_does_not_alias_appended_frames():
+    """The returned state may be mutated by callers without rewriting frames."""
+    source = parse_newick("(A:1,B:1,C:1,D:1);")
+    destination = parse_newick("(A:1,C:1,B:1,D:1);", encoding=source.taxa_encoding)
+    destination.reorder_taxa(["A", "C", "B", "D"])
+
+    encoding = source.taxa_encoding
+    pivot = Partition(tuple(sorted(encoding.values())), encoding)
+    mover = Partition((encoding["B"],), encoding)
+
+    trees, _edges, final_tree, _subtree_tracker = frame_builder.build_frames_for_subtree(
+        interpolation_state=source,
+        destination_tree=destination,
+        current_pivot_edge=pivot,
+        selection={
+            "subtree": mover,
+            "collapse": {"path_segment": []},
+            "expand": {"path_segment": []},
+        },
+        is_first_mover=False,
+    )
+
+    frame_orders_before = [list(tree.get_current_order()) for tree in trees]
+    final_tree.reorder_taxa(["A", "B", "C", "D"])
+
+    assert [list(tree.get_current_order()) for tree in trees] == frame_orders_before
+
+
+def test_pivot_sequence_uses_deep_copy_index_without_rebuild(monkeypatch):
+    """Current-base tree copies should not rebuild split indexes after copying."""
+    from brancharchitect.tree_interpolation.subtree_paths.pivot_sequence_orchestrator import (
+        create_interpolation_for_active_split_sequence,
+    )
+
+    source = parse_newick("(A:1,B:1,C:1,D:1);")
+    destination = parse_newick("(A:1,C:1,B:1,D:1);", encoding=source.taxa_encoding)
+    destination.reorder_taxa(["A", "C", "B", "D"])
+
+    encoding = source.taxa_encoding
+    pivot = Partition(tuple(sorted(encoding.values())), encoding)
+    mover = Partition((encoding["B"],), encoding)
+
+    source.build_split_index()
+    destination.build_split_index()
+
+    def fail_rebuild(self):
+        raise AssertionError("deep-copied current base tree should already be indexed")
+
+    monkeypatch.setattr(Node, "build_split_index", fail_rebuild)
+
+    trees, edges, subtree_tracking, _events = create_interpolation_for_active_split_sequence(
+        source_tree=source,
+        destination_tree=destination,
+        target_pivot_edges=[pivot],
+        jumping_subtree_solutions={pivot: [mover]},
+    )
+
+    assert len(trees) == len(edges) == len(subtree_tracking)
+
+
+def test_pivot_sequence_hands_off_owned_state_without_copying(monkeypatch):
+    """The state returned by one pivot is private chaining state for the next."""
+    import brancharchitect.tree_interpolation.subtree_paths.pivot_sequence_orchestrator as orchestrator
+
+    source = parse_newick("(A:1,B:1);")
+    destination = parse_newick("(A:1,B:1);", encoding=source.taxa_encoding)
+
+    encoding = source.taxa_encoding
+    pivot = Partition(tuple(sorted(encoding.values())), encoding)
+    mover = Partition((encoding["A"],), encoding)
+
+    monkeypatch.setattr(
+        orchestrator,
+        "calculate_subtree_paths",
+        lambda *args, **kwargs: ({pivot: {}}, {pivot: {}}),
+    )
+
+    seen_base_trees = []
+    returned_states = []
+
+    def fake_execute_pivot_edge_plan(
+        current_base_tree,
+        destination_tree,
+        source_tree,
+        current_pivot_edge,
+        collapse_paths_for_pivot_edge,
+        expand_paths_for_pivot_edge,
+        source_parent_map,
+        dest_parent_map,
+    ):
+        seen_base_trees.append(current_base_tree)
+        frame_tree = current_base_tree.deep_copy()
+        new_state = current_base_tree.deep_copy()
+        returned_states.append(new_state)
+        return [frame_tree], [current_pivot_edge], new_state, [[mover]], []
+
+    monkeypatch.setattr(
+        orchestrator,
+        "execute_pivot_edge_plan",
+        fake_execute_pivot_edge_plan,
+    )
+
+    orchestrator.create_interpolation_for_active_split_sequence(
+        source_tree=source,
+        destination_tree=destination,
+        target_pivot_edges=[pivot, pivot],
+        jumping_subtree_solutions={pivot: [mover]},
+    )
+
+    assert seen_base_trees[1] is returned_states[0]
+
+
+def test_align_to_source_order_does_not_repeatedly_collect_leaves(monkeypatch):
+    """Alignment ordering should derive sort keys in one traversal."""
+    from brancharchitect.tree_interpolation.subtree_paths.execution.reordering import (
+        align_to_source_order,
+    )
+
+    tree = parse_newick("(A:1,(B:1,C:1):1,D:1);")
+    original_get_leaves = Node.get_leaves
+
+    def fail_get_leaves(self):
+        raise AssertionError("align_to_source_order should not call get_leaves")
+
+    monkeypatch.setattr(Node, "get_leaves", fail_get_leaves)
+
+    align_to_source_order(tree, ["D", "C", "B", "A"], moving_taxa={"B"})
+
+    monkeypatch.setattr(Node, "get_leaves", original_get_leaves)
+    assert list(tree.get_current_order()) == ["D", "C", "B", "A"]
 
 
 if __name__ == "__main__":

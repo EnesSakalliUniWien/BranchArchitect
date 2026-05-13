@@ -87,11 +87,8 @@ def apply_split_simple(split: Partition, node: Node) -> None:
     # Find the correct parent node where this split should be applied
     _apply_split_at_node(split, node, split_index)
 
-    # Refresh split indices after modification
-    root = node.get_root()
-    root.initialize_split_indices(root.taxa_encoding)
-
     # Verify the split was applied
+    root = node.get_root()
     tree_splits = root.to_splits()
     if split not in tree_splits:
         raise SplitApplicationError(
@@ -195,6 +192,7 @@ def _apply_split_at_node(
         return False
 
     new_node = _apply_split_to_parent(split, parent)
+    parent.get_root()._split_index = split_index
     split_index[new_node.split_indices] = new_node
     return True
 
@@ -241,7 +239,7 @@ def execute_expand_path(
     This function:
     1. Sorts splits by size (largest first)
     2. Applies each split sequentially (batch mode - no index rebuild per split)
-    3. Rebuilds indices ONCE at the end
+    3. Updates the split lookup as each split is inserted
     4. Applies reference weights to new nodes
     5. Fails fast on any error
 
@@ -266,15 +264,8 @@ def execute_expand_path(
     split_index = _get_tree_split_index(tree)
 
     # Apply each split WITHOUT rebuilding indices (batch mode)
-    applied_any = False
     for split in sorted_path:
-        if _apply_split_no_rebuild(split, tree, split_index):
-            applied_any = True
-
-    # Rebuild indices ONCE after all splits are applied
-    if applied_any:
-        root = tree.get_root()
-        root.initialize_split_indices(root.taxa_encoding)
+        _apply_split_no_rebuild(split, tree, split_index)
 
     # Verify all splits were applied
     tree_splits = tree.to_splits()
@@ -320,21 +311,13 @@ def create_subtree_grafted_tree(
     split_index = _get_tree_split_index(grafted_tree)
 
     # Apply splits in batch mode (no index rebuild per split)
-    applied_any = False
     for ref_split in sorted_ref_path:
         if ref_split not in split_index:
-            if _apply_split_no_rebuild(ref_split, grafted_tree, split_index):
-                applied_any = True
-            else:
+            if not _apply_split_no_rebuild(ref_split, grafted_tree, split_index):
                 logger.warning(
                     f"[Expand] Failed to apply split {list(ref_split.indices)} "
                     f"(Bitmask: {ref_split.bitmask:b}) to grafted tree. "
                     "This implies incompatibility with the current topology."
                 )
-
-    # Rebuild indices ONCE after all splits are applied
-    if applied_any:
-        root = grafted_tree.get_root()
-        root.initialize_split_indices(root.taxa_encoding)
 
     return grafted_tree

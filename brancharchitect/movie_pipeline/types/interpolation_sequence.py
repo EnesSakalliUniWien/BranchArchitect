@@ -206,22 +206,23 @@ class InterpolationResult(TypedDict):
 
     subtree_tracking: List[Optional[List[List[int]]]]
     """
-    Serialized subtree partition for each tree in the sequence.
+    Serialized per-frame subtree highlight groups.
 
     Parallel to interpolated_trees and tree_metadata. For each tree at index i:
-    - None: Original tree (no subtree being moved)
+    - None: Original tree (no interpolation highlight)
     - List[List[int]]: A list of disjoint taxon groups (lists of indices), where each group
-                       represents a distinct subtree moving simultaneously in this step.
+                       represents a subtree visually associated with this step.
 
-    This tracks which subtrees are being relocated during each interpolation step,
-    enabling visualization of the specific taxa movement.
+    The field name is kept for backend/frontend compatibility. It is a visual
+    context/highlight contract, not authoritative ownership of the physical SPR
+    movement in that frame.
 
     Example: [None, [[0, 1]], [[0, 1], [4]], None, [[2, 3]], None]
     - Index 0: Original tree
-    - Index 1: Subtree {0,1} is moving
-    - Index 2: Subtrees {0,1} and {4} are moving simultaneously
+    - Index 1: Subtree {0,1} is highlighted for the interpolation step
+    - Index 2: Subtrees {0,1} and {4} are highlighted together
     - Index 3: Original tree
-    - Index 4: Subtree {2,3} is moving
+    - Index 4: Subtree {2,3} is highlighted
     - Index 5: Original tree
     """
 
@@ -248,7 +249,7 @@ def create_single_tree_result(
         wrfd_list=[0.0],
         processing_time=0.0,
         pair_interpolation_ranges=[],
-        subtree_tracking=[None],  # Single tree has no subtree movement
+        subtree_tracking=[None],  # Single tree has no interpolation highlight
     )
 
 

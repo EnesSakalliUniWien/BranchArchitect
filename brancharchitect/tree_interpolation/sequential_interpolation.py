@@ -77,6 +77,7 @@ class SequentialInterpolationBuilder:
         self.source_mappings: List[Dict[Partition, Dict[Partition, Partition]]] = []
         self.target_mappings: List[Dict[Partition, Dict[Partition, Partition]]] = []
         self.current_pivot_edge_tracking: List[Optional[Partition]] = []
+        # Legacy public name for per-frame visual/highlight groups.
         self.current_subtree_tracking: List[Optional[List[Partition]]] = []
         self.spr_move_events: List[List[SprMoveEvent]] = []
         self.pair_tree_counts: List[int] = []
@@ -156,9 +157,9 @@ class SequentialInterpolationBuilder:
         return aligned_destination
 
     def _add_delimiter_frame(self, tree: Node) -> None:
-        """Add an original tree and a None tracker to the sequence as a delimiter."""
+        """Add an original tree and a None highlight marker to the sequence as a delimiter."""
         # Deep copy to create an independent snapshot
-        self.interpolated_trees.append(tree.deep_copy())
+        self.interpolated_trees.append(tree.deep_copy(build_split_index=False))
         self.current_pivot_edge_tracking.append(None)
         self.current_subtree_tracking.append(None)
 

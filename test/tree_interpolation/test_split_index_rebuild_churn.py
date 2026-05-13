@@ -117,3 +117,152 @@ def test_expand_path_updates_lookup_for_nested_splits():
 
     assert tree.find_node_by_split(split_abcd) is not None
     assert tree.find_node_by_split(split_abc) is not None
+
+
+def test_execute_expand_path_refreshes_index_without_full_reinitialization(
+    monkeypatch,
+):
+    tree = parse_newick("(A:1,B:1,C:1,D:1);")
+    split = Partition(
+        (tree.taxa_encoding["A"], tree.taxa_encoding["B"]), tree.taxa_encoding
+    )
+
+    def fail_initialize(*args, **kwargs):
+        raise AssertionError("expand path should not recompute every split")
+
+    monkeypatch.setattr(type(tree), "initialize_split_indices", fail_initialize)
+
+    execute_expand_path(tree, [split])
+
+    assert tree._split_index is not None
+    assert tree.find_node_by_split(split) is not None
+    assert split in tree.to_splits()
+
+
+def test_apply_split_updates_existing_split_index_without_full_rebuild(monkeypatch):
+    tree = parse_newick("(A:1,B:1,C:1,D:1);")
+    assert tree._split_index is not None
+    split = Partition(
+        (tree.taxa_encoding["A"], tree.taxa_encoding["B"]), tree.taxa_encoding
+    )
+
+    def fail_rebuild(*args, **kwargs):
+        raise AssertionError("apply_split should update the existing index directly")
+
+    monkeypatch.setattr(type(tree), "build_split_index", fail_rebuild)
+
+    apply_split_simple(split, tree)
+
+    assert tree.find_node_by_split(split) is not None
+    assert split in tree.to_splits()
+
+
+def test_execute_expand_path_updates_existing_split_index_without_full_rebuild(
+    monkeypatch,
+):
+    tree = parse_newick("(A:1,B:1,C:1,D:1);")
+    assert tree._split_index is not None
+    split = Partition(
+        (tree.taxa_encoding["A"], tree.taxa_encoding["B"]), tree.taxa_encoding
+    )
+
+    def fail_rebuild(*args, **kwargs):
+        raise AssertionError("expand path should update the existing index directly")
+
+    monkeypatch.setattr(type(tree), "build_split_index", fail_rebuild)
+
+    execute_expand_path(tree, [split])
+
+    assert tree.find_node_by_split(split) is not None
+    assert split in tree.to_splits()
+
+
+def test_graft_refreshes_index_without_full_reinitialization(monkeypatch):
+    tree = parse_newick("(A:1,B:1,C:1,D:1);")
+    split = Partition(
+        (tree.taxa_encoding["A"], tree.taxa_encoding["B"]), tree.taxa_encoding
+    )
+
+    def fail_initialize(*args, **kwargs):
+        raise AssertionError("graft should not recompute every split")
+
+    monkeypatch.setattr(type(tree), "initialize_split_indices", fail_initialize)
+
+    grafted = create_subtree_grafted_tree(tree, [split], copy=True)
+
+    assert grafted._split_index is not None
+    assert grafted.find_node_by_split(split) is not None
+    assert split in grafted.to_splits()
+
+
+def test_graft_updates_existing_split_index_without_full_rebuild(monkeypatch):
+    tree = parse_newick("(A:1,B:1,C:1,D:1);")
+    assert tree._split_index is not None
+    split = Partition(
+        (tree.taxa_encoding["A"], tree.taxa_encoding["B"]), tree.taxa_encoding
+    )
+
+    def fail_rebuild(*args, **kwargs):
+        raise AssertionError("graft should update the existing index directly")
+
+    monkeypatch.setattr(type(tree), "build_split_index", fail_rebuild)
+
+    grafted = create_subtree_grafted_tree(tree, [split], copy=True)
+
+    assert grafted.find_node_by_split(split) is not None
+    assert split in grafted.to_splits()
+
+
+def test_collapse_refreshes_index_without_full_reinitialization(monkeypatch):
+    source = parse_newick("((A:1,B:1):1,(C:1,D:1):1);")
+    destination = parse_newick("(A:1,B:1,C:1,D:1);", encoding=source.taxa_encoding)
+    split = Partition(
+        (source.taxa_encoding["A"], source.taxa_encoding["B"]), source.taxa_encoding
+    )
+    zeroed = apply_zero_branch_lengths(
+        source, PartitionSet([split], source.taxa_encoding)
+    )
+
+    def fail_initialize(*args, **kwargs):
+        raise AssertionError("collapse should not recompute every split")
+
+    monkeypatch.setattr(type(source), "initialize_split_indices", fail_initialize)
+
+    collapsed = create_collapsed_consensus_tree(
+        zeroed,
+        zeroed.split_indices,
+        destination_tree=destination,
+        copy=True,
+    )
+
+    assert collapsed._split_index is not None
+    assert collapsed.find_node_by_split(collapsed.split_indices) is collapsed
+    assert split not in collapsed.to_splits()
+
+
+def test_collapse_updates_existing_split_index_without_full_rebuild(monkeypatch):
+    source = parse_newick("((A:1,B:1):1,(C:1,D:1):1);")
+    destination = parse_newick("(A:1,B:1,C:1,D:1);", encoding=source.taxa_encoding)
+    split = Partition(
+        (source.taxa_encoding["A"], source.taxa_encoding["B"]), source.taxa_encoding
+    )
+    zeroed = apply_zero_branch_lengths(
+        source, PartitionSet([split], source.taxa_encoding)
+    )
+
+    def fail_rebuild(*args, **kwargs):
+        raise AssertionError("collapse should update the existing index directly")
+
+    monkeypatch.setattr(type(source), "build_split_index", fail_rebuild)
+
+    collapsed = create_collapsed_consensus_tree(
+        zeroed,
+        zeroed.split_indices,
+        destination_tree=destination,
+        copy=True,
+    )
+
+    assert collapsed._split_index is not None
+    assert collapsed.find_node_by_split(collapsed.split_indices) is collapsed
+    assert collapsed.find_node_by_split(split) is None
+    assert split not in collapsed.to_splits()

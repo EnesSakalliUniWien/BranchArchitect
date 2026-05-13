@@ -135,16 +135,34 @@ class PartitionSet(Generic[T], MutableSet[T]):
         bitmask_set: set[int],
         bitmask_to_partition: dict[int, Partition],
         suffix: str,
+        metadata_source: Optional["PartitionSet[Any]"] = None,
     ) -> Self:
         """Helper to create a new instance with shared metadata."""
+        source = metadata_source if metadata_source is not None else self
         new_set = type(self).__new__(type(self))
         new_set._bitmask_set = bitmask_set
         new_set._bitmask_to_partition = bitmask_to_partition
-        new_set.encoding = self.encoding
-        new_set._reversed_encoding = self._reversed_encoding
-        new_set.order = self.order
+        new_set.encoding = source.encoding
+        new_set._reversed_encoding = source._reversed_encoding
+        new_set.order = source.order
         new_set.name = f"{self.name}_{suffix}"
         return new_set
+
+    def _ensure_compatible_partition_set(
+        self, other: "PartitionSet[Any]"
+    ) -> None:
+        if (
+            self.encoding
+            and other.encoding
+            and self.encoding is not other.encoding
+            and self.encoding != other.encoding
+        ):
+            raise ValueError("Cannot combine PartitionSets with different encoding")
+
+    def _metadata_source_for(
+        self, other: "PartitionSet[Any]"
+    ) -> "PartitionSet[Any]":
+        return self if self.encoding else other
 
     @property
     def fast_partitions(self) -> Iterable[T]:
@@ -288,14 +306,28 @@ class PartitionSet(Generic[T], MutableSet[T]):
         Returns:
             A PartitionSet containing the bottoms (minimal elements), filtered by size.
         """
-        mins = self.minimal_elements()
-        if min_size <= 1:
-            return mins
-        filtered = {p for p in mins if len(p) >= min_size}
+        parts = list(self.fast_partitions)
+        parts.sort(key=lambda p: (p.size, p.bitmask))
+
+        kept: list[Partition] = []
+        kept_masks: list[int] = []
+        for partition in parts:
+            partition_mask = partition.bitmask
+            is_minimal = True
+            for kept_mask in kept_masks:
+                if (kept_mask & ~partition_mask) == 0:
+                    is_minimal = False
+                    break
+            if not is_minimal:
+                continue
+            kept_masks.append(partition_mask)
+            if partition.size >= min_size:
+                kept.append(partition)
+
         return type(self)(
-            splits=filtered,
+            splits=set(kept),
             encoding=self.encoding,
-            name="bottoms",
+            name="minimal_elements" if min_size <= 1 else "bottoms",
             order=self.order,
         )
 
@@ -316,22 +348,31 @@ class PartitionSet(Generic[T], MutableSet[T]):
             A PartitionSet containing the bottoms of the antichain under ``upper``.
         """
         upper_mask, _ = self._element_to_bitmask_and_partition(upper)
-        # Downset under upper: all elements s with s ⊆ upper
-        elems = {p for p in self.fast_partitions if (p.bitmask & ~upper_mask) == 0}
-        down = type(self)(
-            splits=elems,
-            encoding=self.encoding,
-            name=f"{self.name}_downset",
-            order=self.order,
-        )
-        mins = down.minimal_elements()
-        if min_size <= 1:
-            return mins
-        filtered = {p for p in mins if len(p) >= min_size}
+
+        candidates = [
+            p for p in self.fast_partitions if (p.bitmask & ~upper_mask) == 0
+        ]
+        candidates.sort(key=lambda p: (p.size, p.bitmask))
+
+        kept: list[Partition] = []
+        kept_masks: list[int] = []
+        for partition in candidates:
+            partition_mask = partition.bitmask
+            is_minimal = True
+            for kept_mask in kept_masks:
+                if (kept_mask & ~partition_mask) == 0:
+                    is_minimal = False
+                    break
+            if not is_minimal:
+                continue
+            kept_masks.append(partition_mask)
+            if partition.size >= min_size:
+                kept.append(partition)
+
         return type(self)(
-            splits=filtered,
+            splits=set(kept),
             encoding=self.encoding,
-            name="bottoms_under",
+            name="minimal_elements" if min_size <= 1 else "bottoms_under",
             order=self.order,
         )
 
@@ -430,18 +471,33 @@ class PartitionSet(Generic[T], MutableSet[T]):
                 elif isinstance(item, int):
                     exclude_masks.add(item)
 
-        elems = {
+        candidates = [
             p
             for p in self.fast_partitions
             if p.bitmask not in exclude_masks and (lower_mask & ~p.bitmask) == 0
-        }
-        up = type(self)(
-            splits=elems,
+        ]
+        candidates.sort(key=lambda p: (p.size, p.bitmask))
+
+        kept: list[Partition] = []
+        kept_masks: list[int] = []
+        for partition in candidates:
+            partition_mask = partition.bitmask
+            is_minimal = True
+            for kept_mask in kept_masks:
+                if (kept_mask & ~partition_mask) == 0:
+                    is_minimal = False
+                    break
+            if not is_minimal:
+                continue
+            kept.append(partition)
+            kept_masks.append(partition_mask)
+
+        return type(self)(
+            splits=set(kept),
             encoding=self.encoding,
-            name=f"{self.name}_upset",
+            name="minimal_elements",
             order=self.order,
         )
-        return up.minimal_elements()
 
     def covers(self, partition: Union[Partition, Tuple[int, ...], int]) -> bool:
         """
@@ -484,13 +540,17 @@ class PartitionSet(Generic[T], MutableSet[T]):
         # Start with copies of our own data structures
         result_bitmask_set = set(self._bitmask_set)
         result_bitmask_to_partition = dict(self._bitmask_to_partition)
+        metadata_source: PartitionSet[Any] = self
 
         for other in others:
             if isinstance(other, PartitionSet):
+                metadata_source._ensure_compatible_partition_set(other)
+                metadata_source = metadata_source._metadata_source_for(other)
                 # Fast path: directly merge bitmask sets for PartitionSet
                 result_bitmask_set |= other._bitmask_set
                 result_bitmask_to_partition.update(other._bitmask_to_partition)
             else:
+                metadata_source = self
                 # Slower path for generic iterables
                 for elem in other:
                     bitmask = elem.bitmask
@@ -500,18 +560,25 @@ class PartitionSet(Generic[T], MutableSet[T]):
 
         # Create new PartitionSet without re-processing partitions
         return self._create_new_from_bitmasks(
-            result_bitmask_set, result_bitmask_to_partition, "_union"
+            result_bitmask_set,
+            result_bitmask_to_partition,
+            "_union",
+            metadata_source=metadata_source,
         )
 
     def intersection(self, *others: Iterable[T]) -> Self:
         """Optimized intersection using direct bitmask operations."""
         result_bitmask_set = set(self._bitmask_set)
+        metadata_source: PartitionSet[Any] = self
 
         for other in others:
             if isinstance(other, PartitionSet):
+                metadata_source._ensure_compatible_partition_set(other)
+                metadata_source = metadata_source._metadata_source_for(other)
                 # Fast path: directly intersect bitmask sets
                 result_bitmask_set &= other._bitmask_set
             else:
+                metadata_source = self
                 # Create bitmask set for other iterable
                 other_bitmasks = {elem.bitmask for elem in other}
                 result_bitmask_set &= other_bitmasks
@@ -521,17 +588,22 @@ class PartitionSet(Generic[T], MutableSet[T]):
             result_bitmask_set,
             {b: self._bitmask_to_partition[b] for b in result_bitmask_set},
             "_intersection",
+            metadata_source=metadata_source,
         )
 
     def difference(self, *others: Iterable[T]) -> Self:
         """Optimized difference using direct bitmask operations."""
         result_bitmask_set = set(self._bitmask_set)
+        metadata_source: PartitionSet[Any] = self
 
         for other in others:
             if isinstance(other, PartitionSet):
+                metadata_source._ensure_compatible_partition_set(other)
+                metadata_source = metadata_source._metadata_source_for(other)
                 # Fast path: directly subtract bitmask sets
                 result_bitmask_set -= other._bitmask_set
             else:
+                metadata_source = self
                 # Create bitmask set for other iterable
                 other_bitmasks = {elem.bitmask for elem in other}
                 result_bitmask_set -= other_bitmasks
@@ -541,11 +613,15 @@ class PartitionSet(Generic[T], MutableSet[T]):
             result_bitmask_set,
             {b: self._bitmask_to_partition[b] for b in result_bitmask_set},
             "_difference",
+            metadata_source=metadata_source,
         )
 
     def symmetric_difference(self, other: Iterable[T]) -> Self:
         """Optimized symmetric difference using direct bitmask operations."""
         if isinstance(other, PartitionSet):
+            metadata_source: PartitionSet[Any] = self
+            metadata_source._ensure_compatible_partition_set(other)
+            metadata_source = metadata_source._metadata_source_for(other)
             # Fast path for PartitionSet
             result_bitmask_set: set[int] = self._bitmask_set ^ other._bitmask_set
 
@@ -557,6 +633,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
                 else:
                     result_bitmask_to_partition[b] = other._bitmask_to_partition[b]
         else:
+            metadata_source = self
             # Handle generic iterable
             other_bitmask_to_partition: dict[int, Partition] = {}
             other_bitmasks: set[int] = set()
@@ -576,7 +653,10 @@ class PartitionSet(Generic[T], MutableSet[T]):
 
         # Create new PartitionSet
         return self._create_new_from_bitmasks(
-            result_bitmask_set, result_bitmask_to_partition, "_symdiff"
+            result_bitmask_set,
+            result_bitmask_to_partition,
+            "_symdiff",
+            metadata_source=metadata_source,
         )
 
     def __or__(self, other: object) -> Self:
@@ -638,6 +718,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
             True if self is a subset of other, False otherwise
         """
         if isinstance(other, PartitionSet):
+            self._ensure_compatible_partition_set(other)
             return self._bitmask_set.issubset(other._bitmask_set)
         elif isinstance(other, (set, frozenset)):
             return self._bitmask_set.issubset({p.bitmask for p in other})
@@ -661,6 +742,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
             P1 & P2 (Set Logic) -> {}
             geometric_intersection(P1, P2) -> {{B}}
         """
+        self._ensure_compatible_partition_set(other)
         result_bitmasks, result_partitions = compute_geometric_intersection(
             self._bitmask_to_partition, other._bitmask_to_partition, self.encoding
         )

@@ -7,17 +7,7 @@ Tests cover:
 - API response structure
 """
 
-import sys
-from unittest.mock import MagicMock
-
-# Mock flask and flask_cors before they are imported by webapp modules
-sys.modules["flask"] = MagicMock()
-sys.modules["flask_cors"] = MagicMock()
-sys.modules["msa_to_trees"] = MagicMock()
-sys.modules["msa_to_trees.pipeline"] = MagicMock()
-
 import unittest
-from typing import Optional
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree_interpolation.types import TreeInterpolationSequence
