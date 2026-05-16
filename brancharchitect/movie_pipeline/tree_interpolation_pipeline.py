@@ -16,6 +16,7 @@ from brancharchitect.movie_pipeline.types import (
     TreeMetadata,
 )
 from brancharchitect.leaforder.tree_order_optimiser import TreeOrderOptimizer
+from brancharchitect.leaforder.split_analysis import clear_split_pair_cache
 from brancharchitect.distances.distances import (
     calculate_along_trajectory,
     relative_robinson_foulds_distance,
@@ -117,6 +118,7 @@ class TreeInterpolationPipeline:
             metadata, and analysis results.
         """
         start_time = time.time()
+        clear_split_pair_cache()
 
         processed_trees: Node | List[Node] = trees
 
@@ -133,6 +135,8 @@ class TreeInterpolationPipeline:
 
         _report_progress(progress_callback, 5, "Rooting trees...")
         processed_trees = self._apply_rooting_if_enabled(processed_trees)
+        self._ensure_shared_taxa_encoding(processed_trees)
+        clear_split_pair_cache()
 
         _report_progress(progress_callback, 10, "Precomputing solutions...")
         precomputed_pair_solutions = self._precompute_pair_solutions(processed_trees)

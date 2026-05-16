@@ -43,7 +43,10 @@ def root_trees(trees: List[Node]) -> List[Node]:
         # 2. Create a skbio.TreeNode from the Newick string
         # Use a file-like wrapper for efficiency and clarity
         # cSpell:ignore Skbio
-        skbio_tree: SkbioTreeNode = SkbioTreeNode.read(io.StringIO(newick_string))  # type: ignore[assignment]
+        skbio_tree: SkbioTreeNode = SkbioTreeNode.read(  # type: ignore[assignment]
+            io.StringIO(newick_string),
+            format="newick",
+        )
 
         # 3. Root the skbio.TreeNode at the midpoint
         # Explicitly specify parameters for scikit-bio 0.7.0+ compatibility

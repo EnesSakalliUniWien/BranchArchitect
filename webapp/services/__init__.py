@@ -17,7 +17,6 @@ from webapp.services.sse import (
     sse_response,
     channels,
     ProgressChannel,
-    with_progress,
 )
 
 __all__ = [
@@ -30,5 +29,4 @@ __all__ = [
     "sse_response",
     "channels",
     "ProgressChannel",
-    "with_progress",
 ]

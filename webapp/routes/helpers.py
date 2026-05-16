@@ -40,7 +40,7 @@ def get_msa_content(msa_file: Optional[FileStorage]) -> Optional[str]:
     msa_file.seek(0)
 
     if file_size > 0:
-        return msa_file.read().decode("utf-8", errors="replace")
+        return cast(bytes, msa_file.read()).decode("utf-8", errors="replace")
     return None
 
 

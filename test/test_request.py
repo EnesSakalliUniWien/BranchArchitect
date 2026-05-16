@@ -3,7 +3,7 @@ import os
 import pytest
 
 # Flask server URL
-FLASK_APP_URL = "http://127.0.0.1:5002/treedata"
+FLASK_APP_URL = "http://127.0.0.1:5002/treedata/stream"
 
 # Path to the test MSA file
 MSA_FILE_PATH = "test/data/test_msa.fasta"
@@ -28,8 +28,8 @@ def is_server_running(url: str, timeout: float = 2.0) -> bool:
     not is_server_running(FLASK_APP_URL),
     reason="Flask server is not running at " + FLASK_APP_URL,
 )
-def test_treedata_endpoint():
-    """Test the /treedata endpoint with an MSA file upload."""
+def test_treedata_stream_endpoint():
+    """Test the /treedata/stream endpoint with an MSA file upload."""
     if not os.path.exists(MSA_FILE_PATH):
         pytest.skip(f"Test MSA file not found: {MSA_FILE_PATH}")
 
@@ -53,4 +53,5 @@ def test_treedata_endpoint():
 
         payload = response.json()
         assert isinstance(payload, dict), "Response should be a JSON object"
+        assert isinstance(payload.get("channel_id"), str), "Response should include channel_id"
         print(f"Payload keys: {list(payload.keys())}")

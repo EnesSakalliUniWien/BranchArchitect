@@ -51,6 +51,7 @@ Thumbs.db
 /misc/
 
 # Test outputs
+/test/output/
 /test/output/debug_logs/
 /test/rooting/test_outputs
 

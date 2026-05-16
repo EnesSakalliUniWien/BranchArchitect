@@ -271,10 +271,10 @@ class TestAPIResponseStructure(unittest.TestCase):
     **Validates: Requirements 2.1, 2.3**
     """
 
-    def test_assemble_frontend_dict_includes_subtree_tracking(self):
-        """Test that assemble_frontend_dict includes subtree_tracking field."""
+    def test_assemble_frontend_metadata_includes_subtree_tracking(self):
+        """Test that assemble_frontend_metadata includes subtree_tracking field."""
         from webapp.services.trees.movie_data import MovieData
-        from webapp.services.trees.frontend_builder import assemble_frontend_dict
+        from webapp.services.trees.frontend_builder import assemble_frontend_metadata
 
         # Create MovieData with subtree_tracking
         movie_data = MovieData(
@@ -285,7 +285,7 @@ class TestAPIResponseStructure(unittest.TestCase):
             sorted_leaves=["A", "B", "C"],
             tree_pair_solutions={},
             pivot_edge_tracking=[None, [0, 1], [0, 1], None],
-            subtree_tracking=[None, [2], [2], None],
+            subtree_tracking=[None, [[2]], [[2]], None],
             file_name="test.nwk",
             window_size=1,
             window_step_size=1,
@@ -293,16 +293,16 @@ class TestAPIResponseStructure(unittest.TestCase):
             pair_interpolation_ranges=[],
         )
 
-        result = assemble_frontend_dict(movie_data)
+        result = assemble_frontend_metadata(movie_data)
 
         # Verify subtree_tracking is in response
         self.assertIn("subtree_tracking", result)
-        self.assertEqual(result["subtree_tracking"], [None, [2], [2], None])
+        self.assertEqual(result["subtree_tracking"], [None, [[2]], [[2]], None])
 
     def test_subtree_tracking_format_matches_pivot_edge_tracking(self):
         """Test that subtree_tracking has same format as pivot_edge_tracking."""
         from webapp.services.trees.movie_data import MovieData
-        from webapp.services.trees.frontend_builder import assemble_frontend_dict
+        from webapp.services.trees.frontend_builder import assemble_frontend_metadata
 
         movie_data = MovieData(
             interpolated_trees=[],
@@ -312,7 +312,7 @@ class TestAPIResponseStructure(unittest.TestCase):
             sorted_leaves=["A", "B", "C", "D"],
             tree_pair_solutions={},
             pivot_edge_tracking=[None, [0, 1], None],
-            subtree_tracking=[None, [2, 3], None],
+            subtree_tracking=[None, [[2, 3]], None],
             file_name="test.nwk",
             window_size=1,
             window_step_size=1,
@@ -320,23 +320,23 @@ class TestAPIResponseStructure(unittest.TestCase):
             pair_interpolation_ranges=[],
         )
 
-        result = assemble_frontend_dict(movie_data)
+        result = assemble_frontend_metadata(movie_data)
 
         # Both should be lists of same length
         self.assertEqual(
             len(result["subtree_tracking"]), len(result["pivot_edge_tracking"])
         )
 
-        # Both should have same structure: List[Optional[List[int]]]
+        # Both are frame-aligned optional list payloads.
         for i in range(len(result["subtree_tracking"])):
             pivot_val = result["pivot_edge_tracking"][i]
             subtree_val = result["subtree_tracking"][i]
 
-            # Both None or both list
             if pivot_val is None:
                 self.assertIsNone(subtree_val)
             else:
                 self.assertIsInstance(subtree_val, list)
+                self.assertTrue(all(isinstance(group, list) for group in subtree_val))
 
     def test_create_empty_movie_data_includes_pivot_edge_tracking(self):
         """Test that create_empty_movie_data includes empty pivot_edge_tracking."""

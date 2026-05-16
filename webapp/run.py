@@ -10,7 +10,7 @@ from typing import Any, Mapping, cast
 from webapp import create_app
 
 
-def main():
+def main() -> None:
     """Main entry point for the development server."""
     import sys
     import traceback
@@ -39,7 +39,7 @@ def main():
             f"[STARTUP] Starting server on {args.host}:{args.port} (debug={debug_mode})"
         )
         # Use waitress for production-ready serving
-        from waitress import serve
+        from waitress import serve  # type: ignore[import-untyped]
 
         # Note: waitress does not support debug mode directly.
         # Ensure any debug configurations are set on the app object if needed,

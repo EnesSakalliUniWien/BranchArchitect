@@ -5,7 +5,10 @@ from brancharchitect.tree import Node
 from brancharchitect.leaforder.tree_order_utils import reorder_tree_if_full_common
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
-from brancharchitect.leaforder.split_analysis import get_common_splits
+from brancharchitect.leaforder.split_analysis import (
+    clear_split_pair_cache,
+    get_common_splits,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,5 +53,6 @@ def final_pairwise_alignment_pass(trees: List[Node]) -> None:
 
         # This function mutates target_tree in place.
         reorder_tree_if_full_common(ref_tree, target_tree, orientation_map)
+        clear_split_pair_cache()
 
     logger.info("Final pairwise alignment pass completed.")

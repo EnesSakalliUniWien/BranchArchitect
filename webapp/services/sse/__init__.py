@@ -17,7 +17,6 @@ Usage:
 
 from webapp.services.sse.messages import format_sse_message, sse_response
 from webapp.services.sse.channels import ProgressChannel, ChannelRegistry, channels
-from webapp.services.sse.decorators import with_progress
 
 __all__ = [
     "format_sse_message",
@@ -25,5 +24,4 @@ __all__ = [
     "ProgressChannel",
     "ChannelRegistry",
     "channels",
-    "with_progress",
 ]

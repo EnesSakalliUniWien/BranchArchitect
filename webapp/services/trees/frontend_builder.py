@@ -7,7 +7,7 @@ the exact format required by the frontend UI.
 Key Responsibilities:
 - Serialize rich Python objects (like Partitions) into simple JSON types.
 - Derive UI-specific data structures like pivot_edge_tracking and split_change_timeline.
-- Assemble the final, flat dictionary that will be sent as the API response.
+- Assemble the metadata payload sent before streamed tree chunks.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from brancharchitect.movie_pipeline.types import (
     TreeMetadata as TreeMetadataType,
     TreePairSolution,
 )
+from brancharchitect.tree_interpolation.types import SprMoveEvent, SprPathSegment
 
 from webapp.services.serialization import (
     serialize_partition_dict_to_indices,
@@ -36,7 +37,6 @@ def build_movie_data_from_result(
     result: InterpolationResult,
     filename: str,
     msa_data: Dict[str, Any],
-    enable_rooting: bool,
     sorted_leaves: List[str],
 ) -> MovieData:
     """
@@ -73,47 +73,9 @@ def build_movie_data_from_result(
     )
 
 
-def assemble_frontend_dict(movie_data: MovieData) -> Dict[str, Any]:
-    """
-    Convert the MovieData object to the final, flat dictionary for the frontend.
-    """
-    timeline = _build_split_change_timeline(
-        movie_data.tree_metadata,
-        movie_data.tree_pair_solutions,
-    )
-
-    return {
-        "interpolated_trees": movie_data.interpolated_trees,
-        "tree_metadata": movie_data.tree_metadata,
-        "tree_pair_solutions": _serialize_tree_pair_solutions(
-            movie_data.tree_pair_solutions
-        ),
-        "split_change_events": _extract_split_change_events_from_solutions(
-            movie_data.tree_pair_solutions
-        ),
-        "split_change_timeline": timeline,
-        "sorted_leaves": movie_data.sorted_leaves,
-        "pivot_edge_tracking": movie_data.pivot_edge_tracking,
-        "subtree_tracking": movie_data.subtree_tracking,
-        "pair_interpolation_ranges": movie_data.pair_interpolation_ranges,
-        "msa": {
-            "sequences": movie_data.msa_dict,
-            "window_size": movie_data.window_size,
-            "step_size": movie_data.window_step_size,
-        },
-        "file_name": movie_data.file_name,
-        "distances": {
-            "robinson_foulds": movie_data.rfd_list,
-            "weighted_robinson_foulds": movie_data.weighted_robinson_foulds_distance_list,
-        },
-    }
-
-
 def assemble_frontend_metadata(movie_data: MovieData) -> Dict[str, Any]:
     """
-    Create a lightweight metadata-only response (no trees).
-
-    Use this when streaming trees separately via chunked SSE events.
+    Create the movie metadata payload sent before tree chunks.
     """
     timeline = _build_split_change_timeline(
         movie_data.tree_metadata,
@@ -121,12 +83,8 @@ def assemble_frontend_metadata(movie_data: MovieData) -> Dict[str, Any]:
     )
 
     return {
-        "tree_count": len(movie_data.interpolated_trees),
         "tree_metadata": movie_data.tree_metadata,
         "tree_pair_solutions": _serialize_tree_pair_solutions(
-            movie_data.tree_pair_solutions
-        ),
-        "split_change_events": _extract_split_change_events_from_solutions(
             movie_data.tree_pair_solutions
         ),
         "split_change_timeline": timeline,
@@ -350,17 +308,6 @@ def _serialize_tree_pair_solutions(
             "solution_to_source_map": serialize_partition_dict_to_indices(src_map),
         }
 
-        if "split_change_events" in solution:
-            events_ser: List[Dict[str, Any]] = []
-            for ev in solution["split_change_events"]:
-                events_ser.append(
-                    {
-                        "split": serialize_partition_to_indices(ev["split"]),
-                        "step_range": list(ev["step_range"]),
-                    }
-                )
-            item["split_change_events"] = events_ser
-
         if "spr_move_events" in solution:
             item["spr_move_events"] = _serialize_spr_move_events(
                 solution["spr_move_events"]
@@ -371,7 +318,7 @@ def _serialize_tree_pair_solutions(
     return serialized
 
 
-def _serialize_spr_path(path: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _serialize_spr_path(path: List[SprPathSegment]) -> List[Dict[str, Any]]:
     return [
         {
             "split": serialize_partition_to_indices(segment["split"]),
@@ -381,7 +328,7 @@ def _serialize_spr_path(path: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     ]
 
 
-def _serialize_spr_move_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _serialize_spr_move_events(events: List[SprMoveEvent]) -> List[Dict[str, Any]]:
     serialized: List[Dict[str, Any]] = []
     for event in events:
         serialized.append(

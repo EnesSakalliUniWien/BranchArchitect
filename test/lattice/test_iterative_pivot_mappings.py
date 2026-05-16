@@ -106,14 +106,19 @@ def test_pivot_with_jumping_falls_back_to_root_if_needed():
 
 
 def test_bootstrap_52_mapping_produces_valid_common_splits():
-    # Load bootstrap_52 scenario
-    import json
     from pathlib import Path
 
-    data = json.loads(
-        Path("test/colouring/trees/bootstrap_52/bootstrap_52_test.json").read_text()
+    fixture_path = (
+        Path(__file__).resolve().parents[1]
+        / "data/current_testfiles/52_bootstrap.newick"
     )
-    trees = parse_newick(data["tree1"] + data["tree2"])
+    tree1, tree2 = [
+        line.strip()
+        for line in fixture_path.read_text().splitlines()
+        if line.strip()
+    ][:2]
+
+    trees = parse_newick(tree1 + tree2)
     orig_t1, orig_t2 = trees[0], trees[1]
 
     # Get pivots and solutions from lattice
