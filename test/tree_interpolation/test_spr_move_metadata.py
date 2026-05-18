@@ -7,15 +7,16 @@ from pathlib import Path
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.parser import parse_newick
-from brancharchitect.tree_interpolation.subtree_paths.execution import (
-    pivot_edge_interpolation_frame_builder as frame_builder,
+from brancharchitect.tree_interpolation.subtree_paths.execution.pivot import (
+    pivot_edge_executor,
 )
-from brancharchitect.tree_interpolation.subtree_paths.execution.pivot_edge_interpolation_frame_builder import (
-    execute_pivot_edge_plan,
+from brancharchitect.tree_interpolation.subtree_paths.execution.pivot.pivot_edge_executor import (
+    execute_pivot_edge_interpolation,
 )
 from brancharchitect.tree_interpolation.sequential_interpolation import (
     SequentialInterpolationBuilder,
 )
+from brancharchitect.tree_interpolation.subtree_paths.planning import PivotTransitionStep
 
 
 def _load_frontend_builder_serializer():
@@ -166,9 +167,8 @@ def test_frontend_serializes_spr_move_events():
     serialized = _serialize_tree_pair_solutions(
         {
             "pair_0_1": {
-                "jumping_subtree_solutions": {},
-                "solution_to_destination_map": {},
-                "solution_to_source_map": {},
+                "affected_subtrees_by_split": {},
+                "attachment_edges_by_split": {},
                 "spr_move_events": [
                     {
                         "pivot_edge": pivot,
@@ -223,17 +223,18 @@ def test_spr_move_event_records_visual_subtree_group_from_step_tracking(monkeypa
     sibling = Partition((encoding["M2"],), encoding)
 
     monkeypatch.setattr(
-        frame_builder,
-        "build_edge_plan",
+        pivot_edge_executor,
+        "build_pivot_transition_plan",
         lambda *args, **kwargs: {
-            mover: {
-                "collapse": {"path_segment": []},
-                "expand": {"path_segment": []},
-            }
+            mover: PivotTransitionStep(
+                subtree=mover,
+                collapse_path=(),
+                expand_path=(),
+            )
         },
     )
 
-    def fake_build_frames_for_subtree(**kwargs):
+    def fake_build_subtree_interpolation_frames(**kwargs):
         return (
             [kwargs["interpolation_state"].deep_copy()],
             [kwargs["current_pivot_edge"]],
@@ -242,10 +243,12 @@ def test_spr_move_event_records_visual_subtree_group_from_step_tracking(monkeypa
         )
 
     monkeypatch.setattr(
-        frame_builder, "build_frames_for_subtree", fake_build_frames_for_subtree
+        pivot_edge_executor,
+        "build_subtree_interpolation_frames",
+        fake_build_subtree_interpolation_frames,
     )
 
-    _trees, _edges, _state, _tracker, events = execute_pivot_edge_plan(
+    _trees, _edges, _state, _tracker, events = execute_pivot_edge_interpolation(
         current_base_tree=source,
         destination_tree=destination,
         source_tree=source,
@@ -265,7 +268,7 @@ def test_spr_move_event_records_visual_subtree_group_from_step_tracking(monkeypa
     assert events[0]["highlight_group"] == [mover, sibling]
 
 
-def test_execute_pivot_edge_plan_uses_planner_augmented_movers(monkeypatch):
+def test_execute_pivot_edge_interpolation_uses_planner_augmented_movers(monkeypatch):
     source = parse_newick("(A:1,B:1,C:1);")
     destination = parse_newick("((A:1,B:1):1,C:1);", encoding=source.taxa_encoding)
 
@@ -276,7 +279,7 @@ def test_execute_pivot_edge_plan_uses_planner_augmented_movers(monkeypatch):
     original_expand_paths: dict[Partition, PartitionSet[Partition]] = {}
     seen_mover_groups: list[list[Partition]] = []
 
-    def fake_build_edge_plan(
+    def fake_build_pivot_transition_plan(
         expand_splits_by_subtree,
         collapse_splits_by_subtree,
         *_args,
@@ -284,13 +287,14 @@ def test_execute_pivot_edge_plan_uses_planner_augmented_movers(monkeypatch):
     ):
         expand_splits_by_subtree[pivot] = PartitionSet([split_ab], encoding=encoding)
         return {
-            pivot: {
-                "collapse": {"path_segment": []},
-                "expand": {"path_segment": [split_ab]},
-            }
+            pivot: PivotTransitionStep(
+                subtree=pivot,
+                collapse_path=(),
+                expand_path=(split_ab,),
+            )
         }
 
-    def fake_build_frames_for_subtree(**kwargs):
+    def fake_build_subtree_interpolation_frames(**kwargs):
         seen_mover_groups.append(kwargs["all_mover_partitions"])
         return (
             [kwargs["interpolation_state"].deep_copy()],
@@ -299,12 +303,18 @@ def test_execute_pivot_edge_plan_uses_planner_augmented_movers(monkeypatch):
             [[pivot]],
         )
 
-    monkeypatch.setattr(frame_builder, "build_edge_plan", fake_build_edge_plan)
     monkeypatch.setattr(
-        frame_builder, "build_frames_for_subtree", fake_build_frames_for_subtree
+        pivot_edge_executor,
+        "build_pivot_transition_plan",
+        fake_build_pivot_transition_plan,
+    )
+    monkeypatch.setattr(
+        pivot_edge_executor,
+        "build_subtree_interpolation_frames",
+        fake_build_subtree_interpolation_frames,
     )
 
-    execute_pivot_edge_plan(
+    execute_pivot_edge_interpolation(
         current_base_tree=source,
         destination_tree=destination,
         source_tree=source,

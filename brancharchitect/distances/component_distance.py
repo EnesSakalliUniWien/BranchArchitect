@@ -15,8 +15,9 @@ Main functions:
 
 # Standard library imports
 import numpy as np
+from numpy.typing import NDArray
 from collections import Counter
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, cast
 
 # Local imports
 from brancharchitect.tree import Node
@@ -49,7 +50,7 @@ def jump_path_component_to_pivot_edge(
         return []
     # Traverse up from start_node to target_node
     path: list[Node] = []
-    current: Node = start_node
+    current: Node | None = start_node
     while current is not None:
         path.append(current)
         if current is target_node:
@@ -110,12 +111,10 @@ def _jump_path_distance_core(
     Core function that computes jump path distances using Partition objects directly.
     This is the performance-optimized version that avoids conversions.
     """
-    paths1 = [
-        jump_path(tree1, tree2.to_splits(), component) for component in components
-    ]
-    paths2 = [
-        jump_path(tree2, tree1.to_splits(), component) for component in components
-    ]
+    tree1_splits = tree1.to_splits()
+    tree2_splits = tree2.to_splits()
+    paths1 = [jump_path(tree1, tree2_splits, component) for component in components]
+    paths2 = [jump_path(tree2, tree1_splits, component) for component in components]
 
     counter = Counter(node.split_indices for path in paths1 + paths2 for node in path)
 
@@ -138,18 +137,21 @@ def _jump_path_distance_core(
 
 
 # --- Helper: Memoization cache for jump_path ---
-def _get_jump_path_cache() -> dict[tuple[int, int, int], list["Node"]]:
+def _get_jump_path_cache() -> dict[tuple[int, int, int], tuple["Node", ...]]:
     """Get or initialize the memoization cache for jump_path."""
     if not hasattr(jump_path, "__cache"):
         jump_path.__cache = {}  # type: ignore[attr-defined]
-    return jump_path.__cache  # type: ignore[attr-defined]
+    return cast(
+        dict[tuple[int, int, int], tuple["Node", ...]],
+        jump_path.__cache,  # type: ignore[attr-defined]
+    )
 
 
 # --- Helper: Get bitmask for a node's split_indices ---
 def _get_node_bitmask(node: Node) -> int:
     """Get the bitmask for a node's split_indices, with fallback."""
     try:
-        return node.split_indices.bitmask
+        return cast(int, node.split_indices.bitmask)
     except AttributeError:
         return hash(node.split_indices)
 
@@ -195,7 +197,7 @@ def _build_jump_path_main(
         next_node = _find_child_with_component(current_node.children, target_bitmask)
         if next_node is None:
             break  # Component is not actually a component
-        current_node: Node = next_node
+        current_node = next_node
     return path
 
 
@@ -210,9 +212,9 @@ def jump_path(
         This function computes the path from the root node down to the node whose split matches the component.
         If you want the path from a component node up to a specific s_edge node, use `jump_path_component_to_s_edge`.
     """
-    cache: dict[tuple[int, int, int], list[Node]] = _get_jump_path_cache()
+    cache: dict[tuple[int, int, int], tuple[Node, ...]] = _get_jump_path_cache()
     component_bitmask: int = component.bitmask
-    key: Tuple[int] = (id(node), id(reference), component_bitmask)
+    key: Tuple[int, int, int] = (id(node), id(reference), component_bitmask)
     # Check cache first
     cached_result = cache.get(key)
     if cached_result is not None:
@@ -324,7 +326,7 @@ def calculate_component_distance_matrix(
     trees: List[Node],
     list_of_components: List[List[Partition]],
     weighted: bool = False,
-):
+) -> NDArray[np.float64]:
     """
     Analyze component-based distances between trees using component_distance.py.
 
@@ -341,12 +343,14 @@ def calculate_component_distance_matrix(
 
     for i in range(num_trees):
         for j in range(num_trees):
+            if i == j:
+                continue
+            pair_distances: list[float] = []
             for components in list_of_components:
-                if i == j:
-                    distance_matrix[i, j] = 0.0
-                else:
-                    dists = _component_distance_core(
+                pair_distances.extend(
+                    _component_distance_core(
                         trees[i], trees[j], components=components, weighted=weighted
                     )
-                    distance_matrix[i, j] = np.mean(dists) if dists else 0.0
+                )
+            distance_matrix[i, j] = np.mean(pair_distances) if pair_distances else 0.0
     return distance_matrix

@@ -41,29 +41,26 @@ class InterpolationResult(TypedDict):
     result = pipeline.process_trees([tree0, tree1, tree2])
 
     # Direct tree access
-    tree = result.interpolated_trees[15]
-    metadata = result.tree_metadata[15]
+    tree = result["interpolated_trees"][15]
+    metadata = result["tree_metadata"][15]
 
     # Check what this tree represents
     if metadata.tree_pair_key:
-        pair_data = result.tree_pair_solutions[metadata.tree_pair_key]
+        pair_data = result["tree_pair_solutions"][metadata.tree_pair_key]
         # Access pair_data, step number, etc.
     else:
         # Original tree: entries have tree_pair_key == None
         pass
 
     # Stream through all trees
-    for i, (tree, meta) in enumerate(zip(result.interpolated_trees, result.tree_metadata)):
+    for i, (tree, meta) in enumerate(zip(result["interpolated_trees"], result["tree_metadata"])):
         # Consume or log as needed
         pass
 
     # Analyze specific tree pair
-    pair_solution = result.tree_pair_solutions["pair_1_2"]
-    lattice_data = pair_solution.jumping_subtree_solutions
-    mappings = (
-        pair_solution.solution_to_destination_map,
-        pair_solution.solution_to_source_map,
-    )
+    pair_solution = result["tree_pair_solutions"]["pair_1_2"]
+        affected_subtrees = pair_solution["affected_subtrees_by_split"]
+        attachment_edges = pair_solution["attachment_edges_by_split"]
     ```
 
     ## Data Flow and Relationships:
@@ -119,11 +116,13 @@ class InterpolationResult(TypedDict):
 
     Each TreeMetadata contains:
         - tree_pair_key: Key to tree_pair_solutions (for interpolated trees only, None for originals)
-        - step_in_pair: Interpolation step number (1-5), None for originals
+        - step_in_pair: One-based local frame ordinal within the tree pair, None for originals.
+          It is not a semantic phase id. Collapse/order/expand meaning is represented
+          by the adjacent tree states and the pair's split/SPR event ranges.
 
     Navigation Examples:
         - Find tree pair: metadata.tree_pair_key → tree_pair_solutions[key]
-        - Check step: metadata.step_in_pair (1=down, 2=collapse, 3=reorder, 4=pre-snap, 5=snap)
+        - Check local frame ordinal: metadata.step_in_pair
         - Identify source/originals via entries where tree_pair_key is None
     """
 
@@ -140,13 +139,13 @@ class InterpolationResult(TypedDict):
         "pair_{source_idx}_{target_idx}" (e.g., "pair_0_1", "pair_1_2")
 
     TreePairSolution Contents:
-        - jumping_subtree_solutions: Raw lattice algorithm results
-        - solution_to_destination_map / solution_to_source_map: Solution-to-atom mappings for both trees
+        - affected_subtrees_by_split: subtrees affected by each active split
+        - attachment_edges_by_split: source/destination attachment edges per affected subtree
 
     Usage Examples:
         # Access specific pair data
         pair_data = tree_pair_solutions["pair_1_2"]
-        lattice_solutions = pair_data.jumping_subtree_solutions
+        affected_subtrees = pair_data.affected_subtrees_by_split
 
         # Iterate over all pairs
         for pair_key, solution in tree_pair_solutions.items():
@@ -204,18 +203,17 @@ class InterpolationResult(TypedDict):
     - Pair 1->2: interpolated trees at global indices 5, 6, 7
     """
 
-    subtree_tracking: List[Optional[List[List[int]]]]
+    subtree_highlight_tracking: List[Optional[List[List[int]]]]
     """
-    Serialized per-frame subtree highlight groups.
+    Serialized per-frame active mover highlight groups.
 
     Parallel to interpolated_trees and tree_metadata. For each tree at index i:
     - None: Original tree (no interpolation highlight)
     - List[List[int]]: A list of disjoint taxon groups (lists of indices), where each group
-                       represents a subtree visually associated with this step.
+                       represents an active moving subtree for this step.
 
-    The field name is kept for backend/frontend compatibility. It is a visual
-    context/highlight contract, not authoritative ownership of the physical SPR
-    movement in that frame.
+    Passive context clades are intentionally excluded: the renderer treats this
+    field as the moving-subtree highlight contract.
 
     Example: [None, [[0, 1]], [[0, 1], [4]], None, [[2, 3]], None]
     - Index 0: Original tree
@@ -249,7 +247,7 @@ def create_single_tree_result(
         wrfd_list=[0.0],
         processing_time=0.0,
         pair_interpolation_ranges=[],
-        subtree_tracking=[None],  # Single tree has no interpolation highlight
+        subtree_highlight_tracking=[None],  # Single tree has no interpolation highlight
     )
 
 
@@ -263,5 +261,5 @@ def create_empty_result() -> InterpolationResult:
         wrfd_list=[0.0],
         processing_time=0.0,
         pair_interpolation_ranges=[],
-        subtree_tracking=[],
+        subtree_highlight_tracking=[],
     )

@@ -2,26 +2,26 @@
 Tests for interpolation plan builder.
 
 Tests cover:
-- Edge plan construction
-- Integration with PivotSplitRegistry
+- Pivot transition plan construction
+- Integration with PivotTransitionState
 - Handling of shared, unique, and contingent splits
 - Last subtree aggregation
 - Deterministic ordering
 """
 
 import unittest
-from collections import OrderedDict
 from unittest.mock import patch
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree import Node
-from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
-    build_edge_plan,
+from brancharchitect.tree_interpolation.subtree_paths.planning import (
+    PivotTransitionStep,
+    build_pivot_transition_plan,
 )
 
 
-class TestEdgePlanBuilder(unittest.TestCase):
-    """Test the main build_edge_plan function."""
+class TestPivotTransitionPlanBuilder(unittest.TestCase):
+    """Test the main build_pivot_transition_plan function."""
 
     def setUp(self):
         """Set up trees and partitions for testing."""
@@ -32,7 +32,7 @@ class TestEdgePlanBuilder(unittest.TestCase):
         # Patch the split analysis function to return all splits passed in input
         # This bypasses the check for identical trees (T1==T2) which would result in empty sets
         self.patcher = patch(
-            "brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry.get_unique_splits_for_current_pivot_edge_subtree"
+            "brancharchitect.tree_interpolation.subtree_paths.planning.transition_plan.edge_plan_builder.get_unique_splits_for_current_pivot_edge_subtree"
         )
         self.mock_get_splits = self.patcher.start()
 
@@ -77,7 +77,7 @@ class TestEdgePlanBuilder(unittest.TestCase):
             PartitionSet(all_expand, encoding=self.encoding),
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             expand_by_subtree,
             collapse_by_subtree,
             self.root,
@@ -89,9 +89,10 @@ class TestEdgePlanBuilder(unittest.TestCase):
         self.assertEqual(len(plan), 1)
         self.assertIn(self.part_A, plan)
 
-        # Check that plan has collapse and expand sections
-        self.assertIn("collapse", plan[self.part_A])
-        self.assertIn("expand", plan[self.part_A])
+        step = plan[self.part_A]
+        self.assertIsInstance(step, PivotTransitionStep)
+        self.assertTrue(hasattr(step, "collapse_path"))
+        self.assertTrue(hasattr(step, "expand_path"))
 
     def test_multiple_subtrees_processed_in_order(self):
         """Test that multiple subtrees are processed correctly."""
@@ -113,7 +114,7 @@ class TestEdgePlanBuilder(unittest.TestCase):
             PartitionSet(all_expand, encoding=self.encoding),
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             expand_by_subtree,
             collapse_by_subtree,
             self.root,
@@ -151,7 +152,7 @@ class TestEdgePlanBuilder(unittest.TestCase):
             PartitionSet(all_expand, encoding=self.encoding),
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             expand_by_subtree,
             collapse_by_subtree,
             self.root,
@@ -163,7 +164,7 @@ class TestEdgePlanBuilder(unittest.TestCase):
         ab_count = sum(
             1
             for subtree_plan in plan.values()
-            if self.part_AB in subtree_plan["collapse"]["path_segment"]
+            if self.part_AB in subtree_plan.collapse_path
         )
 
         # Shared collapse splits should appear in the first subtree that processes them
@@ -189,7 +190,7 @@ class TestEdgePlanBuilder(unittest.TestCase):
             PartitionSet(all_expand, encoding=self.encoding),
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             expand_by_subtree,
             collapse_by_subtree,
             self.root,
@@ -197,7 +198,7 @@ class TestEdgePlanBuilder(unittest.TestCase):
             self.part_ABCD,
         )
 
-        collapse_path = plan[self.part_A]["collapse"]["path_segment"]
+        collapse_path = plan[self.part_A].collapse_path
 
         # Verify smaller partitions come first (Leaves Inward)
         sizes = [len(p.indices) for p in collapse_path]
@@ -225,7 +226,7 @@ class TestEdgePlanBuilder(unittest.TestCase):
             PartitionSet(all_expand, encoding=self.encoding),
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             expand_by_subtree,
             collapse_by_subtree,
             self.root,
@@ -261,7 +262,7 @@ class TestContingentSplitsInBuilder(unittest.TestCase):
 
         # Patch the split analysis function
         self.patcher = patch(
-            "brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry.get_unique_splits_for_current_pivot_edge_subtree"
+            "brancharchitect.tree_interpolation.subtree_paths.planning.transition_plan.edge_plan_builder.get_unique_splits_for_current_pivot_edge_subtree"
         )
         self.mock_get_splits = self.patcher.start()
         self.mock_get_splits.return_value = (
@@ -294,7 +295,7 @@ class TestContingentSplitsInBuilder(unittest.TestCase):
             PartitionSet(all_expand, encoding=self.encoding),
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             expand_by_subtree,
             collapse_by_subtree,
             self.root,
@@ -326,7 +327,7 @@ class TestDeterministicOrdering(unittest.TestCase):
 
         # Patch the split analysis function
         self.patcher = patch(
-            "brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry.get_unique_splits_for_current_pivot_edge_subtree"
+            "brancharchitect.tree_interpolation.subtree_paths.planning.transition_plan.edge_plan_builder.get_unique_splits_for_current_pivot_edge_subtree"
         )
         self.mock_get_splits = self.patcher.start()
         self.mock_get_splits.return_value = (
@@ -336,7 +337,7 @@ class TestDeterministicOrdering(unittest.TestCase):
         self.addCleanup(self.patcher.stop)
 
     def test_multiple_runs_produce_same_order(self):
-        """Test that running build_edge_plan multiple times gives the same result."""
+        """Test that running build_pivot_transition_plan multiple times gives the same result."""
         # First run - create fresh dictionaries
         collapse_by_subtree_1 = {
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
@@ -358,7 +359,7 @@ class TestDeterministicOrdering(unittest.TestCase):
             PartitionSet(all_expand, encoding=self.encoding),
         )
 
-        plan1 = build_edge_plan(
+        plan1 = build_pivot_transition_plan(
             expand_by_subtree_1,
             collapse_by_subtree_1,
             self.root,
@@ -387,7 +388,7 @@ class TestDeterministicOrdering(unittest.TestCase):
             PartitionSet(all_expand, encoding=self.encoding),
         )
 
-        plan2 = build_edge_plan(
+        plan2 = build_pivot_transition_plan(
             expand_by_subtree_2,
             collapse_by_subtree_2,
             self.root,
@@ -410,7 +411,7 @@ class TestEdgeCases(unittest.TestCase):
 
         # Patch the split analysis function to return all splits passed in input
         self.patcher = patch(
-            "brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry.get_unique_splits_for_current_pivot_edge_subtree"
+            "brancharchitect.tree_interpolation.subtree_paths.planning.transition_plan.edge_plan_builder.get_unique_splits_for_current_pivot_edge_subtree"
         )
         self.mock_get_splits = self.patcher.start()
         # Default behavior: return empty sets
@@ -428,7 +429,7 @@ class TestEdgeCases(unittest.TestCase):
 
     def test_empty_input_produces_empty_plan(self):
         """Test that empty input dictionaries produce an empty plan."""
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             {},
             {},
             self.root,
@@ -451,7 +452,7 @@ class TestEdgeCases(unittest.TestCase):
             PartitionSet(encoding=self.encoding),
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             {},
             collapse_by_subtree,
             self.root,
@@ -461,7 +462,7 @@ class TestEdgeCases(unittest.TestCase):
 
         # Should still create a plan with empty expand path
         self.assertIn(self.part_A, plan)
-        self.assertEqual(len(plan[self.part_A]["expand"]["path_segment"]), 0)
+        self.assertEqual(len(plan[self.part_A].expand_path), 0)
 
     def test_only_expand_splits_no_collapse(self):
         """Test handling when there are only expand splits."""
@@ -476,7 +477,7 @@ class TestEdgeCases(unittest.TestCase):
             PartitionSet(all_expand, encoding=self.encoding),
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             expand_by_subtree,
             {},
             self.root,
@@ -486,7 +487,7 @@ class TestEdgeCases(unittest.TestCase):
 
         # Should still create a plan with empty collapse path
         self.assertIn(self.part_A, plan)
-        self.assertEqual(len(plan[self.part_A]["collapse"]["path_segment"]), 0)
+        self.assertEqual(len(plan[self.part_A].collapse_path), 0)
 
 
 if __name__ == "__main__":

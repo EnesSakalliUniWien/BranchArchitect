@@ -1,22 +1,16 @@
 from itertools import pairwise
-from typing import Dict, List, Callable, Tuple, Optional, Any
-import numpy as np
+from typing import Dict, List, Callable
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.elements.partition import Partition
-from brancharchitect.distances.component_distance import (
-    jump_path_component_to_pivot_edge,
-)
-from numpy.typing import NDArray
-
-
-def robinson_foulds_distance(tree1: Node, tree2: Node) -> float:
-    splits1: PartitionSet[Partition] = tree1.to_splits()
-    splits2: PartitionSet[Partition] = tree2.to_splits()
-    return len(splits1 ^ splits2) / 2
 
 
 def relative_robinson_foulds_distance(tree1: Node, tree2: Node) -> float:
+    """Return the rooted-clade symmetric difference normalized by union size.
+
+    This is the historical backend field named ``robinson_foulds``. It is not
+    the standard unrooted Robinson-Foulds bipartition distance.
+    """
     splits1: PartitionSet[Partition] = tree1.to_splits()
     splits2: PartitionSet[Partition] = tree2.to_splits()
 
@@ -32,7 +26,12 @@ def relative_robinson_foulds_distance(tree1: Node, tree2: Node) -> float:
 
 def weighted_robinson_foulds_distance(tree1: Node, tree2: Node) -> float:
     """
-    Calculate the weighted Robinson-Foulds distance between two trees.
+    Calculate the rooted weighted split distance between two trees.
+
+    This uses ``Node.to_weighted_splits()``, so terminal and root-associated
+    splits are included in addition to internal rooted clades. The frontend
+    payload declares these semantics explicitly to avoid reading this as a
+    standard unrooted weighted RF metric.
 
     Args:
         tree1 (Node): The first tree
@@ -60,116 +59,3 @@ def calculate_along_trajectory(
         distance_function(tree1, tree2) for tree1, tree2 in pairwise(trajectory)
     ]
     return dists
-
-
-def calculate_matrix_distance(
-    trajectory: List[Node], distance_function: Callable[[Node, Node], float]
-) -> List[List[float]]:
-    n = len(trajectory)
-    distance_matrix: List[List[float]] = [[0.0] * n for _ in range(n)]
-    for i in range(n):
-        for j in range(n):
-            if (
-                i != j
-            ):  # Optionally check to avoid computing distance from a node to itself
-                distance_matrix[i][j] = distance_function(trajectory[i], trajectory[j])
-    return distance_matrix
-
-
-def compute_tree_pair_component_paths(
-    i: int,
-    j: int,
-    tree_i: Node,
-    tree_j: Node,
-    reroot_to_compair: bool = False,
-) -> Optional[Tuple[int, int, Any, Any, List[List[Node]], List[List[Node]]]]:
-    if i == j:
-        return None  # Skip diagonal
-
-    # Get s-edge solutions from lattice algorithm
-    from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
-        LatticeSolver,
-    )
-
-    raw_pivot_edge_solutions, _ = LatticeSolver(tree_i, tree_j).solve_iteratively()
-
-    # Deduplicate solutions per pivot edge to avoid double-counting identical components
-    pivot_edge_solutions = {}
-    for pivot_edge, solutions in raw_pivot_edge_solutions.items():
-        seen: set[int] = set()
-        unique_solutions: list[Partition] = []
-        for sol in solutions:
-            if sol.bitmask in seen:
-                continue
-            seen.add(sol.bitmask)
-            unique_solutions.append(sol)
-        pivot_edge_solutions[pivot_edge] = unique_solutions
-
-    # Collect components and paths, preserving multiplicity across pivot edges
-    components: List[Partition] = []
-    pivot_edges_for_components: List[Partition] = []
-    paths_i: List[List[Node]] = []
-    paths_j: List[List[Node]] = []
-
-    for pivot_edge, solutions in pivot_edge_solutions.items():
-        for component in solutions:
-            # Jump path component to pivot edge
-            path_i: List[Node] = jump_path_component_to_pivot_edge(
-                tree=tree_i,
-                component=component,
-                pivot_edge_split=pivot_edge,
-            )
-            path_j: List[Node] = jump_path_component_to_pivot_edge(
-                tree=tree_j,
-                component=component,
-                pivot_edge_split=pivot_edge,
-            )
-
-            components.append(component)
-            pivot_edges_for_components.append(pivot_edge)
-            paths_i.append(path_i)
-            paths_j.append(path_j)
-    return (i, j, components, pivot_edges_for_components, paths_i, paths_j)
-
-
-def calculate_normalised_matrix(
-    results: List[Tuple[int, int, List[List[Any]], Any, List[Any], List[Any]]],
-    num_trees: int,
-) -> NDArray[np.float64]:
-    max_component_sum: int = max(
-        (sum(len(c) for c in comp) for _, _, comp, _, _, _ in results), default=1
-    )
-    max_num_solutions: int = max(
-        (len(comp) for _, _, comp, _, _, _ in results), default=1
-    )
-    max_path_length: int = max(
-        ((len(pi) + len(pj)) for _, _, _, _, pi, pj in results), default=1
-    )
-    # 2. Optionally set weights for each component (can be tuned)
-    w1: float = 1.0
-    w2: float = 1.0
-    w3: float = 1.0
-    # 3. Build normalized distance matrix
-    normalized_matrix: NDArray[np.float64] = np.zeros(
-        (num_trees, num_trees), dtype=float
-    )
-    for i, j, components, _, path_i, path_j in results:
-        component_sum: int = sum(len(c) for c in components)
-        num_solutions: int = len(components)
-        path_lengths: int = sum([len(pi) + len(pj) for pi, pj in zip(path_i, path_j)])
-        norm_component_sum: float = (
-            component_sum / max_component_sum if max_component_sum else 0
-        )
-        norm_num_solutions: float = (
-            num_solutions / max_num_solutions if max_num_solutions else 0
-        )
-        norm_path_length: float = (
-            path_lengths / max_path_length if max_path_length else 0
-        )
-        dist: float = (
-            w1 * norm_component_sum + w2 * norm_num_solutions + w3 * norm_path_length
-        )
-        normalized_matrix[i, j] = dist
-        normalized_matrix[j, i] = dist
-
-    return normalized_matrix

@@ -5,9 +5,6 @@ from typing import Any, List, Optional
 from brancharchitect.logger.base_logger import AlgorithmLogger
 from brancharchitect.tree import Node
 
-# Optional plotting support - commented out since we removed plotting dependencies
-# from brancharchitect.plot.tree_plot import plot_rectangular_tree_pair
-
 from brancharchitect.logger.html_content import (
     COMPARE_TREE_SPLIT_CSS,
     TABLE_SPLIT_JS,
@@ -28,22 +25,15 @@ class TreeLogger(AlgorithmLogger):
         title: str = "Tree Comparison",
         show_internal_names: bool = False,
         vertical_taxon_labels: bool = False,
-    ):
+    ) -> None:
         """Log visual comparison of two trees - rectangular layout only."""
+        if self.disabled:
+            return
+
         self.subsection(title)
-        
-        # Plotting functionality disabled - dependencies removed
-        self.add_html("<p><em>Tree plotting disabled - plotting dependencies not available</em></p>")
-        return
-        
-        # # Original plotting code - commented out since we removed plotting dependencies
-        # svg_content = plot_rectangular_tree_pair(
-        #     node_one, node_two, vertical_leaf_labels=vertical_taxon_labels
-        # )
-        # # Prefer PNG embedding in HTML; fallback to inline SVG on failure
-        # success = self.add_png_from_svg(svg_content)
-        # if not success:
-        #     self.add_svg(svg_content)
+        self.raw_html(
+            "<p><em>Tree plotting disabled - plotting dependencies not available</em></p>"
+        )
 
     def compare_tree_splits(
         self,
@@ -51,7 +41,7 @@ class TreeLogger(AlgorithmLogger):
         tree2: Node,
         sort_by: str = "taxa",
         show_indices: bool = False,
-    ):
+    ) -> None:
         """
         Generate an interactive, beautiful comparison table of splits between two trees.
 
@@ -138,11 +128,13 @@ class TreeLogger(AlgorithmLogger):
             all_data.sort(
                 key=lambda x: (
                     x["size"],
-                    tuple(
-                        sorted(str(i) for i in x["left_indices"])
-                    )  # always returns a tuple of strings
-                    if isinstance(x["left_indices"], (set, frozenset))
-                    else tuple(),
+                    (
+                        tuple(
+                            sorted(str(i) for i in x["left_indices"])
+                        )  # always returns a tuple of strings
+                        if isinstance(x["left_indices"], (set, frozenset))
+                        else tuple()
+                    ),
                 )
             )
         elif sort_by == "taxa":
@@ -263,7 +255,6 @@ class TreeLogger(AlgorithmLogger):
         self,
         edge: Any,
         *,
-        show_common_covers: bool = True,
         show_unique_min_covers: bool = True,
         show_atoms: bool = False,
         tablefmt: str = "html",
@@ -271,7 +262,6 @@ class TreeLogger(AlgorithmLogger):
         """Log tables for a lattice edge: common covers, unique minimum covers, and atoms.
 
         Options:
-            show_common_covers: Include tables for left/right common covers.
             show_unique_min_covers: Include tables for minimum covers of unique splits per side.
             show_atoms: Include atom tables (minimal elements) of the unique split sets.
             tablefmt: Table format for terminal/HTML output (default 'html').
@@ -284,14 +274,16 @@ class TreeLogger(AlgorithmLogger):
         self.subsection("Lattice Edge Tables")
         # Edge header
         try:
-            split_taxa = getattr(edge, "pivot_split", getattr(edge, "split", None))
-            split_taxa = getattr(split_taxa, "taxa", set())
+            split_obj = getattr(edge, "pivot_split", getattr(edge, "split", None))
+            split_taxa: set[Any] = (
+                getattr(split_obj, "taxa", set()) if split_obj is not None else set()
+            )
             self.info(f"Pivot Split: {_fmt(split_taxa)}")
         except Exception:
             self.info(f"Pivot Split: {getattr(edge, 'split', 'N/A')}")
 
         # Helper: compute unique splits and their minimum cover per side
-        def _min_cover_unique(node_a: Node, node_b: Node):
+        def _min_cover_unique(node_a: Node, node_b: Node) -> tuple[Any, Any]:
             try:
                 a_s = node_a.to_splits()
                 b_s = node_b.to_splits()
@@ -300,31 +292,14 @@ class TreeLogger(AlgorithmLogger):
             except Exception:
                 return None, None
 
-        # Build a single combined table
-        left_covers = []
-        right_covers = []
-        if show_common_covers:
-            try:
-                left_covers = [
-                    _fmt(set(cov))
-                    for cov in (getattr(edge, "t1_common_covers", []) or [])
-                ]
-                right_covers = [
-                    _fmt(set(cov))
-                    for cov in (getattr(edge, "t2_common_covers", []) or [])
-                ]
-            except Exception:
-                left_covers, right_covers = [], []
-
         left_min = []
         right_min = []
         left_atoms = []
         right_atoms = []
 
         if show_unique_min_covers or show_atoms:
-            # Handle both old attribute names (t1_node, t2_node) and new names (tree1_node, tree2_node)
-            tree1_node = getattr(edge, "tree1_node", getattr(edge, "t1_node", None))
-            tree2_node = getattr(edge, "tree2_node", getattr(edge, "t2_node", None))
+            tree1_node = getattr(edge, "tree1_node", None)
+            tree2_node = getattr(edge, "tree2_node", None)
 
             if tree1_node is not None and tree2_node is not None:
                 t1_min, t1_uniq = _min_cover_unique(tree1_node, tree2_node)
@@ -362,8 +337,6 @@ class TreeLogger(AlgorithmLogger):
             return lst[i] if i < len(lst) else ""
 
         n_rows = max(
-            len(left_covers),
-            len(right_covers),
             len(left_min),
             len(right_min),
             len(left_atoms),
@@ -383,8 +356,6 @@ class TreeLogger(AlgorithmLogger):
             combined_rows.append(
                 [
                     split_str if i == 0 else "",
-                    _get(left_covers, i),
-                    _get(right_covers, i),
                     _get(left_min, i),
                     _get(right_min, i),
                     _get(left_atoms, i),
@@ -394,8 +365,6 @@ class TreeLogger(AlgorithmLogger):
 
         headers = [
             "Pivot Split",
-            "L Common Cover",
-            "R Common Cover",
             "L Unique Min",
             "R Unique Min",
             "L Atoms",
@@ -406,7 +375,7 @@ class TreeLogger(AlgorithmLogger):
 
     def log_newick_strings(
         self, tree1: Node, tree2: Optional[Node] = None, title: str = "Newick Strings"
-    ):
+    ) -> None:
         """
         Log newick string representation of trees with copy functionality.
 
@@ -473,7 +442,7 @@ class TreeLogger(AlgorithmLogger):
         else:
             # Use tabulate for other formats
             try:
-                import tabulate
+                import tabulate  # type: ignore[import-untyped]
 
                 if headers is not None:
                     table_str = tabulate.tabulate(

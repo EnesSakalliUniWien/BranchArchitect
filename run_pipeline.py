@@ -12,7 +12,7 @@ from brancharchitect.io import read_newick
 from brancharchitect.tree import Node
 
 
-def main():
+def main() -> None:
     # Define variables for testing
     enable_rooting = False
     trees: Node | List[Node] = read_newick(
@@ -33,7 +33,7 @@ def main():
     pipeline = TreeInterpolationPipeline(config=config)
     processed_data: InterpolationResult = pipeline.process_trees(trees=trees)
 
-    for i, tree in enumerate(processed_data.interpolated_trees):
+    for i, tree in enumerate(processed_data["interpolated_trees"]):
         print(f"Frame {i}: {tree.to_newick()[:80]}...")
 
 

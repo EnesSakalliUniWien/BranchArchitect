@@ -56,7 +56,7 @@ def main():
     # Check what moved
     print("\n=== Movement Analysis ===")
     for i, tree in enumerate(result.interpolated_trees):
-        subtree = result.current_subtree_tracking[i]
+        subtree = result.current_subtree_highlights[i]
         if subtree:
             print(f"Tree {i}: Moving {sorted(list(subtree.taxa))}")
 

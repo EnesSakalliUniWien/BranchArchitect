@@ -20,9 +20,12 @@ import logging
 from typing import AbstractSet, Dict, FrozenSet, List, Mapping, Optional, Set, Tuple
 
 from brancharchitect.elements.partition import Partition
+from .containment_cycle import find_containment_cycle
+from .path_groups import form_overlap_path_groups
+from .path_relationships import build_expand_path_relationships
+from .subtree_ordering import order_key_for_subtree
 
 logger = logging.getLogger(__name__)
-_MISSING_VISUAL_ORDER = 10**12
 
 
 class PathGroupManager:
@@ -95,13 +98,7 @@ class PathGroupManager:
     # ========================================================================
 
     def _tie_breaker(self, subtree: Partition) -> Tuple[int, ...]:
-        if not self._subtree_order_key:
-            return (subtree.bitmask,)
-
-        order_key = self._subtree_order_key.get(subtree)
-        if order_key is None:
-            return (_MISSING_VISUAL_ORDER, subtree.bitmask)
-        return (*order_key, subtree.bitmask)
+        return order_key_for_subtree(subtree, self._subtree_order_key)
 
     def _compute_relationships(self) -> None:
         """
@@ -111,35 +108,10 @@ class PathGroupManager:
         - Whether their expand paths overlap (share any splits)
         - Whether one path is contained in the other (proper subset)
         """
-        subtrees = list(self._expand_paths.keys())
-        # Pre-convert paths to frozen sets for fast set operations
-        paths = {s: frozenset(self._expand_paths[s]) for s in subtrees}
-
-        # Initialize graphs for all subtrees
-        for subtree in subtrees:
-            self._overlap_graph[subtree] = set()
-            self._successors[subtree] = []
-
-        # Check all pairs
-        for i, subtree_a in enumerate(subtrees):
-            path_a = paths[subtree_a]
-
-            for subtree_b in subtrees[i + 1 :]:
-                path_b = paths[subtree_b]
-
-                # Check overlap (non-empty intersection)
-                if not path_a.isdisjoint(path_b):
-                    self._overlap_graph[subtree_a].add(subtree_b)
-                    self._overlap_graph[subtree_b].add(subtree_a)
-
-                # Check containment (proper subset)
-                if path_a and path_b:
-                    if path_a < path_b:  # A is proper subset of B
-                        self._containment_edges.add((subtree_a, subtree_b))
-                        self._successors[subtree_a].append(subtree_b)
-                    elif path_b < path_a:  # B is proper subset of A
-                        self._containment_edges.add((subtree_b, subtree_a))
-                        self._successors[subtree_b].append(subtree_a)
+        relationships = build_expand_path_relationships(self._expand_paths)
+        self._overlap_graph = relationships.overlap_graph
+        self._containment_edges = relationships.containment_edges
+        self._successors = relationships.successors
 
     def has_overlap(self, subtree_a: Partition, subtree_b: Partition) -> bool:
         """
@@ -199,55 +171,11 @@ class PathGroupManager:
         Groups subtrees based on path overlap using transitive closure.
         If A overlaps B and B overlaps C, then A, B, C are in the same group.
         """
-        if not self._expand_paths:
-            return
-
-        # Union-find with path compression
-        parent: Dict[Partition, Partition] = {s: s for s in self._expand_paths}
-        rank: Dict[Partition, int] = {s: 0 for s in self._expand_paths}
-
-        def find(x: Partition) -> Partition:
-            if parent[x] != x:
-                parent[x] = find(parent[x])  # Path compression
-            return parent[x]
-
-        def union(x: Partition, y: Partition) -> None:
-            px, py = find(x), find(y)
-            if px == py:
-                return
-            # Union by rank
-            if rank[px] < rank[py]:
-                px, py = py, px
-            parent[py] = px
-            if rank[px] == rank[py]:
-                rank[px] += 1
-
-        # Union overlapping subtrees
-        for subtree, neighbors in self._overlap_graph.items():
-            for neighbor in neighbors:
-                union(subtree, neighbor)
-
-        # Collect groups by root
-        groups_dict: Dict[Partition, Set[Partition]] = {}
-        for subtree in self._expand_paths:
-            root = find(subtree)
-            if root not in groups_dict:
-                groups_dict[root] = set()
-            groups_dict[root].add(subtree)
-
-        # Sort groups by minimum path size (smallest first)
-        self._groups = sorted(
-            groups_dict.values(),
-            key=lambda g: (
-                min(len(self._expand_paths.get(s, set())) for s in g),
-                min(self._tie_breaker(s) for s in g),
-            ),
+        self._groups, self._subtree_to_group = form_overlap_path_groups(
+            self._expand_paths,
+            self._overlap_graph,
+            self._tie_breaker,
         )
-
-        # Build subtree-to-group mapping
-        for idx, group in enumerate(self._groups):
-            for subtree in group:
-                self._subtree_to_group[subtree] = idx
 
     def get_group(self, subtree: Partition) -> Optional[int]:
         """
@@ -294,7 +222,7 @@ class PathGroupManager:
             return
 
         # Check for cycles first
-        cycle = self._detect_cycle()
+        cycle = find_containment_cycle(self._expand_paths, self._successors)
         if cycle:
             logger.warning(
                 "Cycle detected in containment graph: %s. "
@@ -337,45 +265,6 @@ class PathGroupManager:
                 path_size = len(self._expand_paths.get(subtree, set()))
                 tie_breaker = self._tie_breaker(subtree)
                 heapq.heappush(self._ready_queue, (path_size, tie_breaker, subtree))
-
-    def _detect_cycle(self) -> Optional[List[Partition]]:
-        """
-        Detect cycles in containment graph using DFS.
-
-        Returns:
-            List of subtrees forming a cycle, or None if no cycle
-        """
-        if not self._containment_edges:
-            return None
-
-        # Use pre-computed successors (contained -> containers)
-        visited: Set[Partition] = set()
-        rec_stack: Set[Partition] = set()
-
-        def dfs(node: Partition, path: List[Partition]) -> Optional[List[Partition]]:
-            visited.add(node)
-            rec_stack.add(node)
-
-            for neighbor in self._successors.get(node, []):
-                if neighbor in rec_stack:
-                    # Found cycle
-                    cycle_start = path.index(neighbor) if neighbor in path else 0
-                    return path[cycle_start:] + [neighbor]
-                if neighbor not in visited:
-                    result = dfs(neighbor, path + [neighbor])
-                    if result:
-                        return result
-
-            rec_stack.remove(node)
-            return None
-
-        for subtree in self._expand_paths:
-            if subtree not in visited:
-                cycle = dfs(subtree, [subtree])
-                if cycle:
-                    return cycle
-
-        return None
 
     # ========================================================================
     # Subtree Selection

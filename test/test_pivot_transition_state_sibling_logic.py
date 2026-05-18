@@ -1,17 +1,12 @@
-import sys
-from unittest.mock import MagicMock
-
-sys.modules["tabulate"] = MagicMock()
-
 import unittest
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
-    PivotSplitRegistry,
+from brancharchitect.tree_interpolation.subtree_paths.planning import (
+    PivotTransitionState,
 )
 
 
-class TestPivotSplitRegistrySiblingLogic(unittest.TestCase):
+class TestPivotTransitionStateSiblingLogic(unittest.TestCase):
     def setUp(self):
         # Encoding: 4 taxa
         self.encoding = {"A": 0, "B": 1, "C": 2, "D": 3}
@@ -43,7 +38,7 @@ class TestPivotSplitRegistrySiblingLogic(unittest.TestCase):
     def test_parent_claim_logic(self):
         """Verify that subtrees claim their structural parents correctly."""
 
-        registry = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse_splits=PartitionSet(encoding=self.encoding),
             all_expand_splits=self.all_expand_splits,
             collapse_splits_by_subtree={},
@@ -53,8 +48,8 @@ class TestPivotSplitRegistrySiblingLogic(unittest.TestCase):
         )
 
         # 1. Verify A claims P and GP (Ancestors)
-        owners_P = registry.expand_tracker.get_owners(self.split_P)
-        owners_GP = registry.expand_tracker.get_owners(self.split_GP)
+        owners_P = state.expand_tracker.get_owners(self.split_P)
+        owners_GP = state.expand_tracker.get_owners(self.split_GP)
 
         print(f"Owners of P: {owners_P}")
         print(f"Owners of GP: {owners_GP}")
@@ -71,8 +66,8 @@ class TestPivotSplitRegistrySiblingLogic(unittest.TestCase):
         )
 
         # 3. Verify Grouping
-        group_A = registry._path_group_manager.get_group(self.subtree_A)
-        group_B = registry._path_group_manager.get_group(self.subtree_B)
+        group_A = state._path_group_manager.get_group(self.subtree_A)
+        group_B = state._path_group_manager.get_group(self.subtree_B)
 
         self.assertEqual(
             group_A, group_B, "A and B should be grouped together via Shared Parent P"

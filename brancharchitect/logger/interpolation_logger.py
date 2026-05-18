@@ -6,13 +6,17 @@ tree interpolation plans.
 """
 
 import logging
-from typing import Dict, Any
-from brancharchitect.elements.partition import Partition
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from brancharchitect.tree_interpolation.subtree_paths.planning.transition_plan import (
+        PivotTransitionPlan,
+    )
 
 logger = logging.getLogger(__name__)
 
 
-def log_final_plans(plans: Dict[Partition, Dict[str, Any]]) -> None:
+def log_final_plans(plans: "PivotTransitionPlan") -> None:
     """
     Log the final generated plans with clear, readable output.
 
@@ -29,7 +33,7 @@ def log_final_plans(plans: Dict[Partition, Dict[str, Any]]) -> None:
         logger.debug(f"  Subtree indices: {subtree_indices}")
 
         # Log collapse path
-        collapse_segments = plan["collapse"]["path_segment"]
+        collapse_segments = plan.collapse_path
         if collapse_segments:
             logger.info("  Collapse path:")
             for seg in collapse_segments:
@@ -41,7 +45,7 @@ def log_final_plans(plans: Dict[Partition, Dict[str, Any]]) -> None:
             logger.info("  Collapse path: (none)")
 
         # Log expand path
-        expand_segments = plan["expand"]["path_segment"]
+        expand_segments = plan.expand_path
         if expand_segments:
             logger.info("  Expand path:")
             for seg in expand_segments:

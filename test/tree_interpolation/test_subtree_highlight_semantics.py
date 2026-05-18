@@ -1,9 +1,12 @@
 from brancharchitect.elements.partition import Partition
 from brancharchitect.parser.newick_parser import parse_newick
-from brancharchitect.tree_interpolation.subtree_paths.execution.pivot_edge_interpolation_frame_builder import (
-    _build_destination_mover_order_key,
-    build_frames_for_subtree,
+from brancharchitect.tree_interpolation.subtree_paths.execution.layout.mover_ordering import (
+    build_destination_mover_order_key,
 )
+from brancharchitect.tree_interpolation.subtree_paths.execution.phases.subtree_microsteps import (
+    build_subtree_interpolation_frames,
+)
+from brancharchitect.tree_interpolation.subtree_paths.planning import PivotTransitionStep
 
 
 def test_reorder_highlight_group_does_not_make_all_group_members_move():
@@ -16,15 +19,15 @@ def test_reorder_highlight_group_does_not_make_all_group_members_move():
     mover = Partition((encoding["M1"],), encoding)
     sibling = Partition((encoding["M2"],), encoding)
 
-    trees, _edges, _final_tree, subtree_highlights = build_frames_for_subtree(
+    trees, _edges, _final_tree, subtree_highlights = build_subtree_interpolation_frames(
         interpolation_state=source,
         destination_tree=destination,
         current_pivot_edge=pivot_edge,
-        selection={
-            "subtree": mover,
-            "collapse": {"path_segment": []},
-            "expand": {"path_segment": []},
-        },
+        selection=PivotTransitionStep(
+            subtree=mover,
+            collapse_path=(),
+            expand_path=(),
+        ),
         all_mover_partitions=[mover, sibling],
         collapse_sibling_groups={mover: [mover, sibling]},
         expand_sibling_groups={mover: [mover, sibling]},
@@ -46,15 +49,15 @@ def test_reorder_highlight_group_excludes_unrelated_movers():
     sibling = Partition((encoding["M2"],), encoding)
     unrelated = Partition((encoding["X"],), encoding)
 
-    trees, _edges, _final_tree, subtree_highlights = build_frames_for_subtree(
+    trees, _edges, _final_tree, subtree_highlights = build_subtree_interpolation_frames(
         interpolation_state=source,
         destination_tree=destination,
         current_pivot_edge=pivot_edge,
-        selection={
-            "subtree": mover,
-            "collapse": {"path_segment": []},
-            "expand": {"path_segment": []},
-        },
+        selection=PivotTransitionStep(
+            subtree=mover,
+            collapse_path=(),
+            expand_path=(),
+        ),
         all_mover_partitions=[mover, sibling, unrelated],
         collapse_sibling_groups={mover: [mover, sibling]},
         expand_sibling_groups={mover: [mover, sibling]},
@@ -74,7 +77,7 @@ def test_destination_mover_order_key_follows_destination_pivot_order():
     subtree_a = Partition((encoding["A"],), encoding)
     subtree_d = Partition((encoding["D"],), encoding)
 
-    order_key = _build_destination_mover_order_key(
+    order_key = build_destination_mover_order_key(
         destination,
         pivot_edge,
         {subtree_a, subtree_d},

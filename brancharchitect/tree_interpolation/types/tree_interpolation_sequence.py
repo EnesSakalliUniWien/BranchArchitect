@@ -13,10 +13,16 @@ from typing import Optional, Dict, List, Sequence, Tuple
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
 from .pair_key import PairKey
-from .tree_pair_solution import SprMoveEvent, TreePairSolution, SplitChangeEvent
+from .tree_pair_solution import (
+    AttachmentEdges,
+    SprMoveEvent,
+    TreePairSolution,
+    SplitChangeEvent,
+)
 from .tree_meta_data import TreeMetadata
 
 MappingDict = dict[Partition, dict[Partition, Partition]]
+AttachmentEdgeMap = dict[Partition, dict[Partition, AttachmentEdges]]
 JumpingSolutions = dict[Partition, list[Partition]]
 
 
@@ -24,7 +30,7 @@ def _empty_node_list() -> list[Node]:
     return []
 
 
-def _empty_mapping_list() -> list[MappingDict]:
+def _empty_attachment_edge_maps() -> list[AttachmentEdgeMap]:
     return []
 
 
@@ -66,10 +72,12 @@ class TreeInterpolationSequence:
     format that groups related data logically and provides convenient access methods.
 
     Core Structure:
-    - For N input trees, generates N + sum(pivot_edges_per_pair * 5) interpolated trees
+    - For N input trees, emits each input tree once as a delimiter plus generated
+      interpolation frames between delimiters
     - Each tree pair (Ti, Ti+1) produces 0 to many interpolation trees depending on pivot edges found
     - If Ti and Ti+1 are identical: 0 pivot edges found → 0 interpolation trees generated
-    - If Ti and Ti+1 differ: k pivot edges found → k*5 interpolation trees generated
+    - If Ti and Ti+1 differ: generated frames exclude the exact destination
+      endpoint because that state is represented by the next input delimiter
 
     Active Changing Split Tracking:
     - Original trees: None (no active changing split applied)
@@ -77,13 +85,11 @@ class TreeInterpolationSequence:
 
     Attributes:
         interpolated_trees: Complete sequence of all trees (originals + interpolated)
-        solution_to_destination_maps: Destination-side solution-to-atom mappings for each tree pair
-            (outer key = pivot edge, inner key = solution partition)
-        solution_to_source_maps: Source-side solution-to-atom mappings for each tree pair
-            (outer key = pivot edge, inner key = solution partition)
+        attachment_edge_maps: Source/destination attachment edges for each tree pair
+            (outer key = pivot edge, inner key = moved subtree partition)
         active_changing_split_tracking: S-edge applied for each tree (None for originals/classical)
         pair_interpolated_tree_counts: Total interpolated trees generated per pair
-        jumping_subtree_solutions_list: Raw jumping taxa algorithm results per pair
+        affected_subtrees_by_split_list: Affected subtrees grouped by active split per pair
         # distances removed
 
     Example:
@@ -100,22 +106,19 @@ class TreeInterpolationSequence:
 
     # Core interpolation results
     interpolated_trees: list[Node] = field(default_factory=_empty_node_list)
-    solution_to_destination_maps: list[MappingDict] = field(
-        default_factory=_empty_mapping_list
-    )
-    solution_to_source_maps: list[MappingDict] = field(
-        default_factory=_empty_mapping_list
+    attachment_edge_maps: list[AttachmentEdgeMap] = field(
+        default_factory=_empty_attachment_edge_maps
     )
     current_pivot_edge_tracking: list[Optional[Partition]] = field(
         default_factory=_empty_partition_list
     )
-    # Legacy public name for per-frame visual/highlight groups.
-    # Parallel to current_pivot_edge_tracking: None for originals, grouped Partitions for interpolated frames.
-    current_subtree_tracking: list[Optional[list[Partition]]] = field(
+    # Parallel to current_pivot_edge_tracking: None for originals, active mover
+    # highlight groups for interpolated frames.
+    current_subtree_highlights: list[Optional[list[Partition]]] = field(
         default_factory=list
     )
     pair_interpolated_tree_counts: list[int] = field(default_factory=_empty_int_list)
-    jumping_subtree_solutions_list: list[JumpingSolutions] = field(
+    affected_subtrees_by_split_list: list[JumpingSolutions] = field(
         default_factory=_empty_jumping_solutions
     )
     tree_pair_solutions: Dict[str, TreePairSolution] = field(
@@ -142,7 +145,7 @@ class TreeInterpolationSequence:
 
     def get_pair_ranges(self, original_tree_indices: list[int]) -> list[list[int]]:
         """Compute source/destination delimiter ranges [start, end] for each pair."""
-        pair_count = len(self.jumping_subtree_solutions_list)
+        pair_count = len(self.affected_subtrees_by_split_list)
         if len(original_tree_indices) < pair_count + 1:
             raise IndexError(
                 "Not enough original tree delimiters to key solutions "
@@ -175,13 +178,10 @@ class TreeInterpolationSequence:
             )
 
             pair_solution: TreePairSolution = {
-                "jumping_subtree_solutions": self.jumping_subtree_solutions_list[
+                "affected_subtrees_by_split": self.affected_subtrees_by_split_list[
                     pair_index
                 ],
-                "solution_to_destination_map": self.solution_to_destination_maps[
-                    pair_index
-                ],
-                "solution_to_source_map": self.solution_to_source_maps[pair_index],
+                "attachment_edges_by_split": self.attachment_edge_maps[pair_index],
                 "split_change_events": split_change_events,
                 "source_tree_global_index": source_global_idx,
                 "destination_tree_global_index": destination_global_idx,
@@ -309,3 +309,38 @@ class TreeInterpolationSequence:
     def pivot_edge_lengths(self) -> list[int]:
         """Number of interpolation steps (per pair)."""
         return self.pair_interpolated_tree_counts
+
+
+def build_attachment_edge_map(
+    source_map: MappingDict,
+    destination_map: MappingDict,
+) -> AttachmentEdgeMap:
+    """Combine source/destination projections into one attachment-edge relation."""
+    _assert_same_keys(source_map, destination_map, "attachment edge pivots")
+
+    attachment_edges: AttachmentEdgeMap = {}
+    for pivot, source_entries in source_map.items():
+        destination_entries = destination_map[pivot]
+        _assert_same_keys(
+            source_entries,
+            destination_entries,
+            f"attachment edge movers for {pivot}",
+        )
+        attachment_edges[pivot] = {
+            mover: {
+                "source": source_edge,
+                "destination": destination_entries[mover],
+            }
+            for mover, source_edge in source_entries.items()
+        }
+
+    return attachment_edges
+
+
+def _assert_same_keys(
+    source: dict[Partition, object],
+    destination: dict[Partition, object],
+    field_name: str,
+) -> None:
+    if set(source.keys()) != set(destination.keys()):
+        raise ValueError(f"{field_name} must have matching source/destination keys")

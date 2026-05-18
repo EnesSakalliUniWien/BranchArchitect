@@ -4,7 +4,7 @@ Complex reordering tests using real example trees from the repository:
 - current_testfiles/small_example.newick: first two trees are used as source/destination
 - test/data/reverse_test_tree_moving_updwards.tree: tests upward-moving scenario
 
-We validate that running interpolate_subtree_order step-by-step for the
+We validate that running reorder_tree_toward_destination step-by-step for the
 moving subtrees (from compute_pivot_solutions_with_deletions) preserves anchor order and
 forms a contiguous block of movers in the result within the active pivot.
 """
@@ -13,7 +13,7 @@ from typing import List, Set
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
-from brancharchitect.tree_interpolation.subtree_paths.execution.reordering import (
+from brancharchitect.tree_interpolation.subtree_paths.execution.layout.reordering import (
     reorder_tree_toward_destination,
 )
 from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
@@ -22,10 +22,6 @@ from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
 from brancharchitect.tree_interpolation.pair_interpolation import (
     process_tree_pair_interpolation,
 )
-
-# Alias for backward compatibility with test names
-move_subtree_to_destination = reorder_tree_toward_destination
-
 
 def _read_newick_lines(path: str) -> List[str]:
     with open(path, "r") as f:
@@ -73,23 +69,17 @@ def test_reordering_small_example_stepwise():
     active_edge = next(iter(jumping.keys()))
     first_solution_set = jumping[active_edge]
 
-    # Compute pivot taxa
-    pivot_taxa = Partition(active_edge.indices, src.taxa_encoding).taxa
-
-    # Compute total mover set and anchor set (for validation)
-    total_movers: Set[str] = set()
-    for st in first_solution_set:
-        total_movers |= set(st.taxa)
-    anchors = set(pivot_taxa) - total_movers
-
     # Apply reordering step-by-step for this solution set
     current = src
     for subtree in first_solution_set:
-        current = move_subtree_to_destination(current, dst, active_edge, subtree)
+        current = reorder_tree_toward_destination(current, dst, active_edge, subtree)
 
-    # Validate contiguous movers within the active pivot
+    # Validate each mover remains a contiguous block. Multiple movers under one
+    # pivot are not necessarily contiguous as a union; the destination may place
+    # stable anchors between them.
     result_order = list(current.get_current_order())
-    assert _is_contiguous_block(result_order, total_movers)
+    for subtree in first_solution_set:
+        assert _is_contiguous_block(result_order, set(subtree.taxa))
 
 
 def test_pair_interpolation_matches_destination_order_small_example():
@@ -110,9 +100,9 @@ def test_pair_interpolation_matches_destination_order_small_example():
     assert result.trees, "Interpolation should yield intermediate states"
 
     final_order = result.trees[-1].get_current_order()
-    assert final_order == dst.get_current_order(), (
-        f"Interpolation did not end on the destination ordering, got {final_order}"
-    )
+    assert (
+        final_order == dst.get_current_order()
+    ), f"Interpolation did not end on the destination ordering, got {final_order}"
 
 
 def test_reordering_reverse_upwards_from_file():
@@ -144,7 +134,7 @@ def test_reordering_reverse_upwards_from_file():
     # Apply moves
     current = src
     for subtree in solution_set:
-        current = move_subtree_to_destination(current, dst, active_edge, subtree)
+        current = reorder_tree_toward_destination(current, dst, active_edge, subtree)
 
     # Validate
     result_order = list(current.get_current_order())

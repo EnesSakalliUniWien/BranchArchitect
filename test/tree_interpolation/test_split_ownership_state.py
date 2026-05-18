@@ -1,30 +1,18 @@
 """
-Test suite for pivot_split_registry.py - SplitClaimTracker-based implementation.
+Test suite for edge_plan_builder.py - SplitClaimTracker-based implementation.
 
-This test suite verifies PivotSplitRegistry functionality.
-Note: The analyze_split_ownership helper function has been removed in favor
-of SplitClaimTracker, which is tested in test_split_claim_tracker.py.
-
-TODO: Some tests in this file need updating to work with SplitClaimTracker API
-instead of directly accessing removed internal dicts (shared_collapse_splits, etc).
+This test suite verifies PivotTransitionState functionality.
 """
 
 import unittest
-import pytest
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
-    PivotSplitRegistry,
+from brancharchitect.tree_interpolation.subtree_paths.planning import (
+    PivotTransitionState,
 )
 
-
-# NOTE: TestCategorizeSplits has been removed as analyze_split_ownership()
-# function no longer exists. SplitClaimTracker provides this functionality
-# and is tested comprehensively in test_split_claim_tracker.py.
-
-
-class TestInterpolationStateV2(unittest.TestCase):
-    """Test the new pre-categorized PivotSplitRegistry implementation."""
+class TestPivotTransitionState(unittest.TestCase):
+    """Test PivotTransitionState ownership and mover selection behavior."""
 
     def setUp(self):
         """Set up test fixtures."""
@@ -52,7 +40,7 @@ class TestInterpolationStateV2(unittest.TestCase):
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet(
                 [self.part_AB, self.part_A, self.part_B], encoding=self.encoding
             ),
@@ -86,7 +74,7 @@ class TestInterpolationStateV2(unittest.TestCase):
             ),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet(encoding=self.encoding),
             PartitionSet(
                 [self.part_AB, self.part_A, self.part_B], encoding=self.encoding
@@ -135,7 +123,7 @@ class TestInterpolationStateV2(unittest.TestCase):
             ),  # 3 splits
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet(encoding=self.encoding),
             PartitionSet(
                 [self.part_A, self.part_B, self.part_C, self.part_AB, self.part_ABC],

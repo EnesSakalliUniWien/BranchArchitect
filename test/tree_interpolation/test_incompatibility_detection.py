@@ -16,8 +16,8 @@ Key test scenarios:
 import pytest
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
-    PivotSplitRegistry,
+from brancharchitect.tree_interpolation.subtree_paths.planning import (
+    PivotTransitionState,
 )
 from brancharchitect.tree_interpolation.subtree_paths.analysis.split_analysis import (
     find_incompatible_splits,
@@ -127,7 +127,7 @@ class TestIncompatibilityDetection:
         )
 
         # Create state (minimal setup)
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -171,7 +171,7 @@ class TestIncompatibilityDetection:
             [collapse_split_1, collapse_split_2, collapse_split_3], encoding=encoding
         )
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -189,7 +189,7 @@ class TestIncompatibilityDetection:
 
     def test_empty_sets(self, encoding):
         """Test that empty sets return empty results"""
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse_splits=PartitionSet(encoding=encoding),
             all_expand_splits=PartitionSet(encoding=encoding),
             collapse_splits_by_subtree={},
@@ -222,7 +222,7 @@ class TestIncompatibilityDetection:
         expand_splits = PartitionSet([split], encoding=encoding)
         collapse_splits = PartitionSet([split], encoding=encoding)
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -276,7 +276,7 @@ class TestRealTreeScenarios:
             [collapse_a1_a2, collapse_b_c1, collapse_c1_c2], encoding=encoding
         )
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -309,7 +309,7 @@ class TestRealTreeScenarios:
         expand_splits = PartitionSet([expand_a1_a2], encoding=encoding)
         collapse_splits = PartitionSet([collapse_a1_a2_b], encoding=encoding)
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -344,7 +344,7 @@ class TestRealTreeScenarios:
             [collapse_1, collapse_2, collapse_3], encoding=encoding
         )
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -387,7 +387,7 @@ class TestCollapseBeforeExpand:
             [incompatible_split, other_collapse], encoding=encoding
         )
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},
@@ -431,7 +431,7 @@ class TestCollapseBeforeExpand:
             [collapse_1, collapse_2, collapse_3], encoding=encoding
         )
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse_splits=collapse_splits,
             all_expand_splits=expand_splits,
             collapse_splits_by_subtree={},

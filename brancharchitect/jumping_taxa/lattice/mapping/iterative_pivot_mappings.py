@@ -37,9 +37,10 @@ Implementation Notes
 - Among splits of equal size, ties are broken deterministically by bitmask value
 """
 
-from typing import List, Optional, Iterable
+from typing import List, Iterable
 
 from brancharchitect.tree import Node
+from brancharchitect.elements.partition import partition_size_bitmask_key
 from brancharchitect.elements.partition_set import Partition, PartitionSet
 from brancharchitect.jumping_taxa.lattice.frontiers.construct_pivot_edge_problems import (
     is_pivot_edge,
@@ -64,7 +65,6 @@ def map_single_pivot_edge_to_original(
         pivot_edge: Pivot edge from the current (possibly pruned) iteration
         original_common_splits: Pre-computed common splits from original trees (T₁ ∩ T₂)
         solutions: List of jumping taxa partitions for this pivot edge
-        original_tree: The original unpruned tree T1 (unused, kept for API compatibility)
 
     Returns:
         The mapped split from original trees (minimum containing split)
@@ -76,17 +76,11 @@ def map_single_pivot_edge_to_original(
 
     # 2. Find minimum common split containing target
     # A split contains target if (split.bitmask & target_mask) == target_mask
-    best_split: Optional[Partition] = None
-    best_size = float("inf")
-
-    for split in original_common_splits:
+    for split in sorted(original_common_splits, key=partition_size_bitmask_key):
         if (split.bitmask & target_mask) == target_mask:
-            size = bin(split.bitmask).count("1")
-            if size < best_size:
-                best_size = size
-                best_split = split
+            return split
 
-    return best_split if best_split is not None else pivot_edge
+    return pivot_edge
 
 
 def get_pivot_edges(t1: Node, t2: Node) -> List[Partition]:

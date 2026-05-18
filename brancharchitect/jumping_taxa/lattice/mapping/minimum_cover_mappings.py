@@ -7,7 +7,7 @@ providing a direct and accurate way to determine where subtrees are attached.
 
 from typing import Dict, List, Tuple, Optional
 
-from brancharchitect.elements.partition import Partition
+from brancharchitect.elements.partition import Partition, partition_size_bitmask_key
 from brancharchitect.tree import Node
 
 
@@ -42,11 +42,14 @@ def map_solution_elements_via_parent(
     mapped_t1: Dict[Partition, Dict[Partition, Partition]] = {}
     mapped_t2: Dict[Partition, Dict[Partition, Partition]] = {}
 
-    for edge, solution_elements in pivot_edge_solutions.items():
+    for edge, solution_elements in sorted(
+        pivot_edge_solutions.items(),
+        key=lambda item: partition_size_bitmask_key(item[0]),
+    ):
         mapped_t1[edge] = {}
         mapped_t2[edge] = {}
 
-        for solution in solution_elements:
+        for solution in sorted(solution_elements, key=partition_size_bitmask_key):
             # Try 1: Find exact node (monophyletic group)
             node_in_t1 = t1.find_node_by_split(solution)
 

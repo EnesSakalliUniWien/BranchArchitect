@@ -16,8 +16,8 @@ Test Data:
 import pytest
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.elements.partition import Partition
-from brancharchitect.tree_interpolation.subtree_paths.execution.pivot_edge_interpolation_frame_builder import (
-    build_frames_for_subtree,
+from brancharchitect.tree_interpolation.subtree_paths.execution.phases.subtree_microsteps import (
+    build_subtree_interpolation_frames,
 )
 from brancharchitect.tree_interpolation.topology_ops.collapse import (
     create_collapsed_consensus_tree,
@@ -28,11 +28,11 @@ from brancharchitect.tree_interpolation.topology_ops.weights import (
 from brancharchitect.tree_interpolation.topology_ops.expand import (
     create_subtree_grafted_tree,
 )
-from brancharchitect.tree_interpolation.subtree_paths.execution.reordering import (
+from brancharchitect.tree_interpolation.subtree_paths.execution.layout.reordering import (
     reorder_tree_toward_destination,
 )
+from brancharchitect.tree_interpolation.subtree_paths.planning import PivotTransitionStep
 from brancharchitect.elements.partition_set import PartitionSet
-
 
 # ============================================================================
 # Fixtures
@@ -87,13 +87,13 @@ def find_partition_by_taxa(tree, taxa_set):
     return None
 
 
-def create_mock_selection(subtree_partition, expand_path, collapse_path):
-    """Create a mock selection dictionary for testing."""
-    return {
-        "subtree": subtree_partition,
-        "expand": {"path_segment": expand_path},
-        "collapse": {"path_segment": collapse_path},
-    }
+def create_transition_step(subtree_partition, expand_path, collapse_path):
+    """Create a planner transition step for testing."""
+    return PivotTransitionStep(
+        subtree=subtree_partition,
+        expand_path=tuple(expand_path),
+        collapse_path=tuple(collapse_path),
+    )
 
 
 # ============================================================================
@@ -166,9 +166,9 @@ class TestStage1CollapseDown:
         )
 
         result_order = get_leaf_order(result)
-        assert result_order == original_order, (
-            f"Leaf order changed from {original_order} to {result_order}"
-        )
+        assert (
+            result_order == original_order
+        ), f"Leaf order changed from {original_order} to {result_order}"
 
 
 # ============================================================================
@@ -374,7 +374,7 @@ class TestStage5Snap:
     Stage 5: Snap
 
     The final tree state should match the destination topology.
-    This is verified by comparing the complete output of build_frames_for_subtree.
+    This is verified by comparing the complete output of build_subtree_interpolation_frames.
     """
 
     def test_snap_produces_valid_tree(self, source_tree, destination_tree):
@@ -383,25 +383,27 @@ class TestStage5Snap:
         pivot_edge = make_partition(["A", "B", "C", "D", "E", "F", "G", "H"], encoding)
         subtree_partition = make_partition(["F", "G"], encoding)
 
-        selection = create_mock_selection(
+        selection = create_transition_step(
             subtree_partition=subtree_partition,
             expand_path=[],
             collapse_path=[],
         )
 
-        trees, edges, snapped_tree, subtree_tracker = build_frames_for_subtree(
-            interpolation_state=source_tree,
-            destination_tree=destination_tree,
-            current_pivot_edge=pivot_edge,
-            selection=selection,
+        trees, edges, snapped_tree, subtree_tracker = (
+            build_subtree_interpolation_frames(
+                interpolation_state=source_tree,
+                destination_tree=destination_tree,
+                current_pivot_edge=pivot_edge,
+                selection=selection,
+            )
         )
 
         # With no collapse/expand work but is_first_mover=True (default),
         # we get: reorder frames (if changed) + snap frames
         # The exact count depends on whether reorder changes the order
-        assert len(trees) >= 2, (
-            f"Expected at least 2 trees for snap phase, got {len(trees)}"
-        )
+        assert (
+            len(trees) >= 2
+        ), f"Expected at least 2 trees for snap phase, got {len(trees)}"
 
         # Verify snapped tree has all taxa
         snapped_leaves = set(get_leaf_order(snapped_tree))
@@ -421,29 +423,31 @@ class TestStage5Snap:
         subtree_partition = make_partition(["F", "G"], encoding)
         fg_collapse = make_partition(["F", "G"], encoding)
 
-        selection = create_mock_selection(
+        selection = create_transition_step(
             subtree_partition=subtree_partition,
             expand_path=[],
             collapse_path=[fg_collapse],
         )
 
-        trees, edges, snapped_tree, subtree_tracker = build_frames_for_subtree(
-            interpolation_state=source_tree,
-            destination_tree=destination_tree,
-            current_pivot_edge=pivot_edge,
-            selection=selection,
+        trees, edges, snapped_tree, subtree_tracker = (
+            build_subtree_interpolation_frames(
+                interpolation_state=source_tree,
+                destination_tree=destination_tree,
+                current_pivot_edge=pivot_edge,
+                selection=selection,
+            )
         )
 
         # With collapse work + first_mover (snap):
         # Collapse: 2 frames (zeroed, collapsed), Reorder: 0-1 if changed, Snap: 1
         # Total: 3-4 depending on reorder
-        assert len(trees) >= 3, (
-            f"Expected at least 3 animation frames, got {len(trees)}"
-        )
+        assert (
+            len(trees) >= 3
+        ), f"Expected at least 3 animation frames, got {len(trees)}"
         assert len(edges) == len(trees), f"Edges should match trees count"
-        assert len(subtree_tracker) == len(trees), (
-            f"Subtree trackers should match trees count"
-        )
+        assert len(subtree_tracker) == len(
+            trees
+        ), f"Subtree trackers should match trees count"
 
     def test_all_frames_have_consistent_taxa(self, source_tree, destination_tree):
         """All frames should have the same set of taxa."""
@@ -451,17 +455,19 @@ class TestStage5Snap:
         pivot_edge = make_partition(["A", "B", "C", "D", "E", "F", "G", "H"], encoding)
         subtree_partition = make_partition(["F", "G"], encoding)
 
-        selection = create_mock_selection(
+        selection = create_transition_step(
             subtree_partition=subtree_partition,
             expand_path=[],
             collapse_path=[],
         )
 
-        trees, edges, snapped_tree, subtree_tracker = build_frames_for_subtree(
-            interpolation_state=source_tree,
-            destination_tree=destination_tree,
-            current_pivot_edge=pivot_edge,
-            selection=selection,
+        trees, edges, snapped_tree, subtree_tracker = (
+            build_subtree_interpolation_frames(
+                interpolation_state=source_tree,
+                destination_tree=destination_tree,
+                current_pivot_edge=pivot_edge,
+                selection=selection,
+            )
         )
 
         source_taxa = set(get_leaf_order(source_tree))
@@ -508,17 +514,19 @@ class TestIntegration:
         efg_collapse = make_partition(["E", "F", "G"], encoding)
         fg_collapse = make_partition(["F", "G"], encoding)
 
-        selection = create_mock_selection(
+        selection = create_transition_step(
             subtree_partition=subtree_partition,
             expand_path=[],
             collapse_path=[efg_collapse, fg_collapse],
         )
 
-        trees, edges, snapped_tree, subtree_tracker = build_frames_for_subtree(
-            interpolation_state=source_tree,
-            destination_tree=destination_tree,
-            current_pivot_edge=pivot_edge,
-            selection=selection,
+        trees, edges, snapped_tree, subtree_tracker = (
+            build_subtree_interpolation_frames(
+                interpolation_state=source_tree,
+                destination_tree=destination_tree,
+                current_pivot_edge=pivot_edge,
+                selection=selection,
+            )
         )
 
         # Verify the animation sequence is valid

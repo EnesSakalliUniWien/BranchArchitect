@@ -19,8 +19,7 @@ class TreePairInterpolation:
 
     trees: List[Node]
     current_pivot_edge_tracking: List[Optional[Partition]] = field(default_factory=list)
-    # Legacy public name for per-frame visual/highlight groups.
-    current_subtree_tracking: List[Optional[List[Partition]]] = field(
+    current_subtree_highlights: List[Optional[List[Partition]]] = field(
         default_factory=list
     )
     spr_move_events: List[SprMoveEvent] = field(default_factory=list)

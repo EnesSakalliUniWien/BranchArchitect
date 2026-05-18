@@ -12,8 +12,8 @@ import logging
 from typing import Dict, List, Optional
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
-from brancharchitect.tree_interpolation.subtree_paths import (
-    create_interpolation_for_active_split_sequence,
+from brancharchitect.tree_interpolation.subtree_paths.execution import (
+    execute_active_split_transition_sequence,
 )
 from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
     LatticeSolver,
@@ -26,8 +26,8 @@ from brancharchitect.jumping_taxa.lattice.mapping.minimum_cover_mappings import 
 )
 
 # Final topology check: ensure last interpolated tree matches destination
-from brancharchitect.tree_interpolation.subtree_paths.pivot_sequence_orchestrator import (
-    assert_final_topology_matches,
+from brancharchitect.tree_interpolation.subtree_paths.validation import (
+    assert_tree_topology_matches_destination,
 )
 from brancharchitect.tree_interpolation.types import (
     TreePairInterpolation,
@@ -120,7 +120,7 @@ def process_tree_pair_interpolation(
         current_pivot_edge_tracking,
         current_subtree_highlights,
         spr_move_events,
-    ) = create_interpolation_for_active_split_sequence(
+    ) = execute_active_split_transition_sequence(
         source_tree=source_tree,
         destination_tree=destination_tree,
         target_pivot_edges=ordered_edges,
@@ -132,7 +132,17 @@ def process_tree_pair_interpolation(
 
     if sequence_trees:
         # User Request: Throw error on mismatch instead of fallback
-        assert_final_topology_matches(sequence_trees[-1], destination_tree, logger)
+        assert_tree_topology_matches_destination(
+            sequence_trees[-1], destination_tree, logger
+        )
+        # The last emitted frame is the semantic target tree. Its topology and
+        # branch lengths must match the destination, but its child order is a
+        # visual-layout degree of freedom. Keep the generated landing order so
+        # the final transition does not introduce a layout snap.
+        landing_order = list(sequence_trees[-1].get_current_order())
+        exact_landing_tree = destination_tree.deep_copy(build_split_index=False)
+        exact_landing_tree.reorder_taxa(landing_order)
+        sequence_trees[-1] = exact_landing_tree
 
     # For identical trees (no active edges), ensure destination tree has same ordering as source
     if not ordered_edges:
@@ -147,6 +157,6 @@ def process_tree_pair_interpolation(
         trees=sequence_trees,
         current_pivot_edge_tracking=current_pivot_edge_tracking,
         jumping_subtree_solutions=jumping_subtree_solutions,
-        current_subtree_tracking=current_subtree_highlights,
+        current_subtree_highlights=current_subtree_highlights,
         spr_move_events=spr_move_events,
     )

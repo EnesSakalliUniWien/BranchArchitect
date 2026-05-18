@@ -38,9 +38,6 @@ class Node:
         "depth",
         "list_index",
         "_split_index",
-        "_cached_subtree_order",
-        "_cached_subtree_cost",
-        "_cache_valid",
         "_traverse_cache",
         "_splits_cache",
         "_splits_with_leaves_cache",
@@ -58,9 +55,6 @@ class Node:
     depth: Optional[int]
     list_index: Optional[int]
     _split_index: Optional[Dict[Partition, Self]]
-    _cached_subtree_order: Optional[Tuple[str, ...]]
-    _cached_subtree_cost: Optional[float]
-    _cache_valid: bool
     _traverse_cache: Optional[List[Self]]
     _splits_cache: Optional[PartitionSet[Partition]]
     _splits_with_leaves_cache: Optional[PartitionSet[Partition]]
@@ -93,9 +87,6 @@ class Node:
         else:
             self.split_indices = split_indices
         self._split_index = None
-        self._cached_subtree_order = None
-        self._cached_subtree_cost = None
-        self._cache_valid = False
         self._traverse_cache = None
         self._splits_cache = None
         self._splits_with_leaves_cache = None
@@ -299,9 +290,6 @@ class Node:
         root_copy.parent = None
         root_copy.depth = None
         root_copy.list_index = None
-        root_copy._cached_subtree_order = None
-        root_copy._cached_subtree_cost = None
-        root_copy._cache_valid = False
         root_copy._traverse_cache = None
         root_copy._splits_cache = None
         root_copy._splits_with_leaves_cache = None
@@ -330,9 +318,6 @@ class Node:
                 child_copy.depth = None
                 child_copy.list_index = None
                 child_copy._split_index = None
-                child_copy._cached_subtree_order = None
-                child_copy._cached_subtree_cost = None
-                child_copy._cache_valid = False
                 child_copy._traverse_cache = None
                 child_copy._splits_cache = None
                 child_copy._splits_with_leaves_cache = None
@@ -950,14 +935,11 @@ class Node:
         self, propagate_up: bool = True, propagate_down: bool = True
     ) -> None:
         """
-        Invalidate all caches for this node, including splits cache, subtree order, and cost.
+        Invalidate all traversal and split caches for this node.
         This should be called after any tree modification to ensure cache consistency.
         If propagate_up is True, also invalidate caches for all ancestors.
         If propagate_down is True, also invalidate caches for all descendants.
         """
-        self._cached_subtree_order = None
-        self._cached_subtree_cost = None
-        self._cache_valid = False
         self._traverse_cache = None
         self._splits_cache = None
         self._splits_with_leaves_cache = None
@@ -972,37 +954,6 @@ class Node:
         # Propagate up to parents
         if propagate_up and self.parent is not None:
             self.parent.invalidate_caches(propagate_up=True, propagate_down=False)
-
-    def update_caches(self) -> None:
-        """
-        Update (recompute) cached subtree order and cost for this node.
-        """
-        self._cached_subtree_order = tuple(str(leaf.name) for leaf in self.get_leaves())
-        self._cached_subtree_cost = self.compute_subtree_cost()
-        self._cache_valid = True
-
-    def get_cached_subtree_cost(self) -> float:
-        """
-        Return cached subtree cost, updating if invalid.
-        """
-        if not self._cache_valid or self._cached_subtree_cost is None:
-            self.update_caches()
-        return (
-            self._cached_subtree_cost if self._cached_subtree_cost is not None else 0.0
-        )
-
-    def compute_subtree_cost(self) -> float:
-        """
-        Compute the cost for the subtree rooted at this node.
-        Placeholder: replace with actual cost/distance logic as needed.
-        """
-        # Example: sum of branch lengths in subtree
-        cost = 0.0
-        if self.length is not None:
-            cost += self.length
-        for child in self.children:
-            cost += child.get_cached_subtree_cost()
-        return cost
 
     def assign_internal_node_names(self):  # -> None | Any | str | LiteralString:
         """

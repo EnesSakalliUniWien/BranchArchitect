@@ -12,7 +12,7 @@ This test suite verifies all core functionality including:
 import pytest
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.subtree_paths.planning.split_claim_tracker import (
+from brancharchitect.tree_interpolation.subtree_paths.planning.claims import (
     SplitClaimTracker,
 )
 
@@ -450,8 +450,8 @@ def test_expand_last_strategy_simulation(tracker, splits, subtrees):
     assert tracker.get_owner_count(splits["ABC"]) == 1
 
 
-def test_tabula_rasa_simulation(tracker, splits, subtrees, encoding):
-    """Test simulation of tabula rasa (first subtree takes all)."""
+def test_release_all_clears_shared_resources(tracker, splits, subtrees, encoding):
+    """Test clearing every owner from a shared resource set."""
     # All collapse splits initially assigned to multiple subtrees
     all_splits = PartitionSet(
         [splits["AB"], splits["CD"], splits["ABC"], splits["DE"], splits["A"]],
@@ -463,8 +463,6 @@ def test_tabula_rasa_simulation(tracker, splits, subtrees, encoding):
     tracker.claim_batch(all_splits, subtrees["CD"])
     tracker.claim_batch(all_splits, subtrees["E"])
 
-    # First subtree processes everything (tabula rasa)
-    # Release all splits globally
     for split in all_splits:
         tracker.release_all(split)
 

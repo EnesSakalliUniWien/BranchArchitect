@@ -16,9 +16,10 @@ from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.utils import iter_consecutive_pairs
 from brancharchitect.tree_interpolation.types import (
-    SprMoveEvent,
+    AttachmentEdgeMap,
     TreeInterpolationSequence,
     TreePairInterpolation,
+    build_attachment_edge_map,
 )
 from brancharchitect.tree_interpolation.solution_mapping import (
     generate_solution_mappings,
@@ -74,14 +75,12 @@ class SequentialInterpolationBuilder:
     def _initialize_build_state(self) -> None:
         """Initialize all state variables for a fresh interpolation build."""
         self.interpolated_trees: List[Node] = []
-        self.source_mappings: List[Dict[Partition, Dict[Partition, Partition]]] = []
-        self.target_mappings: List[Dict[Partition, Dict[Partition, Partition]]] = []
+        self.attachment_edge_maps: List[AttachmentEdgeMap] = []
         self.current_pivot_edge_tracking: List[Optional[Partition]] = []
-        # Legacy public name for per-frame visual/highlight groups.
-        self.current_subtree_tracking: List[Optional[List[Partition]]] = []
+        self.current_subtree_highlights: List[Optional[List[Partition]]] = []
         self.spr_move_events: List[List[SprMoveEvent]] = []
         self.pair_tree_counts: List[int] = []
-        self.jumping_subtree_solutions: List[Dict[Partition, List[Partition]]] = []
+        self.affected_subtrees_by_split: List[Dict[Partition, List[Partition]]] = []
 
     def _process_pair(
         self,
@@ -110,6 +109,13 @@ class SequentialInterpolationBuilder:
             f"Processed T{pair_index}→T{pair_index + 1} in {processing_duration:.3f}s; generated {len(interpolation_result.trees)} trees"
         )
 
+        if not (
+            len(interpolation_result.trees)
+            == len(interpolation_result.current_pivot_edge_tracking)
+            == len(interpolation_result.current_subtree_highlights)
+        ):
+            raise RuntimeError("Interpolation result arrays are not aligned")
+
         # Collect results into stateful attributes
         self.interpolated_trees.extend(interpolation_result.trees)
 
@@ -119,40 +125,41 @@ class SequentialInterpolationBuilder:
         self.current_pivot_edge_tracking.extend(
             interpolation_result.current_pivot_edge_tracking
         )
-        self.current_subtree_tracking.extend(
-            interpolation_result.current_subtree_tracking
+        self.current_subtree_highlights.extend(
+            interpolation_result.current_subtree_highlights
         )
         self.spr_move_events.append(interpolation_result.spr_move_events)
 
         self.pair_tree_counts.append(interpolated_tree_count)
 
-        self.jumping_subtree_solutions.append(
+        self.affected_subtrees_by_split.append(
             interpolation_result.jumping_subtree_solutions or {}
         )
 
-        # Build and store solution-to-atom mappings (source/destination) for this pair
+        # Build and store source/destination attachment edges for this pair.
         if interpolation_result.jumping_subtree_solutions:
             source_map, destination_map = generate_solution_mappings(
                 interpolation_result.jumping_subtree_solutions,
                 destination=t2,
                 source=t1,
             )
-            self.source_mappings.append(source_map)
-            self.target_mappings.append(destination_map)
+            self.attachment_edge_maps.append(
+                build_attachment_edge_map(source_map, destination_map)
+            )
         else:
-            self.source_mappings.append({})
-            self.target_mappings.append({})
+            self.attachment_edge_maps.append({})
 
         # Return the final resolved tree from this interpolation
         if len(interpolation_result.trees) > 0:
             return interpolation_result.trees[-1]
 
-        # For identical trees (no interpolation), return the destination tree reordered
-        # to match the current source ordering so that downstream delimiters stay aligned.
+        # For identical trees (no interpolation), return the destination tree
+        # aligned to the current source order. Child order is visual layout, not
+        # topology; preserving it prevents false motion for no-op pairs.
         self.logger.debug(
             f"No interpolation needed for pair {pair_index} - returning destination tree aligned to source order"
         )
-        aligned_destination = t2.deep_copy()
+        aligned_destination = t2.deep_copy(build_split_index=False)
         aligned_destination.reorder_taxa(list(t1.get_current_order()))
         return aligned_destination
 
@@ -161,7 +168,7 @@ class SequentialInterpolationBuilder:
         # Deep copy to create an independent snapshot
         self.interpolated_trees.append(tree.deep_copy(build_split_index=False))
         self.current_pivot_edge_tracking.append(None)
-        self.current_subtree_tracking.append(None)
+        self.current_subtree_highlights.append(None)
 
     def _finalize_sequence(self, original_tree_count: int) -> TreeInterpolationSequence:
         """Construct the final sequence object and log a summary."""
@@ -171,13 +178,12 @@ class SequentialInterpolationBuilder:
 
         return TreeInterpolationSequence(
             interpolated_trees=self.interpolated_trees,
-            solution_to_destination_maps=self.target_mappings,
-            solution_to_source_maps=self.source_mappings,
+            attachment_edge_maps=self.attachment_edge_maps,
             current_pivot_edge_tracking=self.current_pivot_edge_tracking,
-            current_subtree_tracking=self.current_subtree_tracking,
+            current_subtree_highlights=self.current_subtree_highlights,
             spr_move_events_list=self.spr_move_events,
             pair_interpolated_tree_counts=self.pair_tree_counts,
-            jumping_subtree_solutions_list=self.jumping_subtree_solutions,
+            affected_subtrees_by_split_list=self.affected_subtrees_by_split,
         )
 
     def build(

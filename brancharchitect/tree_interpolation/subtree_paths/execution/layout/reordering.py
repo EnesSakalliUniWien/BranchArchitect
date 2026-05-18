@@ -109,9 +109,25 @@ def reorder_tree_toward_destination(
     ]
     target_position = {taxon: index for index, taxon in enumerate(target_order)}
 
+    destination_parent_order = _order_by_destination_parent_context(
+        current_order=current_order,
+        target_order=target_order,
+        active_mover_taxa=active_mover_taxa,
+        active_mover_order=active_mover_order,
+        destination_parent=(
+            dest_parent_map.get(moving_subtree_partition)
+            if dest_parent_map is not None
+            else None
+        ),
+        current_pivot_edge=current_pivot_edge,
+    )
+
+    if destination_parent_order is not None:
+        new_order = destination_parent_order
+
     # No anchors: keep inactive movers at their current rank and insert only the
     # active mover block relative to them using target order.
-    if not anchor_taxa:
+    elif not anchor_taxa:
         new_order = [taxon for taxon in current_order if taxon in inactive_mover_taxa]
         insert_at = _target_bucket_insert_index(
             bucket_taxa=new_order,
@@ -190,6 +206,79 @@ def reorder_tree_toward_destination(
     return new_tree
 
 
+def _order_by_destination_parent_context(
+    current_order: List[str],
+    target_order: List[str],
+    active_mover_taxa: set[str],
+    active_mover_order: List[str],
+    destination_parent: Optional[Partition],
+    current_pivot_edge: Partition,
+) -> Optional[List[str]]:
+    """
+    Place the active mover next to its destination parent context when possible.
+
+    The generic anchor-rank algorithm is intentionally conservative about
+    inactive movers, but a numeric target rank can be wrong when stable anchors
+    have different current and destination orders. The destination parent is the
+    immediate biological/topological attachment context for an expand step, so
+    using its non-moving taxa prevents a reorder frame from sending the mover
+    somewhere that the following graft must immediately undo.
+    """
+    if destination_parent is None:
+        return None
+    if destination_parent.bitmask == current_pivot_edge.bitmask:
+        return None
+    if not active_mover_order:
+        return None
+
+    current_taxa = set(current_order)
+    parent_taxa = set(destination_parent.taxa) & current_taxa
+    if not active_mover_taxa.issubset(parent_taxa):
+        return None
+
+    context_taxa = parent_taxa - active_mover_taxa
+    if not context_taxa:
+        return None
+
+    target_parent_order = [taxon for taxon in target_order if taxon in parent_taxa]
+    if not target_parent_order:
+        return None
+
+    target_active_positions = [
+        index
+        for index, taxon in enumerate(target_parent_order)
+        if taxon in active_mover_taxa
+    ]
+    if not target_active_positions:
+        return None
+
+    first_active = min(target_active_positions)
+    context_before = [
+        taxon for taxon in target_parent_order[:first_active] if taxon in context_taxa
+    ]
+    context_after = [
+        taxon
+        for taxon in target_parent_order[first_active + len(active_mover_order) :]
+        if taxon in context_taxa
+    ]
+    if not context_before and not context_after:
+        return None
+
+    remaining_order = [
+        taxon for taxon in current_order if taxon not in active_mover_taxa
+    ]
+    remaining_position = {taxon: index for index, taxon in enumerate(remaining_order)}
+
+    if context_before:
+        insert_at = max(remaining_position[taxon] for taxon in context_before) + 1
+    else:
+        insert_at = min(remaining_position[taxon] for taxon in context_after)
+
+    return (
+        remaining_order[:insert_at] + active_mover_order + remaining_order[insert_at:]
+    )
+
+
 def _target_bucket_insert_index(
     bucket_taxa: List[str],
     active_mover_order: List[str],
@@ -231,83 +320,3 @@ def _compute_destination_rank_from_order(
     if dest_anchor_rank_map:
         return min(dest_anchor_rank_map.values())
     return 0
-
-
-def align_to_source_order(
-    tree: Node,
-    source_order: List[str],
-    moving_taxa: Optional[set[str]] = None,
-) -> None:
-    """
-    Align a tree's ordering to match source_order, prioritizing non-moving taxa.
-
-    This function reorders children at each internal node to best match the
-    source_order. Unlike reorder_taxa with MINIMUM strategy, it uses a weighted
-    approach that strongly prioritizes preserving non-moving taxa positions.
-
-    Args:
-        tree: The tree to reorder (modified in place)
-        source_order: The target taxa order to match
-        moving_taxa: Optional set of taxa that are moving. If provided,
-                     non-moving taxa positions are weighted higher.
-    """
-    if moving_taxa is None:
-        moving_taxa = set()
-
-    # Build index map: taxon -> position in source_order
-    order_index = {name: i for i, name in enumerate(source_order)}
-    n = len(source_order)
-
-    def sort_key_for_leaf_names(leaf_names: List[str]) -> tuple[float, int]:
-        if not leaf_names:
-            return (float("inf"), n)
-        total_weight = 0.0
-        weighted_sum = 0.0
-        min_non_mover_idx = n
-
-        for leaf_name in leaf_names:
-            idx = order_index.get(leaf_name, n)
-            if leaf_name in moving_taxa:
-                weight = 1.0
-            else:
-                weight = 100.0
-                min_non_mover_idx = min(min_non_mover_idx, idx)
-
-            weighted_sum += idx * weight
-            total_weight += weight
-
-        weighted_avg = weighted_sum / total_weight if total_weight > 0 else float("inf")
-        if min_non_mover_idx == n:
-            min_non_mover_idx = order_index.get(leaf_names[0], n)
-
-        return (weighted_avg, min_non_mover_idx)
-
-    def reorder_node(node: Node) -> tuple[bool, List[str], tuple[float, int]]:
-        """Recursively reorder children and return changed flag, leaves, sort key."""
-        if not node.children:
-            leaf_names = [node.name]
-            return False, leaf_names, sort_key_for_leaf_names(leaf_names)
-
-        changed = False
-        child_data: List[tuple[Node, List[str], tuple[float, int]]] = []
-        for child in node.children:
-            child_changed, child_leaf_names, child_sort_key = reorder_node(child)
-            changed = child_changed or changed
-            child_data.append((child, child_leaf_names, child_sort_key))
-
-        sorted_child_data = sorted(child_data, key=lambda item: item[2])
-        sorted_children = [child for child, _leaf_names, _sort_key in sorted_child_data]
-
-        if sorted_children != node.children:
-            node.children = sorted_children
-            changed = True
-
-        leaf_names: List[str] = []
-        for _child, child_leaf_names, _sort_key in sorted_child_data:
-            leaf_names.extend(child_leaf_names)
-
-        return changed, leaf_names, sort_key_for_leaf_names(leaf_names)
-
-    changed, _leaf_names, _sort_key = reorder_node(tree)
-    if changed:
-        tree.invalidate_caches(propagate_up=True)

@@ -8,7 +8,7 @@ map_solution_elements_via_parent to determine optimal block placement.
 import pytest
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.elements.partition import Partition
-from brancharchitect.tree_interpolation.subtree_paths.execution.reordering import (
+from brancharchitect.tree_interpolation.subtree_paths.execution.layout.reordering import (
     reorder_tree_toward_destination,
 )
 from brancharchitect.jumping_taxa.lattice.mapping.minimum_cover_mappings import (

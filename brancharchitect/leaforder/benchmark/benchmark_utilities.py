@@ -6,10 +6,8 @@ It has been modularized into separate components for better maintainability.
 """
 
 import logging
-from typing import List, Optional
 
 from .config import DEFAULT_N_ITERATIONS
-from .profiling import run_profiler
 from .data_loader import load_and_preprocess_trees, extract_taxa
 from .benchmark_runner import (
     run_benchmark_combinations,
@@ -21,55 +19,16 @@ from .results_processor import (
     print_method_comparison,
     aggregate_results,
 )
-from .visualization import create_visualizations
 from .analysis import calculate_robinson_foulds_distances
 
 logger = logging.getLogger(__name__)
-
-
-def profile_and_visualize(
-    filepath: str,
-    n_iterations: int = DEFAULT_N_ITERATIONS,
-    bidirectional: bool = True,
-    min_time_percent: float = 1.0,
-    focus_paths: Optional[List[str]] = None,
-):
-    """
-    Profile and visualize the TreeOrderOptimizer on a set of trees.
-
-    Parameters
-    ----------
-    filepath : str
-        Path to the tree file
-    n_iterations : int
-        Number of optimization iterations
-    bidirectional : bool
-        Whether to use bidirectional optimization
-    min_time_percent : float
-        Minimum time percentage to include in profiling results
-    focus_paths : Optional[List[str]]
-        List of path patterns to focus on in profiling
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame containing profiling results
-    """
-    return run_profiler(
-        benchmark_comparison,
-        file_path=filepath,
-        n_iterations=n_iterations,
-        bidirectional=bidirectional,
-        min_time_percent=min_time_percent,
-        focus_paths=focus_paths,
-    )
 
 
 def benchmark_comparison(
     file_path: str,
     n_iterations: int = DEFAULT_N_ITERATIONS,
     bidirectional: bool = True,
-):
+) -> None:
     """
     Comprehensive benchmark comparison of different tree ordering methods.
 
@@ -117,7 +76,6 @@ def benchmark_comparison(
         total_distances,
         method_names,
         pairwise_distances_list,
-        split_distance_containers_list,
         robinson_foulds_data,
     ) = results
 
@@ -128,4 +86,6 @@ def benchmark_comparison(
         print_method_comparison(method_name, explanation, method_rf, total_rf)
 
     # Create visualizations
+    from .visualization import create_visualizations
+
     create_visualizations(pairwise_distances_list, method_names, robinson_foulds_data)

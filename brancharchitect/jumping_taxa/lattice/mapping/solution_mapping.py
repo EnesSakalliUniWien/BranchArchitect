@@ -5,7 +5,7 @@ Solution Mapping: maps pivot edge solutions from pruned to original trees.
 from typing import Dict, List
 
 from brancharchitect.tree import Node
-from brancharchitect.elements.partition import Partition
+from brancharchitect.elements.partition import Partition, partition_size_bitmask_key
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.jumping_taxa.lattice.mapping.iterative_pivot_mappings import (
     map_iterative_pivot_edges_to_original,
@@ -32,7 +32,7 @@ def map_solutions_to_original_trees(
     if not jt_logger.disabled:
         jt_logger.info("[lattice] Mapping pivot edges to original trees...")
 
-    pivot_edges_list = list(solutions_dict.keys())
+    pivot_edges_list = sorted(solutions_dict.keys(), key=partition_size_bitmask_key)
     solutions_list = [solutions_dict[pivot] for pivot in pivot_edges_list]
 
     mapped_pivot_edges = map_iterative_pivot_edges_to_original(
@@ -63,12 +63,14 @@ def map_solutions_to_common_subtrees(
     original_tree2: Node,
 ) -> Dict[Partition, List[Partition]]:
     mapped: Dict[Partition, List[Partition]] = {}
-    for pivot_edge, solutions in solutions_dict.items():
+    for pivot_edge, solutions in sorted(
+        solutions_dict.items(), key=lambda item: partition_size_bitmask_key(item[0])
+    ):
         # Optimization: Use PartitionSet for automatic global uniqueness and efficient hashing
         # This replaces the manual `seen_bitmasks` loop.
         mapped_set = PartitionSet(encoding=original_tree1.taxa_encoding)
 
-        for solution in solutions:
+        for solution in sorted(solutions, key=partition_size_bitmask_key):
             mapped_parts = _map_solution_partition_to_common_subtrees(
                 solution,
                 pivot_edge,
@@ -78,9 +80,7 @@ def map_solutions_to_common_subtrees(
             mapped_set.update(mapped_parts)
 
         # Sort combined results for determinism
-        mapped[pivot_edge] = sorted(
-            mapped_set, key=lambda p: (len(p.indices), p.bitmask)
-        )
+        mapped[pivot_edge] = sorted(mapped_set, key=partition_size_bitmask_key)
     return mapped
 
 

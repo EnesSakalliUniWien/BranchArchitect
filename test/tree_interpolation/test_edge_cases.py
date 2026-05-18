@@ -2,8 +2,8 @@ import unittest
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.parser import parse_newick
-from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
-    PivotSplitRegistry,
+from brancharchitect.tree_interpolation.subtree_paths.planning import (
+    PivotTransitionState,
 )
 
 
@@ -36,9 +36,9 @@ class TestEdgeCases(unittest.TestCase):
         # (A,B) is the shared split
         split_AB = Partition((0, 1), self.encoding)
 
-        # In the bug scenario, the input to PivotSplitRegistry had lists that
+        # In the bug scenario, the input to PivotTransitionState had lists that
         # might contain shared splits if not filtered.
-        # The fix was in PivotSplitRegistry.__init__ filtering them out.
+        # The fix was in PivotTransitionState.__init__ filtering them out.
 
         # Simulating the inputs derived from tree traversal:
         # traverse_subtree might return AB as part of the path for subtree A.
@@ -54,17 +54,17 @@ class TestEdgeCases(unittest.TestCase):
         }
 
         # The key correctness condition: 'all_collapse' and 'all_expand' passed to
-        # PivotSplitRegistry MUST ONLY contain splits unique to T1 and T2 respectively.
+        # PivotTransitionState MUST ONLY contain splits unique to T1 and T2 respectively.
         # If the pre-calculation is correct, 'split_AB' should NOT be in all_collapse or all_expand.
 
-        # However, to test the ROBUSTNESS of PivotSplitRegistry (where the fix was applied),
+        # However, to test the ROBUSTNESS of PivotTransitionState (where the fix was applied),
         # we will pass 'split_AB' in the subtree dictionaries but NOT in the global unique sets.
-        # The registry should filter it out.
+        # The state should filter it out.
 
         all_unique_collapse = PartitionSet(encoding=self.encoding)  # Empty
         all_unique_expand = PartitionSet(encoding=self.encoding)  # Empty
 
-        registry = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_unique_collapse,
             all_unique_expand,
             collapse_by_subtree_input,
@@ -74,7 +74,7 @@ class TestEdgeCases(unittest.TestCase):
 
         # Assertions
         # 1. AB should NOT be tracked as a collapse split for A
-        unique_collapse_for_A = registry.get_unique_collapse_splits(
+        unique_collapse_for_A = state.get_unique_collapse_splits(
             Partition((0,), self.encoding)
         )
         self.assertNotIn(
@@ -84,7 +84,7 @@ class TestEdgeCases(unittest.TestCase):
         )
 
         # 2. AB should NOT be tracked as an expand split for A
-        unique_expand_for_A = registry.get_unique_expand_splits(
+        unique_expand_for_A = state.get_unique_expand_splits(
             Partition((0,), self.encoding)
         )
         self.assertNotIn(
@@ -104,7 +104,7 @@ class TestEdgeCases(unittest.TestCase):
         # all_collapse_splits = empty
         # all_expand_splits = empty
         # collapse_by_subtree = {leaf: empty...} but might contain shared splits if traversal is naive
-        # The registry should handle this gracefully.
+        # The state should handle this gracefully.
 
         # Let's say traversal finds the path up to root.
         # For leaf A: path is A -> AB -> Root. AB is shared.
@@ -122,7 +122,7 @@ class TestEdgeCases(unittest.TestCase):
             )
         }
 
-        registry = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet(encoding=self.encoding),  # None unique
             PartitionSet(encoding=self.encoding),  # None unique
             collapse_by_subtree,
@@ -131,10 +131,10 @@ class TestEdgeCases(unittest.TestCase):
         )
 
         self.assertFalse(
-            registry.has_remaining_work(), "Identity interpolation should have no work"
+            state.has_remaining_work(), "Identity interpolation should have no work"
         )
 
-        subtree = registry.get_next_subtree()
+        subtree = state.get_next_subtree()
         self.assertIsNone(
             subtree, "No subtree should be selected for identity interpolation"
         )
@@ -173,21 +173,21 @@ class TestEdgeCases(unittest.TestCase):
             Partition((3,), encoding): PartitionSet(encoding=encoding),
         }
 
-        registry = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse, all_expand, collapse_by_subtree, expand_by_subtree, root
         )
 
-        self.assertTrue(registry.has_remaining_work())
+        self.assertTrue(state.has_remaining_work())
 
         # We expect to process until empty
         processed_count = 0
-        while registry.has_remaining_work():
-            sub = registry.get_next_subtree()
+        while state.has_remaining_work():
+            sub = state.get_next_subtree()
             if not sub:
                 break
-            registry.processed_subtrees.add(sub)
-            registry.collapse_tracker.release_owner_from_all_resources(sub)
-            registry.expand_tracker.release_owner_from_all_resources(sub)
+            state.processed_subtrees.add(sub)
+            state.collapse_tracker.release_owner_from_all_resources(sub)
+            state.expand_tracker.release_owner_from_all_resources(sub)
             processed_count += 1
 
         # Should process enough subtrees to cover all splits
@@ -195,7 +195,7 @@ class TestEdgeCases(unittest.TestCase):
 
         # Verify all splits were "used" (in this mock, released)
         # Check by asserting trackers are empty of the original resources
-        self.assertEqual(len(registry.collapse_tracker.get_all_resources()), 0)
+        self.assertEqual(len(state.collapse_tracker.get_all_resources()), 0)
 
     def test_multifurcation_transition(self):
         """
@@ -234,16 +234,16 @@ class TestEdgeCases(unittest.TestCase):
             Partition((3,), encoding): PartitionSet([split_CD], encoding),
         }
 
-        registry = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse, all_expand, collapse_by_subtree, expand_by_subtree, root
         )
 
         # Verify work is detected
-        self.assertTrue(registry.has_remaining_work())
+        self.assertTrue(state.has_remaining_work())
 
         # Verify expand splits are tracked
-        self.assertIn(split_AB, registry.expand_tracker.get_all_resources())
-        self.assertIn(split_CD, registry.expand_tracker.get_all_resources())
+        self.assertIn(split_AB, state.expand_tracker.get_all_resources())
+        self.assertIn(split_CD, state.expand_tracker.get_all_resources())
 
         # Simulate processing one "side" (e.g., A)
         # Subtree Partition((0,), encoding)
@@ -253,7 +253,7 @@ class TestEdgeCases(unittest.TestCase):
         # but here ONLY shared splits exist.
 
         # Let's ensure we can make progress
-        next_sub = registry.get_next_subtree()
+        next_sub = state.get_next_subtree()
         self.assertIsNotNone(next_sub)
 
     def test_jumping_taxon_scenario(self):
@@ -273,7 +273,7 @@ class TestEdgeCases(unittest.TestCase):
         D is involved in DE.
         C is involved in CDE.
 
-        This tests if the registry correctly associates these "nested" expansions.
+        This tests if the state correctly associates these "nested" expansions.
         """
         encoding = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
         root = Partition((0, 1, 2, 3, 4), encoding)
@@ -307,7 +307,7 @@ class TestEdgeCases(unittest.TestCase):
             ),  # B needs nothing new
         }
 
-        registry = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse,
             all_expand,
             {},  # No collapse
@@ -321,7 +321,7 @@ class TestEdgeCases(unittest.TestCase):
         # D and E share DE. C, D, E share CDE.
         # Likely candidates are those with more specific splits or by priority.
 
-        sub = registry.get_next_subtree()
+        sub = state.get_next_subtree()
         self.assertIn(
             list(sub.indices)[0], [2, 3, 4], "Selected subtree should be C, D, or E"
         )
@@ -342,7 +342,7 @@ class TestEdgeCases(unittest.TestCase):
         split_BC = Partition((1, 2), encoding)
 
         # Case 1: T1 -> T2
-        reg1 = PivotSplitRegistry(
+        reg1 = PivotTransitionState(
             PartitionSet([split_AB], encoding),  # Collapse AB
             PartitionSet([split_BC], encoding),  # Expand BC
             {
@@ -357,7 +357,7 @@ class TestEdgeCases(unittest.TestCase):
         )
 
         # Case 2: T2 -> T1
-        reg2 = PivotSplitRegistry(
+        reg2 = PivotTransitionState(
             PartitionSet([split_BC], encoding),  # Collapse BC
             PartitionSet([split_AB], encoding),  # Expand AB
             {
@@ -403,7 +403,7 @@ class TestEdgeCases(unittest.TestCase):
 
         The function should return a tree ordered as A, M2, M1, B.
         """
-        from brancharchitect.tree_interpolation.subtree_paths.execution.reordering import (
+        from brancharchitect.tree_interpolation.subtree_paths.execution.layout.reordering import (
             reorder_tree_toward_destination,
         )
 

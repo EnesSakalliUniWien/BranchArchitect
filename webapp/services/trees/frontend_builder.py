@@ -64,7 +64,7 @@ def build_movie_data_from_result(
         sorted_leaves=sorted_leaves,
         tree_pair_solutions=result["tree_pair_solutions"],
         pivot_edge_tracking=pivot_edge_tracking,
-        subtree_tracking=result.get("subtree_tracking", []),
+        subtree_highlight_tracking=result["subtree_highlight_tracking"],
         file_name=filename,
         window_size=msa_data.get("inferred_window_size", 1),
         window_step_size=msa_data.get("inferred_step_size", 1),
@@ -90,7 +90,7 @@ def assemble_frontend_metadata(movie_data: MovieData) -> Dict[str, Any]:
         "split_change_timeline": timeline,
         "sorted_leaves": movie_data.sorted_leaves,
         "pivot_edge_tracking": movie_data.pivot_edge_tracking,
-        "subtree_tracking": movie_data.subtree_tracking,
+        "subtree_highlight_tracking": movie_data.subtree_highlight_tracking,
         "pair_interpolation_ranges": movie_data.pair_interpolation_ranges,
         "msa": {
             "sequences": movie_data.msa_dict,
@@ -101,6 +101,19 @@ def assemble_frontend_metadata(movie_data: MovieData) -> Dict[str, Any]:
         "distances": {
             "robinson_foulds": movie_data.rfd_list,
             "weighted_robinson_foulds": movie_data.weighted_robinson_foulds_distance_list,
+            "semantics": {
+                "robinson_foulds": {
+                    "topology": "rooted_clades",
+                    "normalization": "symmetric_difference_over_union",
+                    "scope": "adjacent_processed_input_trees",
+                },
+                "weighted_robinson_foulds": {
+                    "topology": "rooted_clades",
+                    "includes_branch_lengths": True,
+                    "includes_terminal_and_root_splits": True,
+                    "scope": "adjacent_processed_input_trees",
+                },
+            },
         },
     }
 
@@ -115,7 +128,7 @@ def create_empty_movie_data(filename: str) -> MovieData:
         sorted_leaves=[],
         tree_pair_solutions={},
         pivot_edge_tracking=[],
-        subtree_tracking=[],
+        subtree_highlight_tracking=[],
         file_name=filename,
         window_size=1,
         window_step_size=1,
@@ -155,6 +168,11 @@ def _derive_pivot_edge_tracking_from_events(
             for local_step in range(step_start, step_end + 1):
                 idx = start_global + local_step
                 if 0 <= idx < len(tracking):
+                    meta = processed_tree_metadata[idx]
+                    if meta.get("tree_pair_key") is None:
+                        continue
+                    if meta.get("frame_type") == "input_tree":
+                        continue
                     tracking[idx] = split
 
     return tracking
@@ -290,22 +308,13 @@ def _serialize_tree_pair_solutions(
     serialized: Dict[str, Dict[str, Any]] = {}
 
     for pair_key, solution in tree_pair_solutions.items():
-        # Preserve the historical nesting shape for the frontend:
-        # pivot -> [solutions] (a single list wrapper around the flat list).
-        raw_js = solution["jumping_subtree_solutions"]
-        wrapped_js = {pivot: [parts] for pivot, parts in raw_js.items()}
-
-        dest_map = solution.get("solution_to_destination_map", {})
-        src_map = solution.get("solution_to_source_map", {})
-
         item: Dict[str, Any] = {
-            "jumping_subtree_solutions": serialize_partition_dict_to_indices(
-                wrapped_js
+            "affected_subtrees_by_split": _serialize_affected_subtrees_by_split(
+                solution
             ),
-            "solution_to_destination_map": serialize_partition_dict_to_indices(
-                dest_map
+            "attachment_edges_by_split": _serialize_attachment_edges_by_split(
+                solution.get("attachment_edges_by_split", {}),
             ),
-            "solution_to_source_map": serialize_partition_dict_to_indices(src_map),
         }
 
         if "spr_move_events" in solution:
@@ -316,6 +325,35 @@ def _serialize_tree_pair_solutions(
         serialized[pair_key] = item
 
     return serialized
+
+
+def _serialize_affected_subtrees_by_split(
+    solution: TreePairSolution,
+) -> Dict[str, Any]:
+    affected_subtrees = solution["affected_subtrees_by_split"]
+    wrapped_subtrees = {pivot: [parts] for pivot, parts in affected_subtrees.items()}
+    return serialize_partition_dict_to_indices(wrapped_subtrees)
+
+
+def _serialize_attachment_edges_by_split(
+    attachment_edges_by_split: Dict[Any, Dict[Any, Dict[str, Any]]],
+) -> Dict[str, Dict[str, Dict[str, List[int]]]]:
+    serialized: Dict[str, Dict[str, Dict[str, List[int]]]] = {}
+    for pivot, mover_entries in attachment_edges_by_split.items():
+        serialized[_partition_key(pivot)] = {
+            _partition_key(mover): {
+                "source": serialize_partition_to_indices(edges["source"]) or [],
+                "destination": serialize_partition_to_indices(edges["destination"])
+                or [],
+            }
+            for mover, edges in mover_entries.items()
+        }
+
+    return serialized
+
+
+def _partition_key(partition: Any) -> str:
+    return str(serialize_partition_to_indices(partition))
 
 
 def _serialize_spr_path(path: List[SprPathSegment]) -> List[Dict[str, Any]]:
@@ -367,6 +405,9 @@ def _process_tree_metadata(
                 tree_pair_key=meta.get("tree_pair_key"),
                 step_in_pair=meta.get("step_in_pair"),
                 source_tree_global_index=meta.get("source_tree_global_index"),
+                frame_type=meta.get("frame_type"),
+                state_semantics=meta.get("state_semantics"),
+                is_observed_input=meta.get("is_observed_input"),
             )
         )
 

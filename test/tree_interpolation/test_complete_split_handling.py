@@ -26,8 +26,8 @@ from brancharchitect.tree_interpolation.topology_ops.expand import (
 from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
     LatticeSolver,
 )
-from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
-    build_edge_plan,
+from brancharchitect.tree_interpolation.subtree_paths.planning import (
+    build_pivot_transition_plan,
 )
 
 
@@ -253,8 +253,8 @@ class TestCompleteSplitHandling(unittest.TestCase):
             self.tree1, self.tree2, active_edge, jumping_subtrees
         )
 
-        # Build edge plan
-        plan = build_edge_plan(
+        # Build pivot transition plan
+        plan = build_pivot_transition_plan(
             subtree_paths["expand_splits_by_subtree"],
             subtree_paths["collapse_splits_by_subtree"],
             self.tree1,
@@ -288,7 +288,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
             self.tree1, self.tree2, active_edge, jumping_subtrees
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             subtree_paths["expand_splits_by_subtree"],
             subtree_paths["collapse_splits_by_subtree"],
             self.tree1,
@@ -304,7 +304,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
         # Collect all collapse splits from plan
         all_planned_collapse_splits = PartitionSet(encoding=self.encoding)
         for subtree_plan in plan.values():
-            collapse_path = subtree_plan["collapse"]["path_segment"]
+            collapse_path = subtree_plan.collapse_path
             all_planned_collapse_splits |= PartitionSet(
                 collapse_path, encoding=self.encoding
             )
@@ -329,7 +329,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
             self.tree1, self.tree2, active_edge, jumping_subtrees
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             subtree_paths["expand_splits_by_subtree"],
             subtree_paths["collapse_splits_by_subtree"],
             self.tree1,
@@ -345,7 +345,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
         # Collect all expand splits from plan
         all_planned_expand_splits = PartitionSet(encoding=self.encoding)
         for subtree_plan in plan.values():
-            expand_path = subtree_plan["expand"]["path_segment"]
+            expand_path = subtree_plan.expand_path
             all_planned_expand_splits |= PartitionSet(
                 expand_path, encoding=self.encoding
             )
@@ -434,7 +434,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
             subtree_paths = prepare_simple_subtree_paths(
                 current_tree, self.tree2, active_edge, jumping_subtrees
             )
-            plan = build_edge_plan(
+            plan = build_pivot_transition_plan(
                 subtree_paths["expand_splits_by_subtree"],
                 subtree_paths["collapse_splits_by_subtree"],
                 current_tree,
@@ -445,7 +445,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
         # Global Phase 1: Collapse ALL
         for subtree, subtree_plan in subtree_plans:
-            collapse_splits = subtree_plan["collapse"]["path_segment"]
+            collapse_splits = subtree_plan.collapse_path
             split_dict = {s: 0.0 for s in collapse_splits}
             current_tree = calculate_intermediate_tree(current_tree, split_dict)
 
@@ -456,7 +456,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
         # Global Phase 2: Expand ALL
         for subtree, subtree_plan in subtree_plans:
             # Expand phase using execute_expand_path for proper sorting and batch application
-            expand_splits = subtree_plan["expand"]["path_segment"]
+            expand_splits = subtree_plan.expand_path
             to_expand = [s for s in expand_splits if s not in current_tree.to_splits()]
             if to_expand:
                 try:
@@ -494,7 +494,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
             self.tree1, self.tree2, active_edge, jumping_subtrees
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             subtree_paths["expand_splits_by_subtree"],
             subtree_paths["collapse_splits_by_subtree"],
             self.tree1,
@@ -504,7 +504,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
 
         for subtree, subtree_plan in plan.items():
             # Check collapse path for duplicates
-            collapse_path = subtree_plan["collapse"]["path_segment"]
+            collapse_path = subtree_plan.collapse_path
             collapse_set = set()
             for split in collapse_path:
                 self.assertNotIn(
@@ -515,7 +515,7 @@ class TestCompleteSplitHandling(unittest.TestCase):
                 collapse_set.add(split)
 
             # Check expand path for duplicates
-            expand_path = subtree_plan["expand"]["path_segment"]
+            expand_path = subtree_plan.expand_path
             expand_set = set()
             for split in expand_path:
                 self.assertNotIn(
@@ -584,7 +584,7 @@ class TestLargerDatasetSplitHandling(unittest.TestCase):
             tree1, tree2, active_edge, jumping_subtrees
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             subtree_paths["expand_splits_by_subtree"],
             subtree_paths["collapse_splits_by_subtree"],
             tree1,
@@ -606,10 +606,10 @@ class TestLargerDatasetSplitHandling(unittest.TestCase):
 
         for subtree_plan in plan.values():
             planned_collapse |= PartitionSet(
-                subtree_plan["collapse"]["path_segment"], encoding=self.encoding
+                subtree_plan.collapse_path, encoding=self.encoding
             )
             planned_expand |= PartitionSet(
-                subtree_plan["expand"]["path_segment"], encoding=self.encoding
+                subtree_plan.expand_path, encoding=self.encoding
             )
 
         # Verify all originally assigned collapse splits are in the plan

@@ -8,7 +8,7 @@ class SplitClaimTracker:
     Tracks ownership and usage of splits (resources) by subtrees (consumers).
 
     This class centralizes the ownership logic that was previously scattered
-    across multiple data structures and methods in PivotSplitRegistry.
+    across multiple data structures and methods in PivotTransitionState.
 
     Key concepts:
     - Resource: A split (Partition) that can be owned/used

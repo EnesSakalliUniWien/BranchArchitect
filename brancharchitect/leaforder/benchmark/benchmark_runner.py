@@ -3,7 +3,7 @@ Benchmark execution utilities.
 """
 
 import logging
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Tuple
 
 from brancharchitect.tree import Node
 from brancharchitect.leaforder.tree_order_optimiser import TreeOrderOptimizer
@@ -27,9 +27,7 @@ logger = logging.getLogger(__name__)
 
 def run_benchmark_combinations(
     original_trees: List[Node], n_iterations: int, bidirectional: bool
-) -> Tuple[
-    List[float], List[str], List[List[float]], List[Any], Dict[str, List[float]]
-]:
+) -> Tuple[List[float], List[str], List[List[float]], Dict[str, List[float]]]:
     """
     Run all benchmark combinations and collect results.
 
@@ -48,13 +46,11 @@ def run_benchmark_combinations(
     - total_distances: List[float]
     - method_names: List[str]
     - pairwise_distances_list: List[List[float]]
-    - split_distance_containers_list: List[Any]
     - robinson_foulds_data: Dict[str, List[float]]
     """
     total_distances: List[float] = []
     method_names: List[str] = []
     pairwise_distances_list: List[List[float]] = []
-    split_distance_containers_list: List[Any] = []
     robinson_foulds_data: Dict[str, List[float]] = {}
 
     # Process all benchmark combinations
@@ -67,8 +63,8 @@ def run_benchmark_combinations(
                 n_iterations=n_iterations, bidirectional=combo["bidirectional"]
             )
 
-        sum_dist, dist_list, dist_container = process_benchmark_method(
-            trees, combo["label"], collect_distances_for_trajectory
+        sum_dist, dist_list = process_benchmark_method(
+            trees, collect_distances_for_trajectory
         )
 
         # Calculate Robinson-Foulds distances for this method
@@ -78,20 +74,18 @@ def run_benchmark_combinations(
         total_distances.append(sum_dist)
         method_names.append(combo["label"])
         pairwise_distances_list.append(dist_list)
-        split_distance_containers_list.append(dist_container)
 
     return (
         total_distances,
         method_names,
         pairwise_distances_list,
-        split_distance_containers_list,
         robinson_foulds_data,
     )
 
 
 def run_global_permutation_benchmark(
     original_trees: List[Node], taxa: List[str], n_iterations: int, bidirectional: bool
-) -> Tuple[float, List[float], Any, List[float]]:
+) -> Tuple[float, List[float], List[float]]:
     """
     Run global permutation benchmark.
 
@@ -111,7 +105,6 @@ def run_global_permutation_benchmark(
     Tuple containing:
     - sum_dist: float
     - dist_list: List[float]
-    - dist_container: Any
     - rf_distances: List[float]
     """
     num_permutations = DEFAULT_NUM_PERMUTATIONS
@@ -125,18 +118,18 @@ def run_global_permutation_benchmark(
     else:
         logger.warning("No minimal permutation found, using original tree order")
 
-    sum_dist, dist_list, dist_container = process_benchmark_method(
-        method_trees, "Global Perm Only", collect_distances_for_trajectory
+    sum_dist, dist_list = process_benchmark_method(
+        method_trees, collect_distances_for_trajectory
     )
 
     rf_distances = calculate_robinson_foulds_distances(method_trees)
 
-    return sum_dist, dist_list, dist_container, rf_distances
+    return sum_dist, dist_list, rf_distances
 
 
 def run_global_plus_optimizer_benchmark(
     base_trees: List[Node], n_iterations: int, bidirectional: bool
-) -> Tuple[float, List[float], Any, List[float]]:
+) -> Tuple[float, List[float], List[float]]:
     """
     Run global permutation + optimizer benchmark.
 
@@ -154,17 +147,16 @@ def run_global_plus_optimizer_benchmark(
     Tuple containing:
     - sum_dist: float
     - dist_list: List[float]
-    - dist_container: Any
     - rf_distances: List[float]
     """
     method_trees = [t.deep_copy() for t in base_trees]
     optimizer = TreeOrderOptimizer(method_trees)
     optimizer.optimize(n_iterations=n_iterations, bidirectional=bidirectional)
 
-    sum_dist, dist_list, dist_container = process_benchmark_method(
-        method_trees, "Global + TreeOrderOptimizer", collect_distances_for_trajectory
+    sum_dist, dist_list = process_benchmark_method(
+        method_trees, collect_distances_for_trajectory
     )
 
     rf_distances = calculate_robinson_foulds_distances(method_trees)
 
-    return sum_dist, dist_list, dist_container, rf_distances
+    return sum_dist, dist_list, rf_distances

@@ -7,11 +7,8 @@ from typing import Optional
 from brancharchitect.uuid_encoder import UUIDEncoder
 import orjson
 
-# Threshold for parallel serialization (below this, sequential is faster)
-_PARALLEL_THRESHOLD = 50
 
-
-def dump_json(tree: Node, f: IO[str]):
+def dump_json(tree: Node, f: IO[str]) -> None:
     json.dump(tree, f, cls=UUIDEncoder)
 
 
@@ -20,7 +17,7 @@ def read_newick(
     order: Optional[list[str]] = None,
     force_list: bool = False,
     treat_zero_as_epsilon: bool = False,
-):
+) -> Node | List[Node]:
     with open(path) as f:
         newick_string: str = f.read()
 
@@ -33,7 +30,7 @@ def read_newick(
     return tree
 
 
-def write_json(tree: Node, path: str):
+def write_json(tree: Node, path: str) -> None:
     with open(path, mode="w") as f:
         dump_json(tree, f)
 
@@ -46,18 +43,13 @@ def serialize_tree_list_to_json(tree_list: List[Node]) -> List[Dict[str, Any]]:
     return serialized_tree_list
 
 
-def _tree_to_dict(tree: Node) -> Dict[str, Any]:
-    """Helper function for parallel serialization."""
-    return tree.to_dict()
-
-
 def write_tree_dictionaries_to_json(tree_list: list[Node], file_name: str) -> None:
     serialized_tree_list = serialize_tree_list_to_json(tree_list)
     with open(file_name, "wb") as f:
         f.write(orjson.dumps(serialized_tree_list))
 
 
-def serialize_subtree_tracking(
+def serialize_subtree_highlights(
     tracking: Optional[List[Optional[List[Partition]]]],
 ) -> List[Optional[List[List[int]]]]:
     """
@@ -67,7 +59,7 @@ def serialize_subtree_tracking(
     None values remain None.
 
     Args:
-        tracking: Legacy-named highlight groups from the interpolation sequence
+        tracking: Highlight groups from the interpolation sequence
 
     Returns:
         List of Optional[List[List[int]]] suitable for JSON serialization

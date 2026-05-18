@@ -46,7 +46,7 @@ def test_case(name, tree1_newick, tree2_newick, key_taxa_groups=None):
     order_match1 = final1 == dest_order
 
     movers1 = set()
-    for subtree in result1.current_subtree_tracking:
+    for subtree in result1.current_subtree_highlights:
         if subtree:
             movers1.update(subtree.taxa)
 
@@ -71,7 +71,7 @@ def test_case(name, tree1_newick, tree2_newick, key_taxa_groups=None):
     order_match2 = final2 == dest_aligned_order
 
     movers2 = set()
-    for subtree in result2.current_subtree_tracking:
+    for subtree in result2.current_subtree_highlights:
         if subtree:
             movers2.update(subtree.taxa)
 

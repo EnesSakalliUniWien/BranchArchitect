@@ -30,7 +30,7 @@ from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
 )
 from brancharchitect.tree_interpolation.types import TreeInterpolationSequence
 from brancharchitect.tree import Node
-from brancharchitect.io import serialize_subtree_tracking
+from brancharchitect.io import serialize_subtree_highlights
 from .tree_rooting import root_trees
 
 
@@ -190,8 +190,8 @@ class TreeInterpolationPipeline:
             wrfd_list=distances.wrfd_list,
             processing_time=processing_time,
             pair_interpolation_ranges=seq_result.pair_interpolation_ranges,
-            subtree_tracking=serialize_subtree_tracking(
-                seq_result.current_subtree_tracking
+            subtree_highlight_tracking=serialize_subtree_highlights(
+                seq_result.current_subtree_highlights
             ),
         )
 
@@ -427,7 +427,12 @@ class TreeInterpolationPipeline:
         total = len(current_pivot_edge_tracking)
         tree_metadata: List[TreeMetadata] = [
             TreeMetadata(
-                tree_pair_key=None, step_in_pair=None, source_tree_global_index=None
+                tree_pair_key=None,
+                step_in_pair=None,
+                source_tree_global_index=None,
+                frame_type="interpolation_frame",
+                state_semantics="algorithmic_intermediate",
+                is_observed_input=False,
             )
             for _ in range(total)
         ]
@@ -442,6 +447,9 @@ class TreeInterpolationPipeline:
                 tree_pair_key=None,
                 step_in_pair=None,
                 source_tree_global_index=None,
+                frame_type="input_tree",
+                state_semantics="processed_input_tree",
+                is_observed_input=True,
             )
 
         # Fill interpolated steps between each consecutive pair of originals
@@ -454,6 +462,9 @@ class TreeInterpolationPipeline:
                     tree_pair_key=tree_pair_key,
                     step_in_pair=idx - start,
                     source_tree_global_index=start,
+                    frame_type="interpolation_frame",
+                    state_semantics="algorithmic_intermediate",
+                    is_observed_input=False,
                 )
 
         return tree_metadata

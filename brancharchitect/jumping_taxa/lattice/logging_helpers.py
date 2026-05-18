@@ -44,7 +44,6 @@ def log_lattice_edge_details(edge: PivotEdgeSubproblem) -> None:
         return
     jt_logger.log_lattice_edge_tables(
         edge,
-        show_common_covers=True,
         show_unique_min_covers=True,
         show_atoms=True,
         tablefmt="html",

@@ -1,5 +1,5 @@
 """
-Tests for PivotSplitRegistry class.
+Tests for PivotTransitionState class.
 
 Tests cover:
 - Initialization and state setup
@@ -14,8 +14,8 @@ Tests cover:
 import unittest
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
-    PivotSplitRegistry,
+from brancharchitect.tree_interpolation.subtree_paths.planning import (
+    PivotTransitionState,
 )
 
 
@@ -47,7 +47,7 @@ class TestInterpolationStateInitialization(unittest.TestCase):
             self.part_A: PartitionSet([self.part_C], encoding=self.encoding),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse,
             all_expand,
             collapse_by_subtree,
@@ -82,7 +82,7 @@ class TestInterpolationStateInitialization(unittest.TestCase):
             self.part_A: PartitionSet([self.part_B], encoding=self.encoding),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             all_collapse,
             all_expand,
             collapse_by_subtree,
@@ -128,7 +128,7 @@ class TestSharedAndUniqueSplits(unittest.TestCase):
             self.part_C: PartitionSet([self.part_AB], encoding=self.encoding),
         }
 
-        self.state = PivotSplitRegistry(
+        self.state = PivotTransitionState(
             PartitionSet(
                 [self.part_A, self.part_B, self.part_C], encoding=self.encoding
             ),
@@ -205,7 +205,7 @@ class TestSplitProcessing(unittest.TestCase):
             self.part_C: PartitionSet([self.part_C], encoding=self.encoding),
         }
 
-        self.state = PivotSplitRegistry(
+        self.state = PivotTransitionState(
             PartitionSet(
                 [self.part_A, self.part_B, self.part_C], encoding=self.encoding
             ),
@@ -304,7 +304,7 @@ class TestSubtreeSelection(unittest.TestCase):
             self.part_C: PartitionSet([self.part_C], encoding=self.encoding),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet([self.part_C, self.part_D], encoding=self.encoding),
             PartitionSet(
                 [self.part_A, self.part_B, self.part_C], encoding=self.encoding
@@ -344,7 +344,7 @@ class TestSubtreeSelection(unittest.TestCase):
             ),  # 1 expand (shared part_D)
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet([self.part_A], encoding=self.encoding),
             PartitionSet(
                 [self.part_A, self.part_D, self.part_C], encoding=self.encoding
@@ -363,7 +363,7 @@ class TestSubtreeSelection(unittest.TestCase):
 
     def test_returns_none_when_no_work_remaining(self):
         """Test that get_next_subtree returns None when all work is done."""
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet(encoding=self.encoding),
             PartitionSet(encoding=self.encoding),
             {},
@@ -405,7 +405,7 @@ class TestContingentSplits(unittest.TestCase):
             self.part_A: PartitionSet([self.part_B], encoding=self.encoding),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet([self.part_ABC], encoding=self.encoding),
             all_expand,
             {self.part_A: PartitionSet([self.part_ABC], encoding=self.encoding)},
@@ -446,7 +446,7 @@ class TestContingentSplits(unittest.TestCase):
 
         # No explicit expand assignments - but _claim_related_expand_splits will claim
         # parent splits based on structural relationships
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet([self.part_ABC], encoding=self.encoding),
             all_expand,
             {self.part_A: PartitionSet([self.part_ABC], encoding=self.encoding)},
@@ -496,7 +496,7 @@ class TestRemainingWork(unittest.TestCase):
         self.part_C = Partition((2,), self.encoding)
         self.part_ABC = Partition((0, 1, 2), self.encoding)
 
-        self.state = PivotSplitRegistry(
+        self.state = PivotTransitionState(
             PartitionSet([self.part_A, self.part_B], encoding=self.encoding),
             PartitionSet([self.part_C], encoding=self.encoding),
             {

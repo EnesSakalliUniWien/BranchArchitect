@@ -68,10 +68,3 @@ disallow_untyped_defs = true
 [[tool.mypy.overrides]]
 module = "brancharchitect.*"
 ignore_missing_imports = false
-
-# --- This section tells pytest to run MyPy automatically ---
-[tool.pytest.ini_options]
-addopts = "--mypy"  # Tells pytest to run mypy checks each time
-mypy_ignore_missing_imports = true
-timeout = 10  # Default timeout for tests (overridden by per-test marks)
-

@@ -5,20 +5,19 @@ This module contains all components related to subtree path-based tree interpola
 including path planning, state management, execution, and ordering strategies.
 """
 
-from .pivot_sequence_orchestrator import (
-    create_interpolation_for_active_split_sequence,
-    calculate_subtree_paths,
-)
-from .planning import (
-    build_edge_plan,
-    PivotSplitRegistry,
-    log_final_plans,
-)
-from .execution.pivot_edge_interpolation_frame_builder import execute_pivot_edge_plan
 from .execution import (
-    build_frames_for_subtree,
+    build_subtree_interpolation_frames,
+    execute_active_split_transition_sequence,
+    execute_pivot_edge_interpolation,
     reorder_tree_toward_destination,
 )
+from .planning import (
+    build_pivot_subtree_transition_paths,
+    build_pivot_transition_plan,
+    PivotTransitionState,
+    log_final_plans,
+)
+from .validation import assert_tree_topology_matches_destination
 from .analysis import (
     get_unique_splits_for_current_pivot_edge_subtree,
     find_incompatible_splits,
@@ -26,13 +25,14 @@ from .analysis import (
 
 __all__ = [
     # Main interpolation functions
-    "create_interpolation_for_active_split_sequence",
-    "execute_pivot_edge_plan",
-    "build_frames_for_subtree",
+    "execute_active_split_transition_sequence",
+    "execute_pivot_edge_interpolation",
+    "build_subtree_interpolation_frames",
     # Path planning and state management
-    "build_edge_plan",
-    "PivotSplitRegistry",
-    "calculate_subtree_paths",
+    "build_pivot_transition_plan",
+    "PivotTransitionState",
+    "build_pivot_subtree_transition_paths",
+    "assert_tree_topology_matches_destination",
     # Path segment utilities
     "get_unique_splits_for_current_pivot_edge_subtree",
     "find_incompatible_splits",

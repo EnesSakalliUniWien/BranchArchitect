@@ -1,13 +1,8 @@
-import sys
-from unittest.mock import MagicMock
-
-sys.modules["tabulate"] = MagicMock()
-
 import unittest
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
-    build_edge_plan,
+from brancharchitect.tree_interpolation.subtree_paths.planning import (
+    build_pivot_transition_plan,
 )
 from brancharchitect.tree import Node
 
@@ -102,7 +97,7 @@ class TestContingentSplitCollision(unittest.TestCase):
         # Subset? No.
         # Incompatible!
 
-        plans = build_edge_plan(
+        plans = build_pivot_transition_plan(
             self.expand_splits_by_subtree,
             {},  # collapse_splits_by_subtree empty
             self.collapse_tree,
@@ -111,8 +106,8 @@ class TestContingentSplitCollision(unittest.TestCase):
         )
 
         plan_A = plans[self.subtree_A]
-        collapse_path = plan_A["collapse"]["path_segment"]
-        expand_path = plan_A["expand"]["path_segment"]
+        collapse_path = plan_A.collapse_path
+        expand_path = plan_A.expand_path
 
         print(f"Collapse Path: {collapse_path}")
         print(f"Expand Path: {expand_path}")

@@ -1,5 +1,5 @@
 # Enhanced tests for component_distance.py
-from typing import Any, List
+from typing import Any, List, cast
 from numpy import dtype
 from numpy._typing._array_like import NDArray
 import pytest
@@ -207,3 +207,21 @@ def test_calculate_component_distance_matrix():
         trees, comps, weighted=True
     )
     assert matrix_w.shape == matrix.shape
+
+
+def test_component_distance_matrix_does_not_erase_prior_component_groups() -> None:
+    trees = cast(
+        List[Node],
+        parse_newick(
+            "(((6:1,5:1),(1:1,(2:1,X:1):1):1):1,O:1);"
+            + "(((6:1,(X:1,5:1)),(1:1,2:1):1),O:1);"
+        ),
+    )
+    component_groups = [[trees[0].names_to_partition(("X",))], []]
+
+    matrix = calculate_component_distance_matrix(trees, component_groups)
+
+    assert matrix[0, 1] == 4.0
+    assert matrix[1, 0] == 4.0
+    assert matrix[0, 0] == 0.0
+    assert matrix[1, 1] == 0.0

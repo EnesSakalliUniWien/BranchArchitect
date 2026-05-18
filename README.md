@@ -60,7 +60,7 @@ pipeline = TreeInterpolationPipeline(config=config)
 result = pipeline.process_trees(trees)
 
 # Print interpolated frames as Newick
-for i, tree in enumerate(result.interpolated_trees):
+for i, tree in enumerate(result["interpolated_trees"]):
     print(f"Frame {i}: {tree.to_newick()}")
 ```
 
@@ -101,7 +101,7 @@ poetry run python webapp/run.py --port=5002
 
 ```bash
 poetry install                           # Install all dependencies
-poetry run pytest                        # Run tests (includes mypy)
+poetry run pytest                        # Run tests
 poetry run pytest --cov=brancharchitect  # With coverage
 poetry run python run_pipeline.py        # Demo pipeline
 ```

@@ -1,8 +1,15 @@
 import json
 
+from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
+    TreeInterpolationPipeline,
+)
+from brancharchitect.movie_pipeline.types import PipelineConfig
+from brancharchitect.parser.newick_parser import parse_newick
+from brancharchitect.tree import Node
 from webapp.services.sse.channels import ProgressChannel
 from webapp.services.trees.frontend_builder import (
     assemble_frontend_metadata,
+    build_movie_data_from_result,
     create_empty_movie_data,
 )
 from webapp.services.trees.movie_data import MovieData
@@ -68,6 +75,51 @@ def test_movie_stream_contract_sends_metadata_chunks_and_complete_count() -> Non
     assert events[5][1] == {"data": {"tree_count": 2}}
 
 
+def test_pipeline_frontend_metadata_is_aligned_with_serialized_trees() -> None:
+    parsed = parse_newick("((A:1,B:1):1,C:1);(A:1,(B:1,C:1):1);")
+    trees = [parsed] if isinstance(parsed, Node) else parsed
+
+    result = TreeInterpolationPipeline(
+        PipelineConfig(enable_rooting=False, use_anchor_ordering=True, circular=True)
+    ).process_trees(trees)
+    sorted_leaves = [
+        name
+        for name, _ in sorted(trees[0].taxa_encoding.items(), key=lambda item: item[1])
+    ]
+    movie_data = build_movie_data_from_result(
+        result,
+        "example.nwk",
+        {"inferred_window_size": 1, "inferred_step_size": 1, "msa_dict": None},
+        sorted_leaves,
+    )
+    metadata = assemble_frontend_metadata(movie_data)
+
+    tree_count = len(movie_data.interpolated_trees)
+    assert tree_count > len(trees)
+    assert len(metadata["tree_metadata"]) == tree_count
+    assert len(metadata["pivot_edge_tracking"]) == tree_count
+    assert len(metadata["subtree_highlight_tracking"]) == tree_count
+    legacy_subtree_api_key = "subtree" + "_tracking"
+    assert legacy_subtree_api_key not in metadata
+
+    assert metadata["pair_interpolation_ranges"] == [[0, tree_count - 1]]
+    assert metadata["split_change_timeline"][0] == {
+        "type": "original",
+        "tree_index": 0,
+        "global_index": 0,
+        "name": "",
+    }
+    assert metadata["split_change_timeline"][-1] == {
+        "type": "original",
+        "tree_index": 1,
+        "global_index": tree_count - 1,
+        "name": "",
+    }
+
+    for start, end in metadata["pair_interpolation_ranges"]:
+        assert 0 <= start < end < tree_count
+
+
 def test_movie_metadata_contract_has_no_top_level_split_change_events() -> None:
     movie_data = create_empty_movie_data("empty.nwk")
 
@@ -102,19 +154,19 @@ def test_movie_metadata_contract_keeps_pair_split_change_events_private() -> Non
         sorted_leaves=[],
         tree_pair_solutions={
             "pair_0_1": {
-                "jumping_subtree_solutions": {},
-                "solution_to_source_map": {},
-                "solution_to_destination_map": {},
+                "affected_subtrees_by_split": {},
+                "attachment_edges_by_split": {},
                 "split_change_events": [
                     {
                         "split": pivot,
                         "step_range": (0, 0),
                     }
                 ],
+                "spr_move_events": [],
             }
         },
         pivot_edge_tracking=[],
-        subtree_tracking=[],
+        subtree_highlight_tracking=[],
         file_name="example.nwk",
         window_size=1,
         window_step_size=1,
@@ -124,7 +176,13 @@ def test_movie_metadata_contract_keeps_pair_split_change_events_private() -> Non
 
     metadata_payload = assemble_frontend_metadata(movie_data)
 
-    assert "split_change_events" not in metadata_payload["tree_pair_solutions"]["pair_0_1"]
+    pair_payload = metadata_payload["tree_pair_solutions"]["pair_0_1"]
+    assert "split_change_events" not in pair_payload
+    assert pair_payload == {
+        "affected_subtrees_by_split": {},
+        "attachment_edges_by_split": {},
+        "spr_move_events": [],
+    }
     assert metadata_payload["split_change_timeline"] == [
         {"type": "original", "tree_index": 0, "global_index": 0, "name": ""},
         {

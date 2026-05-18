@@ -45,7 +45,7 @@ class PairKey:
             )
 
     def __str__(self) -> str:
-        """Return standard string representation for backwards compatibility."""
+        """Return the serialized pair identifier."""
         return f"pair_{self.source_index}_{self.destination_index}"
 
     def __repr__(self) -> str:

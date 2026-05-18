@@ -6,10 +6,9 @@ tree ordering algorithms and optimization strategies.
 
 Modules:
     config: Configuration constants and benchmark method definitions
-    profiling: Performance profiling and analysis tools
     analysis: Tree split analysis and distance calculations
     benchmark_utilities: Main benchmarking functions
-    benchmark_visualisation: Visualization utilities for benchmark results
+    benchmark_visualisation: Optional visualization utilities for benchmark results
 """
 
 from .config import (
@@ -27,23 +26,13 @@ from .config import (
     VIBRANT_PLOT_CONFIG,
 )
 
-from .profiling import (
-    configure_logging,
-    create_profile_dataframe,
-    create_profiling_visualizations,
-    print_profile_summary,
-    run_profiler,
-)
-
 from .analysis import (
-    collect_splits_for_tree_pair_trajectories,
     process_benchmark_method,
     calculate_split_statistics,
     calculate_robinson_foulds_distances,
 )
 
 from .benchmark_utilities import (
-    profile_and_visualize,
     benchmark_comparison,
 )
 
@@ -64,14 +53,6 @@ from .results_processor import (
     aggregate_results,
 )
 
-from .visualization import (
-    create_visualizations,
-)
-
-from .benchmark_visualisation import (
-    plot_robinson_foulds_trajectory,
-)
-
 __all__ = [
     # Config
     "BENCHMARK_COMBINATIONS",
@@ -86,19 +67,11 @@ __all__ = [
     "VIBRANT_COLORS",
     "DEFAULT_PLOT_CONFIG",
     "VIBRANT_PLOT_CONFIG",
-    # Profiling
-    "configure_logging",
-    "create_profile_dataframe",
-    "create_profiling_visualizations",
-    "print_profile_summary",
-    "run_profiler",
     # Analysis
-    "collect_splits_for_tree_pair_trajectories",
     "process_benchmark_method",
     "calculate_split_statistics",
     "calculate_robinson_foulds_distances",
     # Main utilities
-    "profile_and_visualize",
     "benchmark_comparison",
     # Data loading
     "load_and_preprocess_trees",
@@ -111,7 +84,4 @@ __all__ = [
     "print_baseline_analysis",
     "print_method_comparison",
     "aggregate_results",
-    # Visualization
-    "create_visualizations",
-    "plot_robinson_foulds_trajectory",
 ]

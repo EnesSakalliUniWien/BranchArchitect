@@ -4,19 +4,21 @@ from typing import List, Dict, NotRequired, TypedDict
 from brancharchitect.elements.partition import Partition
 
 
+class AttachmentEdges(TypedDict):
+    """Source and destination attachment edges for one moved subtree."""
+
+    source: Partition
+    destination: Partition
+
+
 class TreePairSolution(TypedDict):
     """Solution data for a single tree pair."""
 
-    # Core jumping taxa algorithm result - solutions for subtree rearrangements
-    jumping_subtree_solutions: Dict[Partition, List[Partition]]
+    # Affected subtrees grouped by the active changing split / pivot edge.
+    affected_subtrees_by_split: Dict[Partition, List[Partition]]
 
-    # Mappings for atom translation - where movers come from and go to
-    solution_to_destination_map: Dict[
-        Partition, Dict[Partition, Partition]
-    ]  # Mapping from solution to destination tree atoms, grouped by pivot edge
-    solution_to_source_map: Dict[
-        Partition, Dict[Partition, Partition]
-    ]  # Mapping from solution to source tree atoms, grouped by pivot edge
+    # Source/destination attachment edges grouped by pivot edge and moved subtree.
+    attachment_edges_by_split: Dict[Partition, Dict[Partition, AttachmentEdges]]
 
     # Aggregated occurrences per changing split within this pair
     split_change_events: List["SplitChangeEvent"]
@@ -63,8 +65,9 @@ class SprMoveEvent(TypedDict):
     """Path summary for one SPR mover within a tree-pair interpolation.
 
     driver_subtree is the planner-selected subtree that physically moves for
-    this SPR event. highlight_group is the visual context used by per-frame
-    current_subtree_tracking and may include related non-driver subtrees.
+    this SPR event. highlight_group is the active mover highlight set used by
+    per-frame current_subtree_highlights; it may include explicit sibling mover
+    groups, but not passive context clades.
     """
 
     pivot_edge: Partition

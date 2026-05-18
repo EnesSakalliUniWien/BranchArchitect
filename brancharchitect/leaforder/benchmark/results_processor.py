@@ -89,7 +89,6 @@ def aggregate_results(
         total_distances,
         method_names,
         pairwise_distances_list,
-        split_distance_containers_list,
         robinson_foulds_data,
     ) = combo_results
 
@@ -97,34 +96,29 @@ def aggregate_results(
     (
         sum_dist_m3,
         dist_list_m3,
-        dist_container_m3,
         method3_rf_distances,
     ) = global_perm_results
 
     total_distances.append(sum_dist_m3)
     method_names.append("Global Perm Only")
     pairwise_distances_list.append(dist_list_m3)
-    split_distance_containers_list.append(dist_container_m3)
     robinson_foulds_data["Global Perm Only"] = method3_rf_distances
 
     # Add global + optimizer results
     (
         sum_dist_m4,
         dist_list_m4,
-        dist_container_m4,
         method4_rf_distances,
     ) = global_plus_opt_results
 
     total_distances.append(sum_dist_m4)
     method_names.append("Global + TreeOrderOptimizer")
     pairwise_distances_list.append(dist_list_m4)
-    split_distance_containers_list.append(dist_container_m4)
     robinson_foulds_data["Global + TreeOrderOptimizer"] = method4_rf_distances
 
     return (
         total_distances,
         method_names,
         pairwise_distances_list,
-        split_distance_containers_list,
         robinson_foulds_data,
     )

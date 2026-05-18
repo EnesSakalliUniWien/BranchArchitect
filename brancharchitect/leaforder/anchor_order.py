@@ -246,9 +246,22 @@ def _get_stable_anchor_blocks_and_movers(
         stable_common_splits.maximal_elements()
     )
 
-    # Build blocks: stable common splits preserve their current order
+    source_position = {
+        taxon: index for index, taxon in enumerate(src_node.get_current_order())
+    }
+
+    def anchor_block_key(partition: Partition) -> Tuple[int, int, Tuple[int, ...]]:
+        positions = [
+            source_position[partition.reverse_encoding[idx]]
+            for idx in partition.indices
+            if partition.reverse_encoding[idx] in source_position
+        ]
+        first_position = min(positions) if positions else len(source_position)
+        return (first_position, len(partition.indices), partition.indices)
+
+    # Build blocks: stable common splits preserve their current order.
     stable_anchor_blocks: List[Tuple[str, ...]] = []
-    for cs in stable_common_splits:
+    for cs in sorted(stable_common_splits, key=anchor_block_key):
         node = t1.find_node_by_split(cs)
         if node:
             stable_anchor_blocks.append(tuple(node.get_current_order()))
@@ -508,7 +521,7 @@ def blocked_order_and_apply(
     # Build final taxa lists and sort using tuple keys
     # Fallback (1, 0, 0) assigns unhandled taxa to band 1 (anchors) - this is intentional
     # as some taxa may not be covered by explicit anchor blocks or mover partitions
-    all_taxa_in_edge = list(edge.taxa)
+    all_taxa_in_edge = list(src_current_order)
     sorted_src_taxa = sorted(
         all_taxa_in_edge, key=lambda t: src_taxon_sort_key.get(t, (1, 0, 0))
     )

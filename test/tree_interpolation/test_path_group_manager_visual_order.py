@@ -1,6 +1,6 @@
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.subtree_paths.planning.path_group_manager import (
+from brancharchitect.tree_interpolation.subtree_paths.planning.ordering.path_group_manager import (
     PathGroupManager,
 )
 

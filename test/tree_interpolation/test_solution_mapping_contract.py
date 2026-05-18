@@ -26,7 +26,7 @@ def test_builder_serializes_solution_maps_in_source_destination_order(monkeypatc
         lambda *args, **kwargs: TreePairInterpolation(
             trees=[interpolated_tree],
             current_pivot_edge_tracking=[pivot],
-            current_subtree_tracking=[[solution]],
+            current_subtree_highlights=[[solution]],
             jumping_subtree_solutions={pivot: [solution]},
         ),
     )
@@ -40,12 +40,23 @@ def test_builder_serializes_solution_maps_in_source_destination_order(monkeypatc
     result = builder._process_pair(source_tree, destination_tree, 0, None)
 
     assert result is interpolated_tree
-    assert builder.source_mappings == [source_map]
-    assert builder.target_mappings == [destination_map]
+    assert builder.attachment_edge_maps == [
+        {
+            pivot: {
+                solution: {
+                    "source": source_map[pivot][solution],
+                    "destination": destination_map[pivot][solution],
+                }
+            }
+        }
+    ]
 
     sequence = builder._finalize_sequence(original_tree_count=2)
-    assert sequence.solution_to_source_maps == [source_map]
-    assert sequence.solution_to_destination_maps == [destination_map]
+    assert sequence.attachment_edge_maps == builder.attachment_edge_maps
     pair_solutions, _ = sequence.build_pair_solutions([0, 2])
-    assert pair_solutions["pair_0_1"]["solution_to_source_map"] == source_map
-    assert pair_solutions["pair_0_1"]["solution_to_destination_map"] == destination_map
+    assert pair_solutions["pair_0_1"]["affected_subtrees_by_split"] == {
+        pivot: [solution]
+    }
+    assert pair_solutions["pair_0_1"]["attachment_edges_by_split"] == (
+        builder.attachment_edge_maps[0]
+    )

@@ -381,3 +381,8 @@ class Partition:
                   False if incompatible with any partition.
         """
         return all(self.is_compatible_with(p, all_indices) for p in partitions)
+
+
+def partition_size_bitmask_key(partition: Partition) -> Tuple[int, int]:
+    """Order partitions by clade size, then deterministic encoding bitmask."""
+    return (partition.size, partition.bitmask)

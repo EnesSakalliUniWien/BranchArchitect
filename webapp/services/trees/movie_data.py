@@ -32,8 +32,8 @@ class MovieData:
     sorted_leaves: List[str]
     tree_pair_solutions: Dict[str, TreePairSolution]
     pivot_edge_tracking: List[Optional[List[int]]]
-    # Legacy API name: per-frame visual/highlight groups, not SPR mover ownership.
-    subtree_tracking: List[Optional[List[List[int]]]]
+    # Per-frame visual/highlight groups, not SPR mover ownership.
+    subtree_highlight_tracking: List[Optional[List[List[int]]]]
 
     # File and processing metadata
     file_name: str

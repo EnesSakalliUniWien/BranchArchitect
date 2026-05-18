@@ -1,7 +1,7 @@
 """
 THE CODE EXAMINER'S COMPREHENSIVE TEST SUITE
 
-Module: PivotSplitRegistry & Edge Plan Builder Architecture
+Module: PivotTransitionState & Edge Plan Builder Architecture
 Status: IMMUTABLE - This test cannot be altered once created.
 Created: 2025-10-21
 Python: 3.11+
@@ -25,26 +25,16 @@ RUN COMMANDS:
 
 import unittest
 from unittest.mock import patch
-from collections import OrderedDict
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.parser import parse_newick
-from brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry import (
-    PivotSplitRegistry,
-    build_edge_plan,
+from brancharchitect.tree_interpolation.subtree_paths.planning import (
+    PivotTransitionState,
+    build_pivot_transition_plan,
 )
 
-
 # ============================================================================
-# SECTION 1: CONTINGENT SPLIT SEMANTICS (REMOVED)
-# ============================================================================
-# This section previously tested `consume_contingent_expand_splits_for_subtree`,
-# which has been removed in favor of the "Completeness Guarantee" where all
-# splits are assigned to a subtree initially.
-
-
-# ============================================================================
-# SECTION 2: EXPAND-LAST STRATEGY (Based on User Clarification)
+# SECTION 1: EXPAND-LAST STRATEGY
 # ============================================================================
 
 
@@ -83,7 +73,7 @@ class TestExpandLastStrategy(unittest.TestCase):
             self.part_B: PartitionSet([self.part_B], encoding=self.encoding),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet([self.part_A, self.part_B], encoding=self.encoding),
             PartitionSet(
                 [self.part_AB, self.part_A, self.part_B], encoding=self.encoding
@@ -124,7 +114,7 @@ class TestExpandLastStrategy(unittest.TestCase):
             self.part_C: PartitionSet([self.part_C], encoding=self.encoding),  # Unique
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet(encoding=self.encoding),
             PartitionSet([self.part_AB, part_ABC, self.part_C], encoding=self.encoding),
             {},
@@ -166,7 +156,7 @@ class TestExpandLastStrategy(unittest.TestCase):
             [self.part_A, self.part_B, self.part_C], encoding=self.encoding
         )
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet([self.part_A, self.part_B], encoding=self.encoding),
             all_expand,
             collapse_by_subtree,
@@ -231,7 +221,7 @@ class TestPrioritySystemRobustness(unittest.TestCase):
             self.part_E: PartitionSet([self.part_E], encoding=self.encoding),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet(
                 [self.part_AB, self.part_CD, self.part_EF], encoding=self.encoding
             ),
@@ -264,7 +254,7 @@ class TestPrioritySystemRobustness(unittest.TestCase):
             self.part_C: PartitionSet([self.part_C], encoding=self.encoding),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet(
                 [self.part_A, self.part_B, self.part_C], encoding=self.encoding
             ),
@@ -301,7 +291,7 @@ class TestPrioritySystemRobustness(unittest.TestCase):
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
             self.part_C: PartitionSet([self.part_C], encoding=self.encoding),
         }
-        state2 = PivotSplitRegistry(
+        state2 = PivotTransitionState(
             PartitionSet(
                 [self.part_A, self.part_B, self.part_C], encoding=self.encoding
             ),
@@ -341,7 +331,7 @@ class TestPrioritySystemRobustness(unittest.TestCase):
             ),  # Shared expand
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet([self.part_A, self.part_B], encoding=self.encoding),
             PartitionSet([self.part_AB], encoding=self.encoding),
             collapse_by_subtree,
@@ -393,7 +383,7 @@ class TestSplitLifecycleTracking(unittest.TestCase):
             self.part_A: PartitionSet([self.part_C], encoding=self.encoding),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet([self.part_A, self.part_AB], encoding=self.encoding),
             PartitionSet([self.part_C], encoding=self.encoding),
             collapse_by_subtree,
@@ -431,7 +421,7 @@ class TestSplitLifecycleTracking(unittest.TestCase):
             ),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet(
                 [shared_split, self.part_A, self.part_B], encoding=self.encoding
             ),
@@ -505,7 +495,7 @@ class TestBuilderIncompatibilityHandling(unittest.TestCase):
             self.part_A: PartitionSet([self.part_AC], encoding=self.encoding),
         }
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             expand_by_subtree,
             collapse_by_subtree,
             self.tree_AB,
@@ -515,7 +505,7 @@ class TestBuilderIncompatibilityHandling(unittest.TestCase):
 
         # Plan should include part_AB in collapse path (original + incompatible)
         self.assertIn(self.part_A, plan)
-        collapse_path = plan[self.part_A]["collapse"]["path_segment"]
+        collapse_path = plan[self.part_A].collapse_path
 
         # part_AB must be in collapse (it's incompatible with part_AC)
         self.assertIn(self.part_AB, collapse_path)
@@ -534,7 +524,7 @@ class TestBuilderIncompatibilityHandling(unittest.TestCase):
             self.part_B: PartitionSet([self.part_B], encoding=self.encoding),
         }
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             expand_by_subtree,
             collapse_by_subtree,
             self.tree_AB,
@@ -547,7 +537,7 @@ class TestBuilderIncompatibilityHandling(unittest.TestCase):
 
         # part_AB should appear in only one plan (the one that processed it)
         ab_count = sum(
-            1 for p in plan.values() if self.part_AB in p["collapse"]["path_segment"]
+            1 for p in plan.values() if self.part_AB in p.collapse_path
         )
         self.assertLessEqual(ab_count, 1, "Incompatible split processed once")
 
@@ -576,7 +566,7 @@ class TestPathOrdering(unittest.TestCase):
 
         # Patch get_unique_splits to return all splits regardless of tree identity
         self.patcher = patch(
-            "brancharchitect.tree_interpolation.subtree_paths.planning.pivot_split_registry.get_unique_splits_for_current_pivot_edge_subtree"
+            "brancharchitect.tree_interpolation.subtree_paths.planning.transition_plan.edge_plan_builder.get_unique_splits_for_current_pivot_edge_subtree"
         )
         self.mock_get_splits = self.patcher.start()
         # Set default to empty sets to prevent unpacking error if test setup fails
@@ -606,7 +596,7 @@ class TestPathOrdering(unittest.TestCase):
             PartitionSet(all_expand, encoding=self.encoding),
         )
 
-        plan = build_edge_plan(
+        plan = build_pivot_transition_plan(
             expand_by_subtree,
             collapse_by_subtree,
             self.tree,
@@ -614,7 +604,7 @@ class TestPathOrdering(unittest.TestCase):
             self.part_ABCD,
         )
 
-        collapse_path = plan[self.part_A]["collapse"]["path_segment"]
+        collapse_path = plan[self.part_A].collapse_path
 
         # Check sizes are ASCENDING (Smallest First/Leaves Inward)
         sizes = [len(p.indices) for p in collapse_path]
@@ -648,7 +638,7 @@ class TestPathOrdering(unittest.TestCase):
         self.mock_get_splits.side_effect = get_splits
 
         # Run twice
-        plan1 = build_edge_plan(
+        plan1 = build_pivot_transition_plan(
             {self.part_A: PartitionSet([self.part_A], encoding=self.encoding)},
             {
                 self.part_A: PartitionSet(
@@ -660,7 +650,7 @@ class TestPathOrdering(unittest.TestCase):
             self.part_ABCD,
         )
 
-        plan2 = build_edge_plan(
+        plan2 = build_pivot_transition_plan(
             {self.part_A: PartitionSet([self.part_A], encoding=self.encoding)},
             {
                 self.part_A: PartitionSet(
@@ -674,8 +664,8 @@ class TestPathOrdering(unittest.TestCase):
 
         # Paths should be identical
         self.assertEqual(
-            plan1[self.part_A]["collapse"]["path_segment"],
-            plan2[self.part_A]["collapse"]["path_segment"],
+            plan1[self.part_A].collapse_path,
+            plan2[self.part_A].collapse_path,
         )
 
 
@@ -697,12 +687,12 @@ class TestErrorConditionsAndEdgeCases(unittest.TestCase):
         taxa_order = ["A", "B"]
         self.tree = parse_newick("(A,B);", order=taxa_order, encoding=self.encoding)
 
-    def test_build_edge_plan_with_invalid_pivot_edge_raises_error(self):
+    def test_build_pivot_transition_plan_with_invalid_pivot_edge_raises_error(self):
         """Pivot edge not in tree should raise ValueError."""
         fake_pivot = Partition((5, 6), {"X": 5, "Y": 6})
 
         with self.assertRaises(ValueError) as context:
-            build_edge_plan(
+            build_pivot_transition_plan(
                 {},
                 {},
                 self.tree,
@@ -719,7 +709,7 @@ class TestErrorConditionsAndEdgeCases(unittest.TestCase):
 
     def test_empty_state_has_no_remaining_work(self):
         """State with no subtrees returns False for has_remaining_work."""
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet(encoding=self.encoding),
             PartitionSet(encoding=self.encoding),
             {},
@@ -734,7 +724,7 @@ class TestErrorConditionsAndEdgeCases(unittest.TestCase):
         """All splits remain when none have been used."""
         all_expand = PartitionSet([self.part_A, self.part_AB], encoding=self.encoding)
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet(encoding=self.encoding),
             all_expand,
             {},
@@ -751,7 +741,7 @@ class TestErrorConditionsAndEdgeCases(unittest.TestCase):
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet([self.part_A], encoding=self.encoding),
             PartitionSet(encoding=self.encoding),
             collapse_by_subtree,
@@ -775,7 +765,7 @@ class TestErrorConditionsAndEdgeCases(unittest.TestCase):
             self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
         }
 
-        state = PivotSplitRegistry(
+        state = PivotTransitionState(
             PartitionSet(encoding=self.encoding),
             all_expand,
             {},
