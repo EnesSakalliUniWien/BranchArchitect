@@ -17,6 +17,7 @@ from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.utils import iter_consecutive_pairs
 from brancharchitect.tree_interpolation.types import (
     AttachmentEdgeMap,
+    SprMoveEvent,
     TreeInterpolationSequence,
     TreePairInterpolation,
     build_attachment_edge_map,
@@ -53,7 +54,7 @@ class SequentialInterpolationBuilder:
     def __init__(
         self,
         logger: Optional[logging.Logger] = None,
-        precomputed_pair_solutions: Optional[
+        precomputed_lattice_solutions: Optional[
             List[Optional[Dict[Partition, List[Partition]]]]
         ] = None,
     ):
@@ -63,13 +64,13 @@ class SequentialInterpolationBuilder:
         Args:
             logger: Logger instance for operation tracking.
                 If None, uses the module's default logger.
-            precomputed_pair_solutions: Pre-calculated lattice solutions for each pair.
+            precomputed_lattice_solutions: Pre-calculated lattice solutions for each pair.
                 Can significantly speed up processing when available.
         """
         # Configure logging with fallback to module logger
         self.logger = logger or logging.getLogger(__name__)
 
-        self.precomputed_pair_solutions = precomputed_pair_solutions
+        self.precomputed_lattice_solutions = precomputed_lattice_solutions
         self._initialize_build_state()
 
     def _initialize_build_state(self) -> None:
@@ -116,21 +117,31 @@ class SequentialInterpolationBuilder:
         ):
             raise RuntimeError("Interpolation result arrays are not aligned")
 
-        # Collect results into stateful attributes
-        self.interpolated_trees.extend(interpolation_result.trees)
+        landing_tree = (
+            interpolation_result.trees[-1] if interpolation_result.trees else None
+        )
+        emitted_trees = interpolation_result.trees[:-1]
+        emitted_pivot_tracking = interpolation_result.current_pivot_edge_tracking[:-1]
+        emitted_subtree_highlights = interpolation_result.current_subtree_highlights[
+            :-1
+        ]
+        emitted_step_count = len(emitted_trees)
 
-        interpolated_tree_count = len(interpolation_result.trees)
+        # Collect transition frames only. The exact landing tree is represented
+        # by the next input delimiter, not as an active interpolation frame.
+        self.interpolated_trees.extend(emitted_trees)
 
         # Trees and tracking should have 1:1 correspondence from interpolation
-        self.current_pivot_edge_tracking.extend(
-            interpolation_result.current_pivot_edge_tracking
+        self.current_pivot_edge_tracking.extend(emitted_pivot_tracking)
+        self.current_subtree_highlights.extend(emitted_subtree_highlights)
+        self.spr_move_events.append(
+            _clip_spr_move_events(
+                interpolation_result.spr_move_events,
+                emitted_step_count - 1,
+            )
         )
-        self.current_subtree_highlights.extend(
-            interpolation_result.current_subtree_highlights
-        )
-        self.spr_move_events.append(interpolation_result.spr_move_events)
 
-        self.pair_tree_counts.append(interpolated_tree_count)
+        self.pair_tree_counts.append(emitted_step_count)
 
         self.affected_subtrees_by_split.append(
             interpolation_result.jumping_subtree_solutions or {}
@@ -150,8 +161,8 @@ class SequentialInterpolationBuilder:
             self.attachment_edge_maps.append({})
 
         # Return the final resolved tree from this interpolation
-        if len(interpolation_result.trees) > 0:
-            return interpolation_result.trees[-1]
+        if landing_tree is not None:
+            return landing_tree
 
         # For identical trees (no interpolation), return the destination tree
         # aligned to the current source order. Child order is visual layout, not
@@ -217,8 +228,8 @@ class SequentialInterpolationBuilder:
                 )
 
             precomputed_solution = (
-                self.precomputed_pair_solutions[pair_index]
-                if self.precomputed_pair_solutions is not None
+                self.precomputed_lattice_solutions[pair_index]
+                if self.precomputed_lattice_solutions is not None
                 else None
             )
             source_tree = source if is_first else self.interpolated_trees[-1]
@@ -243,3 +254,25 @@ class SequentialInterpolationBuilder:
         self._add_delimiter_frame(final_resolved_tree)
 
         return self._finalize_sequence(len(trees))
+
+
+def _clip_spr_move_events(
+    events: List[SprMoveEvent],
+    max_step_index: int,
+) -> List[SprMoveEvent]:
+    """Keep SPR event ranges aligned with emitted transition frames."""
+    if max_step_index < 0:
+        return []
+
+    clipped: List[SprMoveEvent] = []
+    for event in events:
+        step_start, step_end = event["step_range"]
+        if step_start > max_step_index:
+            continue
+        clipped.append(
+            {
+                **event,
+                "step_range": (step_start, min(step_end, max_step_index)),
+            }
+        )
+    return clipped

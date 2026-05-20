@@ -32,7 +32,7 @@ def get_unique_splits_for_current_pivot_edge_subtree(
         )
         original_expand_splits: PartitionSet[Partition] = to_be_created_node.to_splits()
 
-        # The interpolation executor operates on rooted clades, not unrooted
+        # The interpolation executor operates on rooted subtrees, not unrooted
         # bipartition equivalence classes. A split and its complement may
         # describe the same unrooted edge, but they are different nodes in the
         # rooted topology and must be collapsed/expanded explicitly.

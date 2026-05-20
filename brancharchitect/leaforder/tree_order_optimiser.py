@@ -32,7 +32,7 @@ class TreeOrderOptimizer:
         precomputed_active_changing_splits: Optional[
             List[Optional[PartitionSet[Partition]]]
         ] = None,
-        precomputed_pair_solutions: Optional[
+        precomputed_lattice_solutions: Optional[
             List[Optional[Dict[Partition, List[Partition]]]]
         ] = None,
     ):
@@ -46,7 +46,7 @@ class TreeOrderOptimizer:
         self.precomputed_active_changing_splits = (
             precomputed_active_changing_splits or []
         )
-        self.precomputed_pair_solutions = precomputed_pair_solutions or []
+        self.precomputed_lattice_solutions = precomputed_lattice_solutions or []
         self.split_rotation_history: Dict[Tuple[int, int], Dict[str, Any]] = {}
         self._history_counter = 0
         self.logger = logging.getLogger(__name__)
@@ -227,10 +227,10 @@ class TreeOrderOptimizer:
 
             # Retrieve precomputed solution if available
             precomputed_solution = None
-            if self.precomputed_pair_solutions and i < len(
-                self.precomputed_pair_solutions
+            if self.precomputed_lattice_solutions and i < len(
+                self.precomputed_lattice_solutions
             ):
-                precomputed_solution = self.precomputed_pair_solutions[i]
+                precomputed_solution = self.precomputed_lattice_solutions[i]
 
             # Pre-compute common splits to avoid redundant calculations in derive_order and propagation
             common_splits: PartitionSet[Partition] = get_common_splits(

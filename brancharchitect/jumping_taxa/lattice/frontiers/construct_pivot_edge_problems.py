@@ -33,7 +33,7 @@ two phylogenetic trees via split/frontier/partition analysis.
 Naming conventions:
   - pivot_split:         focal shared split being analyzed
   - across_trees:        intersection between T₁ and T₂
-  - under_pivot:         restricted to clade defined by pivot_split
+  - under_pivot:         restricted to the subtree defined by pivot_split
   - child_subtree:       computed from child nodes' subtrees
   - unique_subtree:      splits unique to one tree
   - child_frontiers:     per-child frontier structures

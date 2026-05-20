@@ -243,7 +243,7 @@ class TestEdgeOrderingWithRealData:
     def test_ordering_with_bootstrap_trees(self, tmp_path):
         """Test edge ordering with actual bootstrap tree data if available."""
         try:
-            trees = read_newick("current_testfiles/small_example.newick")
+            trees = read_newick("test/data/current_testfiles/small_example.newick")
         except FileNotFoundError:
             pytest.skip("Real test data not available")
 

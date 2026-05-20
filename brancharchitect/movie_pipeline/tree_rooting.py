@@ -7,8 +7,8 @@ to ensure consistent orientation for interpolation and visualization.
 
 from typing import List
 import io
+from Bio.Phylo.NewickIO import Parser, write
 from brancharchitect.tree import Node
-from skbio import TreeNode as SkbioTreeNode  # type: ignore[import-untyped]
 from brancharchitect.parser.newick_parser import parse_newick
 
 
@@ -20,9 +20,9 @@ def root_trees(trees: List[Node]) -> List[Node]:
     between any two leaves, providing a consistent tree orientation that
     improves interpolation quality and visualization.
 
-    This implementation uses scikit-bio for the rooting calculation.
+    This implementation uses Biopython for the rooting calculation.
     It converts each tree to the Newick format, reads it into a
-    scikit-bio TreeNode, performs the rooting, and then converts it
+    Biopython tree, performs the rooting, and then converts it
     back to a brancharchitect Node object.
 
     Args:
@@ -40,22 +40,16 @@ def root_trees(trees: List[Node]) -> List[Node]:
         # 1. Convert brancharchitect.tree.Node to Newick string
         newick_string = tree.to_newick()
 
-        # 2. Create a skbio.TreeNode from the Newick string
-        # Use a file-like wrapper for efficiency and clarity
-        # cSpell:ignore Skbio
-        skbio_tree: SkbioTreeNode = SkbioTreeNode.read(  # type: ignore[assignment]
-            io.StringIO(newick_string),
-            format="newick",
-        )
+        # 2. Create a Biopython tree from the Newick string
+        bio_tree = next(Parser.from_string(newick_string).parse())
 
-        # 3. Root the skbio.TreeNode at the midpoint
-        # Explicitly specify parameters for scikit-bio 0.7.0+ compatibility
-        rooted_skbio_tree: SkbioTreeNode = skbio_tree.root_at_midpoint(  # type: ignore[assignment]
-            reset=True, branch_attrs=[], root_name=""
-        )
+        # 3. Root the tree at the midpoint
+        bio_tree.root_at_midpoint()
 
-        # 4. Convert the rooted skbio.TreeNode back to a Newick string
-        rooted_newick_string = str(rooted_skbio_tree)
+        # 4. Convert the rooted tree back to a Newick string
+        output = io.StringIO()
+        write([bio_tree], output)
+        rooted_newick_string = output.getvalue().strip()
 
         rooted_newick_strings.append(rooted_newick_string)
 

@@ -25,10 +25,10 @@ from brancharchitect.tree_interpolation.topology_ops import expand
 # Simple trees with known structure for testing
 # Trees need nodes with 3+ children to test split application
 SIMPLE_TREES = [
-    # 4 taxa - star topology (root has 4 children)
-    "(A,B,C,D);",
-    # 5 taxa - star topology
-    "(A,B,C,D,E);",
+    # 4 taxa - one internal split and a root polytomy
+    "((A,B),C,D);",
+    # 5 taxa - one internal split and a root polytomy
+    "((A,B),C,D,E);",
     # 6 taxa - partial star (root has 3 children)
     "((A,B),C,D,E,F);",
     # 6 taxa - mixed
@@ -178,7 +178,7 @@ class TestSplitApplicationCorrectness:
 
     def test_split_application_with_real_trees(self):
         """Test with realistic tree structures from small_example."""
-        newick = "((O1,O2),(((((A,A1),A2),(B,B1)),C),((D,(E,(((F,G),I),M))),H)));"
+        newick = "((O1,O2),((A,A1,A2),(B,B1),C),((D,E,F,G),(I,M),H));"
         taxa_order = [
             "O1",
             "O2",
@@ -199,8 +199,7 @@ class TestSplitApplicationCorrectness:
         tree = create_test_tree(newick, taxa_order)
 
         compatible_split = get_compatible_split_for_tree(tree)
-        if compatible_split is None:
-            pytest.skip("No compatible split found")
+        assert compatible_split is not None
 
         original_splits = tree.to_splits()
         assert compatible_split not in original_splits
@@ -251,13 +250,12 @@ class TestSplitApplicationIdempotence:
 
     def test_multiple_applications_are_idempotent(self):
         """Applying the same split multiple times is idempotent."""
-        newick = "(((A,B),C),(D,E));"
+        newick = "((A,B),C,D,E);"
         taxa_order = ["A", "B", "C", "D", "E"]
         tree = create_test_tree(newick, taxa_order)
 
         compatible_split = get_compatible_split_for_tree(tree)
-        if compatible_split is None:
-            pytest.skip("No compatible split found")
+        assert compatible_split is not None
 
         # Apply once
         apply_split_simple(compatible_split, tree)
@@ -295,8 +293,7 @@ class TestNoAutomaticConflictResolution:
         tree = create_test_tree(newick, taxa_order)
 
         incompatible_split = get_incompatible_split_for_tree(tree)
-        if incompatible_split is None:
-            pytest.skip("No incompatible split found for this tree")
+        assert incompatible_split is not None
 
         original_splits = set(tree.to_splits())
 

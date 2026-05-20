@@ -3,11 +3,8 @@ Simplified MSA utilities - only what's needed for tree processing.
 """
 
 import re
-from io import StringIO
 from logging import Logger
 from typing import Any, Dict, Optional
-
-import skbio
 
 
 def get_alignment_length(msa_content: str) -> Optional[int]:
@@ -70,13 +67,11 @@ class WindowParameters:
     def __init__(self, window_size: int, step_size: int):
         self.window_size = window_size
         self.step_size = step_size
-        self.is_overlapping = step_size < window_size
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "window_size": self.window_size,
             "step_size": self.step_size,
-            "is_overlapping": self.is_overlapping,
         }
 
 
@@ -110,12 +105,40 @@ def msa_to_dict(msa_content: str) -> Optional[Dict[str, str]]:
     Returns:
         Dictionary mapping sequence IDs to sequences, or None when parsing fails.
     """
-    try:
-        msa = skbio.io.read(StringIO(msa_content), format="fasta")  # type: ignore
-        parsed = {seq.metadata["id"]: str(seq) for seq in msa}  # type: ignore
-        return parsed or None
-    except Exception:
+    parsed: Dict[str, str] = {}
+    current_id: Optional[str] = None
+    current_seq: list[str] = []
+
+    for raw_line in msa_content.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        if line.startswith(">"):
+            if current_id is not None:
+                sequence = "".join(current_seq)
+                if not sequence:
+                    return None
+                parsed[current_id] = sequence
+
+            current_id = line[1:].strip().split()[0] if line[1:].strip() else ""
+            if not current_id:
+                return None
+            current_seq = []
+        elif current_id is None:
+            return None
+        else:
+            current_seq.append(line)
+
+    if current_id is not None:
+        sequence = "".join(current_seq)
+        if not sequence:
+            return None
+        parsed[current_id] = sequence
+
+    if not parsed:
         return None
+    return parsed
 
 
 def process_msa_data(
@@ -149,8 +172,6 @@ def process_msa_data(
         return {
             "inferred_window_size": window_size,
             "inferred_step_size": step_size,
-            "windows_are_overlapping": (step_size < window_size),
-            "alignment_length": None,
             "msa_dict": None,
         }
 
@@ -161,8 +182,6 @@ def process_msa_data(
         return {
             "inferred_window_size": window_size,
             "inferred_step_size": step_size,
-            "windows_are_overlapping": (step_size < window_size),
-            "alignment_length": None,
             "msa_dict": None,
         }
 
@@ -176,11 +195,9 @@ def process_msa_data(
             logger.info(f"Inferred window parameters: {window_params.to_dict()}")
         effective_window_size = window_params.window_size
         effective_step_size = window_params.step_size
-        overlapping = window_params.is_overlapping
     else:
         effective_window_size = window_size
         effective_step_size = step_size
-        overlapping = step_size < window_size
 
     msa_dict = msa_to_dict(msa_content)
     if msa_dict is None and logger:
@@ -189,7 +206,5 @@ def process_msa_data(
     return {
         "inferred_window_size": effective_window_size,
         "inferred_step_size": effective_step_size,
-        "windows_are_overlapping": overlapping,
-        "alignment_length": alignment_length,
         "msa_dict": msa_dict,
     }

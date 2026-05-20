@@ -12,8 +12,6 @@ from brancharchitect.movie_pipeline.types import (
     InterpolationResult,
     create_empty_result,
     create_single_tree_result,
-    DistanceMetrics,
-    TreeMetadata,
 )
 from brancharchitect.leaforder.tree_order_optimiser import TreeOrderOptimizer
 from brancharchitect.leaforder.split_analysis import clear_split_pair_cache
@@ -31,6 +29,7 @@ from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
 from brancharchitect.tree_interpolation.types import TreeInterpolationSequence
 from brancharchitect.tree import Node
 from brancharchitect.io import serialize_subtree_highlights
+from .temporal_contract import build_temporal_contract
 from .tree_rooting import root_trees
 
 
@@ -126,29 +125,32 @@ class TreeInterpolationPipeline:
             processed_trees = [processed_trees]
         if not processed_trees:
             return create_empty_result()
+        processed_trees = self._normalize_tree_shape(processed_trees)
         self._ensure_shared_taxa_encoding(processed_trees)
         self._check_for_identical_trees(processed_trees)
         if len(processed_trees) == 1:
             _report_progress(progress_callback, 10, "Rooting single tree...")
             processed_trees = self._apply_rooting_if_enabled(processed_trees)
+            processed_trees = self._normalize_tree_shape(processed_trees)
             return create_single_tree_result(processed_trees)
 
         _report_progress(progress_callback, 5, "Rooting trees...")
         processed_trees = self._apply_rooting_if_enabled(processed_trees)
+        processed_trees = self._normalize_tree_shape(processed_trees)
         self._ensure_shared_taxa_encoding(processed_trees)
         clear_split_pair_cache()
 
         _report_progress(progress_callback, 10, "Precomputing solutions...")
-        precomputed_pair_solutions = self._precompute_pair_solutions(processed_trees)
+        precomputed_lattice_solutions = self._precompute_lattice_solutions(processed_trees)
 
         _report_progress(progress_callback, 20, "Optimizing tree order...")
         t_opt_start = time.perf_counter()
         processed_trees = self._optimize_tree_order(
             processed_trees,
             precomputed_pair_pivot_split_sets=self._extract_current_pivot_split_sets(
-                precomputed_pair_solutions
+                precomputed_lattice_solutions
             ),
-            precomputed_pair_solutions=precomputed_pair_solutions,
+            precomputed_lattice_solutions=precomputed_lattice_solutions,
         )
         self.logger.info(
             f"Leaf order optimization took {time.perf_counter() - t_opt_start:.3f}s"
@@ -165,14 +167,17 @@ class TreeInterpolationPipeline:
 
         seq_result = self._interpolate_tree_sequence(
             processed_trees,
-            precomputed_pair_solutions=precomputed_pair_solutions,
+            precomputed_lattice_solutions=precomputed_lattice_solutions,
             progress_callback=interp_callback,
         )
 
         self.logger.info("Calculating distance metrics...")
         _report_progress(progress_callback, 80, "Calculating distance metrics...")
         t_dist_start = time.perf_counter()
-        distances = self._calculate_distances(processed_trees)
+        (
+            robinson_foulds_distances,
+            weighted_robinson_foulds_distances,
+        ) = self._calculate_pair_metric_values(processed_trees)
         self.logger.info(
             f"Distance metrics calculated in {time.perf_counter() - t_dist_start:.3f}s"
         )
@@ -184,12 +189,12 @@ class TreeInterpolationPipeline:
 
         return InterpolationResult(
             interpolated_trees=seq_result.interpolated_trees,
-            tree_metadata=seq_result.tree_metadata,
-            tree_pair_solutions=seq_result.tree_pair_solutions,
-            rfd_list=distances.rfd_list,
-            wrfd_list=distances.wrfd_list,
+            **build_temporal_contract(
+                seq_result,
+                robinson_foulds_distances,
+                weighted_robinson_foulds_distances,
+            ),
             processing_time=processing_time,
-            pair_interpolation_ranges=seq_result.pair_interpolation_ranges,
             subtree_highlight_tracking=serialize_subtree_highlights(
                 seq_result.current_subtree_highlights
             ),
@@ -218,6 +223,12 @@ class TreeInterpolationPipeline:
                     f"Aligning taxa encoding for tree {idx} to match first tree"
                 )
                 tree.initialize_split_indices(base_encoding)
+
+    def _normalize_tree_shape(self, trees: List[Node]) -> List[Node]:
+        """Remove topology-neutral unary internal nodes before interpolation."""
+        for tree in trees:
+            tree.collapse_unary_internal_nodes(preserve_lengths=True)
+        return trees
 
     def _check_for_identical_trees(self, trees: List[Node]) -> None:
         """
@@ -254,7 +265,7 @@ class TreeInterpolationPipeline:
     def _interpolate_tree_sequence(
         self,
         trees: List[Node],
-        precomputed_pair_solutions: Optional[
+        precomputed_lattice_solutions: Optional[
             List[Optional[Dict[Partition, List[Partition]]]]
         ] = None,
         progress_callback: Optional[Callable[[float, str], None]] = None,
@@ -264,23 +275,8 @@ class TreeInterpolationPipeline:
         """
         result: TreeInterpolationSequence = SequentialInterpolationBuilder(
             logger=self.logger,
-            precomputed_pair_solutions=precomputed_pair_solutions,
+            precomputed_lattice_solutions=precomputed_lattice_solutions,
         ).build(trees, progress_callback=progress_callback)
-
-        original_tree_global_indices = result.get_original_tree_indices()
-
-        pair_solutions, pair_ranges = result.build_pair_solutions(
-            original_tree_global_indices
-        )
-
-        tree_metadata = self._create_global_tree_metadata(
-            result.current_pivot_edge_tracking, original_tree_global_indices
-        )
-
-        # Attach derived fields directly to the sequence for downstream consumption
-        result.tree_pair_solutions = pair_solutions  # type: ignore[attr-defined]
-        result.pair_interpolation_ranges = pair_ranges  # type: ignore[attr-defined]
-        result.tree_metadata = tree_metadata  # type: ignore[attr-defined]
 
         return result
 
@@ -290,7 +286,7 @@ class TreeInterpolationPipeline:
         precomputed_pair_pivot_split_sets: Optional[
             List[Optional[PartitionSet[Partition]]]
         ] = None,
-        precomputed_pair_solutions: Optional[
+        precomputed_lattice_solutions: Optional[
             List[Optional[Dict[Partition, List[Partition]]]]
         ] = None,
     ) -> List[Node]:
@@ -303,7 +299,7 @@ class TreeInterpolationPipeline:
         optimizer = TreeOrderOptimizer(
             trees,
             precomputed_active_changing_splits=precomputed_pair_pivot_split_sets,
-            precomputed_pair_solutions=precomputed_pair_solutions,
+            precomputed_lattice_solutions=precomputed_lattice_solutions,
         )
 
         if self.config.use_anchor_ordering:
@@ -322,7 +318,7 @@ class TreeInterpolationPipeline:
 
         return trees
 
-    def _precompute_pair_solutions(
+    def _precompute_lattice_solutions(
         self, trees: List[Node]
     ) -> List[Optional[Dict[Partition, List[Partition]]]]:
         """
@@ -379,16 +375,16 @@ class TreeInterpolationPipeline:
 
     def _extract_current_pivot_split_sets(
         self,
-        precomputed_pair_solutions: List[Optional[Dict[Partition, List[Partition]]]],
+        precomputed_lattice_solutions: List[Optional[Dict[Partition, List[Partition]]]],
     ) -> List[Optional[PartitionSet[Partition]]]:
         """
         Extracts current pivot split sets from precomputed lattice solutions.
         """
-        if not precomputed_pair_solutions:
+        if not precomputed_lattice_solutions:
             return []
 
         split_sets: List[Optional[PartitionSet[Partition]]] = []
-        for solution in precomputed_pair_solutions:
+        for solution in precomputed_lattice_solutions:
             if solution is None:
                 split_sets.append(None)
             else:
@@ -400,74 +396,21 @@ class TreeInterpolationPipeline:
 
         return split_sets
 
-    def _calculate_distances(self, trees: List[Node]) -> DistanceMetrics:
+    def _calculate_pair_metric_values(self, trees: List[Node]) -> Tuple[List[float], List[float]]:
         """
         Calculates Robinson-Foulds distances between consecutive trees.
         """
         if len(trees) < 2:
-            return DistanceMetrics(rfd_list=[0.0], wrfd_list=[0.0])
+            return [], []
 
-        rfd_list: List[float] = calculate_along_trajectory(
+        robinson_foulds_distances: List[float] = calculate_along_trajectory(
             trees, relative_robinson_foulds_distance
         )
-        wrfd_list: List[float] = calculate_along_trajectory(
+        weighted_robinson_foulds_distances: List[float] = calculate_along_trajectory(
             trees, weighted_robinson_foulds_distance
         )
 
-        return DistanceMetrics(rfd_list=rfd_list, wrfd_list=wrfd_list)
-
-    def _create_global_tree_metadata(
-        self,
-        current_pivot_edge_tracking: List[Optional[Partition]],
-        original_tree_global_indices: List[int],
-    ) -> List[TreeMetadata]:
-        """
-        Generate global metadata for each tree in the sequence.
-        """
-        total = len(current_pivot_edge_tracking)
-        tree_metadata: List[TreeMetadata] = [
-            TreeMetadata(
-                tree_pair_key=None,
-                step_in_pair=None,
-                source_tree_global_index=None,
-                frame_type="interpolation_frame",
-                state_semantics="algorithmic_intermediate",
-                is_observed_input=False,
-            )
-            for _ in range(total)
-        ]
-
-        originals = sorted(original_tree_global_indices)
-        if not originals:
-            return tree_metadata
-
-        # Mark originals explicitly
-        for orig_idx in originals:
-            tree_metadata[orig_idx] = TreeMetadata(
-                tree_pair_key=None,
-                step_in_pair=None,
-                source_tree_global_index=None,
-                frame_type="input_tree",
-                state_semantics="processed_input_tree",
-                is_observed_input=True,
-            )
-
-        # Fill interpolated steps between each consecutive pair of originals
-        for pair_idx in range(len(originals) - 1):
-            start = originals[pair_idx]
-            end = originals[pair_idx + 1]
-            tree_pair_key = f"pair_{pair_idx}_{pair_idx + 1}"
-            for idx in range(start + 1, end):
-                tree_metadata[idx] = TreeMetadata(
-                    tree_pair_key=tree_pair_key,
-                    step_in_pair=idx - start,
-                    source_tree_global_index=start,
-                    frame_type="interpolation_frame",
-                    state_semantics="algorithmic_intermediate",
-                    is_observed_input=False,
-                )
-
-        return tree_metadata
+        return robinson_foulds_distances, weighted_robinson_foulds_distances
 
     def _apply_rooting_if_enabled(self, trees: List[Node]) -> List[Node]:
         """

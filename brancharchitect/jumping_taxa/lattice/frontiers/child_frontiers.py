@@ -2,9 +2,9 @@
 Compute child frontier structures for lattice construction.
 
 Mathematical context:
-- Frontier splits = maximal shared clades between two tree topologies
-- Bottom splits = unique clades from one tree's topology
-- Coverage = shared clade ⊆ unique clade (nested within)
+- Frontier splits = maximal shared subtrees between two tree topologies
+- Bottom splits = unique subtrees from one tree's topology
+- Coverage = shared subtree ⊆ unique subtree (nested within)
 - Self-covering = shared direct child not covered by unique splits
 """
 
@@ -29,7 +29,7 @@ def _add_bottom_to_frontiers_entry(
     """
     Add a bottom→frontiers mapping: b → {f ∈ frontiers | f ⊆ b}.
 
-    Links unique clade to all shared clades it contains for conflict matrix construction.
+    Links a unique subtree to all shared subtrees it contains for conflict matrix construction.
     """
     child_frontiers.setdefault(
         unique_maximal_split,
@@ -39,7 +39,7 @@ def _add_bottom_to_frontiers_entry(
         ),
     )
 
-    # Find which frontiers this bottom covers (shared clades nested within)
+    # Find which frontiers this bottom covers (shared subtrees nested within)
     covered_frontiers = all_frontier_splits.maximals_under(bottom_split)
 
     # Add the bottom→frontiers mapping
@@ -73,11 +73,12 @@ def compute_child_frontiers(
     Raises:
         ValueError: If a child split cannot be found under parent
     """
-    # Handle empty case: Create a ChildFrontiers entry for each shared split
+    # Handle empty case: Create ChildFrontiers entries for the maximal shared
+    # splits only, preserving the same frontier antichain invariant as below.
     if not children_to_process:
         child_frontiers: dict[Partition, ChildFrontiers] = {}
 
-        for partition in shared_splits:
+        for partition in shared_splits.maximal_elements():
             # Create singleton PartitionSet for this partition
             singleton_set: PartitionSet[Partition] = PartitionSet(
                 splits={partition},

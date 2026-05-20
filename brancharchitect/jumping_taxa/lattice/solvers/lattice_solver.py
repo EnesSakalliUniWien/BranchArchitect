@@ -1,4 +1,5 @@
 from __future__ import annotations
+from itertools import product
 from brancharchitect.tree import Node
 from typing import List, Dict, Set, Tuple
 
@@ -7,10 +8,14 @@ from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem import (
     PivotEdgeSubproblem,
 )
+from brancharchitect.jumping_taxa.lattice.types.child_frontiers import ChildFrontiers
 
 from brancharchitect.logger import jt_logger
 from brancharchitect.logger.formatting import format_partition_set
-from brancharchitect.jumping_taxa.lattice.types.registry import SolutionRegistry
+from brancharchitect.jumping_taxa.lattice.types.registry import (
+    SolutionRegistry,
+    compute_solution_rank_key,
+)
 
 # Import lattice modules
 from brancharchitect.jumping_taxa.lattice.frontiers.construct_pivot_edge_problems import (
@@ -19,6 +24,7 @@ from brancharchitect.jumping_taxa.lattice.frontiers.construct_pivot_edge_problem
 from brancharchitect.jumping_taxa.lattice.matrices import (
     build_conflict_matrix,
 )
+from brancharchitect.jumping_taxa.lattice.matrices.types import PMatrix
 
 # Sort pivot edges by depth-based hierarchy for optimal processing order
 from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
@@ -184,7 +190,10 @@ class LatticeSolver:
             jt_logger.info(f"Processing pivot: {current_pivot_edge.pivot_split}")
 
         current_pivot_edge.visits += 1
-        solutions = self._solve_pivot_edge(current_pivot_edge)
+        solutions = self._solve_pivot_edge(
+            current_pivot_edge,
+            include_top_containment=current_pivot_edge.visits == 1,
+        )
 
         self._handle_pivot_solutions(current_pivot_edge, solutions)
 
@@ -197,11 +206,14 @@ class LatticeSolver:
         Handle the solutions found for a pivot edge: register them under the
         current pivot split and map only after selection.
 
-        Note: We do NOT re-queue the pivot edge here. If there are secondary conflicts
-        (e.g. overlaps hidden by nesting), they will be caught in the next iteration
-        of solve_iteratively() after the current solutions are applied and trees are pruned.
+        Candidate solution sets from one solve pass are alternatives for the
+        next accepted move. Rank each move by its completed residual sequence,
+        remove only the selected move from the mutable covers, and re-queue the
+        pivot if residual conflicts remain.
         """
-        if not solutions:
+        valid_solutions = self._valid_solution_candidates(current_pivot_edge, solutions)
+
+        if not valid_solutions:
             self.registry.add_no_solution(
                 current_pivot_edge.pivot_split,
                 category="solution",
@@ -209,35 +221,245 @@ class LatticeSolver:
             )
             return
 
-        # 2. Process found solutions
+        # 2. Process found candidate solutions
         if not jt_logger.disabled:
             jt_logger.info(
-                f"Found {len(solutions)} solutions for Pivot Split {current_pivot_edge.pivot_split}:"
+                f"Found {len(valid_solutions)} solutions for Pivot Split {current_pivot_edge.pivot_split}:"
             )
             jt_logger.info(
                 "These solutions represent potential jumping taxa sets for this subproblem."
             )
-            for i, sol in enumerate(solutions):
+            for i, sol in enumerate(valid_solutions):
                 jt_logger.info(f"  Solution {i + 1}: {format_partition_set(sol)}")
 
-        for solution in solutions:
-            # CRITICAL: Snapshot the solution before adding to registry.
-            # remove_solutions_from_covers() will likely be called on the *original* objects.
-            # While PartitionSet internal storage (bitmasks) is usually robust,
-            # explicit snapshotting protects against any mutable aliasing bugs.
-            solution_snapshot = solution.copy()
+        accepted_solution = self._best_completion_sequence_for_pivot(
+            current_pivot_edge, valid_solutions
+        )[0]
+        # CRITICAL: Snapshot the solution before adding to registry.
+        # remove_solutions_from_covers() mutates frontier structures after this.
+        solution_snapshot = accepted_solution.copy()
 
-            self.registry.add_solutions(
-                current_pivot_edge.pivot_split,
-                [solution_snapshot],
-                category="solution",
-                visit=current_pivot_edge.visits,
-            )
+        self.registry.add_solutions(
+            current_pivot_edge.pivot_split,
+            [solution_snapshot],
+            category="solution",
+            visit=current_pivot_edge.visits,
+        )
 
-        # Remove solved partitions from covers and re-queue if conflicts remain.
-        current_pivot_edge.remove_solutions_from_covers(solutions)
+        # Remove the accepted solution from covers and re-queue if conflicts remain.
+        current_pivot_edge.remove_solutions_from_covers([accepted_solution])
         if current_pivot_edge.has_remaining_conflicts():
             self.processing_stack.append(current_pivot_edge)
+
+    def _best_completion_sequence_for_pivot(
+        self,
+        pivot_edge: PivotEdgeSubproblem,
+        solutions: List[PartitionSet[Partition]],
+        seen_states: frozenset[tuple] | None = None,
+        residual_solution_cache: (
+            dict[tuple, List[PartitionSet[Partition]]] | None
+        ) = None,
+    ) -> List[PartitionSet[Partition]]:
+        """Return the best candidate sequence after recursively solving residuals."""
+        if seen_states is None:
+            seen_states = frozenset()
+        if residual_solution_cache is None:
+            residual_solution_cache = {}
+
+        ranked_sequences: list[tuple[tuple, list[PartitionSet[Partition]]]] = []
+        valid_solutions = self._valid_solution_candidates(pivot_edge, solutions)
+
+        for solution in sorted(valid_solutions, key=compute_solution_rank_key):
+            branch = self._clone_pivot_edge_subproblem(pivot_edge)
+            before_state = self._pivot_frontier_state_key(branch)
+            branch.remove_solutions_from_covers([solution])
+            after_state = self._pivot_frontier_state_key(branch)
+
+            sequence = [solution.copy()]
+            complete = not branch.has_remaining_conflicts()
+
+            if (
+                not complete
+                and after_state != before_state
+                and after_state not in seen_states
+            ):
+                if after_state not in residual_solution_cache:
+                    residual_solution_cache[after_state] = self._solve_pivot_edge(
+                        branch,
+                        include_top_containment=False,
+                    )
+                residual_solutions = residual_solution_cache[after_state]
+                if residual_solutions:
+                    sequence.extend(
+                        self._best_completion_sequence_for_pivot(
+                            branch,
+                            residual_solutions,
+                            seen_states | {after_state},
+                            residual_solution_cache,
+                        )
+                    )
+                    completion_probe = self._clone_pivot_edge_subproblem(branch)
+                    completion_probe.remove_solutions_from_covers(sequence[1:])
+                    complete = not completion_probe.has_remaining_conflicts()
+
+            ranked_sequences.append(
+                (
+                    self._solution_sequence_rank_key(
+                        sequence, pivot_edge.pivot_split.encoding, complete
+                    ),
+                    sequence,
+                )
+            )
+
+        if not ranked_sequences:
+            return []
+
+        return min(ranked_sequences, key=lambda item: item[0])[1]
+
+    def _valid_solution_candidates(
+        self,
+        pivot_edge: PivotEdgeSubproblem,
+        solutions: List[PartitionSet[Partition]],
+    ) -> List[PartitionSet[Partition]]:
+        return [
+            solution
+            for solution in solutions
+            if self._is_valid_solution_candidate(pivot_edge, solution)
+        ]
+
+    def _is_valid_solution_candidate(
+        self,
+        pivot_edge: PivotEdgeSubproblem,
+        solution: PartitionSet[Partition],
+    ) -> bool:
+        if pivot_edge.pivot_split in solution:
+            return False
+
+        trees = (getattr(self, "current_t1", None), getattr(self, "current_t2", None))
+        if any(tree is None for tree in trees):
+            return True
+
+        excluded_mask = 0
+        for partition in pivot_edge.excluded_partitions:
+            excluded_mask |= partition.bitmask
+
+        solution_mask = 0
+        for partition in solution:
+            solution_mask |= partition.bitmask
+            for tree in trees:
+                node = tree.find_node_by_split(partition)
+                if node is None or node.parent is None:
+                    return False
+
+        selected_mask = excluded_mask | solution_mask
+        for tree in trees:
+            root_mask = tree.split_indices.bitmask
+            if root_mask and (root_mask & ~selected_mask) == 0:
+                return False
+
+        return True
+
+    @staticmethod
+    def _solution_sequence_rank_key(
+        sequence: List[PartitionSet[Partition]],
+        encoding: dict[str, int],
+        complete: bool,
+    ) -> tuple:
+        combined = PartitionSet(encoding=encoding)
+        for solution in sequence:
+            combined.update(solution)
+
+        sequence_key = tuple(
+            tuple(sorted(partition.bitmask for partition in solution))
+            for solution in sequence
+        )
+        num_partitions, total_taxa, sizes, bitmasks = compute_solution_rank_key(
+            combined
+        )
+        return (
+            0 if complete else 1,
+            num_partitions,
+            total_taxa,
+            sizes,
+            -len(sequence),
+            bitmasks,
+            sequence_key,
+        )
+
+    @staticmethod
+    def _clone_pivot_edge_subproblem(
+        pivot_edge: PivotEdgeSubproblem,
+    ) -> PivotEdgeSubproblem:
+        clone = PivotEdgeSubproblem(
+            pivot_split=pivot_edge.pivot_split,
+            tree1_node=pivot_edge.tree1_node,
+            tree2_node=pivot_edge.tree2_node,
+            tree1_child_frontiers=LatticeSolver._copy_child_frontiers(
+                pivot_edge.tree1_child_frontiers
+            ),
+            tree2_child_frontiers=LatticeSolver._copy_child_frontiers(
+                pivot_edge.tree2_child_frontiers
+            ),
+            child_subtree_splits_across_trees=(
+                pivot_edge.child_subtree_splits_across_trees.copy()
+            ),
+            encoding=pivot_edge.encoding,
+            excluded_partitions=pivot_edge.excluded_partitions.copy(),
+        )
+        clone.visits = pivot_edge.visits
+        return clone
+
+    @staticmethod
+    def _copy_child_frontiers(
+        child_frontiers_by_split: Dict[Partition, ChildFrontiers],
+    ) -> Dict[Partition, ChildFrontiers]:
+        return {
+            split: ChildFrontiers(
+                shared_top_splits=child_frontiers.shared_top_splits.copy(),
+                bottom_partition_map={
+                    bottom: frontiers.copy()
+                    for bottom, frontiers in child_frontiers.bottom_partition_map.items()
+                },
+            )
+            for split, child_frontiers in child_frontiers_by_split.items()
+        }
+
+    @staticmethod
+    def _pivot_frontier_state_key(pivot_edge: PivotEdgeSubproblem) -> tuple:
+        entries = []
+        for side_name, child_frontiers_by_split in (
+            ("tree1", pivot_edge.tree1_child_frontiers),
+            ("tree2", pivot_edge.tree2_child_frontiers),
+        ):
+            for split, child_frontiers in sorted(
+                child_frontiers_by_split.items(), key=lambda item: item[0].bitmask
+            ):
+                entries.append(
+                    (
+                        side_name,
+                        split.bitmask,
+                        "top",
+                        tuple(
+                            sorted(
+                                partition.bitmask
+                                for partition in child_frontiers.shared_top_splits
+                            )
+                        ),
+                    )
+                )
+                for bottom, frontiers in sorted(
+                    child_frontiers.bottom_partition_map.items(),
+                    key=lambda item: item[0].bitmask,
+                ):
+                    entries.append(
+                        (
+                            side_name,
+                            split.bitmask,
+                            bottom.bitmask,
+                            tuple(sorted(partition.bitmask for partition in frontiers)),
+                        )
+                    )
+        return tuple(entries)
 
     def _map_selected_pivots(
         self,
@@ -262,15 +484,27 @@ class LatticeSolver:
         return mapped
 
     def _solve_pivot_edge(
-        self, pivot_edge: PivotEdgeSubproblem
+        self,
+        pivot_edge: PivotEdgeSubproblem,
+        include_top_containment: bool = True,
     ) -> List[PartitionSet[Partition]]:
         """
         Builds conflict matrix and solves for the given pivot edge.
         """
         # 1. Build conflict matrix
-        candidate_matrix = build_conflict_matrix(pivot_edge)
+        candidate_matrix = build_conflict_matrix(
+            pivot_edge,
+            include_top_containment=include_top_containment,
+        )
         if not candidate_matrix:
             return []
+
+        direct_alternatives = self._direct_self_meet_alternatives(candidate_matrix)
+        if direct_alternatives is not None:
+            return direct_alternatives
+
+        if self._has_direct_self_meet_rows(candidate_matrix):
+            return self._solve_mixed_direct_candidate_matrix(candidate_matrix)
 
         # 2. Decompose matrix into independent sub-problems
         sub_matrices = split_matrix(candidate_matrix)
@@ -286,6 +520,130 @@ class LatticeSolver:
 
         return union_split_matrix_results(sub_matrices)
 
+    @staticmethod
+    def _has_direct_self_meet_rows(matrix: PMatrix) -> bool:
+        return any(LatticeSolver._is_direct_self_meet_row(row) for row in matrix)
+
+    @staticmethod
+    def _is_direct_self_meet_row(row: list[PartitionSet[Partition]]) -> bool:
+        return len(row) == 2 and row[0] == row[1]
+
+    def _solve_mixed_direct_candidate_matrix(
+        self,
+        matrix: PMatrix,
+    ) -> List[PartitionSet[Partition]]:
+        """
+        Solve a matrix that mixes overlap rows with direct witness rows.
+
+        Direct rows [S, S] are candidate witnesses, not extra columns in the
+        meet-product matrix. Solving them as ordinary rows can accidentally turn
+        one overlap row plus one direct row into a 2x2 square and lose the
+        overlap row's own meet witness.
+        """
+        component_candidates: list[list[PartitionSet[Partition]]] = []
+
+        for component in split_matrix(matrix):
+            candidates = self._mixed_component_candidates(component)
+            if not candidates:
+                return []
+            component_candidates.append(candidates)
+
+        if len(component_candidates) == 1:
+            return component_candidates[0]
+
+        return self._cartesian_component_candidates(component_candidates)
+
+    def _mixed_component_candidates(
+        self,
+        matrix: PMatrix,
+    ) -> List[PartitionSet[Partition]]:
+        direct_candidates: list[PartitionSet[Partition]] = []
+        meet_rows: PMatrix = []
+
+        for row in matrix:
+            if self._is_direct_self_meet_row(row):
+                candidate = row[0].maximal_elements()
+                if candidate:
+                    direct_candidates.append(candidate)
+            else:
+                meet_rows.append(row)
+
+        meet_candidates = generalized_meet_product(meet_rows) if meet_rows else []
+        return self._deduplicate_solution_candidates(
+            meet_candidates + direct_candidates
+        )
+
+    @staticmethod
+    def _cartesian_component_candidates(
+        component_candidates: list[list[PartitionSet[Partition]]],
+    ) -> List[PartitionSet[Partition]]:
+        final_solutions: list[PartitionSet[Partition]] = []
+        seen: set[tuple[int, ...]] = set()
+
+        for combination in product(*component_candidates):
+            all_partitions: set[Partition] = set()
+            for solution in combination:
+                all_partitions.update(solution)
+
+            if not all_partitions:
+                continue
+
+            encoding = next(iter(all_partitions)).encoding
+            combined = PartitionSet(all_partitions, encoding=encoding)
+            key = tuple(sorted(partition.bitmask for partition in combined))
+            if key in seen:
+                continue
+            seen.add(key)
+            final_solutions.append(combined)
+
+        return sorted(final_solutions, key=compute_solution_rank_key)
+
+    @staticmethod
+    def _deduplicate_solution_candidates(
+        solutions: list[PartitionSet[Partition]],
+    ) -> List[PartitionSet[Partition]]:
+        deduplicated: list[PartitionSet[Partition]] = []
+        seen: set[tuple[int, ...]] = set()
+
+        for solution in sorted(solutions, key=compute_solution_rank_key):
+            key = tuple(sorted(partition.bitmask for partition in solution))
+            if key in seen:
+                continue
+            seen.add(key)
+            deduplicated.append(solution)
+
+        return deduplicated
+
+    @staticmethod
+    def _direct_self_meet_alternatives(
+        matrix: PMatrix,
+    ) -> List[PartitionSet[Partition]] | None:
+        """
+        Return direct alternatives for matrices made only of self-meet rows.
+
+        Rows of the form [S, S] are already solved witnesses. When every row is
+        self-meet, the rows are alternatives, not independent constraints to
+        combine by Cartesian product.
+        """
+        alternatives: list[PartitionSet[Partition]] = []
+        seen: set[tuple[int, ...]] = set()
+
+        for row in matrix:
+            if len(row) != 2 or row[0] != row[1]:
+                return None
+
+            alternative = row[0].maximal_elements()
+            if not alternative:
+                continue
+
+            key = tuple(sorted(partition.bitmask for partition in alternative))
+            if key in seen:
+                continue
+            seen.add(key)
+            alternatives.append(alternative)
+
+        return sorted(alternatives, key=compute_solution_rank_key)
+
     def solve_iteratively(
         self,
         max_iters: int = 100,
@@ -294,7 +652,7 @@ class LatticeSolver:
         Iteratively apply the lattice algorithm to find jumping taxa solutions.
         Returns a tuple of:
           - Dict[Partition, List[Partition]] mapping each pivot edge to a flat list of
-            solution partitions (jumping taxa groups) selected by parsimony.
+            solution partitions selected by group-first ranking.
           - List[Set[int]] of taxa indices actually deleted in each iteration.
 
         Note: Only returns splits mapped to the original input trees to ensure

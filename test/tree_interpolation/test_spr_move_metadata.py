@@ -16,10 +16,13 @@ from brancharchitect.tree_interpolation.subtree_paths.execution.pivot.pivot_edge
 from brancharchitect.tree_interpolation.sequential_interpolation import (
     SequentialInterpolationBuilder,
 )
-from brancharchitect.tree_interpolation.subtree_paths.planning import PivotTransitionStep
+from brancharchitect.tree_interpolation.subtree_paths.planning import (
+    PivotTransitionStep,
+)
+from brancharchitect.tree_interpolation.types import TreeInterpolationSequence
 
 
-def _load_frontend_builder_serializer():
+def _load_frontend_builder_module():
     module_path = (
         Path(__file__).resolve().parents[2]
         / "webapp"
@@ -101,7 +104,7 @@ def _load_frontend_builder_serializer():
         assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        return module._serialize_tree_pair_solutions
+        return module
     finally:
         for name, original in original_modules.items():
             if original is None:
@@ -110,7 +113,7 @@ def _load_frontend_builder_serializer():
                 sys.modules[name] = original
 
 
-def test_tree_pair_solution_records_spr_hops_and_branch_lengths():
+def test_sequence_records_spr_hops_and_branch_lengths():
     encoding = {"A": 0, "B": 1, "C": 2, "D": 3}
     taxa_order = ["A", "B", "C", "D"]
     source = parse_newick(
@@ -125,12 +128,7 @@ def test_tree_pair_solution_records_spr_hops_and_branch_lengths():
     )
 
     sequence = SequentialInterpolationBuilder().build([source, destination])
-    pair_solutions, _ = sequence.build_pair_solutions(
-        sequence.get_original_tree_indices()
-    )
-    pair_solution = pair_solutions["pair_0_1"]
-
-    spr_move_events = pair_solution["spr_move_events"]
+    spr_move_events = sequence.spr_move_events_list[0]
 
     assert spr_move_events
     event = spr_move_events[0]
@@ -155,7 +153,10 @@ def test_tree_pair_solution_records_spr_hops_and_branch_lengths():
 
 
 def test_frontend_serializes_spr_move_events():
-    _serialize_tree_pair_solutions = _load_frontend_builder_serializer()
+    frontend_builder = _load_frontend_builder_module()
+    from brancharchitect.movie_pipeline.temporal_contract import (
+        _build_temporal_event_rows,
+    )
 
     encoding = {"A": 0, "B": 1, "C": 2}
     pivot = Partition((0, 1, 2), encoding)
@@ -164,48 +165,79 @@ def test_frontend_serializes_spr_move_events():
     collapse_split = Partition((0, 1), encoding)
     expand_split = Partition((1, 2), encoding)
 
-    serialized = _serialize_tree_pair_solutions(
+    pairs = [
         {
-            "pair_0_1": {
+            "pair_id": "pair_0_1",
+            "pair_ordinal": 0,
+            "source_input_tree_index": 0,
+            "target_input_tree_index": 1,
+            "source_frame_index": 0,
+            "target_frame_index": 2,
+            "generated_frame_range": [1, 1],
+            "solution": {
                 "affected_subtrees_by_split": {},
                 "attachment_edges_by_split": {},
-                "spr_move_events": [
-                    {
-                        "pivot_edge": pivot,
-                        "driver_subtree": subtree,
-                        "highlight_group": [subtree, sibling],
-                        "step_range": (2, 5),
-                        "collapse_path": [
-                            {
-                                "split": collapse_split,
-                                "branch_length": 1.25,
-                            }
-                        ],
-                        "expand_path": [
-                            {
-                                "split": expand_split,
-                                "branch_length": 2.5,
-                            }
-                        ],
-                        "collapse_hops": 1,
-                        "expand_hops": 1,
-                        "total_hops": 2,
-                        "collapse_branch_length": 1.25,
-                        "expand_branch_length": 2.5,
-                        "total_branch_length": 3.75,
-                    }
-                ],
-            }
+            },
         }
+    ]
+    sequence = TreeInterpolationSequence(
+        current_pivot_edge_tracking=[None, None, None],
+        spr_move_events_list=[
+            [
+                {
+                    "pivot_edge": pivot,
+                    "driver_subtree": subtree,
+                    "highlight_group": [subtree, sibling],
+                    "step_range": (0, 0),
+                    "collapse_path": [
+                        {
+                            "split": collapse_split,
+                            "branch_length": 1.25,
+                        }
+                    ],
+                    "expand_path": [
+                        {
+                            "split": expand_split,
+                            "branch_length": 2.5,
+                        }
+                    ],
+                    "collapse_hops": 1,
+                    "expand_hops": 1,
+                    "total_hops": 2,
+                    "collapse_branch_length": 1.25,
+                    "expand_branch_length": 2.5,
+                    "total_branch_length": 3.75,
+                }
+            ]
+        ],
+    )
+    temporal_events = _build_temporal_event_rows(sequence, pairs)
+    movie_data = types.SimpleNamespace(
+        frames=[],
+        pairs=pairs,
+        temporal_events=temporal_events,
+        pair_metrics={"rows": [], "semantics": {}},
+        pivot_edge_tracking=[None, [0, 1, 2], None],
+        subtree_highlight_tracking=[None, [[1], [2]], None],
+        msa_dict=None,
+        window_size=1,
+        window_step_size=1,
+        file_name="example.nwk",
     )
 
-    event = serialized["pair_0_1"]["spr_move_events"][0]
+    metadata = frontend_builder.assemble_frontend_metadata(movie_data)
+    event = metadata["temporal_events"][0]
+    assert event["event_id"] == "pair_0_1:spr:0"
+    assert event["event_type"] == "spr_move"
+    assert event["pair_id"] == "pair_0_1"
+    assert event["pair_ordinal"] == 0
     assert event["pivot_edge"] == [0, 1, 2]
     assert "moving_subtree" not in event
     assert "moving_subtree_group" not in event
     assert event["driver_subtree"] == [1]
     assert event["highlight_group"] == [[1], [2]]
-    assert event["step_range"] == [2, 5]
+    assert event["local_step_range"] == [0, 0]
+    assert event["frame_range"] == [1, 1]
     assert event["collapse_path"] == [{"split": [0, 1], "branch_length": 1.25}]
     assert event["expand_path"] == [{"split": [1, 2], "branch_length": 2.5}]
     assert event["total_hops"] == 2

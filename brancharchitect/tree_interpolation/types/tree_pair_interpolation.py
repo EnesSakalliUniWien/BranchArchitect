@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
-from .tree_pair_solution import SprMoveEvent
+from .interpolation_movement import SprMoveEvent
 
 
 @dataclass

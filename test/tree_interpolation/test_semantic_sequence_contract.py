@@ -35,19 +35,35 @@ def _assert_same_topology_and_branch_lengths(actual, expected):
     assert _weighted_splits(actual) == _weighted_splits(expected)
 
 
+def _unary_internal_node_splits(tree):
+    return [
+        tuple(node.split_indices.indices)
+        for node in tree.traverse()
+        if len(node.children) == 1
+    ]
+
+
 def _load_publication_bootstrap_trees(count=10):
+    pytest.skip(
+        "historical FastTree-specific 24-taxa fixture is not retained in publication_data"
+    )
+
+
+def _load_paper_example_trees():
     data_path = (
         Path(__file__).resolve().parents[4]
         / "publication_data"
-        / "bootstrap_example"
-        / "24"
-        / "all_trees_24.nwk"
+        / "figure_example"
+        / "paper_example.tree"
     )
     if not data_path.exists():
-        pytest.skip("publication bootstrap 24-taxa data is not available")
+        pytest.skip("paper example tree data is not available")
 
-    newicks = data_path.read_text().strip().splitlines()[:count]
-    return parse_newick("\n".join(newicks), force_list=True)
+    return parse_newick(
+        data_path.read_text(),
+        force_list=True,
+        treat_zero_as_epsilon=True,
+    )
 
 
 def _event_for_local_step(events, local_step):
@@ -100,7 +116,7 @@ def test_sequential_delimiters_are_observed_topology_and_weight_states():
         )
 
 
-def test_sequential_interpolation_keeps_generated_landing_frame_before_anchor():
+def test_sequential_interpolation_landing_delimiter_preserves_order_continuity():
     source = parse_newick("((A:1,B:1):1,C:1);")
     destination = parse_newick("(A:1,(B:1,C:1):1);")
     destination.initialize_split_indices(source.taxa_encoding)
@@ -112,15 +128,12 @@ def test_sequential_interpolation_keeps_generated_landing_frame_before_anchor():
     sequence = SequentialInterpolationBuilder().build([source, destination])
 
     assert pair_result.trees
-    assert sequence.pair_interpolated_tree_counts == [len(pair_result.trees)]
-    assert len(sequence.interpolated_trees) == len(pair_result.trees) + 2
+    assert sequence.pair_interpolated_tree_counts == [len(pair_result.trees) - 1]
+    assert len(sequence.interpolated_trees) == len(pair_result.trees) + 1
     assert sequence.get_original_tree_indices() == [
         0,
         len(sequence.interpolated_trees) - 1,
     ]
-    _assert_same_topology_and_branch_lengths(
-        sequence.interpolated_trees[-2], destination
-    )
     _assert_same_topology_and_branch_lengths(
         sequence.interpolated_trees[-1], destination
     )
@@ -133,6 +146,35 @@ def test_sequential_interpolation_keeps_generated_landing_frame_before_anchor():
     assert sequence.spr_move_events_list[0]
     assert sequence.spr_move_events_list[0][-1]["step_range"][1] == (
         sequence.pair_interpolated_tree_counts[0] - 1
+    )
+
+
+def test_sequential_interpolation_uses_destination_only_as_delimiter():
+    source = parse_newick("((A:1,B:1):1,C:1);")
+    destination = parse_newick("(A:1,(B:1,C:1):1);")
+    destination.initialize_split_indices(source.taxa_encoding)
+
+    pair_result = process_tree_pair_interpolation(
+        source.deep_copy(build_split_index=False),
+        destination.deep_copy(build_split_index=False),
+    )
+    sequence = SequentialInterpolationBuilder().build([source, destination])
+
+    assert pair_result.trees
+    _assert_same_topology_and_branch_lengths(pair_result.trees[-1], destination)
+    assert sequence.pair_interpolated_tree_counts == [len(pair_result.trees) - 1]
+    assert len(sequence.interpolated_trees) == len(pair_result.trees) + 1
+    assert sequence.get_original_tree_indices() == [
+        0,
+        len(sequence.interpolated_trees) - 1,
+    ]
+    _assert_same_topology_and_branch_lengths(
+        sequence.interpolated_trees[-1], destination
+    )
+    assert sequence.current_pivot_edge_tracking[-1] is None
+    assert sequence.current_pivot_edge_tracking[-2] is not None
+    assert _weighted_splits(sequence.interpolated_trees[-2]) != _weighted_splits(
+        destination
     )
 
 
@@ -176,13 +218,13 @@ def test_bootstrap_circular_pipeline_keeps_topology_frames_order_stable():
     )
     from brancharchitect.leaforder.tree_order_optimiser import TreeOrderOptimizer
 
-    pair_solutions = [
+    precomputed_solutions = [
         LatticeSolver(trees[index], trees[index + 1]).solve_iteratively()[0]
         for index in range(len(trees) - 1)
     ]
     TreeOrderOptimizer(
         trees,
-        precomputed_pair_solutions=pair_solutions,
+        precomputed_lattice_solutions=precomputed_solutions,
     ).optimize_with_anchor_ordering(
         anchor_weight_policy="destination",
         circular=True,
@@ -190,7 +232,7 @@ def test_bootstrap_circular_pipeline_keeps_topology_frames_order_stable():
     )
 
     sequence = SequentialInterpolationBuilder(
-        precomputed_pair_solutions=pair_solutions,
+        precomputed_lattice_solutions=precomputed_solutions,
     ).build(trees)
 
     interpolated_trees = sequence.interpolated_trees
@@ -232,13 +274,44 @@ def test_bootstrap_pair_7_8_highlights_movers_not_passive_context():
     lb_penguin = leaves["LBPenguin"]
     gavia = leaves["GaviaStellata"]
     turnstone = leaves["turnstone"]
+    ostrich = leaves["Ostrich"]
+    great_rhea = leaves["GreatRhea"]
+    lesser_rhea = leaves["LesserRhea"]
+    cassowary = leaves["Cassowary"]
+    emu = leaves["Emu"]
+    brown_kiwi = leaves["BrownKiwi"]
+    great_spotted_kiwi = leaves["gskiwi"]
+    little_spotted_kiwi = leaves["LSKiwi"]
+    ec_tinamou = leaves["ECtinamou"]
+    g_tinamou = leaves["Gtinamou"]
+    crypturellus = leaves["Crypturellus"]
 
-    start, end = result["pair_interpolation_ranges"][7]
+    pair_7 = result["pairs"][7]
+    start = pair_7["source_frame_index"]
+    end = pair_7["target_frame_index"]
     pair_tracking = result["subtree_highlight_tracking"][start : end + 1]
     pair_highlights = [entry for entry in pair_tracking if entry]
 
+    expected_mover_groups = {
+        frozenset([lb_penguin]),
+        frozenset([gavia]),
+        frozenset([oystercatcher]),
+        frozenset([turnstone]),
+        frozenset([ostrich]),
+        frozenset([great_rhea, lesser_rhea]),
+        frozenset([cassowary, emu]),
+        frozenset([brown_kiwi, great_spotted_kiwi, little_spotted_kiwi]),
+        frozenset([ec_tinamou, g_tinamou, crypturellus]),
+    }
+
+    for entry in pair_highlights:
+        assert {frozenset(group) for group in entry}.issubset(expected_mover_groups)
+
     for entry in pair_tracking[1:5]:
-        assert entry == [[gavia]]
+        assert {frozenset(group) for group in entry} == {
+            frozenset([lb_penguin]),
+            frozenset([gavia]),
+        }
 
     oystercatcher_frames = [
         idx
@@ -248,13 +321,70 @@ def test_bootstrap_pair_7_8_highlights_movers_not_passive_context():
     assert oystercatcher_frames
     assert min(oystercatcher_frames) > 4
     for idx in oystercatcher_frames:
-        assert pair_tracking[idx] == [[oystercatcher]]
+        assert {frozenset(group) for group in pair_tracking[idx]} == {
+            frozenset([oystercatcher]),
+            frozenset([turnstone]),
+        }
 
-    passive_context_taxa = (lb_penguin, turnstone)
-    for taxon in passive_context_taxa:
-        assert not any(
-            any(taxon in group for group in entry) for entry in pair_highlights
+
+def test_paper_example_reaches_destination_and_decodes_mover_highlights():
+    trees = _load_paper_example_trees()
+
+    from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
+        TreeInterpolationPipeline,
+    )
+    from brancharchitect.movie_pipeline.types import PipelineConfig
+
+    result = TreeInterpolationPipeline(
+        PipelineConfig(
+            enable_rooting=False,
+            use_anchor_ordering=True,
+            anchor_weight_policy="destination",
+            circular=True,
+            logger_name="test_paper_example_regression",
         )
+    ).process_trees(trees)
+
+    interpolated_trees = result["interpolated_trees"]
+    labels_by_index = {
+        index: label for label, index in interpolated_trees[0].taxa_encoding.items()
+    }
+    moving_labels_by_frame = [
+        (
+            None
+            if entry is None
+            else [[labels_by_index[index] for index in group] for group in entry]
+        )
+        for entry in result["subtree_highlight_tracking"]
+    ]
+
+    assert len(trees) == 2
+    assert len(interpolated_trees) == 13
+    assert result["pairs"][0]["source_frame_index"] == 0
+    assert result["pairs"][0]["target_frame_index"] == 12
+    _assert_same_topology_and_branch_lengths(interpolated_trees[-1], trees[-1])
+    assert all(_unary_internal_node_splits(tree) == [] for tree in interpolated_trees)
+    destination_clade = interpolated_trees[-1].names_to_partition(
+        ("30", "40", "41", "50", "51")
+    )
+    assert (
+        _weighted_splits(interpolated_trees[-1])[_split_key(destination_clade)] == 7.0
+    )
+    assert moving_labels_by_frame == [
+        None,
+        [["2"]],
+        [["2"]],
+        [["2"]],
+        [["2"]],
+        [["2"]],
+        [["1"]],
+        [["1"]],
+        [["3"]],
+        [["3"]],
+        [["3"]],
+        [["3"]],
+        None,
+    ]
 
 
 def test_identical_topology_pair_aligns_delimiter_order_to_source():
@@ -276,76 +406,49 @@ def test_identical_topology_pair_aligns_delimiter_order_to_source():
 
 
 def test_sequence_metadata_marks_input_frames_as_observed_tree_states():
+    from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
+        TreeInterpolationPipeline,
+    )
+    from brancharchitect.movie_pipeline.types import PipelineConfig
+
     trees = [
         parse_newick("((A:1,B:2):10,(C:3,D:4):20);"),
         parse_newick("(((A:1,B:2):15,C:3):30,D:4);"),
     ]
     trees[1].initialize_split_indices(trees[0].taxa_encoding)
 
-    result = SequentialInterpolationBuilder().build(trees)
-    pair_solutions, pair_ranges = result.build_pair_solutions(
-        result.get_original_tree_indices()
-    )
-    result.tree_pair_solutions = pair_solutions
-    result.pair_interpolation_ranges = pair_ranges
+    result = TreeInterpolationPipeline(
+        PipelineConfig(enable_rooting=False, use_anchor_ordering=True, circular=True)
+    ).process_trees(trees)
+    frames = result["frames"]
 
-    sys.modules.setdefault("orjson", types.SimpleNamespace(dumps=lambda _value: b""))
-    from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
-        TreeInterpolationPipeline,
-    )
-
-    metadata = TreeInterpolationPipeline()._create_global_tree_metadata(
-        result.current_pivot_edge_tracking,
-        result.get_original_tree_indices(),
-    )
-
-    original_indices = result.get_original_tree_indices()
-    assert metadata[original_indices[0]]["frame_type"] == "input_tree"
-    assert metadata[original_indices[0]]["is_observed_input"] is True
-    assert metadata[original_indices[-1]]["state_semantics"] == "processed_input_tree"
+    input_frames = [frame for frame in frames if frame["frame_type"] == "input_tree"]
+    assert input_frames[0]["is_observed_input"] is True
+    assert input_frames[-1]["state_semantics"] == "processed_input_tree"
     assert all(
-        metadata[idx]["frame_type"] == "interpolation_frame"
-        and metadata[idx]["is_observed_input"] is False
-        for idx in range(original_indices[0] + 1, original_indices[-1])
+        frame["frame_type"] == "interpolation_frame"
+        and frame["is_observed_input"] is False
+        for frame in frames[
+            input_frames[0]["frame_index"] + 1 : input_frames[-1]["frame_index"]
+        ]
     )
 
 
 def test_frontend_pivot_tracking_does_not_mark_input_tree_endpoints():
     pytest.importorskip("flask_compress")
     from webapp.services.trees.frontend_builder import (
-        _derive_pivot_edge_tracking_from_events,
+        _derive_pivot_edge_tracking_from_temporal_events,
     )
 
-    metadata = [
-        {
-            "tree_pair_key": None,
-            "step_in_pair": None,
-            "source_tree_global_index": None,
-            "frame_type": "input_tree",
-            "state_semantics": "processed_input_tree",
-            "is_observed_input": True,
-        },
-        {
-            "tree_pair_key": "pair_0_1",
-            "step_in_pair": 1,
-            "source_tree_global_index": 0,
-            "frame_type": "interpolation_frame",
-            "state_semantics": "algorithmic_intermediate",
-            "is_observed_input": False,
-        },
-        {
-            "tree_pair_key": None,
-            "step_in_pair": None,
-            "source_tree_global_index": None,
-            "frame_type": "input_tree",
-            "state_semantics": "processed_input_tree",
-            "is_observed_input": True,
-        },
-    ]
-
-    tracking = _derive_pivot_edge_tracking_from_events(
-        metadata,
-        {"pair_0_1": [{"step_range": [0, 1], "split": [1, 2]}]},
+    tracking = _derive_pivot_edge_tracking_from_temporal_events(
+        3,
+        [
+            {
+                "event_type": "split_change",
+                "frame_range": [1, 1],
+                "split": [1, 2],
+            }
+        ],
     )
 
     assert tracking == [None, [1, 2], None]

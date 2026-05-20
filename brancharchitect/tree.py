@@ -219,15 +219,20 @@ class Node:
 
     def build_split_index(self):
         self._split_index = {}
-        self._populate_split_index(self)
+        stack = [self]
+        while stack:
+            node = stack.pop()
+            self._split_index[node.split_indices] = node
+            stack.extend(node.children)
 
     def _populate_split_index(self, node: Self) -> None:
         if self._split_index is None:
             self._split_index = {}
-
-        self._split_index[node.split_indices] = node
-        for ch in node.children:
-            self._populate_split_index(ch)
+        stack = [node]
+        while stack:
+            current = stack.pop()
+            self._split_index[current.split_indices] = current
+            stack.extend(current.children)
 
     def find_node_by_split(self, target_split: Any) -> Optional[Self]:
         """
@@ -338,51 +343,40 @@ class Node:
     # ------------------------------------------------------------------------
 
     def _initialize_split_indices(self, encoding: Dict[str, int]) -> None:
-        """Initialize split indices with better error handling and validation.
-
-        Note: This is the internal recursive method. It does NOT call build_split_index()
-        to avoid O(N²) complexity. The public initialize_split_indices() calls
-        build_split_index() once at the end.
-        """
-        # Set the encoding on this node
-        self.taxa_encoding = encoding
-
-        # Process children first (post-order traversal)
-        for child in self.children:
-            child._initialize_split_indices(encoding)
+        """Initialize split indices using iterative post-order traversal."""
+        stripped_encoding = {key.strip(): idx for key, idx in encoding.items()}
+        stack: list[tuple[Self, bool]] = [(self, False)]
 
         try:
-            if not self.children:
-                # Leaf node - must have a name in the encoding
-                if self.name in encoding:
-                    # Use from_bitmask for faster creation (avoids sorting/set operations)
-                    idx = encoding[self.name]
-                    self.split_indices = Partition.from_bitmask(1 << idx, encoding)
-                else:
-                    # Fallback: try matching stripped names (slower path)
-                    stripped_name = self.name.strip()
-                    found_idx = None
-                    for key, idx in encoding.items():
-                        if key.strip() == stripped_name:
-                            found_idx = idx
-                            break
+            while stack:
+                node, visited = stack.pop()
 
+                if not visited:
+                    node.taxa_encoding = encoding
+                    stack.append((node, True))
+                    for child in reversed(node.children):
+                        stack.append((child, False))
+                    continue
+
+                if not node.children:
+                    if node.name in encoding:
+                        idx = encoding[node.name]
+                        node.split_indices = Partition.from_bitmask(1 << idx, encoding)
+                        continue
+
+                    found_idx = stripped_encoding.get(node.name.strip())
                     if found_idx is not None:
-                        # Use from_bitmask for faster creation
-                        self.split_indices = Partition.from_bitmask(
+                        node.split_indices = Partition.from_bitmask(
                             1 << found_idx, encoding
                         )
                     else:
-                        # Internal node that became a leaf after deletion
-                        self.split_indices = Partition.from_bitmask(0, encoding)
-            else:
-                # For internal nodes, collect child indices using bitmasks for speed
+                        node.split_indices = Partition.from_bitmask(0, encoding)
+                    continue
+
                 combined_mask = 0
-                for ch in self.children:
-                    combined_mask |= ch.split_indices.bitmask
-
-                self.split_indices = Partition.from_bitmask(combined_mask, encoding)
-
+                for child in node.children:
+                    combined_mask |= child.split_indices.bitmask
+                node.split_indices = Partition.from_bitmask(combined_mask, encoding)
         except Exception as e:
             raise ValueError(f"Failed to initialize split indices: {str(e)}")
 
@@ -448,13 +442,67 @@ class Node:
         return Partition(indices, self.taxa_encoding)
 
     def fix_child_order(self) -> None:
-        self.children.sort(
-            key=lambda node: (
-                min(node.split_indices) if node.split_indices else float("inf")
+        nodes: list[Self] = []
+        stack: list[Self] = [self]
+        while stack:
+            node = stack.pop()
+            nodes.append(node)
+            stack.extend(node.children)
+
+        changed = False
+        for node in reversed(nodes):
+            original_order = [id(child) for child in node.children]
+            node.children.sort(
+                key=lambda child: (
+                    min(child.split_indices) if child.split_indices else float("inf")
+                )
             )
-        )
-        for child in self.children:
-            child.fix_child_order()
+            changed = changed or original_order != [
+                id(child) for child in node.children
+            ]
+
+        if changed:
+            self.invalidate_caches(propagate_up=True, propagate_down=True)
+
+    def collapse_unary_internal_nodes(self, preserve_lengths: bool = True) -> Self:
+        """
+        Collapse internal one-child nodes into their child.
+
+        Unary internal nodes do not carry phylogenetic topology, but they do create
+        duplicate split keys and visible extra edges in rendered trees. When
+        preserving lengths, the removed node's branch length is added to its child
+        so root-to-leaf distances are unchanged.
+        """
+        root = self.get_root()
+        changed = False
+
+        for node in reversed(root.traverse()):
+            if node.parent is None or len(node.children) != 1:
+                continue
+
+            child = node.children[0]
+            parent = node.parent
+
+            if preserve_lengths:
+                child.length = (child.length or 0.0) + (node.length or 0.0)
+
+            try:
+                index = parent.children.index(node)
+            except ValueError as exc:
+                raise ValueError(
+                    "Unary node parent/child links are inconsistent"
+                ) from exc
+
+            parent.children[index] = child
+            child.parent = parent
+            node.parent = None
+            node.children = []
+            changed = True
+
+        if changed:
+            root.initialize_split_indices(root.taxa_encoding)
+
+        return root
 
     def to_hierarchy(self) -> Dict[str, Any]:
         return {
@@ -615,13 +663,7 @@ class Node:
         if self._leaves_cache is not None:
             return self._leaves_cache
 
-        if not self.children:
-            self._leaves_cache = [self]
-            return self._leaves_cache
-
-        leaves: List[Self] = []
-        for child in self.children:
-            leaves.extend(child.get_leaves())
+        leaves = [node for node in self.traverse() if not node.children]
         self._leaves_cache = leaves
         return leaves
 
@@ -670,21 +712,32 @@ class Node:
         return json.dumps(self.to_dict(), indent=4)
 
     def to_dict(self) -> Dict[str, Any]:
-        # Always serialize split_indices as a list of ints for JSON compatibility
-        if self.is_leaf():
+        def node_to_dict(node: Self) -> Dict[str, Any]:
+            if node.is_leaf():
+                split_indices = list(node.split_indices.resolve_to_indices())
+                name = node.name
+            else:
+                split_indices = list(node.split_indices.indices)
+                name = ""
+
             return {
-                "name": self.name,
-                "length": self.length,
-                "split_indices": list(self.split_indices.resolve_to_indices()),
+                "name": name,
+                "length": node.length,
+                "split_indices": split_indices,
                 "children": [],
             }
-        else:
-            return {
-                "name": "",
-                "length": self.length,
-                "split_indices": list(self.split_indices.indices),
-                "children": [child.to_dict() for child in self.children],
-            }
+
+        root_dict = node_to_dict(self)
+        stack: list[tuple[Self, Dict[str, Any]]] = [(self, root_dict)]
+
+        while stack:
+            node, serialized = stack.pop()
+            child_dicts = [node_to_dict(child) for child in node.children]
+            serialized["children"] = child_dicts
+            for child, child_dict in reversed(list(zip(node.children, child_dicts))):
+                stack.append((child, child_dict))
+
+        return root_dict
 
     def get_root(self) -> Self:
         cur = self
@@ -940,20 +993,28 @@ class Node:
         If propagate_up is True, also invalidate caches for all ancestors.
         If propagate_down is True, also invalidate caches for all descendants.
         """
-        self._traverse_cache = None
-        self._splits_cache = None
-        self._splits_with_leaves_cache = None
-        self._split_index = None  # Clear split index to force rebuild
-        self._leaves_cache = None  # Clear leaves cache
 
-        # Propagate down to children
+        def clear(node: Self) -> None:
+            node._traverse_cache = None
+            node._splits_cache = None
+            node._splits_with_leaves_cache = None
+            node._split_index = None
+            node._leaves_cache = None
+
+        clear(self)
+
         if propagate_down:
-            for child in self.children:
-                child.invalidate_caches(propagate_up=False, propagate_down=True)
+            stack = list(self.children)
+            while stack:
+                node = stack.pop()
+                clear(node)
+                stack.extend(node.children)
 
-        # Propagate up to parents
-        if propagate_up and self.parent is not None:
-            self.parent.invalidate_caches(propagate_up=True, propagate_down=False)
+        if propagate_up:
+            parent = self.parent
+            while parent is not None:
+                clear(parent)
+                parent = parent.parent
 
     def assign_internal_node_names(self):  # -> None | Any | str | LiteralString:
         """

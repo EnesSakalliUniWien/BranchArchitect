@@ -20,7 +20,7 @@ def same_unrooted_split_within_pivot(
     Compare splits as unrooted complements within a pivot/subtree universe.
 
     `max_complement_ratio` keeps highly unbalanced complement pairs distinct
-    when callers still need rooted clade ownership.
+    when callers still need rooted subtree ownership.
     """
     if same_rooted_split(left, right):
         return True

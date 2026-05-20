@@ -278,18 +278,16 @@ class TestAPIResponseStructure(unittest.TestCase):
 
         movie_data = MovieData(
             interpolated_trees=[],
-            tree_metadata=[],
-            rfd_list=[],
-            weighted_robinson_foulds_distance_list=[],
-            sorted_leaves=["A", "B", "C"],
-            tree_pair_solutions={},
+            frames=[],
+            pairs=[],
+            temporal_events=[],
+            pair_metrics={"rows": [], "semantics": {}},
             pivot_edge_tracking=[None, [0, 1], [0, 1], None],
             subtree_highlight_tracking=[None, [[2]], [[2]], None],
             file_name="test.nwk",
             window_size=1,
             window_step_size=1,
             msa_dict=None,
-            pair_interpolation_ranges=[],
         )
 
         result = assemble_frontend_metadata(movie_data)
@@ -306,18 +304,16 @@ class TestAPIResponseStructure(unittest.TestCase):
 
         movie_data = MovieData(
             interpolated_trees=[],
-            tree_metadata=[],
-            rfd_list=[],
-            weighted_robinson_foulds_distance_list=[],
-            sorted_leaves=["A", "B", "C", "D"],
-            tree_pair_solutions={},
+            frames=[],
+            pairs=[],
+            temporal_events=[],
+            pair_metrics={"rows": [], "semantics": {}},
             pivot_edge_tracking=[None, [0, 1], None],
             subtree_highlight_tracking=[None, [[2, 3]], None],
             file_name="test.nwk",
             window_size=1,
             window_step_size=1,
             msa_dict=None,
-            pair_interpolation_ranges=[],
         )
 
         result = assemble_frontend_metadata(movie_data)

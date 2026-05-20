@@ -59,4 +59,4 @@ def test_single_pair_precompute_does_not_start_joblib(monkeypatch):
 
     pipeline = TreeInterpolationPipeline(PipelineConfig(enable_rooting=False))
 
-    assert pipeline._precompute_pair_solutions(trees) == [{}]
+    assert pipeline._precompute_lattice_solutions(trees) == [{}]

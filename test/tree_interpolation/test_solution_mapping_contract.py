@@ -53,10 +53,5 @@ def test_builder_serializes_solution_maps_in_source_destination_order(monkeypatc
 
     sequence = builder._finalize_sequence(original_tree_count=2)
     assert sequence.attachment_edge_maps == builder.attachment_edge_maps
-    pair_solutions, _ = sequence.build_pair_solutions([0, 2])
-    assert pair_solutions["pair_0_1"]["affected_subtrees_by_split"] == {
-        pivot: [solution]
-    }
-    assert pair_solutions["pair_0_1"]["attachment_edges_by_split"] == (
-        builder.attachment_edge_maps[0]
-    )
+    assert sequence.affected_subtrees_by_split_list[0] == {pivot: [solution]}
+    assert sequence.attachment_edge_maps[0] == builder.attachment_edge_maps[0]

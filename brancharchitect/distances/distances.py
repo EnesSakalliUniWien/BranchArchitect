@@ -6,7 +6,7 @@ from brancharchitect.elements.partition import Partition
 
 
 def relative_robinson_foulds_distance(tree1: Node, tree2: Node) -> float:
-    """Return the rooted-clade symmetric difference normalized by union size.
+    """Return the rooted-subtree symmetric difference normalized by union size.
 
     This is the historical backend field named ``robinson_foulds``. It is not
     the standard unrooted Robinson-Foulds bipartition distance.
@@ -29,7 +29,7 @@ def weighted_robinson_foulds_distance(tree1: Node, tree2: Node) -> float:
     Calculate the rooted weighted split distance between two trees.
 
     This uses ``Node.to_weighted_splits()``, so terminal and root-associated
-    splits are included in addition to internal rooted clades. The frontend
+    splits are included in addition to internal rooted subtrees. The frontend
     payload declares these semantics explicitly to avoid reading this as a
     standard unrooted weighted RF metric.
 

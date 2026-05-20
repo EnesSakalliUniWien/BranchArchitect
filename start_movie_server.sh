@@ -9,7 +9,7 @@ export PYTHONDONTWRITEBYTECODE=1
 for PORT in 5002; do
   echo "[backend] Checking for processes on port $PORT..."
   for i in {1..3}; do
-    PIDS=$(lsof -ti :$PORT)
+    PIDS=$(lsof -ti :$PORT 2>/dev/null || true)
     if [ -n "$PIDS" ]; then
       echo "[backend] Killing processes on port $PORT: $PIDS (attempt $i)"
       kill -9 $PIDS 2>/dev/null
@@ -41,11 +41,25 @@ if ! command -v poetry &> /dev/null; then
   exit 1
 fi
 
-# Install dependencies with poetry from project root (includes scikit-bio and all scientific deps)
-echo "[backend] Installing dependencies with poetry..."
-if ! poetry install; then
-  echo "[backend] ERROR: Poetry install failed. Check your dependencies and lock file."
-  exit 1
+# Install dependencies with poetry only when the local virtualenv is missing or stale.
+VENV_DIR="$PROJECT_ROOT/.venv"
+NEEDS_POETRY_INSTALL=false
+if [ ! -d "$VENV_DIR" ]; then
+  NEEDS_POETRY_INSTALL=true
+elif [ "$PROJECT_ROOT/pyproject.toml" -nt "$VENV_DIR" ]; then
+  NEEDS_POETRY_INSTALL=true
+elif [ -f "$PROJECT_ROOT/poetry.lock" ] && [ "$PROJECT_ROOT/poetry.lock" -nt "$VENV_DIR" ]; then
+  NEEDS_POETRY_INSTALL=true
+fi
+
+if [ "$NEEDS_POETRY_INSTALL" = true ]; then
+  echo "[backend] Installing dependencies with poetry..."
+  if ! poetry install; then
+    echo "[backend] ERROR: Poetry install failed. Check your dependencies and lock file."
+    exit 1
+  fi
+else
+  echo "[backend] Python dependencies are up to date; skipping poetry install."
 fi
 
 # Check brancharchitect version

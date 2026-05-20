@@ -174,11 +174,3 @@ def test_read_newick_write_json():
     assert get_child(tree2, 0, 2, 1, 0, 1)["name"] == "G"
     assert get_child(tree2, 0, 2, 1, 1)["name"] == "H"
     assert get_child(tree2, 1)["name"] == "I"
-
-
-@pytest.mark.skip(reason="circular_tree module removed - cairosvg is optional")
-def test_generate_svg():
-    newick = "((A[value=3],(B,C),((D,E),((F,G),H))),I);"
-    tree = parse_newick(newick)
-    # svg = generate_multiple_circular_trees_svg([tree], 100)
-    pass

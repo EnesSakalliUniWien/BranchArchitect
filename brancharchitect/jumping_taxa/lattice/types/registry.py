@@ -20,11 +20,11 @@ def compute_solution_rank_key(
     solution: PartitionSet[Partition],
 ) -> Tuple[int, int, Tuple[int, ...], Tuple[int, ...]]:
     """
-    Compute ranking key for solution comparison.
+    Compute the local solution ranking key.
 
     Solutions are ranked by (in order of priority):
-    1. Fewest partitions (simpler = fewer jumping taxa groups/subtrees)
-    2. Smallest total taxa count (sum of partition sizes) - Maximum Parsimony
+    1. Fewest partitions (fewer jumping subtree groups)
+    2. Smallest total taxa count (sum of partition sizes)
     3. Smallest individual partition sizes (tie-breaker)
     4. Deterministic bitmask ordering (reproducibility)
 
@@ -33,14 +33,14 @@ def compute_solution_rank_key(
 
     Returns:
         Tuple of (num_partitions, total_taxa, sorted_sizes, sorted_bitmasks)
-        Lower values indicate "better" (more parsimonious) solutions
+        Lower values indicate "better" under the group-first objective.
 
     Example:
         >>> sol1 = PartitionSet([Partition({A}), Partition({B}), Partition({C})])
         >>> sol2 = PartitionSet([Partition({A,B,C})])
         >>> compute_solution_rank_key(sol1)  # (3, 3, (1,1,1), (...))
         >>> compute_solution_rank_key(sol2)  # (1, 3, (3,), (...))
-        >>> # sol2 has fewer partitions (1 vs 3), so sol2 ranks better
+        >>> # sol2 has fewer subtree groups (1 vs 3), so sol2 ranks better
     """
     num_parts = len(solution)
     sizes_tuple = tuple(sorted(p.size for p in solution))
@@ -211,8 +211,9 @@ class SolutionRegistry:
 
         Selection criteria (in order):
         1) Fewest elements (partitions) in the solution
-        2) Smallest partition sizes (compare sorted size tuples lexicographically)
-        3) Deterministic fallback: lexicographically smallest tuple of partition bitmasks
+        2) Smallest total taxa count
+        3) Smallest partition sizes
+        4) Deterministic fallback: lexicographically smallest tuple of partition bitmasks
 
         Args:
             s_edge: The edge to query
@@ -233,10 +234,10 @@ class SolutionRegistry:
 
     def select_best_solutions(self) -> Dict[Partition, List[Partition]]:
         """
-        Select the best (most parsimonious) solutions for each pivot edge.
+        Select the best group-first solutions for each pivot edge.
 
-        For each pivot edge across all visits, finds the single most parsimonious
-        solution based on ranking criteria (fewest taxa, fewest partitions, etc.)
+        For each pivot edge and visit, finds the best solution based on ranking
+        criteria: fewest jumping subtree groups first, then fewest total taxa.
 
         Returns:
             Dictionary mapping pivot edges to their flattened, sorted solution partitions.
@@ -276,22 +277,26 @@ class SolutionRegistry:
                 (smallest_solution, rank_key, visit)
             )
 
-        # For each pivot_edge, keep only best-ranked solution
+        # For each pivot_edge, keep the best solution from each visit. Different
+        # visits are cumulative residual conflicts for the same pivot, not
+        # alternatives to be ranked against each other.
         for pivot_edge_partition, solutions in pivot_edge_to_solutions.items():
             # Filter logic: If there are ANY non-empty solutions, discard the empty ones.
             # Empty solutions (size 0) indicate "no conflict / no jump needed" for a specific visit.
             # Non-empty solutions indicate "jump needed" for another visit.
-            # Since conflict is the stronger constraint within a single iteration, we preserve the jumps.
+            # Since conflict is the stronger constraint, we preserve the jumps.
             has_non_empty = any(len(s[0]) > 0 for s in solutions)
             if has_non_empty:
                 solutions = [s for s in solutions if len(s[0]) > 0]
 
-            solutions.sort(key=lambda x: x[1])
-            best_solution_set: PartitionSet[Partition] = solutions[0][0]
+            solutions.sort(key=lambda x: x[2])
+            combined_solution_set = PartitionSet(encoding=pivot_edge_partition.encoding)
+            for solution_set, _rank_key, _visit in solutions:
+                combined_solution_set.update(solution_set)
 
             # Flatten into deterministically ordered list
             flat_partitions: List[Partition] = list(
-                sorted(best_solution_set, key=lambda p: (len(p.indices), p.bitmask))
+                sorted(combined_solution_set, key=lambda p: (len(p.indices), p.bitmask))
             )
 
             solutions_dict[pivot_edge_partition] = flat_partitions

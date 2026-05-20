@@ -35,18 +35,16 @@ def test_rooting_reads_newick_with_explicit_format(monkeypatch):
 
     from brancharchitect.movie_pipeline import tree_rooting
 
-    original_read = tree_rooting.SkbioTreeNode.read
+    original_from_string = tree_rooting.Parser.from_string
 
-    def read_with_format_check(file, format=None, **kwargs):
-        calls.append(format)
-        if format != "newick":
-            raise ValueError(f"missing explicit format: {format!r}")
-        return original_read(file, format=format, **kwargs)
+    def from_string_with_call_check(text):
+        calls.append("newick")
+        return original_from_string(text)
 
     monkeypatch.setattr(
-        tree_rooting.SkbioTreeNode,
-        "read",
-        staticmethod(read_with_format_check),
+        tree_rooting.Parser,
+        "from_string",
+        staticmethod(from_string_with_call_check),
     )
 
     rooted = root_trees(trees)

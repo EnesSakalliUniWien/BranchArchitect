@@ -9,5 +9,5 @@ def test_process_msa_data_marks_unparseable_fasta_sequences_as_missing():
         step_size=1,
     )
 
-    assert result["alignment_length"] == 4
+    assert set(result) == {"inferred_window_size", "inferred_step_size", "msa_dict"}
     assert result["msa_dict"] is None

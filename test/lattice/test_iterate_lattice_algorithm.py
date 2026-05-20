@@ -62,7 +62,7 @@ class TestIterateLatticeAlgorithm(unittest.TestCase):
         Verify that solutions are correctly mapped to their s-edges.
 
         The result structure maps each pivot edge to a flat list of
-        solution partitions (jumping taxa groups) selected by parsimony.
+        solution partitions selected by group-first ranking.
         """
         result = LatticeSolver(
             self.tree1_complex, self.tree2_complex

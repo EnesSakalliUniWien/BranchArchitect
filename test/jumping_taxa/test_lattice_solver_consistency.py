@@ -62,17 +62,6 @@ class TestLatticeSolverConsistency(unittest.TestCase):
         solutions = solver.registry.solutions_by_pivot_and_iteration[keys[0]][
             "solution"
         ]
-        # Note: Depending on my fix, categories might be "solution" or "no_solution".
-        # But _handle_pivot_solutions logic handles the call to add_no_solution.
-        # My implementation updated _handle_pivot_solutions to use category="no_solution" in the plan,
-        # BUT I might not have applied that change to lattice_solver.py yet?
-        # Let's check: I applied changes to select_best_solutions in registry.py.
-        # Did I update lattice_solver.py to use "no_solution"? No, I kept "solution" in the last implementation step.
-        # Wait, my last plan update said to use "no_solution".
-        # But I only executed `replace_file_content` on `registry.py` for select_best_solutions.
-        # Let's assume for now it uses "solution" or "no_solution" based on code state.
-        # Actually I need to verify what _handle_pivot_solutions passes.
-        # It currently passes "solution".
 
         self.assertEqual(len(solutions), 1)
         self.assertEqual(
@@ -86,8 +75,8 @@ class TestLatticeSolverConsistency(unittest.TestCase):
         This fixes the regression where 'no solution' markers overrode valid repairs.
         """
         registry = SolutionRegistry()
-        encoding = {"A": 0}
-        pivot = Partition(frozenset({0}), encoding)
+        encoding = {"A": 0, "B": 1}
+        pivot = Partition(frozenset({0, 1}), encoding)
 
         # Visit 1: Found a Jump (Non-Empty)
         sol_non_empty = PartitionSet(
@@ -95,10 +84,7 @@ class TestLatticeSolverConsistency(unittest.TestCase):
         )
         registry.add_solutions(pivot, [sol_non_empty], category="solution", visit=1)
 
-        # Visit 2: Found No Jump (Empty)
-        # This calls add_no_solution.
-        # IMPORTANT: Even if category is "solution" for both, my new logic in select_best_solutions
-        # filters by CONTENT (len > 0), so it should work regardless of category label.
+        # Visit 2: found no jump, represented by an explicit empty solution.
         registry.add_no_solution(pivot, category="solution", visit=2)
 
         best_solutions = registry.select_best_solutions()

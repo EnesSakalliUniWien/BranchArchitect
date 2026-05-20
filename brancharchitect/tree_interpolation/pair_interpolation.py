@@ -33,8 +33,6 @@ from brancharchitect.tree_interpolation.types import (
     TreePairInterpolation,
 )
 
-# distance_metrics import removed (metrics no longer used here)
-
 logger: logging.Logger = logging.getLogger(__name__)
 
 __all__: List[str] = [

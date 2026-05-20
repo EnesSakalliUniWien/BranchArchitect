@@ -7,19 +7,14 @@ process, including result containers and intermediate data representations.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from itertools import groupby
-from typing import Optional, Dict, List, Sequence, Tuple
+from typing import Optional, Dict, List
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
-from .pair_key import PairKey
-from .tree_pair_solution import (
+from .interpolation_movement import (
     AttachmentEdges,
     SprMoveEvent,
-    TreePairSolution,
-    SplitChangeEvent,
 )
-from .tree_meta_data import TreeMetadata
 
 MappingDict = dict[Partition, dict[Partition, Partition]]
 AttachmentEdgeMap = dict[Partition, dict[Partition, AttachmentEdges]]
@@ -43,18 +38,6 @@ def _empty_int_list() -> list[int]:
 
 
 def _empty_jumping_solutions() -> list[JumpingSolutions]:
-    return []
-
-
-def _empty_pair_ranges() -> list[list[int]]:
-    return []
-
-
-def _empty_pair_solutions() -> dict[str, TreePairSolution]:
-    return {}
-
-
-def _empty_tree_metadata() -> list[TreeMetadata]:
     return []
 
 
@@ -121,15 +104,8 @@ class TreeInterpolationSequence:
     affected_subtrees_by_split_list: list[JumpingSolutions] = field(
         default_factory=_empty_jumping_solutions
     )
-    tree_pair_solutions: Dict[str, TreePairSolution] = field(
-        default_factory=_empty_pair_solutions
-    )
     spr_move_events_list: list[list[SprMoveEvent]] = field(
         default_factory=_empty_spr_move_events
-    )
-    tree_metadata: list[TreeMetadata] = field(default_factory=_empty_tree_metadata)
-    pair_interpolation_ranges: list[list[int]] = field(
-        default_factory=_empty_pair_ranges
     )
 
     def get_pair_count(self) -> int:
@@ -153,81 +129,6 @@ class TreeInterpolationSequence:
             )
         bounded = original_tree_indices[: pair_count + 1]
         return [[bounded[i], bounded[i + 1]] for i in range(pair_count)]
-
-    def build_pair_solutions(
-        self,
-        original_tree_indices: list[int],
-    ) -> Tuple[Dict[str, TreePairSolution], List[List[int]]]:
-        """Build keyed TreePairSolution dict and pair ranges from the sequence data."""
-        pair_ranges = self.get_pair_ranges(original_tree_indices)
-        tree_pair_solutions: Dict[str, TreePairSolution] = {}
-
-        for pair_index, (start, end) in enumerate(pair_ranges):
-            pair_key = str(PairKey.from_index(pair_index))
-            source_global_idx = start
-            destination_global_idx = end
-            pivot_sequence = self.current_pivot_edge_tracking[
-                source_global_idx + 1 : destination_global_idx
-            ]
-            # Filter out None to keep ancestor list contiguous and events aligned
-            ancestor_sequence: List[Partition] = [
-                p for p in pivot_sequence if p is not None
-            ]
-            split_change_events = self._build_split_change_events(
-                ancestor_sequence, source_global_idx, destination_global_idx
-            )
-
-            pair_solution: TreePairSolution = {
-                "affected_subtrees_by_split": self.affected_subtrees_by_split_list[
-                    pair_index
-                ],
-                "attachment_edges_by_split": self.attachment_edge_maps[pair_index],
-                "split_change_events": split_change_events,
-                "source_tree_global_index": source_global_idx,
-                "destination_tree_global_index": destination_global_idx,
-                "interpolation_start_global_index": source_global_idx + 1,
-                "spr_move_events": (
-                    self.spr_move_events_list[pair_index]
-                    if pair_index < len(self.spr_move_events_list)
-                    else []
-                ),
-            }
-            tree_pair_solutions[pair_key] = pair_solution
-
-        return tree_pair_solutions, pair_ranges
-
-    @staticmethod
-    def _build_split_change_events(
-        split_sequence: Sequence[Optional[Partition]],
-        source_global_idx: int,
-        destination_global_idx: int,
-    ) -> List[SplitChangeEvent]:
-        """Aggregate contiguous occurrences of a split into SplitChangeEvent entries.
-
-        Retains None entries as gaps; they are skipped in event aggregation.
-        """
-        if not split_sequence:
-            return []
-
-        events: List[SplitChangeEvent] = []
-        start_idx = 0
-
-        for split, group in groupby(split_sequence):
-            group_size = sum(1 for _ in group)
-            if split is None:
-                start_idx += group_size
-                continue
-            events.append(
-                {
-                    "split": split,
-                    "step_range": (start_idx, start_idx + group_size - 1),
-                    "source_tree_global_index": source_global_idx,
-                    "destination_tree_global_index": destination_global_idx,
-                }
-            )
-            start_idx += group_size
-
-        return events
 
     @property
     def total_interpolated_trees(self) -> int:

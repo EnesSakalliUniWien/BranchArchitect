@@ -4,44 +4,28 @@ PyInstaller spec file for BranchArchitect Flask server.
 
 This bundles the webapp with all its dependencies into a standalone executable.
 """
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
-# Collect all required packages
-packages_to_collect = [
-    'flask',
-    'flask_cors',
-    'flask_compress',
-    'werkzeug',
-    'jinja2',
-    'click',
-    'blinker',
-    'itsdangerous',
-    'markupsafe',
-    'brotli',
-    'Bio',
-    'numpy',
-    'scipy',
-    'pandas',
-    'joblib',
-    'skbio',
-    'typing_extensions',
-    'waitress',
-]
+def is_runtime_module(module_name):
+    """Keep PyInstaller away from package test suites and local benchmarks."""
+    excluded_parts = {"test", "tests", "testing", "benchmark", "benchmarks"}
+    return not any(part in excluded_parts for part in module_name.split("."))
+
 
 all_datas = []
 all_binaries = []
 all_hiddenimports = []
 
-for pkg in packages_to_collect:
-    try:
-        datas, binaries, hiddenimports = collect_all(pkg)
-        all_datas.extend(datas)
-        all_binaries.extend(binaries)
-        all_hiddenimports.extend(hiddenimports)
-    except Exception as e:
-        print(f"Warning: Could not collect {pkg}: {e}")
+for pkg in [
+    "brancharchitect",
+    "webapp",
+    "msa_to_trees",
+    "split_alignment",
+    "Bio.AlignIO",
+]:
+    all_hiddenimports.extend(collect_submodules(pkg, filter=is_runtime_module))
 
 # Additional hidden imports that might be missed
 additional_hiddenimports = [
@@ -50,9 +34,9 @@ additional_hiddenimports = [
     'flask.cli',
     'flask_cors',
     'flask_compress',
+    'flask_compress.flask_compress',
     'werkzeug',
     'werkzeug.serving',
-    'werkzeug.debug',
     'jinja2',
     'markupsafe',
     'itsdangerous',
@@ -60,22 +44,18 @@ additional_hiddenimports = [
     'blinker',
     'brotli',
     'Bio',
-    'Bio.Phylo',
+    'Bio.Align',
+    'Bio.AlignIO',
+    'Bio.Phylo.BaseTree',
     'Bio.Phylo.Newick',
     'Bio.Phylo.NewickIO',
-    'Bio.SeqIO',
+    'Bio.SeqIO.FastaIO',
     'Bio.Seq',
     'Bio.SeqRecord',
     'numpy',
-    'scipy',
-    'scipy.sparse',
-    'pandas',
     'joblib',
-    'skbio',
-    'skbio.io',
-    'skbio.io.format',
-    'skbio.tree',
-    'tqdm',
+    'orjson',
+    'waitress',
     # Multiprocessing support for PyInstaller
     'multiprocessing',
     'multiprocessing.pool',
@@ -92,7 +72,8 @@ a = Analysis(
     datas=[
         ('webapp', 'webapp'),
         ('brancharchitect', 'brancharchitect'),
-        ('msa_to_trees', 'msa_to_trees'),
+        ('msa_to_trees/msa_to_trees', 'msa_to_trees'),
+        ('msa_to_trees/split_alignment', 'split_alignment'),
         ('bin', 'bin'),
     ] + all_datas,
     hiddenimports=all_hiddenimports + additional_hiddenimports,
@@ -110,6 +91,12 @@ a = Analysis(
         'jupyter',
         'pytest',
         'tkinter',
+        'torch',
+        'tqdm',
+        'Bio.PDB',
+        'Bio.PDB.mmtf',
+        'Bio.SeqIO.PdbIO',
+        'brancharchitect.leaforder.benchmark',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

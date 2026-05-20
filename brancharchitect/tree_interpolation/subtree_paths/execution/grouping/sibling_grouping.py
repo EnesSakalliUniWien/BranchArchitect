@@ -30,7 +30,7 @@ def compute_sibling_groups(
     Collapse phase: siblings grouped by shared SOURCE parent if that parent collapses.
     Expand phase: siblings grouped by shared DEST parent if that parent expands.
     The groups contain active mover partitions only: passive sibling/context
-    clades are intentionally excluded from the renderer highlight contract.
+    subtrees are intentionally excluded from the renderer highlight contract.
 
     Args:
         all_mover_partitions: All movers for this pivot edge.

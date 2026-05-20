@@ -5,11 +5,6 @@ Movie data class for serializing backend responses to frontend format.
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from brancharchitect.movie_pipeline.types import (
-    TreeMetadata as TreeMetadataType,
-    TreePairSolution,
-)
-
 
 @dataclass
 class MovieData:
@@ -22,15 +17,12 @@ class MovieData:
 
     # Core tree data
     interpolated_trees: List[Dict[str, Any]]
-    tree_metadata: List[TreeMetadataType]
-
-    # Distance metrics
-    rfd_list: List[float]
-    weighted_robinson_foulds_distance_list: List[float]
+    frames: List[Dict[str, Any]]
+    pairs: List[Dict[str, Any]]
+    temporal_events: List[Dict[str, Any]]
+    pair_metrics: Dict[str, Any]
 
     # Visualization data
-    sorted_leaves: List[str]
-    tree_pair_solutions: Dict[str, TreePairSolution]
     pivot_edge_tracking: List[Optional[List[int]]]
     # Per-frame visual/highlight groups, not SPR mover ownership.
     subtree_highlight_tracking: List[Optional[List[List[int]]]]
@@ -42,4 +34,3 @@ class MovieData:
 
     # MSA data
     msa_dict: Optional[Dict[str, str]]
-    pair_interpolation_ranges: List[List[int]]

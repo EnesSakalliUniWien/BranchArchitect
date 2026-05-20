@@ -119,7 +119,7 @@ def _find_split_application_parent(
     Find the narrowest existing node that can receive `split`.
 
     A valid parent strictly contains the new split and has at least two direct
-    children whose clades fit inside the new split. Those children can then be
+    children whose subtrees fit inside the new split. Those children can then be
     grouped under the new internal node.
     """
     split_mask = split.bitmask

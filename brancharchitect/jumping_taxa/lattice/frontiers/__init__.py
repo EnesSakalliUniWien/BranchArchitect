@@ -18,9 +18,6 @@ from brancharchitect.jumping_taxa.lattice.logging_helpers import (
     log_pivot_processing,
     log_lattice_edge_details,
     log_conflict_matrices,
-    log_solution_comparison,
-    log_solution_selection,
-    log_nesting_only_solution,
     log_conflict_only_matrix,
 )
 
@@ -38,8 +35,5 @@ __all__ = [
     "log_pivot_processing",
     "log_lattice_edge_details",
     "log_conflict_matrices",
-    "log_solution_comparison",
-    "log_solution_selection",
-    "log_nesting_only_solution",
     "log_conflict_only_matrix",
 ]
