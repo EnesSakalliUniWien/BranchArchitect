@@ -18,7 +18,7 @@ class TreePairInterpolation:
     """Interpolation results for a single tree pair."""
 
     trees: List[Node]
-    current_pivot_edge_tracking: List[Optional[Partition]] = field(default_factory=list)
+    active_pivot_edges: List[Optional[Partition]] = field(default_factory=list)
     current_subtree_highlights: List[Optional[List[Partition]]] = field(
         default_factory=list
     )

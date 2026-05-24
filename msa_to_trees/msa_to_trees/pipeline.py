@@ -95,6 +95,10 @@ class IQTreeConfig:
     threads: int = 1
     model: str | None = None
     fast_search: bool = True
+    support_mode: str = "none"
+    ufboot_replicates: int = 1000
+    sh_alrt_replicates: int = 1000
+    bnni: bool = False
 
     @property
     def description(self) -> str:
@@ -111,6 +115,7 @@ class IQTreeConfig:
 
     def build_command_args(self, alignment_file: str, prefix: Path) -> list[str]:
         """Build IQ-TREE command line arguments for this configuration."""
+        supports_ufboot = self.support_mode in {"ufboot", "sh_alrt_ufboot"}
         args = [
             "-s",
             alignment_file,
@@ -121,8 +126,14 @@ class IQTreeConfig:
             "-nt",
             str(self.threads),
         ]
-        if self.fast_search:
+        if self.fast_search and not supports_ufboot:
             args.append("-fast")
+        if supports_ufboot:
+            args.extend(["-B", str(self.ufboot_replicates)])
+        if self.support_mode in {"sh_alrt", "sh_alrt_ufboot"}:
+            args.extend(["-alrt", str(self.sh_alrt_replicates)])
+        if self.bnni and self.support_mode != "none":
+            args.append("-bnni")
         args.extend(
             [
                 "-quiet",
@@ -351,22 +362,22 @@ def _get_iqtree_exe() -> str:
     if "IQTREE_PATH" in os.environ:
         return os.environ["IQTREE_PATH"]
 
+    system = platform.system().lower()
+    if system == "darwin":
+        platform_dir = "darwin"
+        exe_names = ("iqtree3", "iqtree2")
+    elif system == "windows":
+        platform_dir = "win32"
+        exe_names = ("iqtree3.exe", "iqtree2.exe")
+    else:
+        platform_dir = "linux"
+        exe_names = ("iqtree3", "iqtree2")
+
     if getattr(sys, "frozen", False):
         if hasattr(sys, "_MEIPASS"):
             base_path = Path(sys._MEIPASS)
         else:
             base_path = Path(sys.executable).parent
-
-        system = platform.system().lower()
-        if system == "darwin":
-            platform_dir = "darwin"
-            exe_names = ("iqtree3", "iqtree2")
-        elif system == "windows":
-            platform_dir = "win32"
-            exe_names = ("iqtree3.exe", "iqtree2.exe")
-        else:
-            platform_dir = "linux"
-            exe_names = ("iqtree3", "iqtree2")
 
         for exe_name in exe_names:
             bundled_exe = base_path / "bin" / platform_dir / exe_name
@@ -377,6 +388,12 @@ def _get_iqtree_exe() -> str:
         resolved = shutil.which(executable)
         if resolved:
             return resolved
+
+    source_bundle_base = Path(__file__).resolve().parents[2]
+    for exe_name in exe_names:
+        bundled_exe = source_bundle_base / "bin" / platform_dir / exe_name
+        if bundled_exe.exists():
+            return str(bundled_exe)
     return "iqtree3"
 
 
@@ -721,6 +738,29 @@ if __name__ == "__main__":
         action="store_false",
         help="Enable ML NNI moves (may create polytomies by collapsing low-support branches).",
     )
+    model_group.add_argument(
+        "--support-mode",
+        choices=("none", "ufboot", "sh_alrt", "sh_alrt_ufboot"),
+        default="none",
+        help="IQ-TREE branch support mode for support-annotated window trees.",
+    )
+    model_group.add_argument(
+        "--ufboot-replicates",
+        type=int,
+        default=1000,
+        help="Number of IQ-TREE ultrafast bootstrap replicates when support mode includes UFBoot.",
+    )
+    model_group.add_argument(
+        "--sh-alrt-replicates",
+        type=int,
+        default=1000,
+        help="Number of IQ-TREE SH-aLRT replicates when support mode includes SH-aLRT.",
+    )
+    model_group.add_argument(
+        "--bnni",
+        action="store_true",
+        help="Run IQ-TREE bootstrap NNI optimization when support mode is enabled.",
+    )
 
     args = parser.parse_args()
 
@@ -730,6 +770,10 @@ if __name__ == "__main__":
             use_gtr=args.use_gtr,
             use_gamma=args.use_gamma,
             fast_search=args.fast_search,
+            support_mode=args.support_mode,
+            ufboot_replicates=args.ufboot_replicates,
+            sh_alrt_replicates=args.sh_alrt_replicates,
+            bnni=args.bnni,
         )
     else:
         fasttree_config = FastTreeConfig(

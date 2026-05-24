@@ -50,7 +50,7 @@ def execute_active_split_transition_sequence(
     Execute all active-changing split transitions for one source/destination pair.
     """
     interpolation_sequence: List[Node] = []
-    processed_pivot_edge_tracking: List[Optional[Partition]] = []
+    processed_pivot_edges: List[Optional[Partition]] = []
     processed_subtree_highlights: List[Optional[List[Partition]]] = []
     spr_move_events: List[SprMoveEvent] = []
 
@@ -110,7 +110,7 @@ def execute_active_split_transition_sequence(
             )
 
         interpolation_sequence.extend(step_trees)
-        processed_pivot_edge_tracking.extend(step_edges)
+        processed_pivot_edges.extend(step_edges)
         processed_subtree_highlights.extend(step_highlights)
         spr_move_events.extend(
             _offset_spr_move_events(step_spr_move_events, step_offset)
@@ -119,7 +119,7 @@ def execute_active_split_transition_sequence(
 
     return (
         interpolation_sequence,
-        processed_pivot_edge_tracking,
+        processed_pivot_edges,
         processed_subtree_highlights,
         spr_move_events,
     )

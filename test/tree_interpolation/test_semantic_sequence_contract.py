@@ -97,6 +97,32 @@ def test_pair_interpolation_final_frame_preserves_destination_semantics():
     _assert_same_topology_and_branch_lengths(result.trees[-1], destination)
 
 
+def test_ostrich_bug_fixture_emits_ostrich_as_separate_mover_step():
+    data_path = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "current_testfiles"
+        / "ostrich_bug_example.tree"
+    )
+    source, destination = parse_newick(data_path.read_text(), force_list=True)[:2]
+
+    result = process_tree_pair_interpolation(source, destination)
+    encoding = source.taxa_encoding
+    ostrich = encoding["Ostrich"]
+
+    ostrich_events = [
+        event
+        for event in result.spr_move_events
+        if event["driver_subtree"].indices == (ostrich,)
+    ]
+
+    assert len(ostrich_events) == 1
+    for event in result.spr_move_events:
+        highlight_sets = {tuple(group.indices) for group in event["highlight_group"]}
+        if (ostrich,) in highlight_sets:
+            assert highlight_sets == {(ostrich,)}
+
+
 def test_sequential_delimiters_are_observed_topology_and_weight_states():
     trees = [
         parse_newick("((A:1,B:2):10,(C:3,D:4):20);"),
@@ -141,8 +167,8 @@ def test_sequential_interpolation_landing_delimiter_preserves_order_continuity()
         sequence.interpolated_trees[-2].get_current_order()
         == sequence.interpolated_trees[-1].get_current_order()
     )
-    assert sequence.current_pivot_edge_tracking[-1] is None
-    assert sequence.current_pivot_edge_tracking[-2] is not None
+    assert sequence.active_pivot_edges[-1] is None
+    assert sequence.active_pivot_edges[-2] is not None
     assert sequence.spr_move_events_list[0]
     assert sequence.spr_move_events_list[0][-1]["step_range"][1] == (
         sequence.pair_interpolated_tree_counts[0] - 1
@@ -171,8 +197,8 @@ def test_sequential_interpolation_uses_destination_only_as_delimiter():
     _assert_same_topology_and_branch_lengths(
         sequence.interpolated_trees[-1], destination
     )
-    assert sequence.current_pivot_edge_tracking[-1] is None
-    assert sequence.current_pivot_edge_tracking[-2] is not None
+    assert sequence.active_pivot_edges[-1] is None
+    assert sequence.active_pivot_edges[-2] is not None
     assert _weighted_splits(sequence.interpolated_trees[-2]) != _weighted_splits(
         destination
     )
@@ -434,24 +460,13 @@ def test_sequence_metadata_marks_input_frames_as_observed_tree_states():
     )
 
 
-def test_frontend_pivot_tracking_does_not_mark_input_tree_endpoints():
+def test_frontend_metadata_does_not_emit_duplicate_pivot_tracking():
     pytest.importorskip("flask_compress")
-    from webapp.services.trees.frontend_builder import (
-        _derive_pivot_edge_tracking_from_temporal_events,
-    )
+    from webapp.services.trees.frontend_builder import create_empty_movie_data, assemble_frontend_metadata
 
-    tracking = _derive_pivot_edge_tracking_from_temporal_events(
-        3,
-        [
-            {
-                "event_type": "split_change",
-                "frame_range": [1, 1],
-                "split": [1, 2],
-            }
-        ],
-    )
+    metadata = assemble_frontend_metadata(create_empty_movie_data("empty.nwk"))
 
-    assert tracking == [None, [1, 2], None]
+    assert "pivot_edge_tracking" not in metadata
 
 
 def test_anchor_fallback_order_is_independent_of_python_hash_seed():

@@ -68,6 +68,9 @@ def map_single_pivot_edge_to_original(
 
     Returns:
         The mapped split from original trees (minimum containing split)
+
+    Raises:
+        ValueError: If no original common split contains the pivot plus solution taxa.
     """
     # 1. Collect all target indices (P ∪ J) and build target bitmask
     target_mask = pivot_edge.bitmask
@@ -80,7 +83,12 @@ def map_single_pivot_edge_to_original(
         if (split.bitmask & target_mask) == target_mask:
             return split
 
-    return pivot_edge
+    target_indices = Partition.from_bitmask(target_mask, pivot_edge.encoding).indices
+    raise ValueError(
+        "Could not map pivot edge to an original common split: "
+        f"pivot={pivot_edge.indices}, target={target_indices}. "
+        "No original common split contains the pivot plus selected solution taxa."
+    )
 
 
 def get_pivot_edges(t1: Node, t2: Node) -> List[Partition]:
@@ -152,8 +160,11 @@ def map_iterative_pivot_edges_to_original(
         jumping_taxa_solutions: Flat list of partitions per pivot edge, if available.
 
     Returns:
-        List of mapped splits. Every pivot edge is guaranteed to be mapped to a valid split,
-        using the root split as a fallback if necessary.
+        List of mapped splits. Every pivot edge is mapped to a valid original common
+        split when the input trees share a root split over the same leaf set.
+
+    Raises:
+        ValueError: If any pivot cannot be mapped to an original common split.
     """
     mapped_splits: List[Partition] = []
 

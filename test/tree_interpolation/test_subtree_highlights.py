@@ -42,29 +42,29 @@ class TestTreeInterpolationSequenceSubtreeHighlights(unittest.TestCase):
         self.assertEqual(seq.current_subtree_highlights[2], part_a)
         self.assertIsNone(seq.current_subtree_highlights[3])
 
-    def test_field_type_matches_pivot_edge_tracking(self):
-        """Verify current_subtree_highlights has same type as current_pivot_edge_tracking."""
+    def test_field_type_matches_active_pivot_edges(self):
+        """Verify current_subtree_highlights has same type as active_pivot_edges."""
         seq = TreeInterpolationSequence()
 
         # Both should be list[Optional[Partition]]
         self.assertEqual(
-            type(seq.current_subtree_highlights), type(seq.current_pivot_edge_tracking)
+            type(seq.current_subtree_highlights), type(seq.active_pivot_edges)
         )
 
-    def test_field_independent_of_pivot_edge_tracking(self):
+    def test_field_independent_of_active_pivot_edges(self):
         """Verify the two frame-aligned highlight fields are independent."""
         encoding = {"A": 0, "B": 1}
         part_a = Partition((0,), encoding)
         part_b = Partition((1,), encoding)
 
         seq = TreeInterpolationSequence(
-            current_pivot_edge_tracking=[None, part_a, None],
+            active_pivot_edges=[None, part_a, None],
             current_subtree_highlights=[None, part_b, None],
         )
 
         # Should be independent
         self.assertNotEqual(
-            seq.current_pivot_edge_tracking[1], seq.current_subtree_highlights[1]
+            seq.active_pivot_edges[1], seq.current_subtree_highlights[1]
         )
 
 
@@ -77,7 +77,7 @@ class TestSubtreeHighlightsLengthInvariant(unittest.TestCase):
     Property 1: Length Invariant
 
     For any TreeInterpolationSequence, the length of current_subtree_highlights
-    SHALL equal the length of current_pivot_edge_tracking AND the length of
+    SHALL equal the length of active_pivot_edges AND the length of
     interpolated_trees.
 
     **Feature: microsteps-api-integration, Property 1: Length Invariant**
@@ -114,8 +114,8 @@ class TestSubtreeHighlightsLengthInvariant(unittest.TestCase):
         # All three lists must have equal length
         self.assertEqual(
             len(result.interpolated_trees),
-            len(result.current_pivot_edge_tracking),
-            "interpolated_trees and current_pivot_edge_tracking must have equal length",
+            len(result.active_pivot_edges),
+            "interpolated_trees and active_pivot_edges must have equal length",
         )
         self.assertEqual(
             len(result.interpolated_trees),
@@ -134,7 +134,7 @@ class TestSubtreeHighlightsLengthInvariant(unittest.TestCase):
 
         # All three lists must have equal length
         self.assertEqual(
-            len(result.interpolated_trees), len(result.current_pivot_edge_tracking)
+            len(result.interpolated_trees), len(result.active_pivot_edges)
         )
         self.assertEqual(
             len(result.interpolated_trees), len(result.current_subtree_highlights)
@@ -146,7 +146,7 @@ class TestSubtreeHighlightsPairingInvariant(unittest.TestCase):
     Property 2: Pairing Invariant
 
     For any TreeInterpolationSequence and any index i,
-    current_pivot_edge_tracking[i] is None if and only if
+    active_pivot_edges[i] is None if and only if
     current_subtree_highlights[i] is None.
 
     **Feature: microsteps-api-integration, Property 2: Pairing Invariant**
@@ -177,7 +177,7 @@ class TestSubtreeHighlightsPairingInvariant(unittest.TestCase):
         result = builder.build([self.tree1, self.tree2])
 
         for i in range(len(result.interpolated_trees)):
-            pivot_is_none = result.current_pivot_edge_tracking[i] is None
+            pivot_is_none = result.active_pivot_edges[i] is None
             subtree_is_none = result.current_subtree_highlights[i] is None
 
             self.assertEqual(
@@ -200,7 +200,7 @@ class TestSubtreeHighlightsPairingInvariant(unittest.TestCase):
 
         for idx in original_indices:
             self.assertIsNone(
-                result.current_pivot_edge_tracking[idx],
+                result.active_pivot_edges[idx],
                 f"Original tree at index {idx} should have None pivot_edge",
             )
             self.assertIsNone(
@@ -282,7 +282,6 @@ class TestAPIResponseStructure(unittest.TestCase):
             pairs=[],
             temporal_events=[],
             pair_metrics={"rows": [], "semantics": {}},
-            pivot_edge_tracking=[None, [0, 1], [0, 1], None],
             subtree_highlight_tracking=[None, [[2]], [[2]], None],
             file_name="test.nwk",
             window_size=1,
@@ -297,18 +296,22 @@ class TestAPIResponseStructure(unittest.TestCase):
             result["subtree_highlight_tracking"], [None, [[2]], [[2]], None]
         )
 
-    def test_subtree_highlight_tracking_format_matches_pivot_edge_tracking(self):
-        """Test that subtree_highlight_tracking has same format as pivot_edge_tracking."""
+    def test_subtree_highlight_tracking_is_frame_aligned(self):
+        """Test that subtree_highlight_tracking stays aligned to frame rows."""
         from webapp.services.trees.movie_data import MovieData
         from webapp.services.trees.frontend_builder import assemble_frontend_metadata
 
+        frames = [
+            {"frame_index": 0},
+            {"frame_index": 1},
+            {"frame_index": 2},
+        ]
         movie_data = MovieData(
             interpolated_trees=[],
-            frames=[],
+            frames=frames,
             pairs=[],
             temporal_events=[],
             pair_metrics={"rows": [], "semantics": {}},
-            pivot_edge_tracking=[None, [0, 1], None],
             subtree_highlight_tracking=[None, [[2, 3]], None],
             file_name="test.nwk",
             window_size=1,
@@ -318,31 +321,27 @@ class TestAPIResponseStructure(unittest.TestCase):
 
         result = assemble_frontend_metadata(movie_data)
 
-        # Both should be lists of same length
         self.assertEqual(
             len(result["subtree_highlight_tracking"]),
-            len(result["pivot_edge_tracking"]),
+            len(result["frames"]),
         )
 
-        # Both are frame-aligned optional list payloads.
         for i in range(len(result["subtree_highlight_tracking"])):
-            pivot_val = result["pivot_edge_tracking"][i]
             subtree_val = result["subtree_highlight_tracking"][i]
 
-            if pivot_val is None:
+            if i != 1:
                 self.assertIsNone(subtree_val)
             else:
                 self.assertIsInstance(subtree_val, list)
                 self.assertTrue(all(isinstance(group, list) for group in subtree_val))
 
-    def test_create_empty_movie_data_includes_pivot_edge_tracking(self):
-        """Test that create_empty_movie_data includes empty pivot_edge_tracking."""
+    def test_create_empty_movie_data_excludes_duplicate_pivot_tracking(self):
+        """Test that create_empty_movie_data has no duplicate pivot tracking payload."""
         from webapp.services.trees.frontend_builder import create_empty_movie_data
 
         movie_data = create_empty_movie_data("empty.nwk")
 
-        self.assertTrue(hasattr(movie_data, "pivot_edge_tracking"))
-        self.assertEqual(movie_data.pivot_edge_tracking, [])
+        self.assertFalse(hasattr(movie_data, "pivot_edge_tracking"))
 
     def test_create_empty_movie_data_includes_subtree_highlight_tracking(self):
         """Test that create_empty_movie_data includes empty subtree_highlight_tracking."""
@@ -412,7 +411,7 @@ class TestAggregationCorrectness(unittest.TestCase):
             )
 
     def test_subtree_highlights_parallel_to_pivot_edge(self):
-        """Test that subtree highlight data runs parallel to pivot_edge_tracking."""
+        """Test that subtree highlight data runs parallel to active_pivot_edges."""
         from brancharchitect.tree_interpolation.sequential_interpolation import (
             SequentialInterpolationBuilder,
         )
@@ -423,13 +422,13 @@ class TestAggregationCorrectness(unittest.TestCase):
         # Both lists should have same length
         self.assertEqual(
             len(result.current_subtree_highlights),
-            len(result.current_pivot_edge_tracking),
+            len(result.active_pivot_edges),
         )
 
         # None positions should match
         for i in range(len(result.current_subtree_highlights)):
             subtree_none = result.current_subtree_highlights[i] is None
-            pivot_none = result.current_pivot_edge_tracking[i] is None
+            pivot_none = result.active_pivot_edges[i] is None
             self.assertEqual(
                 subtree_none,
                 pivot_none,

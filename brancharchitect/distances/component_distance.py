@@ -3,8 +3,7 @@
 Component Distance Module
 
 This module provides functionality for computing component-based distances between phylogenetic trees.
-It includes optimized core functions that work directly with Partition objects, as well as adapter
-functions for backward compatibility with tuple-based interfaces.
+It works directly with Partition objects so callers share one canonical component shape.
 
 Main functions:
 - component_distance: Compute component distances between two trees
@@ -65,37 +64,31 @@ def jump_path_component_to_pivot_edge(
 # =============================================================================
 
 
-def _component_distance_core(
+def component_distance(
     tree1: Node, tree2: Node, components: List[Partition], weighted: bool = False
 ) -> List[float]:
     """
-    Core function that computes component distances using Partition objects directly.
-    This is the performance-optimized version that avoids conversions.
+    Compute component distances using Partition objects directly.
     """
     distances: List[float] = []
     tree1_splits: PartitionSet[Partition] = tree1.to_splits()
     tree2_splits: PartitionSet[Partition] = tree2.to_splits()
 
     for component in components:
-        d1: float = _jump_distance_core(
-            tree1, tree2_splits, component, weighted=weighted
-        )
-        d2: float = _jump_distance_core(
-            tree2, tree1_splits, component, weighted=weighted
-        )
+        d1: float = jump_distance(tree1, tree2_splits, component, weighted=weighted)
+        d2: float = jump_distance(tree2, tree1_splits, component, weighted=weighted)
         distances.append(d1 + d2)
     return distances
 
 
-def _jump_distance_core(
+def jump_distance(
     node: Node,
     reference: PartitionSet[Partition],
     component: Partition,
     weighted: bool = False,
 ) -> float:
     """
-    Core function that computes jump distance using Partition objects directly.
-    This is the performance-optimized version that avoids conversions.
+    Compute jump distance using a Partition object directly.
     """
     path: List[Node] = jump_path(node, reference, component)
     if weighted:
@@ -104,12 +97,11 @@ def _jump_distance_core(
         return float(len(path))
 
 
-def _jump_path_distance_core(
+def jump_path_distance(
     tree1: Node, tree2: Node, components: List[Partition], weighted: bool = False
 ) -> List[float]:
     """
-    Core function that computes jump path distances using Partition objects directly.
-    This is the performance-optimized version that avoids conversions.
+    Compute weighted jump path distances using Partition objects directly.
     """
     tree1_splits = tree1.to_splits()
     tree2_splits = tree2.to_splits()
@@ -137,23 +129,26 @@ def _jump_path_distance_core(
 
 
 # --- Helper: Memoization cache for jump_path ---
-def _get_jump_path_cache() -> dict[tuple[int, int, int], tuple["Node", ...]]:
+def _get_jump_path_cache() -> dict[
+    tuple[int, tuple[int, ...], int], tuple["Node", tuple["Node", ...]]
+]:
     """Get or initialize the memoization cache for jump_path."""
     if not hasattr(jump_path, "__cache"):
         jump_path.__cache = {}  # type: ignore[attr-defined]
     return cast(
-        dict[tuple[int, int, int], tuple["Node", ...]],
+        dict[tuple[int, tuple[int, ...], int], tuple["Node", tuple["Node", ...]]],
         jump_path.__cache,  # type: ignore[attr-defined]
     )
 
 
+def _reference_cache_key(reference: PartitionSet[Partition]) -> tuple[int, ...]:
+    return tuple(sorted(partition.bitmask for partition in reference))
+
+
 # --- Helper: Get bitmask for a node's split_indices ---
 def _get_node_bitmask(node: Node) -> int:
-    """Get the bitmask for a node's split_indices, with fallback."""
-    try:
-        return cast(int, node.split_indices.bitmask)
-    except AttributeError:
-        return hash(node.split_indices)
+    """Get the bitmask for a node's canonical Partition split_indices."""
+    return cast(int, node.split_indices.bitmask)
 
 
 # --- Helper: Find the child node whose split contains the target component ---
@@ -182,12 +177,7 @@ def _build_jump_path_main(
         if current_bitmask == target_bitmask:
             break
         # If current split is in reference, clear the path (reset)
-        # Handle encoding mismatches gracefully (treat as not in reference)
-        try:
-            split_in_reference = current_node.split_indices in reference
-        except ValueError:
-            # Different encodings - treat as not in reference
-            split_in_reference = False
+        split_in_reference = current_node.split_indices in reference
 
         if split_in_reference:
             path.clear()
@@ -212,69 +202,29 @@ def jump_path(
         This function computes the path from the root node down to the node whose split matches the component.
         If you want the path from a component node up to a specific s_edge node, use `jump_path_component_to_s_edge`.
     """
-    cache: dict[tuple[int, int, int], tuple[Node, ...]] = _get_jump_path_cache()
+    cache: dict[tuple[int, tuple[int, ...], int], tuple[Node, tuple[Node, ...]]] = (
+        _get_jump_path_cache()
+    )
     component_bitmask: int = component.bitmask
-    key: Tuple[int, int, int] = (id(node), id(reference), component_bitmask)
+    key: Tuple[int, tuple[int, ...], int] = (
+        id(node),
+        _reference_cache_key(reference),
+        component_bitmask,
+    )
     # Check cache first
-    cached_result = cache.get(key)
-    if cached_result is not None:
-        return list(cached_result)
+    cached_entry = cache.get(key)
+    if cached_entry is not None:
+        cached_node, cached_result = cached_entry
+        if cached_node is not node:
+            del cache[key]
+        else:
+            return list(cached_result)
     # Build the path using helpers
     path: List[Node] = _build_jump_path_main(node, reference, component_bitmask)
-    # Cache as tuple to avoid mutation issues
-    cache[key] = tuple(path)
+    # Cache as tuple to avoid mutation issues. Keep the root node so its id
+    # cannot be reused while the cache entry is live.
+    cache[key] = (node, tuple(path))
     return list(path)
-
-
-# =============================================================================
-# PUBLIC API FUNCTIONS (Adapters for backward compatibility)
-# =============================================================================
-
-
-def component_distance(
-    tree1: Node, tree2: Node, components: List[Tuple[str, ...]], weighted: bool = False
-) -> List[float]:
-    """
-    Adapter function that converts tuple-of-strings to Partition objects
-    and delegates to the core performance function.
-    """
-    # Convert components once at the beginning
-    component_partitions: List[Partition] = [
-        tree1.names_to_partition(component) for component in components
-    ]
-    return _component_distance_core(
-        tree1, tree2, component_partitions, weighted=weighted
-    )
-
-
-def jump_distance(
-    node: Node,
-    reference: PartitionSet[Partition],
-    component: Tuple[str, ...],
-    weighted: bool = False,
-) -> float:
-    """
-    Adapter function that converts tuple-of-strings to Partition objects
-    and delegates to the core performance function.
-    """
-    component_partition: Partition = node.names_to_partition(component)
-    return _jump_distance_core(node, reference, component_partition, weighted=weighted)
-
-
-def jump_path_distance(
-    tree1: Node, tree2: Node, components: List[Tuple[str, ...]], weighted: bool = False
-) -> List[float]:
-    """
-    Adapter function that converts tuple-of-strings to Partition objects
-    and delegates to the core performance function.
-    """
-    # Convert component tuples to Partition objects once at the beginning
-    components_partitions: List[Partition] = [
-        tree1.names_to_partition(c) for c in components
-    ]
-    return _jump_path_distance_core(
-        tree1, tree2, components_partitions, weighted=weighted
-    )
 
 
 # =============================================================================
@@ -348,7 +298,7 @@ def calculate_component_distance_matrix(
             pair_distances: list[float] = []
             for components in list_of_components:
                 pair_distances.extend(
-                    _component_distance_core(
+                    component_distance(
                         trees[i], trees[j], components=components, weighted=weighted
                     )
                 )

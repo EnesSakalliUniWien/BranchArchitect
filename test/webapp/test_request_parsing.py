@@ -3,6 +3,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
 from werkzeug.datastructures import FileStorage, MultiDict
 from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
@@ -61,3 +62,27 @@ def test_parse_tree_data_request_accepts_fasttree_engine() -> None:
 
     assert parsed.tree_inference_engine == "fasttree"
     assert parsed.iqtree_fast_search is False
+
+
+def test_parse_tree_data_request_rejects_out_of_range_iqtree_replicates() -> None:
+    request = _request_with_msa(
+        {
+            "iqtreeSupportMode": "ufboot",
+            "iqtreeUfbootReplicates": "0",
+        }
+    )
+
+    with pytest.raises(ValueError, match="iqtreeUfbootReplicates must be between"):
+        parse_tree_data_request(request)
+
+
+def test_parse_tree_data_request_rejects_non_integer_iqtree_replicates() -> None:
+    request = _request_with_msa(
+        {
+            "iqtreeSupportMode": "sh_alrt",
+            "iqtreeShAlrtReplicates": "many",
+        }
+    )
+
+    with pytest.raises(ValueError, match="iqtreeShAlrtReplicates must be an integer"):
+        parse_tree_data_request(request)

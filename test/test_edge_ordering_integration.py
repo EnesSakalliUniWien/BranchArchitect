@@ -112,12 +112,12 @@ class TestEdgeOrderingIntegration:
         assert len(result.trees) > 0, "Should generate interpolated trees"
 
         # Verify tracking has correct structure
-        assert len(result.current_pivot_edge_tracking) == len(result.trees), (
+        assert len(result.active_pivot_edges) == len(result.trees), (
             "Each tree should have tracking info"
         )
 
         # The s-edges in tracking should be in leaves-to-root order
-        s_edges_used = [s for s in result.current_pivot_edge_tracking if s is not None]
+        s_edges_used = [s for s in result.active_pivot_edges if s is not None]
 
         if len(s_edges_used) > 1:
             # Verify subset relationships are preserved in execution order

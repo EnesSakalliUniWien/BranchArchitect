@@ -70,7 +70,7 @@ class TreeInterpolationSequence:
         interpolated_trees: Complete sequence of all trees (originals + interpolated)
         attachment_edge_maps: Source/destination attachment edges for each tree pair
             (outer key = pivot edge, inner key = moved subtree partition)
-        active_changing_split_tracking: S-edge applied for each tree (None for originals/classical)
+        active_pivot_edges: Active pivot edge applied for each tree (None for originals)
         pair_interpolated_tree_counts: Total interpolated trees generated per pair
         affected_subtrees_by_split_list: Affected subtrees grouped by active split per pair
         # distances removed
@@ -92,10 +92,10 @@ class TreeInterpolationSequence:
     attachment_edge_maps: list[AttachmentEdgeMap] = field(
         default_factory=_empty_attachment_edge_maps
     )
-    current_pivot_edge_tracking: list[Optional[Partition]] = field(
+    active_pivot_edges: list[Optional[Partition]] = field(
         default_factory=_empty_partition_list
     )
-    # Parallel to current_pivot_edge_tracking: None for originals, active mover
+    # Parallel to active_pivot_edges: None for originals, active mover
     # highlight groups for interpolated frames.
     current_subtree_highlights: list[Optional[list[Partition]]] = field(
         default_factory=list
@@ -160,11 +160,11 @@ class TreeInterpolationSequence:
         Get global indices of original (non-interpolated) trees in the sequence.
 
         Returns:
-            List of indices where active_changing_split_tracking[i] is None, indicating original trees
+            List of indices where active_pivot_edges[i] is None, indicating original trees
         """
         return [
             i
-            for i, pivot_edge in enumerate(self.current_pivot_edge_tracking)
+            for i, pivot_edge in enumerate(self.active_pivot_edges)
             if pivot_edge is None
         ]
 
@@ -173,11 +173,11 @@ class TreeInterpolationSequence:
         Get global indices of interpolated trees in the sequence.
 
         Returns:
-            List of indices where active_changing_split_tracking[i] is not None, indicating interpolated trees
+            List of indices where active_pivot_edges[i] is not None, indicating interpolated trees
         """
         return [
             i
-            for i, pivot_edge in enumerate(self.current_pivot_edge_tracking)
+            for i, pivot_edge in enumerate(self.active_pivot_edges)
             if pivot_edge is not None
         ]
 

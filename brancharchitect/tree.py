@@ -9,6 +9,239 @@ except ImportError:
     from typing_extensions import Self
 from brancharchitect.elements.partition_set import PartitionSet, Partition
 
+_SUPPORT_METADATA_KEYS = (
+    "support",
+    "bootstrap",
+    "bootstrap_support",
+    "bs",
+    "ufboot",
+    "UFBoot",
+    "SH-aLRT",
+    "sh_alrt",
+    "alrt",
+    "S",
+)
+
+
+def _annotation_value_type(value: Any) -> str:
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, list):
+        return "array"
+    return "string"
+
+
+def _annotation_field(
+    path: List[str],
+    label: str,
+    value: Any,
+    role: str,
+    unit: Optional[str] = None,
+    analysis: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    field: Dict[str, Any] = {
+        "path": path,
+        "label": label,
+        "value": value,
+        "value_type": _annotation_value_type(value),
+        "role": role,
+    }
+    if unit is not None:
+        field["unit"] = unit
+    if analysis is not None:
+        field["analysis"] = analysis
+    return field
+
+
+def _field_key(path: List[str]) -> str:
+    return ".".join(path)
+
+
+def _single_value_support_annotation(
+    support_kind: str,
+    value: float,
+) -> Dict[str, Any]:
+    if support_kind == "bootstrap":
+        path = ["support", "bootstrap", "value"]
+        return _annotation_field(
+            path,
+            "Bootstrap",
+            value,
+            "branch_support",
+            unit="percent",
+            analysis={
+                "type": "tree_inference",
+                "method": "bootstrap",
+            },
+        )
+    if support_kind == "ufboot":
+        path = ["support", "iqtree", "ufboot"]
+        return _annotation_field(
+            path,
+            "UFBoot",
+            value,
+            "branch_support",
+            unit="percent",
+            analysis={
+                "type": "tree_inference",
+                "method": "iqtree",
+                "mode": "ufboot",
+            },
+        )
+    if support_kind == "sh_alrt":
+        path = ["support", "iqtree", "sh_alrt"]
+        return _annotation_field(
+            path,
+            "SH-aLRT",
+            value,
+            "branch_support",
+            unit="percent",
+            analysis={
+                "type": "tree_inference",
+                "method": "iqtree",
+                "mode": "sh_alrt",
+            },
+        )
+    raise ValueError(f"Unsupported single-value branch support kind: {support_kind}")
+
+
+def _to_float_or_none(value: Any) -> Optional[float]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return None
+        try:
+            return float(stripped)
+        except ValueError:
+            return None
+    return None
+
+
+def build_branch_annotation_fields(node: "Node") -> Dict[str, Dict[str, Any]]:
+    """Build hierarchical branch annotation fields from labels and metadata."""
+    fields: Dict[str, Dict[str, Any]] = {}
+    if node.is_leaf():
+        return fields
+
+    internal_label = (node.name or "").strip()
+    if internal_label:
+        raw_path = ["label", "raw_internal"]
+        fields[_field_key(raw_path)] = _annotation_field(
+            raw_path,
+            "Raw Internal Label",
+            internal_label,
+            "source_annotation",
+        )
+        parts = internal_label.split("/")
+        values = [_to_float_or_none(part) for part in parts]
+        if all(value is not None for value in values):
+            numeric_values = [float(value) for value in values if value is not None]
+            if len(numeric_values) == 1:
+                value = numeric_values[0]
+                support_kind = str(node.values.get("support_kind", "bootstrap"))
+                if support_kind == "bootstrap_replicate_split_frequency":
+                    analysis = {
+                        "type": "rogue_taxa",
+                        "method": "bootstrap_replicate_split_frequency",
+                    }
+                    path = ["support", "bootstrap_rogue", "frequency"]
+                    fields[_field_key(path)] = _annotation_field(
+                        path,
+                        "Bootstrap Split Frequency",
+                        value,
+                        "branch_support",
+                        unit="percent",
+                        analysis=analysis,
+                    )
+                    for key, label in (
+                        ("replicate_count", "Replicate Count"),
+                        ("replicate_total", "Replicate Total"),
+                    ):
+                        metadata_value = _to_float_or_none(node.values.get(key))
+                        if metadata_value is not None:
+                            path = ["support", "bootstrap_rogue", key]
+                            fields[_field_key(path)] = _annotation_field(
+                                path,
+                                label,
+                                metadata_value,
+                                "branch_support_context",
+                                analysis=analysis,
+                            )
+                    return fields
+
+                field = _single_value_support_annotation(support_kind, value)
+                fields[_field_key(field["path"])] = field
+                return fields
+            if len(numeric_values) >= 2:
+                analysis = {
+                    "type": "tree_inference",
+                    "method": "iqtree",
+                    "mode": "sh_alrt_ufboot",
+                }
+                sh_path = ["support", "iqtree", "sh_alrt"]
+                fields[_field_key(sh_path)] = _annotation_field(
+                    sh_path,
+                    "SH-aLRT",
+                    numeric_values[0],
+                    "branch_support",
+                    unit="percent",
+                    analysis=analysis,
+                )
+                uf_path = ["support", "iqtree", "ufboot"]
+                fields[_field_key(uf_path)] = _annotation_field(
+                    uf_path,
+                    "UFBoot",
+                    numeric_values[-1],
+                    "branch_support",
+                    unit="percent",
+                    analysis=analysis,
+                )
+                return fields
+
+    for key in _SUPPORT_METADATA_KEYS:
+        if key not in node.values:
+            continue
+        value = _to_float_or_none(node.values[key])
+        if value is None:
+            continue
+        path = ["support", "metadata", key]
+        fields[_field_key(path)] = _annotation_field(
+            path,
+            key,
+            value,
+            "branch_support",
+            unit="percent",
+            analysis={
+                "type": "tree_annotation",
+                "method": "metadata_support",
+            },
+        )
+        break
+
+    for key, value in node.values.items():
+        if key in _SUPPORT_METADATA_KEYS:
+            continue
+        if key in {"support_kind", "replicate_count", "replicate_total"}:
+            continue
+        if isinstance(value, (str, int, float, bool, list)):
+            path = ["metadata", str(key)]
+            fields[_field_key(path)] = _annotation_field(
+                path,
+                str(key),
+                value,
+                "metadata",
+            )
+
+    return fields
+
 
 class ReorderStrategy(Enum):
     AVERAGE = "average"
@@ -720,12 +953,18 @@ class Node:
                 split_indices = list(node.split_indices.indices)
                 name = ""
 
-            return {
+            node_dict = {
                 "name": name,
                 "length": node.length,
                 "split_indices": split_indices,
                 "children": [],
             }
+            annotation_fields = build_branch_annotation_fields(node)
+            if annotation_fields:
+                node_dict["annotations"] = {
+                    "fields": annotation_fields,
+                }
+            return node_dict
 
         root_dict = node_to_dict(self)
         stack: list[tuple[Self, Dict[str, Any]]] = [(self, root_dict)]

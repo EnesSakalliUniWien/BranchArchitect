@@ -22,8 +22,6 @@ class MovieData:
     temporal_events: List[Dict[str, Any]]
     pair_metrics: Dict[str, Any]
 
-    # Visualization data
-    pivot_edge_tracking: List[Optional[List[int]]]
     # Per-frame visual/highlight groups, not SPR mover ownership.
     subtree_highlight_tracking: List[Optional[List[List[int]]]]
 

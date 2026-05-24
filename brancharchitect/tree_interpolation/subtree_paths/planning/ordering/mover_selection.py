@@ -65,7 +65,8 @@ def _select_by_shared_collapse_priority(
         tie_breaker = order_key_for_subtree(subtree, subtree_order_key)
 
         if shared_collapse:
-            priority = (0, -len(shared_collapse), tie_breaker)
+            has_expand_work = bool(expand_tracker.get_resources(subtree))
+            priority = (0, -len(shared_collapse), has_expand_work, tie_breaker)
         elif expand_tracker.get_shared_resources(subtree):
             shared_expand = expand_tracker.get_shared_resources(subtree)
             priority = (2, -len(shared_expand), tie_breaker)

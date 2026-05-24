@@ -150,7 +150,7 @@ def _build_temporal_event_rows(
         pair_ordinal = pair["pair_ordinal"]
         source_frame_index = pair["source_frame_index"]
         target_frame_index = pair["target_frame_index"]
-        pivot_sequence = sequence.current_pivot_edge_tracking[
+        pivot_sequence = sequence.active_pivot_edges[
             source_frame_index + 1 : target_frame_index
         ]
         split_sequence: List[Partition] = [

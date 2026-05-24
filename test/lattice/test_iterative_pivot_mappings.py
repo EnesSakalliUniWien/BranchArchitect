@@ -3,11 +3,12 @@ Unit tests for map_iterative_pivot_edges_to_original in
 brancharchitect/jumping_taxa/lattice/mapping/iterative_pivot_mappings.py
 
 Covers:
-- Direct pivot mapping (no jumping taxa) -> choose MAXIMUM non-root containing split
+- Direct pivot mapping (no jumping taxa) -> choose MINIMUM containing split
 - Pivot with jumping taxa -> choose MINIMUM containing split
-- Fallback to root when no non-root split contains pivot ∪ J
+- Root mapping when root is the minimum common split containing pivot plus jumping taxa
+- Invariant error when no original common split contains pivot plus jumping taxa
 - Integration-like check on bootstrap_52 scenario: mapped pivots are valid
-  original common splits and contain pivot ∪ first-solution taxa
+  original common splits and contain pivot plus solution taxa
 """
 
 from __future__ import annotations
@@ -16,7 +17,9 @@ from typing import List, Tuple
 
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.elements.partition import Partition
+from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.jumping_taxa.lattice.mapping.iterative_pivot_mappings import (
+    map_single_pivot_edge_to_original,
     map_iterative_pivot_edges_to_original,
 )
 from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
@@ -87,8 +90,8 @@ def test_pivot_with_jumping_maps_to_minimum_containing_split():
     assert mapped[0] == expected
 
 
-def test_pivot_with_jumping_falls_back_to_root_if_needed():
-    """Test that when no non-root split contains pivot ∪ jumping, we get the root."""
+def test_pivot_with_jumping_maps_to_root_when_root_is_minimum_common_split():
+    """Test that root is selected when it is the minimum containing common split."""
     t1, t2 = _build_different_trees()
     enc = _enc(t1)
 
@@ -99,10 +102,25 @@ def test_pivot_with_jumping_falls_back_to_root_if_needed():
 
     mapped = map_iterative_pivot_edges_to_original([pivot], t1, t2, [[jumping]])
 
-    # No non-root common split contains {A,B} ∪ {D}, so expect root split
+    # No non-root common split contains {A,B} plus {D}, so expect root split
     root = t1.split_indices  # full set
     assert len(mapped) == 1
     assert mapped[0] == root
+
+
+def test_mapping_raises_when_no_original_common_split_contains_target():
+    """The mapper should fail explicitly rather than returning an invalid pivot."""
+    encoding = {"A": 0, "B": 1, "C": 2}
+    pivot = Partition((0, 1), encoding)
+    jumping = Partition((2,), encoding)
+    common_splits = PartitionSet({pivot}, encoding=encoding)
+
+    try:
+        map_single_pivot_edge_to_original(pivot, common_splits, [jumping])
+    except ValueError as exc:
+        assert "No original common split contains" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError for unmappable pivot edge")
 
 
 def test_bootstrap_52_mapping_produces_valid_common_splits():

@@ -92,11 +92,10 @@ class TestPivotEdgeMappingVerification(unittest.TestCase):
             print(f"  In Tree 1: {in_tree1}")
             print(f"  In Tree 2: {in_tree2}")
 
-            # Pivot edge should be in at least one tree (or be the complement)
-            # The mapping should ensure this
+            # Mapped pivot edges should be original common splits.
             self.assertTrue(
-                in_tree1 or in_tree2,
-                f"Pivot edge {pivot_edge.resolve_to_indices()} not found in either tree - mapping may be broken",
+                in_tree1 and in_tree2,
+                f"Pivot edge {pivot_edge.resolve_to_indices()} is not an original common split - mapping may be broken",
             )
 
     def test_compare_direct_lattice_vs_iterate(self):

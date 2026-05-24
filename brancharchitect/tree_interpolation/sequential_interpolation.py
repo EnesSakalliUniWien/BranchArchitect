@@ -77,7 +77,7 @@ class SequentialInterpolationBuilder:
         """Initialize all state variables for a fresh interpolation build."""
         self.interpolated_trees: List[Node] = []
         self.attachment_edge_maps: List[AttachmentEdgeMap] = []
-        self.current_pivot_edge_tracking: List[Optional[Partition]] = []
+        self.active_pivot_edges: List[Optional[Partition]] = []
         self.current_subtree_highlights: List[Optional[List[Partition]]] = []
         self.spr_move_events: List[List[SprMoveEvent]] = []
         self.pair_tree_counts: List[int] = []
@@ -112,7 +112,7 @@ class SequentialInterpolationBuilder:
 
         if not (
             len(interpolation_result.trees)
-            == len(interpolation_result.current_pivot_edge_tracking)
+            == len(interpolation_result.active_pivot_edges)
             == len(interpolation_result.current_subtree_highlights)
         ):
             raise RuntimeError("Interpolation result arrays are not aligned")
@@ -121,7 +121,7 @@ class SequentialInterpolationBuilder:
             interpolation_result.trees[-1] if interpolation_result.trees else None
         )
         emitted_trees = interpolation_result.trees[:-1]
-        emitted_pivot_tracking = interpolation_result.current_pivot_edge_tracking[:-1]
+        emitted_pivot_edges = interpolation_result.active_pivot_edges[:-1]
         emitted_subtree_highlights = interpolation_result.current_subtree_highlights[
             :-1
         ]
@@ -132,7 +132,7 @@ class SequentialInterpolationBuilder:
         self.interpolated_trees.extend(emitted_trees)
 
         # Trees and tracking should have 1:1 correspondence from interpolation
-        self.current_pivot_edge_tracking.extend(emitted_pivot_tracking)
+        self.active_pivot_edges.extend(emitted_pivot_edges)
         self.current_subtree_highlights.extend(emitted_subtree_highlights)
         self.spr_move_events.append(
             _clip_spr_move_events(
@@ -178,7 +178,7 @@ class SequentialInterpolationBuilder:
         """Add an original tree and a None highlight marker to the sequence as a delimiter."""
         # Deep copy to create an independent snapshot
         self.interpolated_trees.append(tree.deep_copy(build_split_index=False))
-        self.current_pivot_edge_tracking.append(None)
+        self.active_pivot_edges.append(None)
         self.current_subtree_highlights.append(None)
 
     def _finalize_sequence(self, original_tree_count: int) -> TreeInterpolationSequence:
@@ -190,7 +190,7 @@ class SequentialInterpolationBuilder:
         return TreeInterpolationSequence(
             interpolated_trees=self.interpolated_trees,
             attachment_edge_maps=self.attachment_edge_maps,
-            current_pivot_edge_tracking=self.current_pivot_edge_tracking,
+            active_pivot_edges=self.active_pivot_edges,
             current_subtree_highlights=self.current_subtree_highlights,
             spr_move_events_list=self.spr_move_events,
             pair_interpolated_tree_counts=self.pair_tree_counts,

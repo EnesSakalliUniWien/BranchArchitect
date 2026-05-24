@@ -28,6 +28,33 @@ from msa_to_trees.pipeline import run_pipeline, FastTreeConfig, IQTreeConfig
 bp = Blueprint("main", __name__)
 
 
+@bp.route("/")
+def index() -> Response:
+    """Serve a small backend landing page for direct browser visits."""
+    return Response(
+        """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phylo-Movies Backend</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; }
+    code { background: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem; }
+  </style>
+</head>
+<body>
+  <h1>Phylo-Movies Backend</h1>
+  <p>The API server is running on <code>127.0.0.1:5002</code>.</p>
+  <p>Open the frontend at <a href="http://127.0.0.1:5173/">http://127.0.0.1:5173/</a>.</p>
+  <p>Backend health: <a href="/about">/about</a></p>
+</body>
+</html>
+""",
+        mimetype="text/html",
+    )
+
+
 @bp.route("/about")
 def about() -> Response:
     """Simple health-check / about endpoint."""
@@ -55,6 +82,10 @@ def _run_msa_analysis_and_interpolate(
     use_gtr: bool = True,
     use_gamma: bool = True,
     iqtree_fast_search: bool = True,
+    iqtree_support_mode: str = "none",
+    iqtree_ufboot_replicates: int = 1000,
+    iqtree_sh_alrt_replicates: int = 1000,
+    iqtree_bnni: bool = False,
     use_pseudo: bool = False,
     no_ml: bool = True,
     progress_callback: Optional[Callable[[float, str], None]] = None,
@@ -103,6 +134,10 @@ def _run_msa_analysis_and_interpolate(
                 use_gtr=use_gtr,
                 use_gamma=use_gamma,
                 fast_search=iqtree_fast_search,
+                support_mode=iqtree_support_mode,
+                ufboot_replicates=iqtree_ufboot_replicates,
+                sh_alrt_replicates=iqtree_sh_alrt_replicates,
+                bnni=iqtree_bnni,
             )
 
         report(
@@ -167,6 +202,9 @@ def _run_msa_analysis_and_interpolate(
             enable_rooting=enable_rooting,
             window_size=window_size,
             window_step=window_step,
+            iqtree_support_mode=(
+                iqtree_support_mode if tree_inference_engine == "iqtree" else None
+            ),
             progress_callback=tree_progress_callback,
         )
 
@@ -222,6 +260,10 @@ def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
                             use_gtr=req_data.use_gtr,
                             use_gamma=req_data.use_gamma,
                             iqtree_fast_search=req_data.iqtree_fast_search,
+                            iqtree_support_mode=req_data.iqtree_support_mode,
+                            iqtree_ufboot_replicates=req_data.iqtree_ufboot_replicates,
+                            iqtree_sh_alrt_replicates=req_data.iqtree_sh_alrt_replicates,
+                            iqtree_bnni=req_data.iqtree_bnni,
                             use_pseudo=req_data.use_pseudo,
                             no_ml=req_data.no_ml,
                             progress_callback=_make_progress_callback(channel, 10, 85),

@@ -23,6 +23,7 @@ from webapp.services.trees.frontend_builder import (
 
 # Type alias for progress callback
 ProgressCallback = Callable[[float, str], None]
+_IQTREE_SINGLE_VALUE_SUPPORT_MODES = {"ufboot", "sh_alrt"}
 
 
 def _sub_progress(
@@ -39,6 +40,31 @@ def _sub_progress(
     return callback
 
 
+def _is_single_numeric_internal_label(node: Node) -> bool:
+    internal_label = (node.name or "").strip()
+    if not internal_label or "/" in internal_label:
+        return False
+    try:
+        float(internal_label)
+    except ValueError:
+        return False
+    return True
+
+
+def _annotate_iqtree_single_value_support(
+    trees: List[Node],
+    iqtree_support_mode: Optional[str],
+) -> None:
+    if iqtree_support_mode not in _IQTREE_SINGLE_VALUE_SUPPORT_MODES:
+        return
+
+    for tree in trees:
+        for node in tree.traverse():
+            if node.is_leaf() or not _is_single_numeric_internal_label(node):
+                continue
+            node.values["support_kind"] = iqtree_support_mode
+
+
 def handle_tree_content_streaming(
     tree_content: str,
     filename: str = "uploaded_file",
@@ -46,6 +72,7 @@ def handle_tree_content_streaming(
     enable_rooting: bool = False,
     window_size: int = 1,
     window_step: int = 1,
+    iqtree_support_mode: Optional[str] = None,
     progress_callback: Optional[ProgressCallback] = None,
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """
@@ -77,6 +104,7 @@ def handle_tree_content_streaming(
     trees: List[Node] = (
         [parsed_trees] if isinstance(parsed_trees, Node) else parsed_trees
     )
+    _annotate_iqtree_single_value_support(trees, iqtree_support_mode)
 
     if not trees:
         logger.debug("No trees parsed - returning empty response")

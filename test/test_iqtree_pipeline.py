@@ -103,6 +103,26 @@ def test_iqtree_discovery_prefers_bundled_binary_when_frozen(
     assert pipeline._get_iqtree_exe() == str(bundled)
 
 
+def test_iqtree_discovery_uses_source_bundled_binary(
+    tmp_path: Path, monkeypatch
+) -> None:
+    project_root = tmp_path / "BranchArchitect"
+    module_file = project_root / "msa_to_trees" / "msa_to_trees" / "pipeline.py"
+    module_file.parent.mkdir(parents=True)
+    module_file.write_text("# test module path\n", encoding="utf-8")
+    bundled = project_root / "bin" / "darwin" / "iqtree3"
+    bundled.parent.mkdir(parents=True)
+    bundled.write_text("#!/bin/sh\n", encoding="utf-8")
+
+    monkeypatch.delenv("IQTREE_PATH", raising=False)
+    monkeypatch.setattr(pipeline.sys, "frozen", False, raising=False)
+    monkeypatch.setattr(pipeline.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(pipeline.shutil, "which", lambda name: None)
+    monkeypatch.setattr(pipeline, "__file__", str(module_file))
+
+    assert pipeline._get_iqtree_exe() == str(bundled)
+
+
 def test_infer_trees_parallel_uses_iqtree_runner_for_iqtree_config(
     tmp_path: Path, monkeypatch
 ) -> None:

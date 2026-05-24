@@ -181,7 +181,7 @@ def test_frontend_serializes_spr_move_events():
         }
     ]
     sequence = TreeInterpolationSequence(
-        current_pivot_edge_tracking=[None, None, None],
+        active_pivot_edges=[None, None, None],
         spr_move_events_list=[
             [
                 {
@@ -217,7 +217,6 @@ def test_frontend_serializes_spr_move_events():
         pairs=pairs,
         temporal_events=temporal_events,
         pair_metrics={"rows": [], "semantics": {}},
-        pivot_edge_tracking=[None, [0, 1, 2], None],
         subtree_highlight_tracking=[None, [[1], [2]], None],
         msa_dict=None,
         window_size=1,

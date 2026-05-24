@@ -1,5 +1,7 @@
 import json
 
+from flask import Flask
+
 from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
     TreeInterpolationPipeline,
 )
@@ -13,6 +15,7 @@ from webapp.services.trees.frontend_builder import (
     create_empty_movie_data,
 )
 from webapp.services.trees.movie_data import MovieData
+from webapp.services.trees.processing import handle_tree_content_streaming
 from webapp.services.trees.stream_contract import send_movie_stream
 
 
@@ -35,6 +38,18 @@ def _parse_sse_message(message: str) -> tuple[str | None, object]:
             data_lines.append(line.removeprefix("data: "))
 
     return event, json.loads("\n".join(data_lines))
+
+
+def _find_split(
+    node_dict: dict[str, object], split: list[int]
+) -> dict[str, object] | None:
+    if node_dict["split_indices"] == split:
+        return node_dict
+    for child in node_dict["children"]:
+        found = _find_split(child, split)
+        if found is not None:
+            return found
+    return None
 
 
 def test_movie_stream_contract_sends_metadata_chunks_and_empty_complete_event() -> None:
@@ -87,7 +102,6 @@ def test_pipeline_frontend_metadata_is_aligned_with_serialized_trees() -> None:
     total_trees = len(movie_data.interpolated_trees)
     assert total_trees > len(trees)
     assert len(metadata["frames"]) == total_trees
-    assert len(metadata["pivot_edge_tracking"]) == total_trees
     assert len(metadata["subtree_highlight_tracking"]) == total_trees
     legacy_subtree_api_key = "subtree" + "_tracking"
     assert legacy_subtree_api_key not in metadata
@@ -114,6 +128,29 @@ def test_pipeline_frontend_metadata_is_aligned_with_serialized_trees() -> None:
     assert metadata["temporal_events"][0]["event_type"] == "split_change"
     assert metadata["temporal_events"][0]["pair_id"] == "pair_0_1"
     assert metadata["temporal_events"][0]["frame_range"][0] >= 1
+
+
+def test_iqtree_support_mode_reaches_streamed_tree_annotations() -> None:
+    app = Flask(__name__)
+
+    with app.app_context():
+        _metadata, trees = handle_tree_content_streaming(
+            "((A:1,B:1)95:2,C:3);",
+            filename="iqtree.nwk",
+            iqtree_support_mode="ufboot",
+        )
+
+    ab_node = _find_split(trees[0], [0, 1])
+    assert ab_node is not None
+    fields = ab_node["annotations"]["fields"]
+
+    assert "support.bootstrap.value" not in fields
+    assert fields["support.iqtree.ufboot"]["value"] == 95.0
+    assert fields["support.iqtree.ufboot"]["analysis"] == {
+        "type": "tree_inference",
+        "method": "iqtree",
+        "mode": "ufboot",
+    }
 
 
 def test_movie_data_uses_normalized_rows_as_primary_temporal_contract() -> None:
@@ -251,7 +288,6 @@ def test_movie_metadata_contract_emits_normalized_pair_and_temporal_event_rows()
         pairs=pairs,
         temporal_events=temporal_events,
         pair_metrics=pair_metrics,
-        pivot_edge_tracking=[],
         subtree_highlight_tracking=[],
         file_name="example.nwk",
         window_size=1,
@@ -284,7 +320,6 @@ def test_movie_metadata_contract_has_exact_frontend_keys() -> None:
         "frames",
         "pairs",
         "temporal_events",
-        "pivot_edge_tracking",
         "subtree_highlight_tracking",
         "pair_metrics",
         "msa",

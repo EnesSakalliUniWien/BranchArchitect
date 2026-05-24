@@ -7,6 +7,9 @@ from typing import Optional, cast
 from flask import Request
 from werkzeug.datastructures import FileStorage
 
+IQTREE_REPLICATE_COUNT_MIN = 100
+IQTREE_REPLICATE_COUNT_MAX = 100000
+
 
 @dataclass
 class TreeDataRequest:
@@ -26,6 +29,10 @@ class TreeDataRequest:
     )
     tree_inference_engine: str = "iqtree"
     iqtree_fast_search: bool = True
+    iqtree_support_mode: str = "none"
+    iqtree_ufboot_replicates: int = 1000
+    iqtree_sh_alrt_replicates: int = 1000
+    iqtree_bnni: bool = False
     use_pseudo: bool = False  # Use pseudocounts (recommended for gappy alignments)
     no_ml: bool = True  # Always use no-ML to produce fully bifurcating trees
 
@@ -42,6 +49,20 @@ def get_msa_content(msa_file: Optional[FileStorage]) -> Optional[str]:
     if file_size > 0:
         return cast(bytes, msa_file.read()).decode("utf-8", errors="replace")
     return None
+
+
+def _parse_iqtree_replicate_count(raw_value: object, field_name: str) -> int:
+    try:
+        replicate_count = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field_name} must be an integer.") from exc
+
+    if not IQTREE_REPLICATE_COUNT_MIN <= replicate_count <= IQTREE_REPLICATE_COUNT_MAX:
+        raise ValueError(
+            f"{field_name} must be between {IQTREE_REPLICATE_COUNT_MIN} "
+            f"and {IQTREE_REPLICATE_COUNT_MAX}."
+        )
+    return replicate_count
 
 
 def parse_tree_data_request(request: Request) -> TreeDataRequest:
@@ -82,6 +103,18 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
     use_gamma = use_gamma_raw == "on"
     use_pseudo = use_pseudo_raw == "on"
     iqtree_fast_search = request.form.get("iqtreeFastSearch", "on") == "on"
+    iqtree_support_mode = request.form.get("iqtreeSupportMode", "none")
+    if iqtree_support_mode not in {"none", "ufboot", "sh_alrt", "sh_alrt_ufboot"}:
+        raise ValueError("Invalid IQ-TREE support mode.")
+    iqtree_ufboot_replicates = _parse_iqtree_replicate_count(
+        request.form.get("iqtreeUfbootReplicates", 1000),
+        "iqtreeUfbootReplicates",
+    )
+    iqtree_sh_alrt_replicates = _parse_iqtree_replicate_count(
+        request.form.get("iqtreeShAlrtReplicates", 1000),
+        "iqtreeShAlrtReplicates",
+    )
+    iqtree_bnni = request.form.get("iqtreeBnni", "") == "on"
     no_ml = request.form.get("noMl", "on") == "on"
 
     msa_content = get_msa_content(msa_file)
@@ -104,6 +137,10 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
         use_gamma=use_gamma,
         tree_inference_engine=tree_inference_engine,
         iqtree_fast_search=iqtree_fast_search,
+        iqtree_support_mode=iqtree_support_mode,
+        iqtree_ufboot_replicates=iqtree_ufboot_replicates,
+        iqtree_sh_alrt_replicates=iqtree_sh_alrt_replicates,
+        iqtree_bnni=iqtree_bnni,
         use_pseudo=use_pseudo,
         no_ml=no_ml,
     )

@@ -25,7 +25,7 @@ def test_builder_serializes_solution_maps_in_source_destination_order(monkeypatc
         "process_tree_pair_interpolation",
         lambda *args, **kwargs: TreePairInterpolation(
             trees=[interpolated_tree],
-            current_pivot_edge_tracking=[pivot],
+            active_pivot_edges=[pivot],
             current_subtree_highlights=[[solution]],
             jumping_subtree_solutions={pivot: [solution]},
         ),

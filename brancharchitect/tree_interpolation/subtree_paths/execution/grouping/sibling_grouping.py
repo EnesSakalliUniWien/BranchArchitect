@@ -5,7 +5,7 @@ Pre-computes which movers should be highlighted together based on shared
 phase-changing parents. Uses simple set membership - no complex data structures needed.
 
 Phase-specific grouping:
-- Collapse phase: group by source parent (if parent is collapsing)
+- Collapse phase: keep the selected driver stepwise
 - Expand phase: group by destination parent (if parent is expanding)
 """
 
@@ -19,24 +19,25 @@ from brancharchitect.elements.partition_set import PartitionSet
 
 def compute_sibling_groups(
     all_mover_partitions: List[Partition],
-    collapse_splits: Set[Partition],
+    _collapse_splits: Set[Partition],
     expand_splits: Set[Partition],
-    source_parent_map: Optional[Dict[Partition, Partition]],
+    _source_parent_map: Optional[Dict[Partition, Partition]],
     dest_parent_map: Optional[Dict[Partition, Partition]],
 ) -> Tuple[Dict[Partition, List[Partition]], Dict[Partition, List[Partition]]]:
     """
     Pre-compute which movers should be highlighted together, per phase.
 
-    Collapse phase: siblings grouped by shared SOURCE parent if that parent collapses.
+    Collapse phase: the selected driver stays as a singleton so old source
+    siblings do not appear to move again during another driver's step.
     Expand phase: siblings grouped by shared DEST parent if that parent expands.
     The groups contain active mover partitions only: passive sibling/context
     subtrees are intentionally excluded from the renderer highlight contract.
 
     Args:
         all_mover_partitions: All movers for this pivot edge.
-        collapse_splits: All splits that are collapsing (source-unique).
+        _collapse_splits: All splits that are collapsing (source-unique).
         expand_splits: All splits that are expanding (dest-unique).
-        source_parent_map: Maps each mover -> its parent in source tree.
+        _source_parent_map: Maps each mover -> its parent in source tree.
         dest_parent_map: Maps each mover -> its parent in destination tree.
 
     Returns:
@@ -47,9 +48,7 @@ def compute_sibling_groups(
     if not all_mover_partitions:
         return {}, {}
 
-    collapse_groups = _build_phase_groups(
-        all_mover_partitions, source_parent_map, collapse_splits
-    )
+    collapse_groups = {mover: [mover] for mover in all_mover_partitions}
     expand_groups = _build_phase_groups(
         all_mover_partitions, dest_parent_map, expand_splits
     )
