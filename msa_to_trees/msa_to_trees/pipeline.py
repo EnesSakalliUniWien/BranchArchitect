@@ -384,17 +384,27 @@ def _get_iqtree_exe() -> str:
             if bundled_exe.exists():
                 return str(bundled_exe)
 
-    for executable in ("iqtree3", "iqtree2", "iqtree"):
-        resolved = shutil.which(executable)
-        if resolved:
-            return resolved
-
     source_bundle_base = Path(__file__).resolve().parents[2]
     for exe_name in exe_names:
         bundled_exe = source_bundle_base / "bin" / platform_dir / exe_name
         if bundled_exe.exists():
             return str(bundled_exe)
+
+    for executable in ("iqtree3", "iqtree2", "iqtree"):
+        resolved = shutil.which(executable)
+        if resolved:
+            return resolved
+
     return "iqtree3"
+
+
+def _format_process_output(stdout: str | None, stderr: str | None) -> str:
+    output_parts = []
+    if stderr:
+        output_parts.append(f"stderr: {stderr.strip()}")
+    if stdout:
+        output_parts.append(f"stdout: {stdout.strip()}")
+    return "\n".join(output_parts) if output_parts else "no output captured"
 
 
 def run_fasttree(
@@ -476,10 +486,30 @@ def run_iqtree(
                 f"IQ-TREE finished but did not produce expected tree file: {treefile}"
             )
         return treefile.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        raise RuntimeError("IQ-TREE command not found. Please install IQ-TREE.")
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "IQ-TREE executable was not found. "
+            f"Tried: {iqtree_executable}. "
+            "Phylo-Movies normally uses bundled iqtree3; set IQTREE_PATH to a "
+            "valid IQ-TREE executable only if you want to override the bundle."
+        ) from exc
+    except PermissionError as exc:
+        raise RuntimeError(
+            "IQ-TREE executable is not runnable. "
+            f"Tried: {iqtree_executable}. "
+            "Check that the bundled binary exists and has executable permissions, "
+            "or set IQTREE_PATH to a runnable IQ-TREE executable."
+        ) from exc
+    except OSError as exc:
+        raise RuntimeError(
+            f"Could not start IQ-TREE executable {iqtree_executable}: {exc}"
+        ) from exc
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"IQ-TREE failed on {alignment_file}: {e.stderr}")
+        output = _format_process_output(e.stdout, e.stderr)
+        raise RuntimeError(
+            f"IQ-TREE failed on {alignment_file} using {iqtree_executable} "
+            f"with exit code {e.returncode}.\n{output}"
+        ) from e
 
 
 def load_alignment(

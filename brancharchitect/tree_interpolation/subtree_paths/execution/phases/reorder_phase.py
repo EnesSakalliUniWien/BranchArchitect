@@ -35,6 +35,7 @@ def run_reorder_phase(
 ) -> ReorderPhaseResult:
     """Move the current mover block toward its destination order."""
     pre_reorder_order = tuple(collapsed_tree.get_current_order())
+    pending_aliases_collapsed_tree = pending_frames.is_pending_tree(collapsed_tree)
     reordered_tree: Node = reorder_tree_toward_destination(
         source_tree=collapsed_tree,
         destination_tree=destination_tree,
@@ -43,7 +44,7 @@ def run_reorder_phase(
         source_parent_map=source_parent_map,
         dest_parent_map=dest_parent_map,
         unstable_mover_partitions=all_mover_partitions,
-        copy=not collapsed_tree_owned,
+        copy=(not collapsed_tree_owned) or pending_aliases_collapsed_tree,
     )
 
     has_reorder_change = tuple(reordered_tree.get_current_order()) != pre_reorder_order

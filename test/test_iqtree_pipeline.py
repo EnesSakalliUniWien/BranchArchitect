@@ -65,8 +65,68 @@ def test_run_iqtree_reads_treefile_from_iqtree_prefix(
     assert tree == "(A:0.1,B:0.2,C:0.3);\n"
 
 
-def test_iqtree_discovery_prefers_iqtree3_binary(monkeypatch) -> None:
+def test_run_iqtree_reports_missing_executable(tmp_path: Path, monkeypatch) -> None:
+    IQTreeConfig = pipeline.IQTreeConfig
+    alignment = tmp_path / "0.fasta"
+    alignment.write_text(">A\nACGT\n>B\nACGA\n>C\nACGG\n", encoding="utf-8")
+
+    monkeypatch.setenv("IQTREE_PATH", "/missing/iqtree3")
+
+    try:
+        pipeline.run_iqtree(str(alignment), IQTreeConfig())
+    except RuntimeError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("run_iqtree should fail for a missing executable")
+
+    assert "IQ-TREE executable was not found" in message
+    assert "/missing/iqtree3" in message
+    assert "IQTREE_PATH" in message
+
+
+def test_run_iqtree_reports_failed_process_output(tmp_path: Path, monkeypatch) -> None:
+    IQTreeConfig = pipeline.IQTreeConfig
+    alignment = tmp_path / "0.fasta"
+    alignment.write_text(">A\nACGT\n>B\nACGA\n>C\nACGG\n", encoding="utf-8")
+
+    def fake_run(cmd, check, capture_output, text, env):
+        raise subprocess.CalledProcessError(
+            2,
+            cmd,
+            output="partial stdout",
+            stderr="alignment contains duplicate sequence names",
+        )
+
+    monkeypatch.setenv("IQTREE_PATH", "iqtree-test")
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    try:
+        pipeline.run_iqtree(str(alignment), IQTreeConfig())
+    except RuntimeError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("run_iqtree should fail when IQ-TREE exits nonzero")
+
+    assert "IQ-TREE failed" in message
+    assert "iqtree-test" in message
+    assert "exit code 2" in message
+    assert "alignment contains duplicate sequence names" in message
+    assert "partial stdout" in message
+
+
+def test_iqtree_discovery_falls_back_to_system_iqtree3(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module_file = (
+        tmp_path / "BranchArchitect" / "msa_to_trees" / "msa_to_trees" / "pipeline.py"
+    )
+    module_file.parent.mkdir(parents=True)
+    module_file.write_text("# test module path\n", encoding="utf-8")
+
     monkeypatch.delenv("IQTREE_PATH", raising=False)
+    monkeypatch.setattr(pipeline.sys, "frozen", False, raising=False)
+    monkeypatch.setattr(pipeline.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(pipeline, "__file__", str(module_file))
     monkeypatch.setattr(
         pipeline.shutil,
         "which",
@@ -76,8 +136,19 @@ def test_iqtree_discovery_prefers_iqtree3_binary(monkeypatch) -> None:
     assert pipeline._get_iqtree_exe() == "/usr/local/bin/iqtree3"
 
 
-def test_iqtree_discovery_accepts_iqtree2_binary(monkeypatch) -> None:
+def test_iqtree_discovery_falls_back_to_system_iqtree2(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module_file = (
+        tmp_path / "BranchArchitect" / "msa_to_trees" / "msa_to_trees" / "pipeline.py"
+    )
+    module_file.parent.mkdir(parents=True)
+    module_file.write_text("# test module path\n", encoding="utf-8")
+
     monkeypatch.delenv("IQTREE_PATH", raising=False)
+    monkeypatch.setattr(pipeline.sys, "frozen", False, raising=False)
+    monkeypatch.setattr(pipeline.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(pipeline, "__file__", str(module_file))
     monkeypatch.setattr(
         pipeline.shutil,
         "which",
@@ -85,6 +156,26 @@ def test_iqtree_discovery_accepts_iqtree2_binary(monkeypatch) -> None:
     )
 
     assert pipeline._get_iqtree_exe() == "/usr/local/bin/iqtree2"
+
+
+def test_iqtree_discovery_prefers_source_bundle_over_system_binary(
+    tmp_path: Path, monkeypatch
+) -> None:
+    project_root = tmp_path / "BranchArchitect"
+    module_file = project_root / "msa_to_trees" / "msa_to_trees" / "pipeline.py"
+    module_file.parent.mkdir(parents=True)
+    module_file.write_text("# test module path\n", encoding="utf-8")
+    bundled = project_root / "bin" / "darwin" / "iqtree3"
+    bundled.parent.mkdir(parents=True)
+    bundled.write_text("#!/bin/sh\n", encoding="utf-8")
+
+    monkeypatch.delenv("IQTREE_PATH", raising=False)
+    monkeypatch.setattr(pipeline.sys, "frozen", False, raising=False)
+    monkeypatch.setattr(pipeline.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(pipeline, "__file__", str(module_file))
+    monkeypatch.setattr(pipeline.shutil, "which", lambda name: "/usr/local/bin/iqtree2")
+
+    assert pipeline._get_iqtree_exe() == str(bundled)
 
 
 def test_iqtree_discovery_prefers_bundled_binary_when_frozen(

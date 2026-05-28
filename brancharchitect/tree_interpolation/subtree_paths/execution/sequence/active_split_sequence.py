@@ -55,6 +55,10 @@ def execute_active_split_transition_sequence(
     spr_move_events: List[SprMoveEvent] = []
 
     interpolation_state: Node = source_tree.deep_copy()
+    source_weights = source_tree.to_weighted_splits() if target_pivot_edges else {}
+    destination_weights = (
+        destination_tree.to_weighted_splits() if target_pivot_edges else {}
+    )
 
     destination_subtree_paths, source_subtree_paths = (
         build_pivot_subtree_transition_paths(
@@ -95,6 +99,8 @@ def execute_active_split_transition_sequence(
             expand_paths_for_pivot_edge=destination_paths_for_pivot_edge,
             source_parent_map=source_parent_map,
             dest_parent_map=dest_parent_map,
+            source_weights=source_weights,
+            destination_weights=destination_weights,
         )
 
         if not step_trees:

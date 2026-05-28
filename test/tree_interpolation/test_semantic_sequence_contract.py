@@ -44,9 +44,23 @@ def _unary_internal_node_splits(tree):
 
 
 def _load_publication_bootstrap_trees(count=10):
-    pytest.skip(
-        "historical FastTree-specific 24-taxa fixture is not retained in publication_data"
+    data_path = (
+        Path(__file__).resolve().parents[4]
+        / "publication_data"
+        / "bootstrap_rogue_taxa"
+        / "current_results"
+        / "dataset_24_source-24_taxa24_sites14190"
+        / "ranked"
+        / "all_trees_24_source-24_taxa24_sites14190.nwk"
     )
+    if not data_path.exists():
+        pytest.skip("publication bootstrap 24-taxa tree data is not available")
+
+    return parse_newick(
+        data_path.read_text(),
+        force_list=True,
+        treat_zero_as_epsilon=True,
+    )[:count]
 
 
 def _load_paper_example_trees():
@@ -209,15 +223,21 @@ def test_bootstrap_collapse_frames_do_not_reorder_before_expansion():
     sequence = SequentialInterpolationBuilder().build(trees)
     original_indices = sequence.get_original_tree_indices()
 
-    # Pair 4 (rep_9 -> rep_53) and pair 7 (rep_33 -> rep_23) both used to
-    # reorder Alligator/Caiman vs tinamous during the collapse frame itself.
-    for pair_index in (4, 7):
+    checked_pairs = 0
+    for pair_index in range(len(original_indices) - 1):
         pair_start = original_indices[pair_index]
-        before_collapse = sequence.interpolated_trees[pair_start + 1 + 4]
-        collapsed = sequence.interpolated_trees[pair_start + 1 + 5]
+        pair_end = original_indices[pair_index + 1]
+        for frame_index in range(pair_start, pair_end):
+            before_collapse = sequence.interpolated_trees[frame_index]
+            collapsed = sequence.interpolated_trees[frame_index + 1]
+            if _split_keys(before_collapse) == _split_keys(collapsed):
+                continue
 
-        assert _split_keys(before_collapse) != _split_keys(collapsed)
-        assert before_collapse.get_current_order() == collapsed.get_current_order()
+            checked_pairs += 1
+            assert before_collapse.get_current_order() == collapsed.get_current_order()
+            break
+
+    assert checked_pairs > 0
 
 
 def test_bootstrap_topology_frames_do_not_also_reorder_leaves():
@@ -292,64 +312,33 @@ def test_bootstrap_pair_7_8_highlights_movers_not_passive_context():
         )
     ).process_trees(trees)
 
-    leaves = {
-        name: index
-        for name, index in result["interpolated_trees"][0].taxa_encoding.items()
-    }
-    oystercatcher = leaves["oystercatcher"]
-    lb_penguin = leaves["LBPenguin"]
-    gavia = leaves["GaviaStellata"]
-    turnstone = leaves["turnstone"]
-    ostrich = leaves["Ostrich"]
-    great_rhea = leaves["GreatRhea"]
-    lesser_rhea = leaves["LesserRhea"]
-    cassowary = leaves["Cassowary"]
-    emu = leaves["Emu"]
-    brown_kiwi = leaves["BrownKiwi"]
-    great_spotted_kiwi = leaves["gskiwi"]
-    little_spotted_kiwi = leaves["LSKiwi"]
-    ec_tinamou = leaves["ECtinamou"]
-    g_tinamou = leaves["Gtinamou"]
-    crypturellus = leaves["Crypturellus"]
-
     pair_7 = result["pairs"][7]
     start = pair_7["source_frame_index"]
     end = pair_7["target_frame_index"]
     pair_tracking = result["subtree_highlight_tracking"][start : end + 1]
     pair_highlights = [entry for entry in pair_tracking if entry]
 
-    expected_mover_groups = {
-        frozenset([lb_penguin]),
-        frozenset([gavia]),
-        frozenset([oystercatcher]),
-        frozenset([turnstone]),
-        frozenset([ostrich]),
-        frozenset([great_rhea, lesser_rhea]),
-        frozenset([cassowary, emu]),
-        frozenset([brown_kiwi, great_spotted_kiwi, little_spotted_kiwi]),
-        frozenset([ec_tinamou, g_tinamou, crypturellus]),
-    }
+    expected_mover_groups = set()
+    for groups_for_split in pair_7["solution"][
+        "affected_subtrees_by_split"
+    ].values():
+        for entry in groups_for_split:
+            if entry and isinstance(entry[0], list):
+                expected_mover_groups.update(frozenset(group) for group in entry)
+            else:
+                expected_mover_groups.add(frozenset(entry))
 
     for entry in pair_highlights:
         assert {frozenset(group) for group in entry}.issubset(expected_mover_groups)
+    assert expected_mover_groups.issubset(
+        {frozenset(group) for entry in pair_highlights for group in entry}
+    )
 
-    for entry in pair_tracking[1:5]:
-        assert {frozenset(group) for group in entry} == {
-            frozenset([lb_penguin]),
-            frozenset([gavia]),
-        }
-
-    oystercatcher_frames = [
-        idx
-        for idx, entry in enumerate(pair_tracking)
-        if entry and any(oystercatcher in group for group in entry)
-    ]
-    assert oystercatcher_frames
-    assert min(oystercatcher_frames) > 4
-    for idx in oystercatcher_frames:
-        assert {frozenset(group) for group in pair_tracking[idx]} == {
-            frozenset([oystercatcher]),
-            frozenset([turnstone]),
+    for event in result["temporal_events"]:
+        if event.get("pair_id") != pair_7["pair_id"] or event["event_type"] != "spr_move":
+            continue
+        assert {frozenset(group) for group in event["highlight_group"]} == {
+            frozenset(event["driver_subtree"])
         }
 
 

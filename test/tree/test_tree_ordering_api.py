@@ -5,7 +5,10 @@ Focus: Node.reorder_taxa (MINIMUM strategy default), subtree application,
 error handling, and topology preservation.
 """
 
+import cProfile
+
 from brancharchitect.parser.newick_parser import parse_newick
+from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
 
 
@@ -97,3 +100,35 @@ def test_reorder_tie_breaker_determinism_on_equal_minima():
     t.reorder_taxa(perm)
     # Deterministic order: (A,B) comes before (C,D) due to tie-breaker
     assert list(t.get_current_order()) == ["A", "B", "C", "D"]
+
+
+def test_reorder_taxa_minimum_uses_single_bottom_up_rotation_pass():
+    t = parse_newick("(((A:1,B:1):1,(C:1,D:1):1):1,((E:1,F:1):1,G:1):1);")
+    profiler = cProfile.Profile()
+
+    profiler.runcall(t.reorder_taxa, ["G", "F", "E", "D", "C", "B", "A"])
+
+    assert list(t.get_current_order()) == ["G", "F", "E", "D", "C", "B", "A"]
+    assert all(
+        entry.code.co_name != "apply_reordering"
+        for entry in profiler.getstats()
+        if hasattr(entry.code, "co_name")
+    )
+
+
+def test_reorder_taxa_reuses_current_order_for_validation(monkeypatch):
+    t = parse_newick("((A:1,B:1):1,(C:1,D:1):1);")
+    original_get_leaves = Node.get_leaves
+    get_leaves_count = 0
+
+    def counted_get_leaves(self):
+        nonlocal get_leaves_count
+        get_leaves_count += 1
+        return original_get_leaves(self)
+
+    monkeypatch.setattr(Node, "get_leaves", counted_get_leaves)
+
+    t.reorder_taxa(["D", "C", "B", "A"])
+
+    assert list(t.get_current_order()) == ["D", "C", "B", "A"]
+    assert get_leaves_count == 2

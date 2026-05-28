@@ -1,4 +1,5 @@
 from collections import Counter
+import cProfile
 import inspect
 
 import pytest
@@ -265,7 +266,48 @@ def test_collapse_reorder_reuses_owned_working_tree_without_extra_snapshot(monke
         ["C", "A", "B", "D"],
         ["C", "A", "B", "D"],
     ]
-    assert copy_count == 5
+    assert copy_count == 4
+
+
+def test_collapse_without_later_mutation_reuses_collapsed_working_tree_as_frame(
+    monkeypatch,
+):
+    """A collapse-only state can be both the pending frame and returned state."""
+    source = parse_newick("((A:1,B:1):1,C:1,D:1);")
+    destination = parse_newick("(A:1,B:1,C:1,D:1);", encoding=source.taxa_encoding)
+
+    encoding = source.taxa_encoding
+    pivot = Partition(tuple(sorted(encoding.values())), encoding)
+    mover = Partition((encoding["C"],), encoding)
+    split_ab = Partition((encoding["A"], encoding["B"]), encoding)
+
+    copy_count = 0
+    original_deep_copy = Node.deep_copy
+
+    def counted_deep_copy(self, *args, **kwargs):
+        nonlocal copy_count
+        copy_count += 1
+        return original_deep_copy(self, *args, **kwargs)
+
+    monkeypatch.setattr(Node, "deep_copy", counted_deep_copy)
+
+    trees, _edges, final_tree, _subtree_tracker = (
+        subtree_microsteps.build_subtree_interpolation_frames(
+            interpolation_state=source,
+            destination_tree=destination,
+            current_pivot_edge=pivot,
+            selection=_transition_step(mover, collapse_path=[split_ab]),
+            all_mover_partitions=[mover],
+        )
+    )
+
+    assert [list(tree.get_current_order()) for tree in trees] == [
+        ["A", "B", "C", "D"],
+        ["A", "B", "C", "D"],
+        ["A", "B", "C", "D"],
+    ]
+    assert trees[1] is not final_tree
+    assert copy_count == 3
 
 
 def test_expand_snap_avoids_indexed_copy_for_snap_source(monkeypatch):
@@ -424,6 +466,8 @@ def test_active_split_sequence_hands_off_owned_state_without_copying(monkeypatch
         expand_paths_for_pivot_edge,
         source_parent_map,
         dest_parent_map,
+        source_weights=None,
+        destination_weights=None,
     ):
         seen_base_trees.append(current_base_tree)
         frame_tree = current_base_tree.deep_copy()
@@ -465,6 +509,30 @@ def test_align_to_source_order_does_not_repeatedly_collect_leaves(monkeypatch):
 
     monkeypatch.setattr(Node, "get_leaves", original_get_leaves)
     assert list(tree.get_current_order()) == ["D", "C", "B", "A"]
+
+
+def test_align_to_source_order_does_not_merge_leaf_lists(monkeypatch):
+    """Alignment should compute compact sort-key aggregates bottom-up."""
+    from brancharchitect.tree_interpolation.subtree_paths.execution.layout.tree_order_alignment import (
+        align_to_source_order,
+    )
+
+    tree = parse_newick("((A:1,B:1):1,(C:1,D:1):1,E:1);")
+    profiler = cProfile.Profile()
+
+    profiler.runcall(
+        align_to_source_order,
+        tree,
+        ["E", "D", "C", "B", "A"],
+        moving_taxa={"B"},
+    )
+
+    assert list(tree.get_current_order()) == ["E", "D", "C", "B", "A"]
+    assert all(
+        entry.code.co_name != "sort_key_for_leaf_names"
+        for entry in profiler.getstats()
+        if hasattr(entry.code, "co_name")
+    )
 
 
 if __name__ == "__main__":

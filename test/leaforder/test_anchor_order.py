@@ -139,3 +139,28 @@ def test_precomputed_common_splits_does_not_promote_leaf_anchors():
 
     assert list(t1.get_current_order()) == ["A", "B", "C", "D"]
     assert list(t2.get_current_order()) == ["D", "C", "B", "A"]
+
+
+def test_root_alignment_keeps_unhandled_taxa_outside_anchor_block():
+    """
+    Root-level anchor alignment should keep explicit stable anchor blocks stable.
+    Taxa outside anchor/mover blocks are not movers, so they behave like
+    singleton anchors under the same anchor policy.
+    """
+    t1, t2 = _pair("((A:1,B:1):1,C:1,D:1);", "((A:1,B:1):1,D:1,C:1);")
+    common_splits = get_common_splits(t1, t2)
+    encoding = t1.taxa_encoding
+    root_edge = Partition(tuple(sorted(encoding.values())), encoding)
+
+    blocked_order_and_apply(
+        root_edge,
+        {},
+        {},
+        t1,
+        t2,
+        anchor_weight_policy="destination",
+        common_splits=common_splits,
+    )
+
+    assert list(t1.get_current_order()) == ["A", "B", "D", "C"]
+    assert list(t2.get_current_order()) == ["A", "B", "D", "C"]

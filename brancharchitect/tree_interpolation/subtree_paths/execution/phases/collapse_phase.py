@@ -28,7 +28,7 @@ def run_collapse_phase(
     if not paths.has_collapse_work:
         return interpolation_state, False
 
-    zeroed_tree: Node = interpolation_state.deep_copy(build_split_index=False)
+    zeroed_tree: Node = interpolation_state
     zeroed_order = list(zeroed_tree.get_current_order())
 
     apply_zero_branch_lengths(zeroed_tree, PartitionSet(set(paths.collapse_paths)))
@@ -47,7 +47,7 @@ def run_collapse_phase(
         highlights.collapse,
     )
     pending_frames.set(
-        collapsed_tree.deep_copy(build_split_index=False),
+        collapsed_tree,
         current_pivot_edge,
         highlights.collapse,
     )

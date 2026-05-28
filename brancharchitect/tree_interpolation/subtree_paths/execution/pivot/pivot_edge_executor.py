@@ -30,6 +30,8 @@ def execute_pivot_edge_interpolation(
     collapse_paths_for_pivot_edge: Dict[Partition, PartitionSet[Partition]],
     source_parent_map: Optional[Dict[Partition, Partition]] = None,
     dest_parent_map: Optional[Dict[Partition, Partition]] = None,
+    source_weights: Optional[Dict[Partition, float]] = None,
+    destination_weights: Optional[Dict[Partition, float]] = None,
 ) -> tuple[
     list[Node],
     list[Optional[Partition]],
@@ -63,8 +65,10 @@ def execute_pivot_edge_interpolation(
         subtree_order_key=initial_subtree_order_key,
     )
 
-    source_weights: Dict[Partition, float] = source_tree.to_weighted_splits()
-    destination_weights: Dict[Partition, float] = destination_tree.to_weighted_splits()
+    if source_weights is None:
+        source_weights = source_tree.to_weighted_splits()
+    if destination_weights is None:
+        destination_weights = destination_tree.to_weighted_splits()
 
     mover_partition_set = (
         set(expand_paths_for_plan) | set(collapse_paths_for_plan) | set(selections)

@@ -49,6 +49,9 @@ class PendingFrameBuffer:
     def has_pending(self) -> bool:
         return self._pending is not None
 
+    def is_pending_tree(self, tree: Node) -> bool:
+        return self._pending is not None and self._pending[0] is tree
+
     def flush(self) -> None:
         if self._pending is None:
             return

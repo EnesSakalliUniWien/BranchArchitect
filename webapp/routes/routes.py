@@ -3,6 +3,7 @@
 # --------------------------------------------------------------
 from __future__ import annotations
 
+from importlib import metadata
 from logging import Logger
 from pathlib import Path
 import threading
@@ -22,7 +23,7 @@ from webapp.services.sse import (
 from typing import Union, Tuple
 import tempfile
 import os
-import shutil  # Added for temporary directory cleanup
+import shutil
 from msa_to_trees.pipeline import run_pipeline, FastTreeConfig, IQTreeConfig
 
 bp = Blueprint("main", __name__)
@@ -47,7 +48,7 @@ def index() -> Response:
   <h1>Phylo-Movies Backend</h1>
   <p>The API server is running on <code>127.0.0.1:5002</code>.</p>
   <p>Open the frontend at <a href="http://127.0.0.1:5173/">http://127.0.0.1:5173/</a>.</p>
-  <p>Backend health: <a href="/about">/about</a></p>
+  <p>Backend readiness: <a href="/health">/health</a></p>
 </body>
 </html>
 """,
@@ -59,7 +60,36 @@ def index() -> Response:
 def about() -> Response:
     """Simple health-check / about endpoint."""
     return jsonify(
-        {"about": "Phylo-Movies API backend. See the Vue/React front-end for the UI."}
+        {"about": "Phylo-Movies API backend. See the React frontend for the UI."}
+    )
+
+
+@bp.route("/health")
+def health() -> Response:
+    """Readiness endpoint consumed by the frontend before enabling processing."""
+    try:
+        version = metadata.version("brancharchitect")
+    except metadata.PackageNotFoundError:
+        version = "unknown"
+
+    return jsonify(
+        {
+            "service": "brancharchitect",
+            "status": "ready",
+            "ready": True,
+            "version": version,
+            "capabilities": [
+                "tree-stream-upload",
+                "sse-progress-stream",
+                "msa-tree-inference",
+                "tree-interpolation",
+            ],
+            "routes": {
+                "health": "/health",
+                "tree_stream": "/treedata/stream",
+                "progress_stream": "/stream/progress/<channel_id>",
+            },
+        }
     )
 
 

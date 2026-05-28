@@ -830,18 +830,51 @@ class Node:
         - Subtrees that are already aligned keep their internal ordering, preventing
           churn in unaffected regions when only a sibling needs to move.
         """
+        permutation_tuple = tuple(permutation)
+        current_order = self.get_current_order()
+        if permutation_tuple == current_order:
+            return
+
         # 1. Validate permutation
-        tree_taxa = {leaf.name for leaf in self.get_leaves()}
+        tree_taxa = set(current_order)
         if set(permutation) != tree_taxa:
             raise ValueError(
                 "Permutation must include all taxa in the tree.", permutation, tree_taxa
             )
 
-        if tuple(permutation) == self.get_current_order():
-            return
-
         # 2. Map taxon names to their desired target index
         target_indices = {name: i for i, name in enumerate(permutation)}
+
+        if strategy == ReorderStrategy.MINIMUM:
+
+            def apply_minimum_reordering(node: Self) -> tuple[int, bool]:
+                if not node.children:
+                    return target_indices[node.name], False
+
+                if len(node.children) == 1:
+                    return apply_minimum_reordering(node.children[0])
+
+                changed = False
+                children_with_keys: list[tuple[int, Self]] = []
+                for child in node.children:
+                    child_key, child_changed = apply_minimum_reordering(child)
+                    changed = child_changed or changed
+                    children_with_keys.append((child_key, child))
+
+                children_with_keys.sort(key=lambda item: item[0])
+                if any(
+                    child is not node.children[index]
+                    for index, (_key, child) in enumerate(children_with_keys)
+                ):
+                    node.children = [child for _key, child in children_with_keys]
+                    changed = True
+
+                return children_with_keys[0][0], changed
+
+            _minimum_key, changed = apply_minimum_reordering(self)
+            if changed:
+                self.invalidate_order_caches(propagate_up=True)
+            return
 
         # 3. Bottom-up calculation of sort keys (Dynamic Programming)
         # Key: node_id -> value depending on strategy
@@ -943,7 +976,7 @@ class Node:
             return changed
 
         if apply_reordering(self):
-            self.invalidate_caches(propagate_up=True)
+            self.invalidate_order_caches(propagate_up=True)
 
     def get_leaves(self) -> List[Self]:
         """
@@ -1295,6 +1328,36 @@ class Node:
             node._splits_cache = None
             node._splits_with_leaves_cache = None
             node._split_index = None
+            node._leaves_cache = None
+
+        clear(self)
+
+        if propagate_down:
+            stack = list(self.children)
+            while stack:
+                node = stack.pop()
+                clear(node)
+                stack.extend(node.children)
+
+        if propagate_up:
+            parent = self.parent
+            while parent is not None:
+                clear(parent)
+                parent = parent.parent
+
+    def invalidate_order_caches(
+        self, propagate_up: bool = True, propagate_down: bool = True
+    ) -> None:
+        """
+        Invalidate caches whose values depend on child ordering only.
+
+        Leaf reordering does not change topology, split indices, or the split
+        lookup index. Keeping those topology caches avoids rebuilding expensive
+        split sets during repeated visual-order adjustments.
+        """
+
+        def clear(node: Self) -> None:
+            node._traverse_cache = None
             node._leaves_cache = None
 
         clear(self)

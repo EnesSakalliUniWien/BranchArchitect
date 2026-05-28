@@ -1,5 +1,6 @@
 from typing import List, Tuple, Dict, Any, Optional
 import logging
+import time
 
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition_set import PartitionSet
@@ -218,10 +219,16 @@ class TreeOrderOptimizer:
         # all trees start with consistent encodings from the same parse batch.
 
         # Final alignment to ensure global coherence
+        t_alignment_start = time.perf_counter()
         final_pairwise_alignment_pass(self.trees)
+        self.logger.info(
+            "[PhaseTimer] anchor_order_initial_alignment %.3fs",
+            time.perf_counter() - t_alignment_start,
+        )
 
         # Apply anchor-based ordering to each consecutive pair
         for i in range(n - 1):
+            t_pair_start = time.perf_counter()
             self.logger.info(f"Processing tree pair ({i}, {i + 1})")
 
             # Retrieve precomputed solution if available
@@ -232,11 +239,20 @@ class TreeOrderOptimizer:
                 precomputed_solution = self.precomputed_lattice_solutions[i]
 
             # Pre-compute common splits to avoid redundant calculations in derive_order and propagation
+            t_common_start = time.perf_counter()
             common_splits: PartitionSet[Partition] = get_common_splits(
                 self.trees[i], self.trees[i + 1]
             )
+            self.logger.info(
+                "[PhaseTimer] anchor_pair_common_splits pair=%d-%d splits=%d %.3fs",
+                i,
+                i + 1,
+                len(common_splits),
+                time.perf_counter() - t_common_start,
+            )
 
             # Default to destination-anchored ordering so only jumping taxa move
+            t_derive_start = time.perf_counter()
             derive_order_for_pair(
                 self.trees[i],
                 self.trees[i + 1],
@@ -246,12 +262,40 @@ class TreeOrderOptimizer:
                 precomputed_solution=precomputed_solution,
                 common_splits=common_splits,
             )
+            self.logger.info(
+                "[PhaseTimer] anchor_pair_derive_order pair=%d-%d %.3fs",
+                i,
+                i + 1,
+                time.perf_counter() - t_derive_start,
+            )
 
             # After ordering pair (i, i+1), their common splits are now aligned.
             # Propagate the orientation from tree i backwards and from tree i+1 forwards.
             # Reuse the already computed common_splits
+            t_backward_start = time.perf_counter()
             self._propagate_from_index_backward(i, common_splits)
+            self.logger.info(
+                "[PhaseTimer] anchor_pair_propagate_backward pair=%d-%d targets=%d %.3fs",
+                i,
+                i + 1,
+                i,
+                time.perf_counter() - t_backward_start,
+            )
+            t_forward_start = time.perf_counter()
             self._propagate_from_index_forward(i + 1, common_splits)
+            self.logger.info(
+                "[PhaseTimer] anchor_pair_propagate_forward pair=%d-%d targets=%d %.3fs",
+                i,
+                i + 1,
+                max(0, n - i - 2),
+                time.perf_counter() - t_forward_start,
+            )
+            self.logger.info(
+                "[PhaseTimer] anchor_pair_total pair=%d-%d %.3fs",
+                i,
+                i + 1,
+                time.perf_counter() - t_pair_start,
+            )
 
         for idx, tree in enumerate(self.trees):
             self.logger.debug(
@@ -272,12 +316,26 @@ class TreeOrderOptimizer:
         if not splits_to_propagate:
             return
 
+        t_map_start = time.perf_counter()
         orientation_map = build_orientation_map(ref_tree, splits_to_propagate)
+        self.logger.info(
+            "[PhaseTimer] anchor_propagate_build_orientation_map splits=%d map_entries=%d targets=%d %.3fs",
+            len(splits_to_propagate),
+            len(orientation_map),
+            len(target_trees),
+            time.perf_counter() - t_map_start,
+        )
 
+        t_targets_start = time.perf_counter()
         for target_tree in target_trees:
             # The map is mutated in-place, so we create a copy for each target
             map_copy = orientation_map.copy()
             reorder_tree_if_full_common(ref_tree, target_tree, map_copy)
+        self.logger.info(
+            "[PhaseTimer] anchor_propagate_targets targets=%d %.3fs",
+            len(target_trees),
+            time.perf_counter() - t_targets_start,
+        )
 
     def _propagate_from_index_forward(
         self, ref_index: int, splits_to_propagate: PartitionSet[Partition]

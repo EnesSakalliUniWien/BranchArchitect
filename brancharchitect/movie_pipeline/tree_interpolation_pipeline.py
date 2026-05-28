@@ -35,11 +35,12 @@ from .tree_rooting import root_trees
 
 def _parallel_solve_pair(
     source: Node, destination: Node
-) -> Tuple[Optional[Dict[Partition, List[Partition]]], Optional[str]]:
+) -> Tuple[Optional[Dict[Partition, List[Partition]]], Optional[str], float]:
     """
     Helper function to run lattice computation in a separate process.
     Returns (solution_dict, error_message).
     """
+    start = time.perf_counter()
     try:
         solver = LatticeSolver(source, destination)
         # Type hint to help Pylance resolve the tuple unpacking
@@ -47,9 +48,9 @@ def _parallel_solve_pair(
             solver.solve_iteratively()
         )
         solution_dict = result[0]
-        return solution_dict, None
+        return solution_dict, None, time.perf_counter() - start
     except Exception as e:
-        return None, str(e)
+        return None, str(e), time.perf_counter() - start
 
 
 def _report_progress(
@@ -135,14 +136,24 @@ class TreeInterpolationPipeline:
             return create_single_tree_result(processed_trees)
 
         _report_progress(progress_callback, 5, "Rooting trees...")
+        t_root_start = time.perf_counter()
         processed_trees = self._apply_rooting_if_enabled(processed_trees)
         processed_trees = self._normalize_tree_shape(processed_trees)
         self._ensure_shared_taxa_encoding(processed_trees)
         clear_split_pair_cache()
+        self.logger.info(
+            "[PhaseTimer] rooting_and_normalization %.3fs",
+            time.perf_counter() - t_root_start,
+        )
 
         _report_progress(progress_callback, 10, "Precomputing solutions...")
+        t_precompute_start = time.perf_counter()
         precomputed_lattice_solutions = self._precompute_lattice_solutions(
             processed_trees
+        )
+        self.logger.info(
+            "[PhaseTimer] lattice_precompute_total %.3fs",
+            time.perf_counter() - t_precompute_start,
         )
 
         _report_progress(progress_callback, 20, "Optimizing tree order...")
@@ -155,7 +166,8 @@ class TreeInterpolationPipeline:
             precomputed_lattice_solutions=precomputed_lattice_solutions,
         )
         self.logger.info(
-            f"Leaf order optimization took {time.perf_counter() - t_opt_start:.3f}s"
+            "[PhaseTimer] leaf_order_optimization_total %.3fs",
+            time.perf_counter() - t_opt_start,
         )
 
         _report_progress(progress_callback, 30, "Interpolating sequence...")
@@ -167,10 +179,15 @@ class TreeInterpolationPipeline:
             else None
         )
 
+        t_interp_start = time.perf_counter()
         seq_result = self._interpolate_tree_sequence(
             processed_trees,
             precomputed_lattice_solutions=precomputed_lattice_solutions,
             progress_callback=interp_callback,
+        )
+        self.logger.info(
+            "[PhaseTimer] interpolation_sequence_total %.3fs",
+            time.perf_counter() - t_interp_start,
         )
 
         self.logger.info("Calculating distance metrics...")
@@ -368,7 +385,11 @@ class TreeInterpolationPipeline:
         sols: List[Optional[Dict[Partition, List[Partition]]]] = []
 
         for i, result_tuple in enumerate(results):
-            solution_dict, error_msg = result_tuple
+            if len(result_tuple) == 2:
+                solution_dict, error_msg = result_tuple
+                elapsed = None
+            else:
+                solution_dict, error_msg, elapsed = result_tuple
             if error_msg:
                 self.logger.error(
                     f"Failed to compute lattice solution for pair {i}-{i + 1}. "
@@ -377,6 +398,14 @@ class TreeInterpolationPipeline:
                 sols.append(None)
             else:
                 sols.append(solution_dict)
+            if elapsed is not None:
+                self.logger.info(
+                    "[PhaseTimer] lattice_pair pair=%d-%d %.3fs status=%s",
+                    i,
+                    i + 1,
+                    elapsed,
+                    "error" if error_msg else "ok",
+                )
 
         return sols
 

@@ -1,4 +1,6 @@
 from __future__ import annotations
+import logging
+import time
 from itertools import product
 from brancharchitect.tree import Node
 from typing import List, Dict, Set, Tuple, cast
@@ -44,6 +46,8 @@ from brancharchitect.jumping_taxa.lattice.mapping.solution_mapping import (
 from brancharchitect.jumping_taxa.lattice.solvers.identify_jumping_taxa import (
     identify_and_delete_jumping_taxa,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class LatticeSolver:
@@ -126,13 +130,17 @@ class LatticeSolver:
         Returns:
             True if there are pivot edges to process, False if trees are identical.
         """
+        t_total_start = time.perf_counter()
+
         # Fresh registry for this solve pass
         self.registry = SolutionRegistry()
 
         # Construct pivot edge subproblems from current working trees
+        t_construct_start = time.perf_counter()
         self.pivot_edges = construct_pivot_edge_problems(
             self.current_t1, self.current_t2
         )
+        construct_elapsed = time.perf_counter() - t_construct_start
 
         if not self.pivot_edges:
             if not jt_logger.disabled:
@@ -140,18 +148,32 @@ class LatticeSolver:
                     "No pivot edge subproblems constructed. Trees are identical."
                 )
             self.processing_stack = []
+            logger.info(
+                "[PhaseTimer] lattice_build_processing_state pivots=0 construct=%.3fs total=%.3fs",
+                construct_elapsed,
+                time.perf_counter() - t_total_start,
+            )
             return False
 
         # Sort by depth-based hierarchy for optimal processing
+        t_sort_start = time.perf_counter()
         self.pivot_edges = sort_pivot_edges_by_subset_hierarchy(
             self.pivot_edges, self.current_t1, self.current_t2
         )
+        sort_elapsed = time.perf_counter() - t_sort_start
 
         # Processing stack (initialize in reverse so pop() yields correct order)
         # We want to process from start of sorted list (subsets) to end (supersets)
         # Since stack.pop() takes from the end, we reverse the list first.
         self.processing_stack = list(
             reversed(self.pivot_edges)
+        )
+        logger.info(
+            "[PhaseTimer] lattice_build_processing_state pivots=%d construct=%.3fs sort=%.3fs total=%.3fs",
+            len(self.pivot_edges),
+            construct_elapsed,
+            sort_elapsed,
+            time.perf_counter() - t_total_start,
         )
         return True
 
@@ -677,6 +699,7 @@ class LatticeSolver:
         if not jt_logger.disabled:
             jt_logger.section("Iterative Lattice Algorithm")
 
+        t_total_start = time.perf_counter()
         # Initialize iteration variables
         jumping_subtree_solutions_dict: Dict[Partition, List[Partition]] = {}
         self.deleted_taxa_per_iteration = []  # Reset for this solve
@@ -693,26 +716,44 @@ class LatticeSolver:
 
             iteration_count += 1
 
+            t_iteration_start = time.perf_counter()
+
             # Rebuild processing state for current trees
+            t_build_start = time.perf_counter()
             has_work = self._build_processing_state()
+            build_elapsed = time.perf_counter() - t_build_start
             if not has_work:
                 raise RuntimeError(
                     "No pivot edges constructed but trees are not isomorphic."
                 )
 
+            t_solve_start = time.perf_counter()
             solutions_dict_this_iter = self.solve(map_solutions=False)
+            solve_elapsed = time.perf_counter() - t_solve_start
 
             # Accumulate solutions (flat partitions) from this iteration into the global dictionary
             for split, partitions in solutions_dict_this_iter.items():
                 jumping_subtree_solutions_dict.setdefault(split, []).extend(partitions)
 
             # Identify and delete jumping taxa
+            t_delete_start = time.perf_counter()
             should_break_loop = identify_and_delete_jumping_taxa(
                 self.current_t1,
                 self.current_t2,
                 self.deleted_taxa_per_iteration,
                 solutions_dict_this_iter,
                 iteration_count,
+            )
+            delete_elapsed = time.perf_counter() - t_delete_start
+            logger.info(
+                "[PhaseTimer] lattice_iteration iteration=%d pivots=%d solutions=%d build=%.3fs solve=%.3fs delete=%.3fs total=%.3fs",
+                iteration_count,
+                len(self.pivot_edges),
+                len(solutions_dict_this_iter),
+                build_elapsed,
+                solve_elapsed,
+                delete_elapsed,
+                time.perf_counter() - t_iteration_start,
             )
 
             if should_break_loop:
@@ -736,10 +777,22 @@ class LatticeSolver:
         # Note: Dict order may not be topologically sorted across iterations.
         # Callers should sort if needed using topological_sort_edges.
         # Map moving subtrees to common splits so interpolation doesn't target missing nodes.
+        t_map_start = time.perf_counter()
         mapped_solutions_dict = map_solutions_to_common_subtrees(
             jumping_subtree_solutions_dict,
             self.original_tree1,
             self.original_tree2,
+        )
+        logger.info(
+            "[PhaseTimer] lattice_map_solutions pivots=%d %.3fs",
+            len(jumping_subtree_solutions_dict),
+            time.perf_counter() - t_map_start,
+        )
+        logger.info(
+            "[PhaseTimer] lattice_solve_iteratively iterations=%d mapped_pivots=%d total=%.3fs",
+            iteration_count,
+            len(mapped_solutions_dict),
+            time.perf_counter() - t_total_start,
         )
 
         # verify_mapped_solutions_prune(
