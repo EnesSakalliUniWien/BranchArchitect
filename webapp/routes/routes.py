@@ -27,6 +27,43 @@ import shutil
 from msa_to_trees.pipeline import run_pipeline, FastTreeConfig, IQTreeConfig
 
 bp = Blueprint("main", __name__)
+_MSA_TREE_INFERENCE_LOCK = threading.Lock()
+_MSA_TREE_INFERENCE_ACTIVE_CHANNEL_ID: str | None = None
+_MSA_TREE_INFERENCE_STATE_LOCK = threading.Lock()
+
+
+def _is_msa_tree_inference_request(req_data: Any) -> bool:
+    return req_data.tree_content is None and bool(req_data.msa_content)
+
+
+def _claim_msa_tree_inference_slot(channel_id: str) -> bool:
+    global _MSA_TREE_INFERENCE_ACTIVE_CHANNEL_ID
+
+    if not _MSA_TREE_INFERENCE_LOCK.acquire(blocking=False):
+        return False
+
+    with _MSA_TREE_INFERENCE_STATE_LOCK:
+        _MSA_TREE_INFERENCE_ACTIVE_CHANNEL_ID = channel_id
+    return True
+
+
+def _release_msa_tree_inference_slot(channel_id: str) -> None:
+    global _MSA_TREE_INFERENCE_ACTIVE_CHANNEL_ID
+
+    with _MSA_TREE_INFERENCE_STATE_LOCK:
+        if _MSA_TREE_INFERENCE_ACTIVE_CHANNEL_ID != channel_id:
+            return
+        _MSA_TREE_INFERENCE_ACTIVE_CHANNEL_ID = None
+    _MSA_TREE_INFERENCE_LOCK.release()
+
+
+def _get_msa_tree_inference_status() -> dict[str, Any]:
+    with _MSA_TREE_INFERENCE_STATE_LOCK:
+        active_channel_id = _MSA_TREE_INFERENCE_ACTIVE_CHANNEL_ID
+    return {
+        "busy": active_channel_id is not None,
+        "active_channel_id": active_channel_id,
+    }
 
 
 @bp.route("/")
@@ -88,6 +125,9 @@ def health() -> Response:
                 "health": "/health",
                 "tree_stream": "/treedata/stream",
                 "progress_stream": "/stream/progress/<channel_id>",
+            },
+            "jobs": {
+                "msa_tree_inference": _get_msa_tree_inference_status(),
             },
         }
     )
@@ -180,6 +220,11 @@ def _run_msa_analysis_and_interpolate(
             f"{tree_inference_config.description} model..."
         )
 
+        def report_pipeline_progress(pct: float, msg: str) -> None:
+            # Keep the MSA tree-inference stage inside _run_msa_analysis_and_interpolate's
+            # 10-40 range. Interpolation and streaming own the later ranges.
+            report(10 + (pct / 100.0) * 30, msg)
+
         # Pass MSA content directly - no need to write input file to disk
         pipeline_result = run_pipeline(
             input_file=None,
@@ -188,6 +233,7 @@ def _run_msa_analysis_and_interpolate(
             step_size=window_step,
             fasttree_config=tree_inference_config,
             msa_content=msa_content,  # In-memory content for webservice
+            stage_progress_callback=report_pipeline_progress,
         )
 
         tree_file_path = pipeline_result.tree_file_path
@@ -263,6 +309,20 @@ def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
     try:
         req_data = parse_tree_data_request(request)
         channel = channels.create()
+        claimed_msa_slot = False
+
+        if _is_msa_tree_inference_request(req_data):
+            claimed_msa_slot = _claim_msa_tree_inference_slot(channel.channel_id)
+            if not claimed_msa_slot:
+                channels.remove(channel.channel_id)
+                return (
+                    _fail(
+                        409,
+                        "Another MSA tree-inference job is already running. "
+                        "Wait for it to finish or restart the BranchArchitect backend before starting a new MSA analysis.",
+                    ),
+                    409,
+                )
 
         # Capture Flask app for background thread
         # Use getattr to avoid Pylance warning about protected attribute
@@ -321,10 +381,19 @@ def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
                         "[treedata/stream] Processing error: %s", str(e), exc_info=True
                     )
                     channel.complete(error=str(e))
+                finally:
+                    if claimed_msa_slot:
+                        _release_msa_tree_inference_slot(channel.channel_id)
 
         # Start background processing
         thread = threading.Thread(target=process_in_background, daemon=True)
-        thread.start()
+        try:
+            thread.start()
+        except Exception:
+            if claimed_msa_slot:
+                _release_msa_tree_inference_slot(channel.channel_id)
+            channels.remove(channel.channel_id)
+            raise
 
         return jsonify({"channel_id": channel.channel_id})
 

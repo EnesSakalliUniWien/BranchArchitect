@@ -7,7 +7,8 @@ from typing import Optional, cast
 from flask import Request
 from werkzeug.datastructures import FileStorage
 
-IQTREE_REPLICATE_COUNT_MIN = 100
+IQTREE_UFBOOT_REPLICATE_COUNT_MIN = 1000
+IQTREE_SH_ALRT_REPLICATE_COUNT_MIN = 100
 IQTREE_REPLICATE_COUNT_MAX = 100000
 
 
@@ -54,7 +55,9 @@ def get_msa_content(msa_file: Optional[FileStorage]) -> Optional[str]:
     return None
 
 
-def _parse_iqtree_replicate_count(raw_value: object, field_name: str) -> int:
+def _parse_iqtree_replicate_count(
+    raw_value: object, field_name: str, min_replicates: int
+) -> int:
     """Parse an IQ-TREE replicate count from form data with validation."""
 
     if raw_value is None:
@@ -86,9 +89,9 @@ def _parse_iqtree_replicate_count(raw_value: object, field_name: str) -> int:
     else:
         raise ValueError(f"{field_name} must be an integer.")
 
-    if not IQTREE_REPLICATE_COUNT_MIN <= replicate_count <= IQTREE_REPLICATE_COUNT_MAX:
+    if not min_replicates <= replicate_count <= IQTREE_REPLICATE_COUNT_MAX:
         raise ValueError(
-            f"{field_name} must be between {IQTREE_REPLICATE_COUNT_MIN} "
+            f"{field_name} must be between {min_replicates} "
             f"and {IQTREE_REPLICATE_COUNT_MAX}."
         )
     return replicate_count
@@ -174,10 +177,12 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
     iqtree_ufboot_replicates = _parse_iqtree_replicate_count(
         request.form.get("iqtreeUfbootReplicates", 1000),
         "iqtreeUfbootReplicates",
+        IQTREE_UFBOOT_REPLICATE_COUNT_MIN,
     )
     iqtree_sh_alrt_replicates = _parse_iqtree_replicate_count(
         request.form.get("iqtreeShAlrtReplicates", 1000),
         "iqtreeShAlrtReplicates",
+        IQTREE_SH_ALRT_REPLICATE_COUNT_MIN,
     )
     iqtree_bnni = request.form.get("iqtreeBnni", "") == "on"
     no_ml = request.form.get("noMl", "on") == "on"

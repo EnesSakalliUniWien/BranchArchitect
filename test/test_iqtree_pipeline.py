@@ -230,15 +230,20 @@ def test_infer_trees_parallel_uses_iqtree_runner_for_iqtree_config(
 
     monkeypatch.setattr("msa_to_trees.pipeline.run_iqtree", fake_run_iqtree)
     monkeypatch.setattr("sys.frozen", True, raising=False)
+    progress_events: list[tuple[int, int, str]] = []
 
     master = pipeline.infer_trees_parallel(
         windows_dir=windows_dir,
         trees_dir=trees_dir,
         output_tree_filename="all.newick",
         config=IQTreeConfig(),
+        progress_callback=lambda completed, total, alignment_file: progress_events.append(
+            (completed, total, Path(alignment_file).name)
+        ),
     )
 
     assert master.read_text() == "(0);\n(1);\n"
+    assert progress_events == [(1, 2, "0.fasta"), (2, 2, "1.fasta")]
 
 
 def test_run_pipeline_defaults_to_iqtree_config(tmp_path: Path, monkeypatch) -> None:
@@ -255,9 +260,13 @@ def test_run_pipeline_defaults_to_iqtree_config(tmp_path: Path, monkeypatch) -> 
         def __iter__(self):
             return iter([FakeRecord("A"), FakeRecord("B"), FakeRecord("C")])
 
-    def fake_infer_trees_parallel(windows_dir, trees_dir, output_tree_filename, config):
+    def fake_infer_trees_parallel(
+        windows_dir, trees_dir, output_tree_filename, config, progress_callback=None
+    ):
         nonlocal captured_config
         captured_config = config
+        if progress_callback:
+            progress_callback(1, 1, str(windows_dir / "1.fasta"))
         output = trees_dir / "combined.newick"
         output.write_text("(A,B,C);\n", encoding="utf-8")
         return output
@@ -278,11 +287,18 @@ def test_run_pipeline_defaults_to_iqtree_config(tmp_path: Path, monkeypatch) -> 
     )
     monkeypatch.setattr(pipeline, "infer_trees_parallel", fake_infer_trees_parallel)
 
+    stage_progress_events: list[tuple[float, str]] = []
+
     pipeline.run_pipeline(
         input_file="alignment.fasta",
         output_directory=str(tmp_path),
         window_size=5,
         step_size=5,
+        stage_progress_callback=lambda pct, msg: stage_progress_events.append((pct, msg)),
     )
 
     assert isinstance(captured_config, pipeline.IQTreeConfig)
+    assert any(
+        pct == 95 and "Inferred tree 1/1" in msg for pct, msg in stage_progress_events
+    )
+    assert stage_progress_events[-1] == (100, "Complete: 1 trees with 3 taxa each")

@@ -68,12 +68,29 @@ def test_parse_tree_data_request_rejects_out_of_range_iqtree_replicates() -> Non
     request = _request_with_msa(
         {
             "iqtreeSupportMode": "ufboot",
-            "iqtreeUfbootReplicates": "0",
+            "iqtreeUfbootReplicates": "999",
         }
     )
 
-    with pytest.raises(ValueError, match="iqtreeUfbootReplicates must be between"):
+    with pytest.raises(
+        ValueError,
+        match="iqtreeUfbootReplicates must be between 1000 and 100000",
+    ):
         parse_tree_data_request(request)
+
+
+def test_parse_tree_data_request_allows_sh_alrt_replicates_below_ufboot_minimum() -> None:
+    request = _request_with_msa(
+        {
+            "iqtreeSupportMode": "sh_alrt",
+            "iqtreeUfbootReplicates": "1000",
+            "iqtreeShAlrtReplicates": "100",
+        }
+    )
+
+    parsed = parse_tree_data_request(request)
+
+    assert parsed.iqtree_sh_alrt_replicates == 100
 
 
 def test_parse_tree_data_request_rejects_non_integer_iqtree_replicates() -> None:

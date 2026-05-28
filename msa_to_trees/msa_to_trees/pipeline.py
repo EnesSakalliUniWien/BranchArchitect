@@ -255,6 +255,7 @@ def infer_trees_parallel(
     trees_dir: Path,
     output_tree_filename: str | None,
     config: TreeInferenceConfig,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> Path:
     """
     Run tree inference in parallel on all window alignments.
@@ -287,7 +288,12 @@ def infer_trees_parallel(
         # due to how PyInstaller packages the application. Run sequentially
         # to ensure stability. Performance impact is acceptable for typical
         # alignment sizes in interactive usage.
-        results = [_run_tree_inference(f, config) for f in fasta_files]
+        results = []
+        total = len(fasta_files)
+        for completed, fasta_file in enumerate(fasta_files, start=1):
+            results.append(_run_tree_inference(fasta_file, config))
+            if progress_callback:
+                progress_callback(completed, total, fasta_file)
     else:
         # Use ProcessPoolExecutor to run tree inference in parallel
         max_workers = os.cpu_count()
@@ -298,8 +304,22 @@ def infer_trees_parallel(
         with concurrent.futures.ProcessPoolExecutor(
             max_workers=max_workers
         ) as executor:
-            # Map returns results in the order of the input iterable
-            results = list(executor.map(inference_runner, fasta_files))
+            future_to_index = {
+                executor.submit(inference_runner, fasta_file): index
+                for index, fasta_file in enumerate(fasta_files)
+            }
+            results_by_index: list[str | None] = [None] * len(fasta_files)
+            total = len(fasta_files)
+
+            for completed, future in enumerate(
+                concurrent.futures.as_completed(future_to_index), start=1
+            ):
+                index = future_to_index[future]
+                results_by_index[index] = future.result()
+                if progress_callback:
+                    progress_callback(completed, total, fasta_files[index])
+
+            results = [result for result in results_by_index if result is not None]
 
     # Write all trees to the master file
     with open(master_tree_file, "w") as f:
@@ -557,6 +577,7 @@ def run_pipeline(
     output_tree_filename: Optional[str] = None,
     fasttree_config: TreeInferenceConfig | None = None,
     progress_callback: Optional[Callable[[str], None]] = None,
+    stage_progress_callback: Optional[Callable[[float, str], None]] = None,
     msa_content: str | None = None,
 ) -> PipelineResult:
     """
@@ -574,6 +595,8 @@ def run_pipeline(
         output_tree_filename: Optional custom filename for the output tree file.
         fasttree_config: Tree inference configuration. Defaults to IQTreeConfig().
         progress_callback: Optional callback for logging messages (for webapp integration).
+        stage_progress_callback: Optional structured progress callback receiving
+            pipeline-local percent and message.
         msa_content: Raw MSA content as a string. If provided, input_file is not read
                      (webservice use case - avoids unnecessary disk I/O).
 
@@ -588,6 +611,10 @@ def run_pipeline(
         logger.info(msg)
         if progress_callback:
             progress_callback(msg)
+
+    def report_stage(pct: float, msg: str) -> None:
+        if stage_progress_callback:
+            stage_progress_callback(pct, msg)
 
     # --- Setup Paths and Directories ---
     output_dir = Path(output_directory)
@@ -606,6 +633,7 @@ def run_pipeline(
     total_taxa = len(all_taxa_ids)
 
     log(f"Alignment: {total_taxa} taxa, {alignment_length} positions")
+    report_stage(5, f"Loaded alignment: {total_taxa} taxa, {alignment_length} positions")
 
     # --- Step 2: Pre-scan all windows to find taxa valid in ALL windows ---
     # This ensures all trees have the exact same taxa set
@@ -615,6 +643,7 @@ def run_pipeline(
 
     num_windows = len(windows_list)
     log(f"Pre-scanning {num_windows} windows for taxa consistency...")
+    report_stage(10, f"Pre-scanning {num_windows} windows for taxa consistency...")
 
     # Track which taxa are invalid in which windows
     invalid_taxa_windows = scan_invalid_taxa(alignment, windows_list)
@@ -639,6 +668,7 @@ def run_pipeline(
 
     # --- Step 3: Generate filtered windowed alignments ---
     log(f"Generating {num_windows} filtered window alignments...")
+    report_stage(20, f"Generating {num_windows} filtered window alignments...")
 
     generate_filtered_window_alignments(
         alignment=alignment,
@@ -652,6 +682,19 @@ def run_pipeline(
         f"Running tree inference ({fasttree_config.description}) "
         f"on {num_windows} windows..."
     )
+    report_stage(
+        25,
+        f"Running tree inference ({fasttree_config.description}) on {num_windows} windows...",
+    )
+
+    def report_tree_inference(completed: int, total: int, alignment_file: str) -> None:
+        if total <= 0:
+            return
+        pct = 25 + (completed / total) * 70
+        report_stage(
+            pct,
+            f"Inferred tree {completed}/{total} from {Path(alignment_file).name}",
+        )
 
     try:
         master_tree_file = infer_trees_parallel(
@@ -659,6 +702,7 @@ def run_pipeline(
             trees_dir=trees_dir,
             output_tree_filename=output_tree_filename,
             config=fasttree_config,
+            progress_callback=report_tree_inference,
         )
     except RuntimeError as e:
         logger.error(f"Error during tree inference: {e}")
@@ -668,6 +712,7 @@ def run_pipeline(
         raise
 
     log(f"Complete: {num_windows} trees with {kept_taxa} taxa each")
+    report_stage(100, f"Complete: {num_windows} trees with {kept_taxa} taxa each")
 
     return PipelineResult(
         tree_file_path=master_tree_file,
