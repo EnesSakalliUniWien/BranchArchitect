@@ -55,7 +55,7 @@ def root_trees(trees: List[Node]) -> List[Node]:
 
     # 5. Parse the new Newick strings back to brancharchitect.tree.Node objects
     # CRITICAL: Pass original order/encoding to preserve consistent split indices
-    rooted_trees: List[Node] = parse_newick(  # type: ignore[assignment]
+    rooted_trees = parse_newick(
         "\n".join(rooted_newick_strings),
         order=original_order,
         encoding=original_encoding,

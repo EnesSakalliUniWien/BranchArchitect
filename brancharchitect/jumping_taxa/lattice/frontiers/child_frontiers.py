@@ -75,8 +75,9 @@ def compute_child_frontiers(
     """
     # Handle empty case: Create ChildFrontiers entries for the maximal shared
     # splits only, preserving the same frontier antichain invariant as below.
+    child_frontiers: dict[Partition, ChildFrontiers] = {}
+
     if not children_to_process:
-        child_frontiers: dict[Partition, ChildFrontiers] = {}
 
         for partition in shared_splits.maximal_elements():
             # Create singleton PartitionSet for this partition
@@ -92,9 +93,6 @@ def compute_child_frontiers(
             )
 
         return child_frontiers
-
-    # Dictionary to store ChildFrontiers structures for each maximal child split
-    child_frontiers: dict[Partition, ChildFrontiers] = {}
 
     # ========================================================================
     # Add shared direct children of pivot as separate ChildFrontiers entries

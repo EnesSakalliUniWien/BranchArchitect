@@ -280,6 +280,7 @@ def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
                             enable_rooting=req_data.enable_rooting,
                             window_size=req_data.window_size,
                             window_step=req_data.window_step,
+                            annotate_tree_series_support=True,
                             progress_callback=_make_progress_callback(channel, 10, 85),
                         )
 

@@ -1,7 +1,7 @@
 import math
 import ast
 
-from typing import Optional, Union, List, Dict, Tuple, Any
+from typing import Optional, Union, List, Dict, Tuple, Any, Literal, overload
 from contextvars import ContextVar
 from brancharchitect.tree import Node
 
@@ -396,6 +396,39 @@ def _parse_newick(tokens: str, default_length: float) -> List[Node]:
 # ===================================================================
 # 5. PUBLIC API FUNCTIONS
 # ===================================================================
+
+
+@overload
+def parse_newick(
+    tokens: str,
+    order: Optional[List[str]] = None,
+    encoding: Optional[Dict[str, int]] = None,
+    default_length: float = 1.0,
+    force_list: Literal[True] = True,
+    treat_zero_as_epsilon: bool = False,
+) -> List[Node]: ...
+
+
+@overload
+def parse_newick(
+    tokens: str,
+    order: Optional[List[str]] = None,
+    encoding: Optional[Dict[str, int]] = None,
+    default_length: float = 1.0,
+    force_list: Literal[False] = False,
+    treat_zero_as_epsilon: bool = False,
+) -> Union[Node, List[Node]]: ...
+
+
+@overload
+def parse_newick(
+    tokens: str,
+    order: Optional[List[str]] = None,
+    encoding: Optional[Dict[str, int]] = None,
+    default_length: float = 1.0,
+    force_list: bool = False,
+    treat_zero_as_epsilon: bool = False,
+) -> Union[Node, List[Node]]: ...
 
 
 def parse_newick(

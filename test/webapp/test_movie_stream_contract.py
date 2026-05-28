@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 from flask import Flask
 
@@ -40,12 +41,13 @@ def _parse_sse_message(message: str) -> tuple[str | None, object]:
     return event, json.loads("\n".join(data_lines))
 
 
-def _find_split(
-    node_dict: dict[str, object], split: list[int]
-) -> dict[str, object] | None:
+def _find_split(node_dict: dict[str, Any], split: list[int]) -> dict[str, Any] | None:
     if node_dict["split_indices"] == split:
         return node_dict
-    for child in node_dict["children"]:
+    children = node_dict["children"]
+    assert isinstance(children, list)
+    for child in children:
+        assert isinstance(child, dict)
         found = _find_split(child, split)
         if found is not None:
             return found
@@ -151,6 +153,50 @@ def test_iqtree_support_mode_reaches_streamed_tree_annotations() -> None:
         "method": "iqtree",
         "mode": "ufboot",
     }
+
+
+def test_uploaded_tree_series_automatically_gets_split_frequency_support() -> None:
+    app = Flask(__name__)
+
+    with app.app_context():
+        _metadata, trees = handle_tree_content_streaming(
+            "\n".join(
+                [
+                    "((A:1,B:1):1,(C:1,D:1):1);",
+                    "((A:1,B:1):1,(C:1,D:1):1);",
+                    "((A:1,C:1):1,(B:1,D:1):1);",
+                ]
+            ),
+            filename="bootstrap_series.nwk",
+            annotate_tree_series_support=True,
+        )
+
+    ab_node = _find_split(trees[0], [0, 1])
+    assert ab_node is not None
+    fields = ab_node["annotations"]["fields"]
+
+    assert fields["support.bootstrap_rogue.frequency"]["value"] == 66.6667
+    assert fields["support.bootstrap_rogue.replicate_count"]["value"] == 2.0
+    assert fields["support.bootstrap_rogue.replicate_total"]["value"] == 3.0
+
+
+def test_tree_series_split_frequency_does_not_overwrite_existing_support() -> None:
+    app = Flask(__name__)
+
+    with app.app_context():
+        _metadata, trees = handle_tree_content_streaming(
+            "((A:1,B:1)95:1,(C:1,D:1):1);((A:1,B:1)95:1,(C:1,D:1):1);",
+            filename="iqtree_support.nwk",
+            iqtree_support_mode="ufboot",
+            annotate_tree_series_support=True,
+        )
+
+    ab_node = _find_split(trees[0], [0, 1])
+    assert ab_node is not None
+    fields = ab_node["annotations"]["fields"]
+
+    assert fields["support.iqtree.ufboot"]["value"] == 95.0
+    assert "support.bootstrap_rogue.frequency" not in fields
 
 
 def test_movie_data_uses_normalized_rows_as_primary_temporal_contract() -> None:

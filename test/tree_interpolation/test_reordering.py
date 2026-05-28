@@ -16,14 +16,17 @@ from brancharchitect.tree_interpolation.subtree_paths.execution.layout.reorderin
     reorder_tree_toward_destination,
 )
 
-def _get_tree(parsed_result) -> Node:
+
+def _get_tree(parsed_result: Node | list[Node]) -> Node:
     """Helper to extract tree from parse_newick result."""
     if isinstance(parsed_result, list):
         return parsed_result[0]
     return parsed_result
 
 
-def _setup_tree_pair(source_newick: str, dest_newick: str):
+def _setup_tree_pair(
+    source_newick: str, dest_newick: str
+) -> tuple[Node, Node, dict[str, int]]:
     """Helper to create a pair of trees with shared encoding."""
     source_tree = _get_tree(parse_newick(source_newick))
     dest_tree = _get_tree(parse_newick(dest_newick))
@@ -565,7 +568,7 @@ def test_reorder_scattered_movers_in_destination():
     assert a_pos < c_pos, "Mover block should preserve source order (A before C)"
 
     print(f"✅ PASSED: Scattered movers handled (A at pos {a_pos}, C at pos {c_pos})")
-    print(f"   Note: Algorithm uses FIRST mover occurrence to determine position")
+    print("   Note: Algorithm uses FIRST mover occurrence to determine position")
 
 
 def test_reorder_movers_not_in_destination():
@@ -691,8 +694,8 @@ def test_reorder_anchor_order_preservation():
     print(f"Source order: {list(source_tree.get_current_order())}")
     print(f"Dest order: {list(dest_tree.get_current_order())}")
     print(f"Moving taxa: {moving_subtree.taxa}")
-    print(f"Source anchors: A,B,D")
-    print(f"Dest anchor order: D,B,A (different from source!)")
+    print("Source anchors: A,B,D")
+    print("Dest anchor order: D,B,A (different from source!)")
 
     result_tree = reorder_tree_toward_destination(
         source_tree, dest_tree, active_edge, moving_subtree
@@ -713,7 +716,7 @@ def test_reorder_anchor_order_preservation():
     print(
         f"✅ PASSED: Anchors preserve SOURCE order (A at {a_pos}, B at {b_pos}, D at {d_pos})"
     )
-    print(f"   Design verified: Source anchor order maintained, not destination order")
+    print("   Design verified: Source anchor order maintained, not destination order")
 
 
 if __name__ == "__main__":

@@ -34,14 +34,14 @@ def create_encoding(num_taxa: int) -> Dict[str, int]:
 
 def create_partition(indices: FrozenSet[int], encoding: Dict[str, int]) -> Partition:
     """Create a partition from indices."""
-    return Partition(indices=indices, encoding=encoding)
+    return Partition(indices=tuple(sorted(indices)), encoding=encoding)
 
 
 def create_partition_set(
     partitions: Set[FrozenSet[int]], encoding: Dict[str, int]
 ) -> PartitionSet[Partition]:
     """Create a PartitionSet from a set of index sets."""
-    ps = PartitionSet(encoding=encoding)
+    ps: PartitionSet[Partition] = PartitionSet(encoding=encoding)
     for indices in partitions:
         ps.add(create_partition(indices, encoding))
     return ps
@@ -287,12 +287,12 @@ class TestPathOverlapDetection:
         subtree_a, subtree_b = subtrees
 
         # Both directions should report overlap
-        assert manager.has_overlap(
-            subtree_a, subtree_b
-        ), f"Expected overlap between subtrees with shared split {shared_split}"
-        assert manager.has_overlap(
-            subtree_b, subtree_a
-        ), "Expected symmetric overlap detection"
+        assert manager.has_overlap(subtree_a, subtree_b), (
+            f"Expected overlap between subtrees with shared split {shared_split}"
+        )
+        assert manager.has_overlap(subtree_b, subtree_a), (
+            "Expected symmetric overlap detection"
+        )
 
     @given(expand_paths_data(min_subtrees=2, max_subtrees=5))
     @settings(max_examples=100)
@@ -310,9 +310,9 @@ class TestPathOverlapDetection:
             for subtree_b in subtrees[i + 1 :]:
                 overlap_ab = manager.has_overlap(subtree_a, subtree_b)
                 overlap_ba = manager.has_overlap(subtree_b, subtree_a)
-                assert (
-                    overlap_ab == overlap_ba
-                ), f"Overlap should be symmetric: {overlap_ab} != {overlap_ba}"
+                assert overlap_ab == overlap_ba, (
+                    f"Overlap should be symmetric: {overlap_ab} != {overlap_ba}"
+                )
 
     @given(expand_paths_data(min_subtrees=2, max_subtrees=5))
     @settings(max_examples=100)
@@ -334,9 +334,9 @@ class TestPathOverlapDetection:
                 actual_overlap = bool(path_a & path_b)
                 detected_overlap = manager.has_overlap(subtree_a, subtree_b)
 
-                assert (
-                    actual_overlap == detected_overlap
-                ), f"Overlap detection mismatch: actual={actual_overlap}, detected={detected_overlap}"
+                assert actual_overlap == detected_overlap, (
+                    f"Overlap detection mismatch: actual={actual_overlap}, detected={detected_overlap}"
+                )
 
 
 class TestPathContainmentDetection:
@@ -362,14 +362,14 @@ class TestPathContainmentDetection:
         manager = PathGroupManager(expand_splits_by_subtree, encoding)
 
         # Contained should be marked as contained in container
-        assert manager.has_containment(
-            contained_subtree, container_subtree
-        ), f"Expected containment: {contained_subtree} in {container_subtree}"
+        assert manager.has_containment(contained_subtree, container_subtree), (
+            f"Expected containment: {contained_subtree} in {container_subtree}"
+        )
 
         # Reverse should NOT be true
-        assert not manager.has_containment(
-            container_subtree, contained_subtree
-        ), "Containment should not be symmetric"
+        assert not manager.has_containment(container_subtree, contained_subtree), (
+            "Containment should not be symmetric"
+        )
 
     @given(expand_paths_data(min_subtrees=2, max_subtrees=5))
     @settings(max_examples=100)
@@ -466,9 +466,9 @@ class TestConnectedComponentFormation:
         group_b = manager.get_group(subtree_b)
         group_c = manager.get_group(subtree_c)
 
-        assert (
-            group_a == group_b == group_c
-        ), f"Chain A-B-C should be in same group, got: A={group_a}, B={group_b}, C={group_c}"
+        assert group_a == group_b == group_c, (
+            f"Chain A-B-C should be in same group, got: A={group_a}, B={group_b}, C={group_c}"
+        )
 
     @given(expand_paths_data(min_subtrees=2, max_subtrees=5))
     @settings(max_examples=100)
@@ -537,12 +537,12 @@ class TestSubtreeToGroupInvariant:
         for subtree in expand_splits_by_subtree:
             group = manager.get_group(subtree)
             assert group is not None, f"Subtree {subtree} has no group assignment"
-            assert isinstance(
-                group, int
-            ), f"Group should be an integer, got {type(group)}"
-            assert (
-                0 <= group < manager.get_num_groups()
-            ), f"Group index {group} out of range [0, {manager.get_num_groups()})"
+            assert isinstance(group, int), (
+                f"Group should be an integer, got {type(group)}"
+            )
+            assert 0 <= group < manager.get_num_groups(), (
+                f"Group index {group} out of range [0, {manager.get_num_groups()})"
+            )
 
     @given(expand_paths_data(min_subtrees=1, max_subtrees=5))
     @settings(max_examples=100)
@@ -567,9 +567,9 @@ class TestSubtreeToGroupInvariant:
             subtrees_in_groups.update(group_members)
 
         # Check complete coverage
-        assert (
-            subtrees_in_groups == all_subtrees
-        ), f"Groups don't cover all subtrees. Missing: {all_subtrees - subtrees_in_groups}"
+        assert subtrees_in_groups == all_subtrees, (
+            f"Groups don't cover all subtrees. Missing: {all_subtrees - subtrees_in_groups}"
+        )
 
 
 class TestSingletonGroups:
@@ -860,9 +860,9 @@ class TestDeterministicOrdering:
 
         # All orders should be identical
         for i, order in enumerate(orders[1:], 1):
-            assert (
-                order == orders[0]
-            ), f"Order {i} differs from order 0: {order} != {orders[0]}"
+            assert order == orders[0], (
+                f"Order {i} differs from order 0: {order} != {orders[0]}"
+            )
 
 
 class TestGroupCohesion:
@@ -974,14 +974,14 @@ class TestGroupCohesion:
         pos_c = order.index(subtree_c)
 
         # a and b should be adjacent
-        assert (
-            abs(pos_a - pos_b) == 1
-        ), f"A and B should be consecutive, but positions are {pos_a} and {pos_b}"
+        assert abs(pos_a - pos_b) == 1, (
+            f"A and B should be consecutive, but positions are {pos_a} and {pos_b}"
+        )
 
         # c should be either before both or after both
-        assert (pos_c < min(pos_a, pos_b)) or (
-            pos_c > max(pos_a, pos_b)
-        ), f"C should not be between A and B. Positions: A={pos_a}, B={pos_b}, C={pos_c}"
+        assert (pos_c < min(pos_a, pos_b)) or (pos_c > max(pos_a, pos_b)), (
+            f"C should not be between A and B. Positions: A={pos_a}, B={pos_b}, C={pos_c}"
+        )
 
     @given(expand_paths_data(min_subtrees=3, max_subtrees=6))
     @settings(max_examples=100)
@@ -1144,9 +1144,9 @@ class TestGroupOrdering:
         manager = PathGroupManager(expand_splits_by_subtree, encoding)
 
         # Should have 3 groups (all isolated)
-        assert (
-            manager.get_num_groups() == 3
-        ), f"Expected 3 groups, got {manager.get_num_groups()}"
+        assert manager.get_num_groups() == 3, (
+            f"Expected 3 groups, got {manager.get_num_groups()}"
+        )
 
         # Get processing order
         processed: Set[Partition] = set()
@@ -1210,9 +1210,9 @@ class TestGroupOrdering:
 
         # Verify min_sizes is non-decreasing
         for i in range(len(min_sizes) - 1):
-            assert (
-                min_sizes[i] <= min_sizes[i + 1]
-            ), f"Group sequence min sizes should be non-decreasing: {min_sizes}"
+            assert min_sizes[i] <= min_sizes[i + 1], (
+                f"Group sequence min sizes should be non-decreasing: {min_sizes}"
+            )
 
 
 class TestCycleDetection:
@@ -1255,9 +1255,9 @@ class TestCycleDetection:
             processed.add(next_subtree)
 
         # All subtrees should be in the order
-        assert len(order) == len(
-            expand_splits_by_subtree
-        ), f"Expected {len(expand_splits_by_subtree)} subtrees in order, got {len(order)}"
+        assert len(order) == len(expand_splits_by_subtree), (
+            f"Expected {len(expand_splits_by_subtree)} subtrees in order, got {len(order)}"
+        )
 
     def test_containment_cycle_detection_function_returns_none_for_valid_data(self):
         """
@@ -1321,7 +1321,7 @@ class TestCycleDetection:
 # Integration Tests with PivotTransitionState
 # ============================================================================
 
-from brancharchitect.tree_interpolation.subtree_paths.planning import (
+from brancharchitect.tree_interpolation.subtree_paths.planning import (  # noqa: E402
     PivotTransitionState,
 )
 
@@ -1433,9 +1433,9 @@ class TestSharedCollapsePriorityPreserved:
 
         # With path grouping, a should be selected first (smaller path, contained in b)
         first = state.get_next_subtree()
-        assert (
-            first == subtree_a
-        ), f"Expected subtree_a (smaller path) first, got {first}"
+        assert first == subtree_a, (
+            f"Expected subtree_a (smaller path) first, got {first}"
+        )
 
 
 class TestExpandLastPreserved:
@@ -1489,12 +1489,12 @@ class TestExpandLastPreserved:
         # For subtree_a (first user), shared_expand should NOT be in last-user splits
         # because subtree_b also uses it
         last_user_a = state.get_expand_splits_for_last_user(subtree_a)
-        assert (
-            shared_expand not in last_user_a
-        ), f"Shared expand should not be in last-user splits for first user"
-        assert (
-            unique_expand_a in last_user_a
-        ), f"Unique expand should be in last-user splits"
+        assert shared_expand not in last_user_a, (
+            "Shared expand should not be in last-user splits for first user"
+        )
+        assert unique_expand_a in last_user_a, (
+            "Unique expand should be in last-user splits"
+        )
 
         # Process subtree_a
         state.mark_splits_as_processed(
@@ -1505,9 +1505,9 @@ class TestExpandLastPreserved:
 
         # Now subtree_b is the last user of shared_expand
         last_user_b = state.get_expand_splits_for_last_user(subtree_b)
-        assert (
-            shared_expand in last_user_b
-        ), "Shared expand should be in last-user splits for last user"
+        assert shared_expand in last_user_b, (
+            "Shared expand should be in last-user splits for last user"
+        )
 
 
 class TestPathGroupingDisabled:
@@ -1558,9 +1558,9 @@ class TestPathGroupingDisabled:
 
         # Should select subtree_b (smallest expand path)
         first = state.get_next_subtree()
-        assert (
-            first == subtree_b
-        ), f"Expected subtree_b (smallest path) when grouping disabled, got {first}"
+        assert first == subtree_b, (
+            f"Expected subtree_b (smallest path) when grouping disabled, got {first}"
+        )
 
     def test_path_group_manager_not_created_when_disabled(self):
         """
@@ -1586,6 +1586,6 @@ class TestPathGroupingDisabled:
             use_path_grouping=False,
         )
 
-        assert (
-            state._path_group_manager is None
-        ), "PathGroupManager should not be created when disabled"
+        assert state._path_group_manager is None, (
+            "PathGroupManager should not be created when disabled"
+        )

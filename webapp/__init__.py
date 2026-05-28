@@ -1,9 +1,10 @@
 # --------------------------------------------------------------
 #  __init__.py (package root)
 # --------------------------------------------------------------
+from collections.abc import MutableMapping
 from flask import Flask
-from flask_cors import CORS
-from flask_compress import Compress
+from flask_cors import CORS  # type: ignore[import-untyped]
+from flask_compress import Compress  # type: ignore[import-untyped]
 
 from .config import Config
 from .services.logging import configure_logging
@@ -11,7 +12,7 @@ from .routes.routes import bp as main_bp
 from pathlib import Path
 
 # Inject config into Jinja globals so templates can access constants
-from typing import cast
+from typing import Any, cast
 
 __all__ = ["create_app"]
 
@@ -51,8 +52,8 @@ def create_app() -> Flask:
         # Register blueprints (keeps route definitions in *one* place)
         app.register_blueprint(main_bp)
 
-        app.jinja_env.globals = cast(dict[str, object], app.jinja_env.globals)  # type: ignore
-        app.jinja_env.globals.update(config=app.config)
+        jinja_globals = cast(MutableMapping[str, Any], app.jinja_env.globals)
+        jinja_globals.update(config=app.config)
 
         # Expose short *commit* string if present (useful in sentry etc.)
         try:

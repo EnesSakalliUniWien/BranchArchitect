@@ -6,6 +6,14 @@ from functools import total_ordering
 
 @total_ordering
 class Partition:
+    _indices: Optional[Tuple[int, ...]]
+    encoding: Dict[str, int]
+    bitmask: int
+    _cached_reverse_encoding: Optional[Dict[int, str]]
+    _cached_size: int
+    _cached_hash: int
+    _cached_taxa: Optional[FrozenSet[str]]
+
     __slots__ = (
         "_indices",
         "encoding",
@@ -79,7 +87,7 @@ class Partition:
         """
         # Ensure input is iterable, then get unique elements, then sort.
         _unique_indices_set = set(indices)
-        self._indices: Optional[Tuple[int, ...]] = tuple(sorted(_unique_indices_set))
+        self._indices = tuple(sorted(_unique_indices_set))
         self.encoding: Dict[str, int] = encoding or {}
 
         # Compute bitmask and validate in single pass
@@ -260,7 +268,7 @@ class Partition:
             # Fast path: use bitmask intersection directly
             new_bitmask = self.bitmask & other.bitmask
             return Partition.from_bitmask(new_bitmask, self.encoding)
-        return NotImplemented
+        raise TypeError(f"unsupported operand type(s) for &: 'Partition' and '{type(other)}'")
 
     def intersection(self, *others: Any) -> "Partition":
         """
@@ -278,7 +286,9 @@ class Partition:
             else:
                 other_indices_tuple = self._tuple_to_indices(other)
                 if other_indices_tuple is None:
-                    return NotImplemented  # type: ignore[return-value]
+                    raise TypeError(
+                        "Cannot intersect Partition with unsupported partition-like object"
+                    )
                 result_set &= set(other_indices_tuple)
 
             # Early exit if empty
@@ -306,7 +316,9 @@ class Partition:
         else:
             other_indices_tuple = self._tuple_to_indices(other)
             if other_indices_tuple is None:
-                return NotImplemented
+                raise TypeError(
+                    "Cannot subtract Partition with unsupported partition-like object"
+                )
             # Build bitmask for other indices
             other_bitmask = 0
             for idx in other_indices_tuple:

@@ -4,7 +4,7 @@ from uuid import UUID
 
 
 class UUIDEncoder(json.JSONEncoder):
-    def default(self, o: Any):
+    def default(self, o: Any) -> Any:
         # Handle Partition objects
         if o.__class__.__name__ == "Partition":
             # Just return the indices as a list

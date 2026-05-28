@@ -6,6 +6,8 @@ __all__ = [
     "SplitLookupError",
 ]
 
+from typing import Any
+
 from brancharchitect.jumping_taxa.api import call_jumping_taxa
 from brancharchitect.jumping_taxa.exceptions import (
     JumpingTaxaError,
@@ -16,7 +18,7 @@ from brancharchitect.jumping_taxa.exceptions import (
 
 
 # Use this pattern to avoid circular imports during static analysis
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name == "call_jumping_taxa":
         return call_jumping_taxa
     elif name in (

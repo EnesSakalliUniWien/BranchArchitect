@@ -1,10 +1,10 @@
 """Tree processing pipeline."""
 
-from typing import List, Optional, Dict, Tuple, Callable, Any
+from typing import Any, Callable, Dict, List, Optional, Tuple
 import logging
 import sys
 import time
-from joblib import Parallel, delayed, parallel_config
+from joblib import Parallel, delayed  # type: ignore[import-untyped]
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.movie_pipeline.types import (
@@ -141,7 +141,9 @@ class TreeInterpolationPipeline:
         clear_split_pair_cache()
 
         _report_progress(progress_callback, 10, "Precomputing solutions...")
-        precomputed_lattice_solutions = self._precompute_lattice_solutions(processed_trees)
+        precomputed_lattice_solutions = self._precompute_lattice_solutions(
+            processed_trees
+        )
 
         _report_progress(progress_callback, 20, "Optimizing tree order...")
         t_opt_start = time.perf_counter()
@@ -187,13 +189,18 @@ class TreeInterpolationPipeline:
             f"Processed {len(processed_trees)} trees in {processing_time:.2f} seconds"
         )
 
+        temporal_contract = build_temporal_contract(
+            seq_result,
+            robinson_foulds_distances,
+            weighted_robinson_foulds_distances,
+        )
+
         return InterpolationResult(
             interpolated_trees=seq_result.interpolated_trees,
-            **build_temporal_contract(
-                seq_result,
-                robinson_foulds_distances,
-                weighted_robinson_foulds_distances,
-            ),
+            frames=temporal_contract["frames"],
+            pairs=temporal_contract["pairs"],
+            temporal_events=temporal_contract["temporal_events"],
+            pair_metrics=temporal_contract["pair_metrics"],
             processing_time=processing_time,
             subtree_highlight_tracking=serialize_subtree_highlights(
                 seq_result.current_subtree_highlights
@@ -396,7 +403,9 @@ class TreeInterpolationPipeline:
 
         return split_sets
 
-    def _calculate_pair_metric_values(self, trees: List[Node]) -> Tuple[List[float], List[float]]:
+    def _calculate_pair_metric_values(
+        self, trees: List[Node]
+    ) -> Tuple[List[float], List[float]]:
         """
         Calculates Robinson-Foulds distances between consecutive trees.
         """

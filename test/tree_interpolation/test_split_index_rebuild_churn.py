@@ -39,6 +39,27 @@ def test_graft_leaves_split_index_available():
     assert grafted.find_node_by_split(split) is not None
 
 
+def test_graft_collapses_non_destination_blockers_before_retry():
+    source = parse_newick("((A:1,C:1):1,(B:1,D:1):1);")
+    destination = parse_newick(
+        "((A:1,B:1):1,(C:1,D:1):1);",
+        encoding=source.taxa_encoding,
+    )
+    encoding = source.taxa_encoding
+    target_split = Partition((encoding["A"], encoding["B"]), encoding)
+    blocking_split = Partition((encoding["A"], encoding["C"]), encoding)
+
+    grafted = create_subtree_grafted_tree(
+        source,
+        [target_split],
+        copy=True,
+        destination_tree=destination,
+    )
+
+    assert target_split in grafted.to_splits()
+    assert blocking_split not in grafted.to_splits()
+
+
 def test_collapse_leaves_split_index_available():
     source = parse_newick("((A:1,B:1):1,(C:1,D:1):1);")
     destination = parse_newick("(A:1,B:1,C:1,D:1);", encoding=source.taxa_encoding)

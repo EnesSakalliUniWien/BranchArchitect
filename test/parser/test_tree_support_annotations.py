@@ -127,3 +127,40 @@ def test_numeric_label_can_carry_rogue_taxa_split_frequency_metadata():
     }
     assert fields["support.bootstrap_rogue.replicate_count"]["value"] == 175.0
     assert fields["support.bootstrap_rogue.replicate_total"]["value"] == 200.0
+
+
+def test_numeric_label_can_carry_rogue_taxa_subtree_frequency_metadata():
+    tree = parse_newick(
+        "((A:1,B:1)87.5[support_kind=bootstrap_replicate_subtree_frequency,"
+        "bootstrap_frequency=87.5,replicate_count=175,replicate_total=200]:2,C:3);"
+    )
+
+    ab_node = _find_split(tree.to_dict(), [0, 1])
+    fields = ab_node["annotations"]["fields"]
+
+    assert fields["label.raw_internal"]["value"] == "87.5"
+    assert fields["support.bootstrap_rogue.frequency"]["label"] == "Bootstrap Subtree Frequency"
+    assert fields["support.bootstrap_rogue.frequency"]["value"] == 87.5
+    assert fields["support.bootstrap_rogue.frequency"]["analysis"] == {
+        "type": "rogue_taxa",
+        "method": "bootstrap_replicate_subtree_frequency",
+    }
+    assert fields["support.bootstrap_rogue.replicate_count"]["value"] == 175.0
+    assert fields["support.bootstrap_rogue.replicate_total"]["value"] == 200.0
+
+
+def test_metadata_can_carry_rogue_taxa_split_frequency_without_internal_label():
+    tree = parse_newick(
+        "((A:1,B:1)[support_kind=bootstrap_replicate_subtree_frequency,"
+        "bootstrap_frequency=87.5,replicate_count=175,replicate_total=200]:2,C:3);"
+    )
+
+    ab_node = _find_split(tree.to_dict(), [0, 1])
+    fields = ab_node["annotations"]["fields"]
+
+    assert "label.raw_internal" not in fields
+    assert fields["support.bootstrap_rogue.frequency"]["label"] == "Bootstrap Subtree Frequency"
+    assert fields["support.bootstrap_rogue.frequency"]["value"] == 87.5
+    assert fields["support.bootstrap_rogue.frequency"]["analysis"]["method"] == "bootstrap_replicate_subtree_frequency"
+    assert fields["support.bootstrap_rogue.replicate_count"]["value"] == 175.0
+    assert fields["support.bootstrap_rogue.replicate_total"]["value"] == 200.0

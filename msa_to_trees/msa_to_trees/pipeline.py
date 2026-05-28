@@ -21,7 +21,7 @@ import sys
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, cast
 from uuid import uuid4
 
 from split_alignment.constants import AMBIGUOUS_NUCLEOTIDE_PATTERN
@@ -508,10 +508,13 @@ def load_alignment(
     try:
         if content is not None:
             # Parse directly from string content (webservice path)
-            return AlignIO.read(StringIO(content), "fasta")
+            return cast(MultipleSeqAlignment, AlignIO.read(StringIO(content), "fasta"))
         else:
             # Read from file path (CLI path)
-            return AlignIO.read(source, "fasta")
+            return cast(
+                MultipleSeqAlignment,
+                AlignIO.read(source, "fasta"),
+            )
     except Exception as e:
         raise RuntimeError(f"Error reading alignment: {e}")
 
@@ -765,6 +768,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create tree inference configuration from CLI arguments
+    fasttree_config: TreeInferenceConfig
     if args.engine == "iqtree":
         fasttree_config = IQTreeConfig(
             use_gtr=args.use_gtr,

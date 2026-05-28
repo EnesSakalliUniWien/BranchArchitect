@@ -7,14 +7,12 @@ from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
 
 
-def _pair(src: str, dst: str):
+def _pair(src: str, dst: str) -> tuple[Node, Node]:
     # Helper to build two identical trees quickly
     from brancharchitect.parser.newick_parser import parse_newick
 
-    trees = parse_newick(src + dst)
-    t1: Node = trees[0]
-    t2: Node = trees[1]
-    return t1, t2
+    trees = parse_newick(src + dst, force_list=True)
+    return trees[0], trees[1]
 
 
 def _edge_full(t: Node) -> Partition:

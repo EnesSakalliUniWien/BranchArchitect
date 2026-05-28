@@ -30,7 +30,7 @@ class Logger(TableLogger, MatrixLogger, TreeLogger):
         # Initialize base AlgorithmLogger
         AlgorithmLogger.__init__(self, name)
 
-    def setup_console_logging(self, level: int = logging.INFO):
+    def setup_console_logging(self, level: int = logging.INFO) -> None:
         """Enable logging to the console."""
         self.disabled = False
         if not any(isinstance(h, logging.StreamHandler) for h in self.logger.handlers):

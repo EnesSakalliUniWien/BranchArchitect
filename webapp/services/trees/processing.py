@@ -2,8 +2,10 @@
 Core tree processing functionality.
 """
 
+from collections.abc import Iterable
+from collections import Counter
 from logging import Logger
-from typing import List, Optional, Dict, Any, Callable, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeAlias
 
 from flask import current_app
 from werkzeug.utils import secure_filename
@@ -13,7 +15,7 @@ from brancharchitect.movie_pipeline.tree_interpolation_pipeline import (
     TreeInterpolationPipeline,
 )
 from brancharchitect.movie_pipeline.types import PipelineConfig
-from brancharchitect.tree import Node
+from brancharchitect.tree import Node, build_branch_annotation_fields
 
 from webapp.services.trees.frontend_builder import (
     assemble_frontend_metadata,
@@ -23,7 +25,9 @@ from webapp.services.trees.frontend_builder import (
 
 # Type alias for progress callback
 ProgressCallback = Callable[[float, str], None]
+IndexLike: TypeAlias = int | str | bytes
 _IQTREE_SINGLE_VALUE_SUPPORT_MODES = {"ufboot", "sh_alrt"}
+_TREE_SERIES_SUPPORT_KIND = "bootstrap_replicate_split_frequency"
 
 
 def _sub_progress(
@@ -65,6 +69,89 @@ def _annotate_iqtree_single_value_support(
             node.values["support_kind"] = iqtree_support_mode
 
 
+def _normalize_indices(indices: Optional[Iterable[IndexLike]]) -> tuple[int, ...]:
+    if indices is None:
+        return ()
+    return tuple(sorted({int(index) for index in indices}))
+
+
+def _canonical_split_key(
+    split_indices: Optional[Iterable[IndexLike]],
+    all_taxa_indices: tuple[int, ...],
+) -> tuple[int, ...]:
+    split = _normalize_indices(split_indices)
+    if not split or not all_taxa_indices or split == all_taxa_indices:
+        return ()
+
+    split_set = set(split)
+    complement = tuple(index for index in all_taxa_indices if index not in split_set)
+    if not complement:
+        return ()
+    if len(split) < len(complement):
+        return split
+    if len(complement) < len(split):
+        return complement
+    return min(split, complement)
+
+
+def _tree_split_keys(
+    tree: Node, all_taxa_indices: tuple[int, ...]
+) -> set[tuple[int, ...]]:
+    keys: set[tuple[int, ...]] = set()
+    for node in tree.traverse():
+        if node.is_leaf():
+            continue
+        key = _canonical_split_key(node.split_indices.indices, all_taxa_indices)
+        if key:
+            keys.add(key)
+    return keys
+
+
+def _has_branch_support_annotation(node: Node) -> bool:
+    fields = build_branch_annotation_fields(node)
+    return any(field.get("role") == "branch_support" for field in fields.values())
+
+
+def _format_support_label(value: float) -> str:
+    return f"{value:.6g}"
+
+
+def _annotate_tree_series_split_frequency(trees: List[Node]) -> None:
+    if len(trees) < 2:
+        return
+
+    all_taxa_indices = _normalize_indices(trees[0].split_indices.indices)
+    if not all_taxa_indices:
+        return
+
+    replicate_total = len(trees)
+    counts: Counter[tuple[int, ...]] = Counter()
+    for tree in trees:
+        if _normalize_indices(tree.split_indices.indices) != all_taxa_indices:
+            return
+        counts.update(_tree_split_keys(tree, all_taxa_indices))
+
+    for tree in trees:
+        for node in tree.traverse():
+            if node.is_leaf() or _has_branch_support_annotation(node):
+                continue
+
+            key = _canonical_split_key(node.split_indices.indices, all_taxa_indices)
+            replicate_count = counts.get(key, 0)
+            if not key or replicate_count <= 0:
+                continue
+
+            support_percent = 100 * replicate_count / replicate_total
+            node.values.update(
+                {
+                    "support_kind": _TREE_SERIES_SUPPORT_KIND,
+                    "bootstrap_frequency": _format_support_label(support_percent),
+                    "replicate_count": replicate_count,
+                    "replicate_total": replicate_total,
+                }
+            )
+
+
 def handle_tree_content_streaming(
     tree_content: str,
     filename: str = "uploaded_file",
@@ -73,6 +160,7 @@ def handle_tree_content_streaming(
     window_size: int = 1,
     window_step: int = 1,
     iqtree_support_mode: Optional[str] = None,
+    annotate_tree_series_support: bool = False,
     progress_callback: Optional[ProgressCallback] = None,
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """
@@ -105,6 +193,8 @@ def handle_tree_content_streaming(
         [parsed_trees] if isinstance(parsed_trees, Node) else parsed_trees
     )
     _annotate_iqtree_single_value_support(trees, iqtree_support_mode)
+    if annotate_tree_series_support:
+        _annotate_tree_series_split_frequency(trees)
 
     if not trees:
         logger.debug("No trees parsed - returning empty response")

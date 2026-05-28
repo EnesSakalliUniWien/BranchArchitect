@@ -90,6 +90,7 @@ def build_subtree_interpolation_frames(
         reordered_tree=reorder_result.tree,
         reordered_tree_owned=reorder_result.owned,
         has_reorder_change=reorder_result.changed,
+        destination_tree=destination_tree,
         current_pivot_edge=current_pivot_edge,
         paths=paths,
         highlights=highlights,

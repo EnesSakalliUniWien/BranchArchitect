@@ -2,12 +2,13 @@
 
 import logging
 import base64
-from typing import Any, cast, Callable, TypeVar
+from typing import Any, Callable, ParamSpec, TypeVar
 from functools import wraps
 
 from brancharchitect.logger.html_content import CSS_LOG, MATH_JAX_HEADER
 
-F = TypeVar("F", bound=Callable[..., Any])
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
 
 class AlgorithmLogger:
@@ -55,7 +56,7 @@ class AlgorithmLogger:
         # Add enhanced CSS for basic display
         self._css_content.append(CSS_LOG)
 
-    def section(self, title: str):
+    def section(self, title: str) -> None:
         """Create a new section in the log."""
         if self.disabled:
             return
@@ -68,7 +69,7 @@ class AlgorithmLogger:
         self._html_content.append(f'<section class="section"><h3>{title}</h3>')
         self._section_open = True
 
-    def subsection(self, title: str):
+    def subsection(self, title: str) -> None:
         """Create a new subsection in the log."""
         if self.disabled:
             return
@@ -76,35 +77,35 @@ class AlgorithmLogger:
         # Emit a standalone subsection header block to avoid unclosed tags
         self._html_content.append(f'<div class="subsection"><h4>{title}</h4></div>')
 
-    def info(self, message: str):
+    def info(self, message: str) -> None:
         """Log info message."""
         if self.disabled:
             return
         self.logger.info(message)
         self._html_content.append(f'<p class="info">{message}</p>')
 
-    def warning(self, message: str):
+    def warning(self, message: str) -> None:
         """Log warning message."""
         if self.disabled:
             return
         self.logger.warning(message)
         self._html_content.append(f'<p class="warning">{message}</p>')
 
-    def error(self, message: str):
+    def error(self, message: str) -> None:
         """Log an error message."""
         if self.disabled:
             return
         self.logger.error(message)
         self._html_content.append(f'<p class="error">{message}</p>')
 
-    def debug(self, message: str):
+    def debug(self, message: str) -> None:
         """Log debug message."""
         if self.disabled:
             return
         self.logger.debug(message)
         self._html_content.append(f'<p class="debug">{message}</p>')
 
-    def result(self, label: str, value: Any):
+    def result(self, label: str, value: Any) -> None:
         """Log a result with a label."""
         if self.disabled:
             return
@@ -113,23 +114,23 @@ class AlgorithmLogger:
             f'<div class="result"><strong>{label}:</strong> {value}</div>'
         )
 
-    def raw_html(self, html_content: str):
+    def raw_html(self, html_content: str) -> None:
         """Add raw HTML content to the debug output."""
         if self.disabled:
             return
         self._html_content.append(html_content)
 
-    def html(self, html_content: str):
+    def html(self, html_content: str) -> None:
         """Add HTML content to the debug output (alias for raw_html)."""
         self.raw_html(html_content)
 
-    def add_css(self, css: str):
+    def add_css(self, css: str) -> None:
         """Add custom CSS to the debug output."""
         if self.disabled:
             return
         self._css_content.append(css)
 
-    def add_svg(self, svg_content: str):
+    def add_svg(self, svg_content: str) -> None:
         """Add SVG visualization to the debug output."""
         if self.disabled:
             return
@@ -165,7 +166,7 @@ class AlgorithmLogger:
             # On any error, return False so caller can fallback to SVG
             return False
 
-    def end_section(self):
+    def end_section(self) -> None:
         """End the current section."""
         if self.disabled:
             return
@@ -173,7 +174,7 @@ class AlgorithmLogger:
             self._html_content.append("</section>")
             self._section_open = False
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear all accumulated content."""
         # Reset content to a clean initial state and restore default CSS
         self._html_content = ['<div class="content">']
@@ -240,11 +241,11 @@ class AlgorithmLogger:
         """Get the accumulated CSS content."""
         return "\n".join(self._css_content)
 
-    def log_execution(self, func: F) -> F:
+    def log_execution(self, func: Callable[_P, _R]) -> Callable[_P, _R]:
         """Decorator for logging function execution with type safety."""
 
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
             self.section(f"Executing {func.__name__}")
             try:
                 result = func(*args, **kwargs)
@@ -254,4 +255,4 @@ class AlgorithmLogger:
                 self.info(f"Error in {func.__name__}: {str(e)}")
                 raise
 
-        return cast(F, wrapper)
+        return wrapper

@@ -7,9 +7,9 @@ We validate that:
 - Root-level alignment runs when there are no differing edges.
 """
 
-from typing import Tuple
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.elements.partition import Partition
+from brancharchitect.tree import Node
 from brancharchitect.leaforder.anchor_order import (
     blocked_order_and_apply,
     derive_order_for_pair,
@@ -17,9 +17,15 @@ from brancharchitect.leaforder.anchor_order import (
 from brancharchitect.leaforder.split_analysis import get_common_splits
 
 
-def _pair(src: str, dst: str):
-    s = parse_newick(src)
-    d = parse_newick(dst)
+def _as_tree(parsed: Node | list[Node]) -> Node:
+    if isinstance(parsed, list):
+        return parsed[0]
+    return parsed
+
+
+def _pair(src: str, dst: str) -> tuple[Node, Node]:
+    s = _as_tree(parse_newick(src))
+    d = _as_tree(parse_newick(dst))
     d.initialize_split_indices(s.taxa_encoding)
     return s, d
 
@@ -79,7 +85,6 @@ def test_blocked_order_extremes_two_movers_same_side():
 
     # All movers go to left in t1, right in t2
     # Larger mover (E,F) is more extreme (leftmost in t1, rightmost in t2)
-    mover_taxa = {"B", "E", "F"}
     anchor_taxa = {"A", "C", "D"}
 
     # In t1: movers are split because of alternation

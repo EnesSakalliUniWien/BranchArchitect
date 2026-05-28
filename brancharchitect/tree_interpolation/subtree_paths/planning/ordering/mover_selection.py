@@ -69,9 +69,9 @@ def _select_by_shared_collapse_priority(
             priority = (0, -len(shared_collapse), has_expand_work, tie_breaker)
         elif expand_tracker.get_shared_resources(subtree):
             shared_expand = expand_tracker.get_shared_resources(subtree)
-            priority = (2, -len(shared_expand), tie_breaker)
+            priority = (1, -len(shared_expand), True, tie_breaker)
         else:
-            priority = (1, 0, tie_breaker)
+            priority = (2, 0, False, tie_breaker)
 
         candidates.append((priority, subtree))
 

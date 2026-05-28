@@ -47,8 +47,8 @@ def align_to_source_order(
 
     def reorder_node(node: Node) -> tuple[bool, List[str], tuple[float, int]]:
         if not node.children:
-            leaf_names = [node.name]
-            return False, leaf_names, sort_key_for_leaf_names(leaf_names)
+            leaf_names_at_node = [node.name]
+            return False, leaf_names_at_node, sort_key_for_leaf_names(leaf_names_at_node)
 
         changed = False
         child_data: List[tuple[Node, List[str], tuple[float, int]]] = []
@@ -64,11 +64,11 @@ def align_to_source_order(
             node.children = sorted_children
             changed = True
 
-        leaf_names: List[str] = []
+        merged_leaf_names: List[str] = []
         for _child, child_leaf_names, _sort_key in sorted_child_data:
-            leaf_names.extend(child_leaf_names)
+            merged_leaf_names.extend(child_leaf_names)
 
-        return changed, leaf_names, sort_key_for_leaf_names(leaf_names)
+        return changed, merged_leaf_names, sort_key_for_leaf_names(merged_leaf_names)
 
     changed, _leaf_names, _sort_key = reorder_node(tree)
     if changed:

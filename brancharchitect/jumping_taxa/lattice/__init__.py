@@ -3,7 +3,8 @@
 Provides the lattice algorithm for computing jumping taxa between phylogenetic trees.
 """
 
-from typing import TYPE_CHECKING
+import importlib
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
@@ -48,11 +49,9 @@ _LAZY_IMPORTS = {
 }
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     """Lazy import to avoid circular dependencies."""
     if name in _LAZY_IMPORTS:
-        import importlib
-
         module = importlib.import_module(_LAZY_IMPORTS[name])
         return getattr(module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -29,6 +29,7 @@ def run_expand_phase(
     reordered_tree: Node,
     reordered_tree_owned: bool,
     has_reorder_change: bool,
+    destination_tree: Node,
     current_pivot_edge: Partition,
     paths: SelectionPaths,
     highlights: PhaseHighlightGroups,
@@ -65,6 +66,7 @@ def run_expand_phase(
         base_tree=reordered_tree,
         ref_path_to_build=paths.expand_paths,
         copy=False,
+        destination_tree=destination_tree,
     )
 
     grafted_zero_weights.reorder_taxa(reordered_order)

@@ -8,10 +8,14 @@ human‑readable labels and partition names.
 from typing import Any, List, Optional, Sequence
 
 try:
-    from tabulate import tabulate
+    from tabulate import tabulate  # type: ignore[import-untyped]
 except ImportError:
 
-    def tabulate(data, headers=(), **kwargs):
+    def tabulate(
+        data: Sequence[Sequence[Any]],
+        headers: Sequence[Any] = (),
+        **kwargs: Any,
+    ) -> str:
         return str(data)
 
 

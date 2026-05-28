@@ -76,7 +76,7 @@ def plot_robinson_foulds_trajectory(
         rf_row = idx * 2 + 2
 
         if rf_distances and len(rf_distances) == len(distances):
-            rf_array: np.ndarray = np.array(rf_distances)
+            rf_array = np.array(rf_distances)
 
             # Add filled area for Robinson-Foulds distances
             fig.add_trace(
@@ -144,8 +144,8 @@ def plot_robinson_foulds_trajectory(
         )
 
         if rf_distances:
-            total_rf: float = sum(rf_distances)
-            rf_array: np.ndarray = np.array(rf_distances)
+            total_rf = sum(rf_distances)
+            rf_array = np.array(rf_distances)
             fig.add_annotation(
                 text=f"Total: {total_rf:.4f}",
                 x=len(rf_distances) * 0.02,  # Position at 2% of x-axis length

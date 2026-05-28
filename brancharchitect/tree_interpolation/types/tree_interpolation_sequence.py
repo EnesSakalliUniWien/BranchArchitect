@@ -7,7 +7,7 @@ process, including result containers and intermediate data representations.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Optional, Dict, List
+from typing import List, Mapping, Optional
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
@@ -239,8 +239,8 @@ def build_attachment_edge_map(
 
 
 def _assert_same_keys(
-    source: dict[Partition, object],
-    destination: dict[Partition, object],
+    source: Mapping[Partition, object],
+    destination: Mapping[Partition, object],
     field_name: str,
 ) -> None:
     if set(source.keys()) != set(destination.keys()):

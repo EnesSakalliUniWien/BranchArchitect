@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from enum import Enum
-from typing import Optional, Any, Tuple, Dict, List
+from typing import Optional, Any, Tuple, Dict, List, TypeAlias, cast
 
 try:
     from typing import Self
@@ -21,6 +21,17 @@ _SUPPORT_METADATA_KEYS = (
     "alrt",
     "S",
 )
+
+_BOOTSTRAP_REPLICATE_FREQUENCY_SUPPORT_KINDS = {
+    "bootstrap_replicate_split_frequency",
+    "bootstrap_replicate_subtree_frequency",
+}
+
+_BOOTSTRAP_REPLICATE_FREQUENCY_LABELS = {
+    "bootstrap_replicate_split_frequency": "Bootstrap Split Frequency",
+    "bootstrap_replicate_subtree_frequency": "Bootstrap Subtree Frequency",
+}
+ReorderValue: TypeAlias = int | tuple[int, int, int] | list[int]
 
 
 def _annotation_value_type(value: Any) -> str:
@@ -109,6 +120,42 @@ def _single_value_support_annotation(
     raise ValueError(f"Unsupported single-value branch support kind: {support_kind}")
 
 
+def _bootstrap_replicate_frequency_annotation_fields(
+    node: "Node",
+    support_kind: str,
+    value: float,
+) -> Dict[str, Dict[str, Any]]:
+    analysis = {
+        "type": "rogue_taxa",
+        "method": support_kind,
+    }
+    fields: Dict[str, Dict[str, Any]] = {}
+    path = ["support", "bootstrap_rogue", "frequency"]
+    fields[_field_key(path)] = _annotation_field(
+        path,
+        _BOOTSTRAP_REPLICATE_FREQUENCY_LABELS[support_kind],
+        value,
+        "branch_support",
+        unit="percent",
+        analysis=analysis,
+    )
+    for key, label in (
+        ("replicate_count", "Replicate Count"),
+        ("replicate_total", "Replicate Total"),
+    ):
+        metadata_value = _to_float_or_none(node.values.get(key))
+        if metadata_value is not None:
+            path = ["support", "bootstrap_rogue", key]
+            fields[_field_key(path)] = _annotation_field(
+                path,
+                label,
+                metadata_value,
+                "branch_support_context",
+                analysis=analysis,
+            )
+    return fields
+
+
 def _to_float_or_none(value: Any) -> Optional[float]:
     if isinstance(value, bool):
         return None
@@ -132,6 +179,7 @@ def build_branch_annotation_fields(node: "Node") -> Dict[str, Dict[str, Any]]:
         return fields
 
     internal_label = (node.name or "").strip()
+    support_kind = str(node.values.get("support_kind", ""))
     if internal_label:
         raw_path = ["label", "raw_internal"]
         fields[_field_key(raw_path)] = _annotation_field(
@@ -146,35 +194,15 @@ def build_branch_annotation_fields(node: "Node") -> Dict[str, Dict[str, Any]]:
             numeric_values = [float(value) for value in values if value is not None]
             if len(numeric_values) == 1:
                 value = numeric_values[0]
-                support_kind = str(node.values.get("support_kind", "bootstrap"))
-                if support_kind == "bootstrap_replicate_split_frequency":
-                    analysis = {
-                        "type": "rogue_taxa",
-                        "method": "bootstrap_replicate_split_frequency",
-                    }
-                    path = ["support", "bootstrap_rogue", "frequency"]
-                    fields[_field_key(path)] = _annotation_field(
-                        path,
-                        "Bootstrap Split Frequency",
-                        value,
-                        "branch_support",
-                        unit="percent",
-                        analysis=analysis,
+                support_kind = support_kind or "bootstrap"
+                if support_kind in _BOOTSTRAP_REPLICATE_FREQUENCY_SUPPORT_KINDS:
+                    fields.update(
+                        _bootstrap_replicate_frequency_annotation_fields(
+                            node,
+                            support_kind,
+                            value,
+                        )
                     )
-                    for key, label in (
-                        ("replicate_count", "Replicate Count"),
-                        ("replicate_total", "Replicate Total"),
-                    ):
-                        metadata_value = _to_float_or_none(node.values.get(key))
-                        if metadata_value is not None:
-                            path = ["support", "bootstrap_rogue", key]
-                            fields[_field_key(path)] = _annotation_field(
-                                path,
-                                label,
-                                metadata_value,
-                                "branch_support_context",
-                                analysis=analysis,
-                            )
                     return fields
 
                 field = _single_value_support_annotation(support_kind, value)
@@ -206,17 +234,29 @@ def build_branch_annotation_fields(node: "Node") -> Dict[str, Dict[str, Any]]:
                 )
                 return fields
 
+    if support_kind in _BOOTSTRAP_REPLICATE_FREQUENCY_SUPPORT_KINDS:
+        bootstrap_frequency = _to_float_or_none(node.values.get("bootstrap_frequency"))
+        if bootstrap_frequency is not None:
+            fields.update(
+                _bootstrap_replicate_frequency_annotation_fields(
+                    node,
+                    support_kind,
+                    bootstrap_frequency,
+                )
+            )
+            return fields
+
     for key in _SUPPORT_METADATA_KEYS:
         if key not in node.values:
             continue
-        value = _to_float_or_none(node.values[key])
-        if value is None:
+        support_value = _to_float_or_none(node.values[key])
+        if support_value is None:
             continue
         path = ["support", "metadata", key]
         fields[_field_key(path)] = _annotation_field(
             path,
             key,
-            value,
+            support_value,
             "branch_support",
             unit="percent",
             analysis={
@@ -229,7 +269,12 @@ def build_branch_annotation_fields(node: "Node") -> Dict[str, Dict[str, Any]]:
     for key, value in node.values.items():
         if key in _SUPPORT_METADATA_KEYS:
             continue
-        if key in {"support_kind", "replicate_count", "replicate_total"}:
+        if key in {
+            "support_kind",
+            "bootstrap_frequency",
+            "replicate_count",
+            "replicate_total",
+        }:
             continue
         if isinstance(value, (str, int, float, bool, list)):
             path = ["metadata", str(key)]
@@ -287,7 +332,7 @@ class Node:
     taxa_encoding: Dict[str, int]
     depth: Optional[int]
     list_index: Optional[int]
-    _split_index: Optional[Dict[Partition, Self]]
+    _split_index: Optional[Dict[Partition, "Node"]]
     _traverse_cache: Optional[List[Self]]
     _splits_cache: Optional[PartitionSet[Partition]]
     _splits_with_leaves_cache: Optional[PartitionSet[Partition]]
@@ -411,7 +456,7 @@ class Node:
     def __repr__(self) -> str:
         return f"Node('{self.name}')"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(tuple(sorted(self.get_current_order())))
 
     # ------------------------------------------------------------------------
@@ -450,7 +495,7 @@ class Node:
             self._splits_with_leaves_cache = splits
         return splits
 
-    def build_split_index(self):
+    def build_split_index(self) -> None:
         self._split_index = {}
         stack = [self]
         while stack:
@@ -467,7 +512,7 @@ class Node:
             self._split_index[current.split_indices] = current
             stack.extend(current.children)
 
-    def find_node_by_split(self, target_split: Any) -> Optional[Self]:
+    def find_node_by_split(self, target_split: Any) -> Optional["Node"]:
         """
         Find a node by its split indices (accepts tuple or Partition).
 
@@ -533,7 +578,7 @@ class Node:
         root_copy._splits_with_leaves_cache = None
         root_copy._leaves_cache = None
         root_copy.children = []
-        root_split_index: Dict[Partition, Self] | None = (
+        root_split_index: Dict[Partition, "Node"] | None = (
             {root_copy.split_indices: root_copy} if build_split_index else None
         )
         root_copy._split_index = root_split_index
@@ -578,7 +623,7 @@ class Node:
     def _initialize_split_indices(self, encoding: Dict[str, int]) -> None:
         """Initialize split indices using iterative post-order traversal."""
         stripped_encoding = {key.strip(): idx for key, idx in encoding.items()}
-        stack: list[tuple[Self, bool]] = [(self, False)]
+        stack: list[tuple["Node", bool]] = [(self, False)]
 
         try:
             while stack:
@@ -675,8 +720,8 @@ class Node:
         return Partition(indices, self.taxa_encoding)
 
     def fix_child_order(self) -> None:
-        nodes: list[Self] = []
-        stack: list[Self] = [self]
+        nodes: list["Node"] = []
+        stack: list["Node"] = [self]
         while stack:
             node = stack.pop()
             nodes.append(node)
@@ -800,9 +845,10 @@ class Node:
 
         # 3. Bottom-up calculation of sort keys (Dynamic Programming)
         # Key: node_id -> value depending on strategy
-        node_keys: Dict[int, Any] = {}
+        node_keys: Dict[int, ReorderValue] = {}
 
-        def compute_keys(node: Self) -> Any:
+        def compute_keys(node: Self) -> ReorderValue:
+            val: ReorderValue
             if not node.children:
                 # Leaf: return its target index
                 idx = target_indices[node.name]
@@ -821,20 +867,27 @@ class Node:
             child_vals = [compute_keys(child) for child in node.children]
 
             if strategy == ReorderStrategy.MINIMUM:
-                val = min(child_vals)
+                val = min(cast(int, child_val) for child_val in child_vals)
             elif strategy == ReorderStrategy.MAXIMUM:
-                val = max(child_vals)
+                val = max(cast(int, child_val) for child_val in child_vals)
             elif strategy == ReorderStrategy.AVERAGE:
-                total_sum = sum(v[0] for v in child_vals)
-                total_count = sum(v[1] for v in child_vals)
-                min_val = min(v[2] for v in child_vals)
+                total_sum = sum(
+                    cast(tuple[int, int, int], child_val)[0] for child_val in child_vals
+                )
+                total_count = sum(
+                    cast(tuple[int, int, int], child_val)[1] for child_val in child_vals
+                )
+                min_val = min(
+                    cast(tuple[int, int, int], child_val)[2] for child_val in child_vals
+                )
                 val = (total_sum, total_count, min_val)
             else:  # MEDIAN
                 # For median, we must collect all indices.
                 # This is O(N log N) or O(N^2) worst case, but unavoidable for exact median.
-                val = []
-                for v in child_vals:
-                    val.extend(v)
+                median_values: list[int] = []
+                for child_val in child_vals:
+                    median_values.extend(cast(list[int], child_val))
+                val = median_values
 
             node_keys[id(node)] = val
             return val
@@ -842,7 +895,9 @@ class Node:
         compute_keys(self)
 
         # 4. Define sort key extractor
-        def get_sort_val(n: Self) -> Any:
+        def get_sort_val(
+            n: Self,
+        ) -> int | float | tuple[float, int] | tuple[int, int, int] | list[int]:
             val = node_keys[id(n)]
             if strategy == ReorderStrategy.MINIMUM:
                 return val
@@ -850,11 +905,13 @@ class Node:
                 return val
             elif strategy == ReorderStrategy.AVERAGE:
                 # Sort by average, break ties with min index
-                return (val[0] / val[1], val[2])
+                tuple_val = cast(tuple[int, int, int], val)
+                return (tuple_val[0] / tuple_val[1], tuple_val[2])
             else:  # MEDIAN
                 # Sort indices to find median
-                val.sort()
-                return val[len(val) // 2]
+                median_vals = cast(list[int], val)
+                median_vals.sort()
+                return median_vals[len(median_vals) // 2]
 
         # 5. Top-down reordering using the pre-computed keys
         def apply_reordering(node: Self) -> bool:
@@ -953,7 +1010,7 @@ class Node:
                 split_indices = list(node.split_indices.indices)
                 name = ""
 
-            node_dict = {
+            node_dict: Dict[str, Any] = {
                 "name": name,
                 "length": node.length,
                 "split_indices": split_indices,
@@ -967,7 +1024,7 @@ class Node:
             return node_dict
 
         root_dict = node_to_dict(self)
-        stack: list[tuple[Self, Dict[str, Any]]] = [(self, root_dict)]
+        stack: list[tuple["Node", Dict[str, Any]]] = [(self, root_dict)]
 
         while stack:
             node, serialized = stack.pop()
@@ -1025,10 +1082,10 @@ class Node:
         # Prune single-child chain growing upwards (Compress linear segments)
         # Track a node guaranteed to survive compression for later use
         surviving_node = parent
-        curr = parent
+        curr: Optional["Node"] = parent
 
         # Compress single-child nodes going up the tree (stops at root since root has no parent)
-        while curr.parent is not None:
+        while curr is not None and curr.parent is not None:
             if not curr.children:
                 # Became a leaf (internal node with all parts removed)
                 # Its split mask effectively becomes 0 in stable mode
@@ -1089,8 +1146,8 @@ class Node:
         # Use surviving_node to walk up (guaranteed to be in the tree)
         if mode == "stable":
             # Walk up from the surviving node
-            cursor = surviving_node
-            while cursor:
+            cursor: Optional["Node"] = surviving_node
+            while cursor is not None:
                 # Fast recalculation using existing encoding
                 if cursor.is_leaf():
                     # If it was internal and became leaf, mask is 0
@@ -1109,7 +1166,7 @@ class Node:
         elif mode == "shrink":
             # Full Rebuild - use surviving_node to get root
             remaining_leaves = sorted(
-                [l.name for l in surviving_node.get_root().get_leaves()]
+                [leaf.name for leaf in surviving_node.get_root().get_leaves()]
             )
             new_encoding = {name: i for i, name in enumerate(remaining_leaves)}
             surviving_node.get_root().initialize_split_indices(new_encoding)
@@ -1255,7 +1312,7 @@ class Node:
                 clear(parent)
                 parent = parent.parent
 
-    def assign_internal_node_names(self):  # -> None | Any | str | LiteralString:
+    def assign_internal_node_names(self) -> str:
         """
         Assigns a unique name to each internal node based on its descendant leaf names, sorted alphabetically and joined.
         Leaves retain their original names.
@@ -1286,17 +1343,17 @@ class Node:
 
         # Get paths to root for both nodes
         self_ancestors: set["Node"] = set()
-        current = self
+        current: Optional["Node"] = self
         while current is not None:
             self_ancestors.add(current)
             current = current.parent
 
         # Find first common ancestor in other's path to root
-        current = other
-        while current is not None:
-            if current in self_ancestors:
-                return current
-            current = current.parent
+        other_current: Optional["Node"] = other
+        while other_current is not None:
+            if other_current in self_ancestors:
+                return other_current
+            other_current = other_current.parent
 
         return None
 
@@ -1311,7 +1368,7 @@ class Node:
             List[Node] from self up to (excluding) ancestor, empty if ancestor not found
         """
         path: List["Node"] = []
-        current = self
+        current: Optional["Node"] = self
 
         while current is not None and current is not ancestor:
             path.append(current)
@@ -1334,7 +1391,7 @@ class Node:
             return []
 
         path: List["Node"] = []
-        current = descendant
+        current: Optional["Node"] = descendant
         while current is not None and current is not self:
             path.append(current)
             current = current.parent
@@ -1361,8 +1418,8 @@ class Node:
             empty list if either split not found or no path exists
         """
         # Find nodes corresponding to the splits
-        node1: Self | None = self.find_node_by_split(split1)
-        node2: Self | None = self.find_node_by_split(split2)
+        node1: Optional["Node"] = self.find_node_by_split(split1)
+        node2: Optional["Node"] = self.find_node_by_split(split2)
 
         if node1 is None or node2 is None:
             return []

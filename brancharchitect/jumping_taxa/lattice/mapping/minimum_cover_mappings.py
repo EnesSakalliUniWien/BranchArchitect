@@ -53,7 +53,7 @@ def map_solution_elements_via_parent(
             # Try 1: Find exact node (monophyletic group)
             node_in_t1 = t1.find_node_by_split(solution)
 
-            if node_in_t1 and node_in_t1.parent:
+            if isinstance(node_in_t1, Node) and node_in_t1.parent is not None:
                 # Ideally, map to the parent of the subtree root
                 mapped_t1[edge][solution] = node_in_t1.parent.split_indices
             else:
@@ -68,7 +68,7 @@ def map_solution_elements_via_parent(
 
             node_in_t2 = t2.find_node_by_split(solution)
 
-            if node_in_t2 and node_in_t2.parent:
+            if isinstance(node_in_t2, Node) and node_in_t2.parent is not None:
                 mapped_t2[edge][solution] = node_in_t2.parent.split_indices
             else:
                 mrca_t2 = _find_mrca_for_partition(t2, solution)
@@ -102,7 +102,7 @@ def _find_mrca_for_partition(tree: Node, partition: Partition) -> Optional[Node]
     # (Optimization: could be cached, but this is fallback path)
     id_to_name = {v: k for k, v in tree.taxa_encoding.items()}
 
-    first_leaf = None
+    first_leaf: Optional[Node] = None
 
     # Get the first leaf to start LCA traversal
     # We iterate indices to get names, then find split/node
@@ -122,6 +122,8 @@ def _find_mrca_for_partition(tree: Node, partition: Partition) -> Optional[Node]
                     # Iteratively update LCA
                     # find_lowest_common_ancestor handles the traversal to root
                     first_leaf = first_leaf.find_lowest_common_ancestor(leaf_node)
+                    if first_leaf is None:
+                        return None
 
                     # Optimization: If we hit the root, we can stop early
                     if first_leaf.parent is None:

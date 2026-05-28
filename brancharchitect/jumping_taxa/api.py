@@ -1,4 +1,10 @@
+from collections.abc import Callable
+from typing import List, Tuple
+
 from brancharchitect.tree import Node
+from brancharchitect.jumping_taxa.bruteforce.bruteforce_algorithm import (
+    algorithm as bruteforce_algorithm,
+)
 
 
 def call_jumping_taxa(
@@ -9,13 +15,9 @@ def call_jumping_taxa(
     logs debug-level info to see how solutions come about.
     """
 
-    # 2) Import the modules that contain your algorithms.
-    #    (You only need to do this once at the top of the file, but here’s an example inline)
-    import brancharchitect.jumping_taxa.bruteforce.bruteforce_algorithm
     from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
         LatticeSolver,
     )
-    from typing import List, Tuple
 
     def _lattice_adapter(
         t1: Node, t2: Node, _order: List[str]
@@ -38,8 +40,8 @@ def call_jumping_taxa(
         return result
 
     # 3) Prepare a lookup of available algorithms
-    ALGORITHMS = {
-        "bruteforce": brancharchitect.jumping_taxa.bruteforce.bruteforce_algorithm,
+    ALGORITHMS: dict[str, Callable[[Node, Node, List[str]], List[Tuple[int, ...]]]] = {
+        "bruteforce": bruteforce_algorithm,
         "lattice": _lattice_adapter,
     }
     # 6) Choose the desired algorithm

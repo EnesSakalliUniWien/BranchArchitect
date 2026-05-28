@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from logging import Logger
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Protocol
 
 from webapp.services.sse import ProgressChannel
 
@@ -11,11 +10,15 @@ MOVIE_METADATA_EVENT = "metadata"
 DEFAULT_TREE_CHUNK_SIZE = 100
 
 
+class SupportsInfoLog(Protocol):
+    def info(self, message: str, *args: object) -> None: ...
+
+
 def send_movie_stream(
     channel: ProgressChannel,
     metadata: Dict[str, Any],
     trees: List[Dict[str, Any]],
-    log: Logger,
+    log: SupportsInfoLog,
     *,
     chunk_size: int = DEFAULT_TREE_CHUNK_SIZE,
 ) -> None:

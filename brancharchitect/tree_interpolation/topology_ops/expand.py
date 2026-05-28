@@ -292,6 +292,7 @@ def create_subtree_grafted_tree(
     base_tree: Node,
     ref_path_to_build: list[Partition],
     copy: bool = True,  # whether to copy the tree first
+    destination_tree: Node | None = None,
 ) -> Node:
     """
     Create grafted tree with order-preserving split application.
@@ -300,6 +301,8 @@ def create_subtree_grafted_tree(
         base_tree: Tree to graft onto
         ref_path_to_build: Splits to apply
         copy: If True, copy the tree first. If False, modify in place.
+        destination_tree: Optional destination topology. When provided, source-only
+            splits that block a destination split can be collapsed before retrying.
     """
     # Sort by partition size (number of taxa) in descending order
     # This ensures larger splits are applied before smaller ones
@@ -313,11 +316,62 @@ def create_subtree_grafted_tree(
     # Apply splits in batch mode (no index rebuild per split)
     for ref_split in sorted_ref_path:
         if ref_split not in split_index:
-            if not _apply_split_no_rebuild(ref_split, grafted_tree, split_index):
+            applied = _apply_split_no_rebuild(ref_split, grafted_tree, split_index)
+            if not applied and destination_tree is not None:
+                applied = _collapse_blockers_and_retry_split(
+                    grafted_tree,
+                    ref_split,
+                    destination_tree,
+                )
+                split_index = _get_tree_split_index(grafted_tree)
+
+            if not applied:
                 logger.warning(
                     f"[Expand] Failed to apply split {list(ref_split.indices)} "
                     f"(Bitmask: {ref_split.bitmask:b}) to grafted tree. "
                     "This implies incompatibility with the current topology."
                 )
+                if destination_tree is not None:
+                    raise SplitApplicationError(
+                        split=ref_split,
+                        tree_splits=list(grafted_tree.to_splits()),
+                        message=(
+                            "Cannot apply split after collapsing non-destination "
+                            "blockers"
+                        ),
+                    )
 
     return grafted_tree
+
+
+def _collapse_blockers_and_retry_split(
+    grafted_tree: Node,
+    ref_split: Partition,
+    destination_tree: Node,
+) -> bool:
+    """Collapse current source-only splits that block a destination graft."""
+    destination_splits = destination_tree.to_splits()
+    all_indices = set(ref_split.encoding.values())
+    blockers = [
+        split
+        for split in grafted_tree.to_splits()
+        if split not in destination_splits
+        and split != ref_split
+        and not ref_split.is_compatible_with(split, all_indices)
+    ]
+    if not blockers:
+        return False
+
+    from brancharchitect.tree_interpolation.topology_ops.collapse import (
+        execute_collapse_path,
+    )
+
+    execute_collapse_path(
+        grafted_tree,
+        blockers,
+        destination_tree=destination_tree,
+    )
+    split_index = _get_tree_split_index(grafted_tree)
+    if ref_split in split_index:
+        return True
+    return _apply_split_no_rebuild(ref_split, grafted_tree, split_index)

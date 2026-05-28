@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-def generate_debug_html(title: str = "Branch Architect Debug Output"):
+def generate_debug_html(title: str = "Branch Architect Debug Output") -> str:
     """Generate HTML content for debug output."""
     # Get the actual debug content and any accumulated CSS from the logger
     debug_content = jt_logger.get_html_content()
@@ -189,7 +189,7 @@ def log_tree_splits(
     jt_logger.info(f"Mismatches Found: {len(mismatches)}")
 
 
-def create_debug_index(verbose: bool = False):
+def create_debug_index(verbose: bool = False) -> str:
     """
     Creates an 'index.html' in 'output/test_debug' that lists all debug
     HTML files (except index.html) sorted by creation time (newest first).

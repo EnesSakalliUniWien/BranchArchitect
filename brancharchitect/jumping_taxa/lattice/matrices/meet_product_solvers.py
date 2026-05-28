@@ -152,6 +152,8 @@ def _square_meet_product(
         result = matrix[0][0]
         return [result] if result else []
 
+    results: list[PartitionSet[Partition]] = []
+
     if rows == 2:
         # Use operator.and_ as default if no custom meet function provided
         op = meet_fn or operator.and_
@@ -169,9 +171,6 @@ def _square_meet_product(
         # Counter diagonal: [0,1] ∩ [1,0]
         a01, a10 = matrix[0][1], matrix[1][0]
         counter_diag = op(a01, a10)
-
-        # Collect non-empty results
-        results: list[PartitionSet[Partition]] = []
 
         if not jt_logger.disabled:
             jt_logger.section("Square Meet Product Diagonal Results")
@@ -217,7 +216,7 @@ def _square_meet_product(
         )
         jt_logger.matrix(matrix, title="Square Meet Product (n×n): Input Matrix")
 
-    results: list[PartitionSet[Partition]] = []
+    results = []
     seen: set[tuple[int, ...]] = set()
 
     for col_indices in product(range(cols), repeat=rows):
@@ -381,7 +380,7 @@ def _cartesian_matrix_results(
             continue
 
         encoding = next(iter(all_partitions)).encoding
-        combined = PartitionSet(
+        combined: PartitionSet[Partition] = PartitionSet(
             all_partitions, encoding=encoding, name="cartesian_combined"
         )
         key = tuple(sorted(partition.bitmask for partition in combined))

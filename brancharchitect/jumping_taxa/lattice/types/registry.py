@@ -62,7 +62,7 @@ class SolutionRegistry:
     or different pivot edges.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize a new SolutionRegistry instance.
 
@@ -127,7 +127,7 @@ class SolutionRegistry:
         # We store an empty PartitionSet to signify "no jumping taxa needed"
         # Using encoding from pivot_edge if available
         encoding = getattr(pivot_edge, "encoding", {})
-        empty_solution = PartitionSet(
+        empty_solution: PartitionSet[Partition] = PartitionSet(
             set(), encoding=encoding, name=f"empty_{category}"
         )
 
@@ -290,7 +290,9 @@ class SolutionRegistry:
                 solutions = [s for s in solutions if len(s[0]) > 0]
 
             solutions.sort(key=lambda x: x[2])
-            combined_solution_set = PartitionSet(encoding=pivot_edge_partition.encoding)
+            combined_solution_set: PartitionSet[Partition] = PartitionSet(
+                encoding=pivot_edge_partition.encoding
+            )
             for solution_set, _rank_key, _visit in solutions:
                 combined_solution_set.update(solution_set)
 

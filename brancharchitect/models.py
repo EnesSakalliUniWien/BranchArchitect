@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, Iterator, List, Optional
 import json
 
 from brancharchitect.tree import Node
@@ -18,7 +18,7 @@ class Tree:
     name: Optional[str] = None
     taxa_encoding: Dict[str, int] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.taxa_encoding and self.root.taxa_encoding:
             self.taxa_encoding = self.root.taxa_encoding
         if not self.name and self.root.name:
@@ -90,5 +90,5 @@ class TreeList:
     def __getitem__(self, index: int) -> Tree:
         return self.trees[index]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Tree]:
         return iter(self.trees)

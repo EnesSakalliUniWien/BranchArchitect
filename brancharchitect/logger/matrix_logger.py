@@ -1,6 +1,6 @@
 """Matrix display functionality for logs."""
 
-from typing import Any, List, Callable, Optional, Iterable, TYPE_CHECKING
+from typing import Any, Callable, Iterable, List, Optional, Protocol, TYPE_CHECKING, cast
 
 from brancharchitect.logger.base_logger import AlgorithmLogger
 from brancharchitect.logger.formatting import (
@@ -188,7 +188,10 @@ class MatrixLogger(AlgorithmLogger):
 
         # If this is part of a combined Logger class, we can call create_html_table directly
         if hasattr(self, "create_html_table"):
-            return self.create_html_table(table_data, headers)
+            class _CreateHTMLTable(Protocol):
+                def create_html_table(self, data: List[List[str]], headers: List[str]) -> str: ...
+
+            return cast(_CreateHTMLTable, self).create_html_table(table_data, headers)
 
         # Otherwise, instantiate TableLogger (which is now non-destructive)
         table_logger = TableLogger(self.name)

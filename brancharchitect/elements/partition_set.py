@@ -54,6 +54,12 @@ class PartitionSet(Generic[T], MutableSet[T]):
         "order",
         "name",
     )
+    _bitmask_set: set[int]
+    _bitmask_to_partition: dict[int, Partition]
+    encoding: Dict[str, int]
+    _reversed_encoding: Optional[Dict[int, str]]
+    order: Optional[tuple[str, ...]]
+    name: str
 
     @property
     def reversed_encoding(self) -> Dict[int, str]:
@@ -63,7 +69,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
         return self._reversed_encoding
 
     @classmethod
-    def _from_iterable(cls, it):
+    def _from_iterable(cls, it: Iterable[T]) -> "PartitionSet[T]":
         """Create a new PartitionSet from an iterable. Used by ABC set operations."""
         return cls(splits=set(it))
 
@@ -91,7 +97,7 @@ class PartitionSet(Generic[T], MutableSet[T]):
 
     def _element_to_bitmask_and_partition(
         self, element: Union[Partition, Tuple[int, ...], int]
-    ) -> Tuple[int, Partition]:
+    ) -> Tuple[int, T]:
         """
         Convert a Partition, tuple, or int element to its bitmask and Partition object.
 
@@ -122,13 +128,13 @@ class PartitionSet(Generic[T], MutableSet[T]):
                         f"PartitionSet encoding: {self.encoding}\n"
                         f"Partition encoding: {element.encoding}"
                     )
-            return element.bitmask, element
+            return element.bitmask, cast(T, element)
         elif isinstance(element, tuple):
-            p = Partition(element, self.encoding)
-            return p.bitmask, p
+            partition = Partition(element, self.encoding)
+            return partition.bitmask, cast(T, partition)
         else:  # element is assumed to be int here
-            p = Partition((element,), self.encoding)
-            return p.bitmask, p
+            partition = Partition((element,), self.encoding)
+            return partition.bitmask, cast(T, partition)
 
     def _create_new_from_bitmasks(
         self,
@@ -138,7 +144,9 @@ class PartitionSet(Generic[T], MutableSet[T]):
         metadata_source: Optional["PartitionSet[Any]"] = None,
     ) -> Self:
         """Helper to create a new instance with shared metadata."""
-        source = metadata_source if metadata_source is not None else self
+        source: PartitionSet[Any] = (
+            metadata_source if metadata_source is not None else self
+        )
         new_set = type(self).__new__(type(self))
         new_set._bitmask_set = bitmask_set
         new_set._bitmask_to_partition = bitmask_to_partition

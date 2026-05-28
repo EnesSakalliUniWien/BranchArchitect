@@ -10,6 +10,7 @@ from brancharchitect.movie_pipeline.types import PAIR_METRIC_SEMANTICS
 from brancharchitect.tree_interpolation.types import (
     SprPathSegment,
     TreeInterpolationSequence,
+    AttachmentEdges,
 )
 
 
@@ -288,7 +289,7 @@ def _serialize_affected_subtrees_by_split(
 
 
 def _serialize_attachment_edges_by_split(
-    attachment_edges_by_split: Dict[Any, Dict[Any, Dict[str, Any]]],
+    attachment_edges_by_split: Dict[Partition, Dict[Partition, AttachmentEdges]],
 ) -> Dict[str, Dict[str, Dict[str, List[int]]]]:
     serialized: Dict[str, Dict[str, Dict[str, List[int]]]] = {}
     for pivot, mover_entries in attachment_edges_by_split.items():

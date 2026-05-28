@@ -65,7 +65,7 @@ class FrozenPartitionSet(Generic[T]):
         self._order = (
             order
             if order is not None
-            else (tuple(self.taxa_encoding.values()) if self.taxa_encoding else None)
+            else (tuple(self.taxa_encoding.keys()) if self.taxa_encoding else None)
         )
         self._name: str = name
 

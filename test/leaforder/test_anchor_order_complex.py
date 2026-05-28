@@ -11,19 +11,26 @@ Covers:
 
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.elements.partition import Partition
+from brancharchitect.tree import Node
 from brancharchitect.leaforder.anchor_order import (
     blocked_order_and_apply,
     derive_order_for_pair,
 )
 
 
-def _pair(src: str, dst: str):
-    s = parse_newick(src)
-    d = parse_newick(dst, list(s.get_current_order()))
+def _as_tree(parsed: Node | list[Node]) -> Node:
+    if isinstance(parsed, list):
+        return parsed[0]
+    return parsed
+
+
+def _pair(src: str, dst: str) -> tuple[Node, Node]:
+    s = _as_tree(parse_newick(src))
+    d = _as_tree(parse_newick(dst, list(s.get_current_order())))
     return s, d
 
 
-def _edge_full(tree):
+def _edge_full(tree: Node) -> Partition:
     enc = tree.taxa_encoding
     return Partition(tuple(sorted(enc.values())), enc)
 
@@ -58,7 +65,6 @@ def test_three_movers_same_side():
     o2 = list(t2.get_current_order())
 
     # All movers go to the same side: left in t1, right in t2
-    mover_taxa = {"B", "E", "F", "G"}
     anchor_taxa = {"A", "C", "D"}
 
     # In t1: movers are split due to alternation

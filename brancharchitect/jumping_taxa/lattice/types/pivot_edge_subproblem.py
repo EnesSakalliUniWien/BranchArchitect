@@ -36,7 +36,9 @@ class PivotEdgeSubproblem:
         default_factory=lambda: PartitionSet()
     )
 
-    def remove_solutions_from_covers(self, solutions: List[PartitionSet[Partition]]):
+    def remove_solutions_from_covers(
+        self, solutions: List[PartitionSet[Partition]]
+    ) -> None:
         """
         Remove solved partitions from both covers (shared_top_splits) and
         bottom-to-frontier mappings to maintain data structure consistency.

@@ -1,4 +1,4 @@
-from typing import Dict, List, IO, Any
+from typing import Dict, List, IO, Any, Literal, overload
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition
@@ -10,6 +10,33 @@ import orjson
 
 def dump_json(tree: Node, f: IO[str]) -> None:
     json.dump(tree, f, cls=UUIDEncoder)
+
+
+@overload
+def read_newick(
+    path: str,
+    order: Optional[list[str]] = None,
+    force_list: Literal[True] = True,
+    treat_zero_as_epsilon: bool = False,
+) -> List[Node]: ...
+
+
+@overload
+def read_newick(
+    path: str,
+    order: Optional[list[str]] = None,
+    force_list: Literal[False] = False,
+    treat_zero_as_epsilon: bool = False,
+) -> Node | List[Node]: ...
+
+
+@overload
+def read_newick(
+    path: str,
+    order: Optional[list[str]] = None,
+    force_list: bool = False,
+    treat_zero_as_epsilon: bool = False,
+) -> Node | List[Node]: ...
 
 
 def read_newick(

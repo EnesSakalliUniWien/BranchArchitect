@@ -95,7 +95,6 @@ a = Analysis(
         'tqdm',
         'Bio.PDB',
         'Bio.PDB.mmtf',
-        'Bio.SeqIO.PdbIO',
         'brancharchitect.leaforder.benchmark',
     ],
     win_no_prefer_redirects=False,

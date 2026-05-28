@@ -1,7 +1,7 @@
 from __future__ import annotations
 from itertools import product
 from brancharchitect.tree import Node
-from typing import List, Dict, Set, Tuple
+from typing import List, Dict, Set, Tuple, cast
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
@@ -108,10 +108,13 @@ class LatticeSolver:
         self.current_t1: Node = self.tree1.deep_copy()
         self.current_t2: Node = self.tree2.deep_copy()
 
+        # Mutable frontier stack for pivot processing (pop from end for ordered traversal)
+        self.processing_stack: List[PivotEdgeSubproblem] = []
+
         # Build initial processing state
         self._build_processing_state()
 
-    def _build_processing_state(self):
+    def _build_processing_state(self) -> bool:
         """
         Build or rebuild the mutable processing state for solve().
 
@@ -147,7 +150,7 @@ class LatticeSolver:
         # Processing stack (initialize in reverse so pop() yields correct order)
         # We want to process from start of sorted list (subsets) to end (supersets)
         # Since stack.pop() takes from the end, we reverse the list first.
-        self.processing_stack: List[PivotEdgeSubproblem] = list(
+        self.processing_stack = list(
             reversed(self.pivot_edges)
         )
         return True
@@ -335,10 +338,6 @@ class LatticeSolver:
         if pivot_edge.pivot_split in solution:
             return False
 
-        trees = (getattr(self, "current_t1", None), getattr(self, "current_t2", None))
-        if any(tree is None for tree in trees):
-            return True
-
         excluded_mask = 0
         for partition in pivot_edge.excluded_partitions:
             excluded_mask |= partition.bitmask
@@ -346,6 +345,16 @@ class LatticeSolver:
         solution_mask = 0
         for partition in solution:
             solution_mask |= partition.bitmask
+
+        if not hasattr(self, "current_t1") or not hasattr(self, "current_t2"):
+            return True
+
+        trees: tuple[Node, Node] = (
+            cast(Node, self.current_t1),
+            cast(Node, self.current_t2),
+        )
+
+        for partition in solution:
             for tree in trees:
                 node = tree.find_node_by_split(partition)
                 if node is None or node.parent is None:
@@ -365,7 +374,7 @@ class LatticeSolver:
         encoding: dict[str, int],
         complete: bool,
     ) -> tuple:
-        combined = PartitionSet(encoding=encoding)
+        combined: PartitionSet[Partition] = PartitionSet(encoding=encoding)
         for solution in sequence:
             combined.update(solution)
 
@@ -425,8 +434,10 @@ class LatticeSolver:
         }
 
     @staticmethod
-    def _pivot_frontier_state_key(pivot_edge: PivotEdgeSubproblem) -> tuple:
-        entries = []
+    def _pivot_frontier_state_key(
+        pivot_edge: PivotEdgeSubproblem,
+    ) -> tuple[tuple[str, int, str, tuple[int, ...]], ...]:
+        entries: list[tuple[str, int, str, tuple[int, ...]]] = []
         for side_name, child_frontiers_by_split in (
             ("tree1", pivot_edge.tree1_child_frontiers),
             ("tree2", pivot_edge.tree2_child_frontiers),
@@ -455,7 +466,7 @@ class LatticeSolver:
                         (
                             side_name,
                             split.bitmask,
-                            bottom.bitmask,
+                            f"bottom:{bottom.bitmask}",
                             tuple(sorted(partition.bitmask for partition in frontiers)),
                         )
                     )
@@ -589,7 +600,9 @@ class LatticeSolver:
                 continue
 
             encoding = next(iter(all_partitions)).encoding
-            combined = PartitionSet(all_partitions, encoding=encoding)
+            combined: PartitionSet[Partition] = PartitionSet(
+                all_partitions, encoding=encoding
+            )
             key = tuple(sorted(partition.bitmask for partition in combined))
             if key in seen:
                 continue

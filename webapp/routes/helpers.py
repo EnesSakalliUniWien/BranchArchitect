@@ -47,15 +47,44 @@ def get_msa_content(msa_file: Optional[FileStorage]) -> Optional[str]:
     msa_file.seek(0)
 
     if file_size > 0:
-        return cast(bytes, msa_file.read()).decode("utf-8", errors="replace")
+        content = msa_file.read()
+        if not isinstance(content, bytes):
+            raise ValueError("Uploaded file 'msaFile' could not be read as bytes.")
+        return content.decode("utf-8", errors="replace")
     return None
 
 
 def _parse_iqtree_replicate_count(raw_value: object, field_name: str) -> int:
-    try:
+    """Parse an IQ-TREE replicate count from form data with validation."""
+
+    if raw_value is None:
+        raise ValueError(f"{field_name} is required.")
+
+    if isinstance(raw_value, bool):
+        # bool is an int subclass but not a valid repeat count input in this context.
+        raise ValueError(f"{field_name} must be an integer.")
+
+    if isinstance(raw_value, int):
+        replicate_count = raw_value
+    elif isinstance(raw_value, str):
+        stripped = raw_value.strip()
+        if not stripped:
+            raise ValueError(f"{field_name} must be an integer.")
+        try:
+            replicate_count = int(stripped)
+        except ValueError as exc:
+            raise ValueError(f"{field_name} must be an integer.") from exc
+    elif isinstance(raw_value, bytes):
+        try:
+            replicate_count = int(raw_value)
+        except ValueError as exc:
+            raise ValueError(f"{field_name} must be an integer.") from exc
+    elif isinstance(raw_value, float):
+        if not raw_value.is_integer():
+            raise ValueError(f"{field_name} must be an integer.")
         replicate_count = int(raw_value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{field_name} must be an integer.") from exc
+    else:
+        raise ValueError(f"{field_name} must be an integer.")
 
     if not IQTREE_REPLICATE_COUNT_MIN <= replicate_count <= IQTREE_REPLICATE_COUNT_MAX:
         raise ValueError(
@@ -63,6 +92,40 @@ def _parse_iqtree_replicate_count(raw_value: object, field_name: str) -> int:
             f"and {IQTREE_REPLICATE_COUNT_MAX}."
         )
     return replicate_count
+
+
+def _parse_window_size(raw_value: object, field_name: str, default: int) -> int:
+    """Parse a positive integer from optional form input."""
+
+    if raw_value is None:
+        return default
+
+    if isinstance(raw_value, int):
+        value = raw_value
+    elif isinstance(raw_value, str):
+        stripped = raw_value.strip()
+        if not stripped:
+            return default
+        try:
+            value = int(stripped)
+        except ValueError as exc:
+            raise ValueError(f"{field_name} must be an integer.") from exc
+    elif isinstance(raw_value, bytes):
+        try:
+            value = int(raw_value)
+        except ValueError as exc:
+            raise ValueError(f"{field_name} must be an integer.") from exc
+    elif isinstance(raw_value, float):
+        if not raw_value.is_integer():
+            raise ValueError(f"{field_name} must be an integer.")
+        value = int(raw_value)
+    else:
+        raise ValueError(f"{field_name} must be an integer.")
+
+    if value <= 0:
+        raise ValueError(f"{field_name} must be a positive integer.")
+
+    return value
 
 
 def parse_tree_data_request(request: Request) -> TreeDataRequest:
@@ -87,8 +150,10 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
     else:
         tree_file = None  # Ensure tree_file is None if not provided or empty
 
-    window_size = int(request.form.get("windowSize", 1))
-    window_step = int(request.form.get("windowStepSize", 1))
+    window_size = _parse_window_size(request.form.get("windowSize"), "windowSize", 1)
+    window_step = _parse_window_size(
+        request.form.get("windowStepSize"), "windowStepSize", 1
+    )
     enable_rooting = request.form.get("midpointRooting", "") == "on"
 
     # Model options for tree inference (GTR and gamma are enabled by default)

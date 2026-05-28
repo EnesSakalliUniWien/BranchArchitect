@@ -1,4 +1,4 @@
-import requests
+import requests  # type: ignore[import-untyped]
 import os
 import pytest
 
@@ -53,5 +53,7 @@ def test_treedata_stream_endpoint():
 
         payload = response.json()
         assert isinstance(payload, dict), "Response should be a JSON object"
-        assert isinstance(payload.get("channel_id"), str), "Response should include channel_id"
+        assert isinstance(payload.get("channel_id"), str), (
+            "Response should include channel_id"
+        )
         print(f"Payload keys: {list(payload.keys())}")

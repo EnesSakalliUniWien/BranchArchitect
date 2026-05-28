@@ -149,7 +149,7 @@ def find_minimal_distance_permutation(
         if isinstance(total_distance_result, list):
             total_distance: float = sum(total_distance_result)
         else:
-            total_distance: float = total_distance_result
+            total_distance = total_distance_result
         if total_distance < min_total_distance:
             min_total_distance = total_distance
             best_perm = perm.copy()

@@ -2,7 +2,7 @@
 Solution Mapping: maps pivot edge solutions from pruned to original trees.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Set, Union
 
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import Partition, partition_size_bitmask_key
@@ -68,7 +68,9 @@ def map_solutions_to_common_subtrees(
     ):
         # Optimization: Use PartitionSet for automatic global uniqueness and efficient hashing
         # This replaces the manual `seen_bitmasks` loop.
-        mapped_set = PartitionSet(encoding=original_tree1.taxa_encoding)
+        mapped_set: PartitionSet[Partition] = PartitionSet(
+            encoding=original_tree1.taxa_encoding
+        )
 
         for solution in sorted(solutions, key=partition_size_bitmask_key):
             mapped_parts = _map_solution_partition_to_common_subtrees(
@@ -154,7 +156,7 @@ def _find_covering_common_splits(
             f"[cover-map] start partition={partition} pivot_edge={pivot_edge}"
         )
 
-    exclusion_set = {pivot_edge}
+    exclusion_set: Set[Union[Partition, int]] = {pivot_edge}
 
     pivot_edge_subtree_t1 = tree1.find_node_by_split(pivot_edge)
     pivot_edge_subtree_t2 = tree2.find_node_by_split(pivot_edge)

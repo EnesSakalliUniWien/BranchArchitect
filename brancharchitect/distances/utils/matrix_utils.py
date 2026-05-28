@@ -107,7 +107,9 @@ def distance_to_similarity(
     """
     if sigma <= 0:
         raise ValueError("sigma must be positive")
-    similarity = np.exp(-distance_matrix / sigma)
+    similarity: NDArray[np.float64] = np.exp(-distance_matrix / sigma).astype(
+        np.float64
+    )
     np.fill_diagonal(similarity, 1.0)
     return similarity
 

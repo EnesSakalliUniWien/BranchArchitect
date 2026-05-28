@@ -64,9 +64,8 @@ class TreeOrderOptimizer:
             pair_index < len(self.precomputed_active_changing_splits)
             and self.precomputed_active_changing_splits[pair_index] is not None
         ):
-            s_edge_splits: PartitionSet[Partition] = (
-                self.precomputed_active_changing_splits[pair_index]
-            )  # type: ignore[assignment]
+            s_edge_splits = self.precomputed_active_changing_splits[pair_index]
+            assert s_edge_splits is not None
             self.logger.debug(
                 f"Using precomputed s-edges for pair {pair_index}: {len(s_edge_splits)} edges"
             )

@@ -17,9 +17,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from brancharchitect.parser.newick_parser import parse_newick
-from brancharchitect.tree import Node
-from brancharchitect.tree_interpolation.pair_interpolation import (
+from brancharchitect.parser.newick_parser import parse_newick  # noqa: E402
+from brancharchitect.tree import Node  # noqa: E402
+from brancharchitect.tree_interpolation.pair_interpolation import (  # noqa: E402
     process_tree_pair_interpolation,
 )
 
@@ -111,7 +111,14 @@ def _resolve_input_paths(paths: Sequence[str], fixtures: Sequence[str]) -> list[
 
 def _load_trees(path: Path) -> list[Node]:
     lines = [line.strip() for line in path.read_text().splitlines() if line.strip()]
-    return [parse_newick(line) for line in lines]
+    trees: list[Node] = []
+    for line in lines:
+        parsed = parse_newick(line)
+        if isinstance(parsed, list):
+            trees.extend(parsed)
+        else:
+            trees.append(parsed)
+    return trees
 
 
 def _iter_pairs(

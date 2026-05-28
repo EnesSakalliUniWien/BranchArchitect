@@ -39,7 +39,7 @@ def log_stacktrace(exception: BaseException) -> None:
         logger.error(f"Error in error handling: {str(e)}", exc_info=True)
 
 
-def log_detailed_error(error: Exception, context: Optional[Dict[str, Any]] = None):
+def log_detailed_error(error: Exception, context: Optional[Dict[str, Any]] = None) -> None:
     """Log a detailed error with context information."""
     try:
         jt_logger.section("ERROR DETAILS")
@@ -87,7 +87,7 @@ def debug_algorithm_execution(func: F) -> F:
     """Decorator to wrap algorithm execution with debugging."""
 
     @wraps(func)
-    def wrapper(*args: Any, **kwargs: dict[str, Any]):
+    def wrapper(*args: Any, **kwargs: dict[str, Any]) -> Any:
         try:
             jt_logger.section(f"Running {func.__name__}")
             jt_logger.info(f"Function: {func.__name__}")

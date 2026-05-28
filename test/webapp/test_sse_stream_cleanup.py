@@ -1,10 +1,13 @@
 from flask import Flask
+from _pytest.monkeypatch import MonkeyPatch
 
 from webapp.routes import routes
 from webapp.services.sse.channels import ChannelRegistry
 
 
-def test_stream_progress_removes_channel_after_stream_completion(monkeypatch):
+def test_stream_progress_removes_channel_after_stream_completion(
+    monkeypatch: MonkeyPatch,
+) -> None:
     registry = ChannelRegistry()
     channel = registry.create()
     channel.complete({"ok": True})

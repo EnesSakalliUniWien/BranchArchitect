@@ -14,13 +14,16 @@ from brancharchitect.tree_interpolation.subtree_paths.execution.layout.reorderin
     reorder_tree_toward_destination,
 )
 
-def _get_tree(parsed_result) -> Node:
+
+def _get_tree(parsed_result: Node | list[Node]) -> Node:
     if isinstance(parsed_result, list):
         return parsed_result[0]
     return parsed_result
 
 
-def _setup_tree_pair(source_newick: str, dest_newick: str):
+def _setup_tree_pair(
+    source_newick: str, dest_newick: str
+) -> tuple[Node, Node, dict[str, int]]:
     source_tree = _get_tree(parse_newick(source_newick))
     dest_tree = _get_tree(parse_newick(dest_newick))
     dest_tree.taxa_encoding = source_tree.taxa_encoding

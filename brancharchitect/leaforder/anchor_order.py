@@ -242,9 +242,7 @@ def _get_stable_anchor_blocks_and_movers(
     stable_common_splits = stable_anchor_splits - moving_solution_set
 
     # Use maximal_elements() to get maximal stable subtrees
-    stable_common_splits: PartitionSet[Partition] = (
-        stable_common_splits.maximal_elements()
-    )
+    stable_common_splits = stable_common_splits.maximal_elements()
 
     source_position = {
         taxon: index for index, taxon in enumerate(src_node.get_current_order())
@@ -390,7 +388,7 @@ def derive_order_for_pair(
     circular_boundary_policy: str = "between_anchor_blocks",
     precomputed_solution: Optional[Dict[Partition, List[Partition]]] = None,
     common_splits: Optional[PartitionSet[Partition]] = None,
-):
+) -> None:
     """
     Derives and applies leaf orderings for all differing edges between two trees.
 
@@ -454,7 +452,7 @@ def blocked_order_and_apply(
     circular: bool = False,
     circular_boundary_policy: str = "largest_mover_at_zero",
     common_splits: Optional[PartitionSet[Partition]] = None,
-):
+) -> None:
     """
     Derive and apply a 3-band leaf order to the subtrees defined by an edge.
 

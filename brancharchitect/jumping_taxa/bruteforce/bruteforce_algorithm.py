@@ -1,13 +1,17 @@
 import time
+from collections.abc import Collection, Iterable, Iterator
+
+from brancharchitect.elements.partition import Partition
+from brancharchitect.tree import Node
 
 
-def traverse(root):
+def traverse(root: Node) -> Iterator[Node]:
     yield root
     for child in root.children:
         yield from traverse(child)
 
 
-def trees_equal(t1, t2):
+def trees_equal(t1: Node, t2: Node) -> bool:
     """
     Check if two trees are topologically identical.
 
@@ -17,12 +21,16 @@ def trees_equal(t1, t2):
     return t1 == t2
 
 
-def contains(a, b):
-    return all(bb in a for bb in b)
+def contains(a: Partition, b: Partition) -> bool:
+    a_values = set(a)
+    for value in b:
+        if value not in a_values:
+            return False
+    return True
 
 
-def reduce(components, others):
-    r = []
+def reduce(components: list[Partition], others: list[Partition]) -> list[Partition]:
+    r: list[Partition] = []
     for component in components:
         for other in others:
             if other == component:
@@ -34,7 +42,7 @@ def reduce(components, others):
     return r
 
 
-def _get_components(node, s):
+def _get_components(node: Node, s: set[Partition]) -> tuple[list[Partition], bool]:
     if len(node.children) == 0:
         return [node.split_indices], True
 
@@ -50,7 +58,7 @@ def _get_components(node, s):
     return components, False
 
 
-def get_components(t1, t2):
+def get_components(t1: Node, t2: Node) -> list[Partition]:
     s1 = set(t1.to_splits())
     s2 = set(t2.to_splits())
     c1, _ = _get_components(t1, s2)
@@ -63,26 +71,40 @@ def get_components(t1, t2):
     return components
 
 
-def algorithm(t1, t2, _=None, timeout=60 * 60):
+def algorithm(
+    t1: Node,
+    t2: Node,
+    order: list[str] | None = None,
+    timeout: float = 60 * 60,
+) -> list[tuple[int, ...]]:
     jts = core(t1, t2, timeout)
-    sorted(jts, key=lambda solution: sum(len(component) for component in solution))
-    return jts[0]
+    sorted_jts = sorted(
+        jts, key=lambda solution: sum(len(component) for component in solution)
+    )
+    return sorted_jts[0]
 
 
-def core(t1, t2, timeout=60 * 60, max_depth=None):
+def core(
+    t1: Node,
+    t2: Node,
+    timeout: float = 60 * 60,
+    max_depth: int | None = None,
+) -> list[list[tuple[int, ...]]]:
     leaves = [c for c in traverse(t1) if len(c.children) == 0]
     if max_depth is None:
         max_depth = int(len(leaves) / 2)
 
-    jumping_taxa = []
+    jumping_taxa: list[list[tuple[int, ...]]] = []
     depth = 1
 
     start = time.time()
 
-    stack = [(t1, t2, [0], [get_components(t1, t2)])]
+    stack: list[tuple[Node, Node, list[int], list[list[Partition]]]] = [
+        (t1, t2, [0], [get_components(t1, t2)])
+    ]
     i = 0
     while len(jumping_taxa) == 0 and depth < max_depth:
-        while (len(stack)) > 0:
+        while len(stack) > 0:
             t1, t2, idxs, cs = stack.pop()
 
             li = idxs[-1]
@@ -97,22 +119,22 @@ def core(t1, t2, timeout=60 * 60, max_depth=None):
 
                 to_remove = lc[li]
                 it1 = t1.deep_copy()
-                it1.delete_taxa(to_remove)
+                to_remove_indices = list(to_remove)
+                it1.delete_taxa(to_remove_indices)
                 it2 = t2.deep_copy()
-                it2.delete_taxa(to_remove)
+                it2.delete_taxa(to_remove_indices)
 
                 stack.append((it1, it2, idxs + [0], cs + [get_components(it1, it2)]))
             else:
                 to_remove = lc[li]
                 it1 = t1.deep_copy()
-                it1.delete_taxa(to_remove)
+                to_remove_indices = list(to_remove)
+                it1.delete_taxa(to_remove_indices)
                 it2 = t2.deep_copy()
-                it2.delete_taxa(to_remove)
+                it2.delete_taxa(to_remove_indices)
 
                 if trees_equal(it1, it2):
-                    jumping_taxa.append(
-                        list(tuple([t for t in c[i]]) for c, i in zip(cs, idxs))
-                    )
+                    jumping_taxa.append(list(tuple([t for t in c[i]]) for c, i in zip(cs, idxs)))
 
                 stack.append((t1, t2, idxs[:-1] + [idxs[-1] + 1], cs))
 

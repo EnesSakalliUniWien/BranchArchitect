@@ -1,6 +1,6 @@
 """Tree visualization and comparison functionality for logs."""
 
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Sequence
 
 from brancharchitect.logger.base_logger import AlgorithmLogger
 from brancharchitect.tree import Node
@@ -418,11 +418,15 @@ class TreeLogger(AlgorithmLogger):
 
     def table(
         self,
-        rows: List[List[str]],
+        data: List[List[Any]],
         headers: Optional[List[str]] = None,
-        tablefmt: str = "simple",
+        title: Optional[str] = None,
+        tablefmt: str = "grid",
+        colalign: Optional[Sequence[Optional[str]]] = None,
     ) -> None:
         """Log a table in the specified format."""
+        # Keep compatibility with legacy callers that passed positional rows/title/tablefmt.
+        # `title` and `colalign` are ignored by this fallback rendering path.
         if tablefmt == "html":
             # Generate HTML table
             html = "<table>\n"
@@ -432,7 +436,7 @@ class TreeLogger(AlgorithmLogger):
                     html += f"<th>{header}</th>\n"
                 html += "</tr></thead>\n"
             html += "<tbody>\n"
-            for row in rows:
+            for row in data:
                 html += "<tr>\n"
                 for cell in row:
                     html += f"<td>{cell}</td>\n"
@@ -445,16 +449,14 @@ class TreeLogger(AlgorithmLogger):
                 import tabulate  # type: ignore[import-untyped]
 
                 if headers is not None:
-                    table_str = tabulate.tabulate(
-                        rows, headers=headers, tablefmt=tablefmt
-                    )
+                    table_str = tabulate.tabulate(data, headers=headers, tablefmt=tablefmt)
                 else:
-                    table_str = tabulate.tabulate(rows, tablefmt=tablefmt)
+                    table_str = tabulate.tabulate(data, tablefmt=tablefmt)
                 self.info(table_str)
             except ImportError:
                 # Fallback to simple text table
                 if headers:
                     self.info(" | ".join(headers))
                     self.info("-" * len(" | ".join(headers)))
-                for row in rows:
+                for row in data:
                     self.info(" | ".join(str(cell) for cell in row))
