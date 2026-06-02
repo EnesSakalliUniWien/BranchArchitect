@@ -136,7 +136,7 @@ def test_iqtree_discovery_falls_back_to_system_iqtree3(
     assert pipeline._get_iqtree_exe() == "/usr/local/bin/iqtree3"
 
 
-def test_iqtree_discovery_falls_back_to_system_iqtree2(
+def test_iqtree_discovery_does_not_fall_back_to_system_iqtree2(
     tmp_path: Path, monkeypatch
 ) -> None:
     module_file = (
@@ -155,7 +155,7 @@ def test_iqtree_discovery_falls_back_to_system_iqtree2(
         lambda name: "/usr/local/bin/iqtree2" if name == "iqtree2" else None,
     )
 
-    assert pipeline._get_iqtree_exe() == "/usr/local/bin/iqtree2"
+    assert pipeline._get_iqtree_exe() == "iqtree3"
 
 
 def test_iqtree_discovery_prefers_source_bundle_over_system_binary(

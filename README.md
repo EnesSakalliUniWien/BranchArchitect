@@ -43,9 +43,9 @@ print(f"Trees written to: {result.tree_file_path}")
 
 Packaged builds and source checkouts include IQ-TREE under `bin/<platform>`.
 For source/dev runs, set `IQTREE_PATH=/path/to/iqtree3` when you need a
-specific IQ-TREE build; otherwise BranchArchitect uses bundled `iqtree3` before
-falling back to system `iqtree3`, `iqtree2`, or `iqtree`. Binary provenance,
-licenses, platform coverage, and checksums are tracked in `bin/README.md`.
+specific IQ-TREE 3 build; otherwise BranchArchitect uses bundled `iqtree3`
+before falling back to system `iqtree3`. Binary provenance, licenses, platform
+coverage, and checksums are tracked in `bin/README.md`.
 
 ### Trees → Interpolation
 

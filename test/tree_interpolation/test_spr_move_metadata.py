@@ -213,6 +213,9 @@ def test_frontend_serializes_spr_move_events():
     )
     temporal_events = _build_temporal_event_rows(sequence, pairs)
     movie_data = types.SimpleNamespace(
+        annotation_definitions=[],
+        tree_name_definitions=[],
+        split_definitions=[],
         frames=[],
         pairs=pairs,
         temporal_events=temporal_events,

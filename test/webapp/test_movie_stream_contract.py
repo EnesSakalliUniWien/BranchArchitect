@@ -41,17 +41,47 @@ def _parse_sse_message(message: str) -> tuple[str | None, object]:
     return event, json.loads("\n".join(data_lines))
 
 
-def _find_split(node_dict: dict[str, Any], split: list[int]) -> dict[str, Any] | None:
-    if node_dict["split_indices"] == split:
+def _find_split(
+    metadata: dict[str, Any], node_dict: Any, split: list[int]
+) -> Any | None:
+    if isinstance(node_dict, list):
+        split_indices = metadata["split_definitions"][node_dict[2]]
+        children = node_dict[4]
+    else:
+        split_indices = node_dict.get("split_indices")
+        if split_indices is None and "split_ref" in node_dict:
+            split_indices = metadata["split_definitions"][node_dict["split_ref"]]
+        children = node_dict["children"]
+    if split_indices == split:
         return node_dict
-    children = node_dict["children"]
     assert isinstance(children, list)
     for child in children:
-        assert isinstance(child, dict)
-        found = _find_split(child, split)
+        found = _find_split(metadata, child, split)
         if found is not None:
             return found
     return None
+
+
+def _annotation_fields(
+    metadata: dict[str, Any], node_dict: Any
+) -> dict[str, dict[str, Any]]:
+    definitions = metadata.get("annotation_definitions", [])
+    annotation_values = (
+        node_dict[3]
+        if isinstance(node_dict, list)
+        else node_dict.get("annotation_values", [])
+    )
+    fields: dict[str, dict[str, Any]] = {}
+    for definition_index, value in annotation_values or []:
+        definition = definitions[definition_index]
+        key = definition["key"]
+        fields[key] = {
+            field_key: field_value
+            for field_key, field_value in definition.items()
+            if field_key != "key"
+        }
+        fields[key]["value"] = value
+    return fields
 
 
 def test_movie_stream_contract_sends_metadata_chunks_and_empty_complete_event() -> None:
@@ -136,15 +166,15 @@ def test_iqtree_support_mode_reaches_streamed_tree_annotations() -> None:
     app = Flask(__name__)
 
     with app.app_context():
-        _metadata, trees = handle_tree_content_streaming(
+        metadata, trees = handle_tree_content_streaming(
             "((A:1,B:1)95:2,C:3);",
             filename="iqtree.nwk",
             iqtree_support_mode="ufboot",
         )
 
-    ab_node = _find_split(trees[0], [0, 1])
+    ab_node = _find_split(metadata, trees[0], [0, 1])
     assert ab_node is not None
-    fields = ab_node["annotations"]["fields"]
+    fields = _annotation_fields(metadata, ab_node)
 
     assert "support.bootstrap.value" not in fields
     assert fields["support.iqtree.ufboot"]["value"] == 95.0
@@ -155,11 +185,85 @@ def test_iqtree_support_mode_reaches_streamed_tree_annotations() -> None:
     }
 
 
+def test_streamed_tree_annotations_are_compacted_into_metadata_definitions() -> None:
+    app = Flask(__name__)
+
+    with app.app_context():
+        metadata, trees = handle_tree_content_streaming(
+            "((A:1,B:1)95:2,C:3);",
+            filename="iqtree.nwk",
+            iqtree_support_mode="ufboot",
+        )
+
+    definitions = metadata["annotation_definitions"]
+    assert definitions == [
+        {
+            "key": "label.raw_internal",
+            "path": ["label", "raw_internal"],
+            "label": "Raw Internal Label",
+            "value_type": "string",
+            "role": "source_annotation",
+        },
+        {
+            "key": "support.iqtree.ufboot",
+            "path": ["support", "iqtree", "ufboot"],
+            "label": "UFBoot",
+            "value_type": "number",
+            "role": "branch_support",
+            "unit": "percent",
+            "analysis": {
+                "type": "tree_inference",
+                "method": "iqtree",
+                "mode": "ufboot",
+            },
+        },
+    ]
+
+    ab_node = _find_split(metadata, trees[0], [0, 1])
+    assert ab_node is not None
+    assert "annotations" not in ab_node
+    assert ab_node[3] == [[0, "95"], [1, 95.0]]
+
+
+def test_streamed_tree_names_and_splits_are_compacted_into_metadata_definitions() -> (
+    None
+):
+    app = Flask(__name__)
+
+    with app.app_context():
+        metadata, trees = handle_tree_content_streaming(
+            "((A:1,B:1):2,C:3);",
+            filename="compact.nwk",
+        )
+
+    assert metadata["tree_name_definitions"] == ["", "A", "B", "C"]
+    assert metadata["split_definitions"] == [[0, 1, 2], [0, 1], [0], [1], [2]]
+    assert trees[0] == [
+        1,
+        0,
+        0,
+        None,
+        [
+            [
+                2.0,
+                0,
+                1,
+                None,
+                [
+                    [1.0, 1, 2, None, []],
+                    [1.0, 2, 3, None, []],
+                ],
+            ],
+            [3.0, 3, 4, None, []],
+        ],
+    ]
+
+
 def test_uploaded_tree_series_automatically_gets_split_frequency_support() -> None:
     app = Flask(__name__)
 
     with app.app_context():
-        _metadata, trees = handle_tree_content_streaming(
+        metadata, trees = handle_tree_content_streaming(
             "\n".join(
                 [
                     "((A:1,B:1):1,(C:1,D:1):1);",
@@ -171,9 +275,9 @@ def test_uploaded_tree_series_automatically_gets_split_frequency_support() -> No
             annotate_tree_series_support=True,
         )
 
-    ab_node = _find_split(trees[0], [0, 1])
+    ab_node = _find_split(metadata, trees[0], [0, 1])
     assert ab_node is not None
-    fields = ab_node["annotations"]["fields"]
+    fields = _annotation_fields(metadata, ab_node)
 
     assert fields["support.bootstrap_rogue.frequency"]["value"] == 66.6667
     assert fields["support.bootstrap_rogue.replicate_count"]["value"] == 2.0
@@ -184,16 +288,16 @@ def test_tree_series_split_frequency_does_not_overwrite_existing_support() -> No
     app = Flask(__name__)
 
     with app.app_context():
-        _metadata, trees = handle_tree_content_streaming(
+        metadata, trees = handle_tree_content_streaming(
             "((A:1,B:1)95:1,(C:1,D:1):1);((A:1,B:1)95:1,(C:1,D:1):1);",
             filename="iqtree_support.nwk",
             iqtree_support_mode="ufboot",
             annotate_tree_series_support=True,
         )
 
-    ab_node = _find_split(trees[0], [0, 1])
+    ab_node = _find_split(metadata, trees[0], [0, 1])
     assert ab_node is not None
-    fields = ab_node["annotations"]["fields"]
+    fields = _annotation_fields(metadata, ab_node)
 
     assert fields["support.iqtree.ufboot"]["value"] == 95.0
     assert "support.bootstrap_rogue.frequency" not in fields
@@ -330,6 +434,9 @@ def test_movie_metadata_contract_emits_normalized_pair_and_temporal_event_rows()
     }
     movie_data = MovieData(
         interpolated_trees=[],
+        annotation_definitions=[],
+        tree_name_definitions=[],
+        split_definitions=[],
         frames=frames,
         pairs=pairs,
         temporal_events=temporal_events,
@@ -363,6 +470,9 @@ def test_movie_metadata_contract_has_exact_frontend_keys() -> None:
     metadata_payload = assemble_frontend_metadata(movie_data)
 
     assert set(metadata_payload) == {
+        "annotation_definitions",
+        "tree_name_definitions",
+        "split_definitions",
         "frames",
         "pairs",
         "temporal_events",

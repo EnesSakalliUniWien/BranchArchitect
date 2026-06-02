@@ -156,6 +156,33 @@ def _bootstrap_replicate_frequency_annotation_fields(
     return fields
 
 
+def _iqtree_sh_alrt_annotation_fields(node: "Node") -> Dict[str, Dict[str, Any]]:
+    if str(node.values.get("iqtree_support_kind", "")) != "sh_alrt":
+        return {}
+
+    sh_alrt = _to_float_or_none(node.values.get("iqtree_sh_alrt"))
+    if sh_alrt is None:
+        return {}
+
+    support = _single_value_support_annotation("sh_alrt", sh_alrt)
+    fields = {_field_key(support["path"]): support}
+    replicates = _to_float_or_none(node.values.get("iqtree_sh_alrt_replicates"))
+    if replicates is not None:
+        path = ["support", "iqtree", "sh_alrt_replicates"]
+        fields[_field_key(path)] = _annotation_field(
+            path,
+            "SH-aLRT Replicates",
+            replicates,
+            "branch_support_context",
+            analysis={
+                "type": "tree_inference",
+                "method": "iqtree",
+                "mode": "sh_alrt",
+            },
+        )
+    return fields
+
+
 def _to_float_or_none(value: Any) -> Optional[float]:
     if isinstance(value, bool):
         return None
@@ -203,10 +230,12 @@ def build_branch_annotation_fields(node: "Node") -> Dict[str, Dict[str, Any]]:
                             value,
                         )
                     )
+                    fields.update(_iqtree_sh_alrt_annotation_fields(node))
                     return fields
 
                 field = _single_value_support_annotation(support_kind, value)
                 fields[_field_key(field["path"])] = field
+                fields.update(_iqtree_sh_alrt_annotation_fields(node))
                 return fields
             if len(numeric_values) >= 2:
                 analysis = {
@@ -244,6 +273,7 @@ def build_branch_annotation_fields(node: "Node") -> Dict[str, Dict[str, Any]]:
                     bootstrap_frequency,
                 )
             )
+            fields.update(_iqtree_sh_alrt_annotation_fields(node))
             return fields
 
     for key in _SUPPORT_METADATA_KEYS:
@@ -274,6 +304,9 @@ def build_branch_annotation_fields(node: "Node") -> Dict[str, Dict[str, Any]]:
             "bootstrap_frequency",
             "replicate_count",
             "replicate_total",
+            "iqtree_support_kind",
+            "iqtree_sh_alrt",
+            "iqtree_sh_alrt_replicates",
         }:
             continue
         if isinstance(value, (str, int, float, bool, list)):

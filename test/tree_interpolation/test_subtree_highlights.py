@@ -133,9 +133,7 @@ class TestSubtreeHighlightsLengthInvariant(unittest.TestCase):
         result = builder.build([self.tree1, self.tree2, self.tree3])
 
         # All three lists must have equal length
-        self.assertEqual(
-            len(result.interpolated_trees), len(result.active_pivot_edges)
-        )
+        self.assertEqual(len(result.interpolated_trees), len(result.active_pivot_edges))
         self.assertEqual(
             len(result.interpolated_trees), len(result.current_subtree_highlights)
         )
@@ -278,6 +276,9 @@ class TestAPIResponseStructure(unittest.TestCase):
 
         movie_data = MovieData(
             interpolated_trees=[],
+            annotation_definitions=[],
+            tree_name_definitions=[],
+            split_definitions=[],
             frames=[],
             pairs=[],
             temporal_events=[],
@@ -308,6 +309,9 @@ class TestAPIResponseStructure(unittest.TestCase):
         ]
         movie_data = MovieData(
             interpolated_trees=[],
+            annotation_definitions=[],
+            tree_name_definitions=[],
+            split_definitions=[],
             frames=frames,
             pairs=[],
             temporal_events=[],

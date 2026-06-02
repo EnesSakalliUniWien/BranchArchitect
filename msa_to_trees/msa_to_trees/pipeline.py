@@ -86,8 +86,7 @@ class IQTreeConfig:
     Configuration for IQ-TREE model settings.
 
     IQ-TREE is bundled in frozen application builds. Set IQTREE_PATH to
-    override executable discovery, otherwise iqtree3, iqtree2, or iqtree is
-    used from PATH.
+    override executable discovery, otherwise iqtree3 is used from PATH.
     """
 
     use_gtr: bool = True
@@ -385,13 +384,13 @@ def _get_iqtree_exe() -> str:
     system = platform.system().lower()
     if system == "darwin":
         platform_dir = "darwin"
-        exe_names = ("iqtree3", "iqtree2")
+        exe_names = ("iqtree3",)
     elif system == "windows":
         platform_dir = "win32"
-        exe_names = ("iqtree3.exe", "iqtree2.exe")
+        exe_names = ("iqtree3.exe",)
     else:
         platform_dir = "linux"
-        exe_names = ("iqtree3", "iqtree2")
+        exe_names = ("iqtree3",)
 
     if getattr(sys, "frozen", False):
         if hasattr(sys, "_MEIPASS"):
@@ -410,10 +409,9 @@ def _get_iqtree_exe() -> str:
         if bundled_exe.exists():
             return str(bundled_exe)
 
-    for executable in ("iqtree3", "iqtree2", "iqtree"):
-        resolved = shutil.which(executable)
-        if resolved:
-            return resolved
+    resolved = shutil.which("iqtree3")
+    if resolved:
+        return resolved
 
     return "iqtree3"
 

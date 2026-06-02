@@ -16,7 +16,10 @@ class MovieData:
     """
 
     # Core tree data
-    interpolated_trees: List[Dict[str, Any]]
+    interpolated_trees: List[Any]
+    annotation_definitions: List[Dict[str, Any]]
+    tree_name_definitions: List[str]
+    split_definitions: List[List[int]]
     frames: List[Dict[str, Any]]
     pairs: List[Dict[str, Any]]
     temporal_events: List[Dict[str, Any]]
