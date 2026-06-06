@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from itertools import groupby
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
-from brancharchitect.elements.partition import Partition
+from brancharchitect.elements.partition import Partition, partition_size_bitmask_key
 from brancharchitect.movie_pipeline.types import PAIR_METRIC_SEMANTICS
 from brancharchitect.tree_interpolation.types import (
     SprPathSegment,
@@ -115,6 +115,13 @@ def _build_pair_rows(
             if first_generated <= last_generated
             else None
         )
+        pivot_order = _ordered_pair_pivots(
+            sequence.active_pivot_edges[source_frame_index + 1 : target_frame_index],
+            (
+                sequence.affected_subtrees_by_split_list[pair_ordinal],
+                sequence.attachment_edge_maps[pair_ordinal],
+            ),
+        )
 
         rows.append(
             {
@@ -127,10 +134,12 @@ def _build_pair_rows(
                 "generated_frame_range": generated_frame_range,
                 "solution": {
                     "affected_subtrees_by_split": _serialize_affected_subtrees_by_split(
-                        sequence.affected_subtrees_by_split_list[pair_ordinal]
+                        sequence.affected_subtrees_by_split_list[pair_ordinal],
+                        pivot_order,
                     ),
                     "attachment_edges_by_split": _serialize_attachment_edges_by_split(
                         sequence.attachment_edge_maps[pair_ordinal],
+                        pivot_order,
                     ),
                 },
             }
@@ -281,18 +290,72 @@ def _input_tree_index_by_frame(
     }
 
 
+def _ordered_pair_pivots(
+    active_pivot_edges: Sequence[Optional[Partition]],
+    partition_maps: Sequence[Mapping[Partition, Any]],
+) -> List[Partition]:
+    """Return pivot keys in execution order, followed by deterministic leftovers."""
+    ordered: List[Partition] = []
+    seen_bitmasks: set[int] = set()
+
+    for pivot in active_pivot_edges:
+        if pivot is None or pivot.bitmask in seen_bitmasks:
+            continue
+        if any(pivot in partition_map for partition_map in partition_maps):
+            ordered.append(pivot)
+            seen_bitmasks.add(pivot.bitmask)
+
+    leftovers: List[Partition] = []
+    for partition_map in partition_maps:
+        for pivot in partition_map:
+            if pivot.bitmask in seen_bitmasks:
+                continue
+            leftovers.append(pivot)
+            seen_bitmasks.add(pivot.bitmask)
+
+    return ordered + sorted(leftovers, key=partition_size_bitmask_key)
+
+
+def _order_partition_dict(
+    partition_dict: Mapping[Partition, Any],
+    pivot_order: Sequence[Partition],
+) -> Dict[Partition, Any]:
+    ordered: Dict[Partition, Any] = {}
+    for pivot in pivot_order:
+        if pivot in partition_dict:
+            ordered[pivot] = partition_dict[pivot]
+
+    for pivot in sorted(partition_dict, key=partition_size_bitmask_key):
+        if pivot not in ordered:
+            ordered[pivot] = partition_dict[pivot]
+
+    return ordered
+
+
 def _serialize_affected_subtrees_by_split(
     affected_subtrees: Dict[Partition, List[Partition]],
+    pivot_order: Sequence[Partition],
 ) -> Dict[str, Any]:
-    wrapped_subtrees = {pivot: [parts] for pivot, parts in affected_subtrees.items()}
+    wrapped_subtrees = {
+        pivot: [parts]
+        for pivot, parts in _order_partition_dict(
+            affected_subtrees,
+            pivot_order,
+        ).items()
+    }
     return _serialize_partition_dict_to_indices(wrapped_subtrees)
 
 
 def _serialize_attachment_edges_by_split(
     attachment_edges_by_split: Dict[Partition, Dict[Partition, AttachmentEdges]],
+    pivot_order: Sequence[Partition],
 ) -> Dict[str, Dict[str, Dict[str, List[int]]]]:
     serialized: Dict[str, Dict[str, Dict[str, List[int]]]] = {}
-    for pivot, mover_entries in attachment_edges_by_split.items():
+    ordered_attachment_edges = _order_partition_dict(
+        attachment_edges_by_split,
+        pivot_order,
+    )
+    for pivot, mover_entries in ordered_attachment_edges.items():
         serialized[_partition_key(pivot)] = {
             _partition_key(mover): {
                 "source": _serialize_required_partition(edges["source"]),

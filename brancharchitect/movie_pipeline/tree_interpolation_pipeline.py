@@ -1,6 +1,6 @@
 """Tree processing pipeline."""
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 import logging
 import sys
 import time
@@ -32,13 +32,15 @@ from brancharchitect.io import serialize_subtree_highlights
 from .temporal_contract import build_temporal_contract
 from .tree_rooting import root_trees
 
+SolvePairResult = Tuple[
+    Optional[Dict[Partition, List[Partition]]], Optional[str], float
+]
 
-def _parallel_solve_pair(
-    source: Node, destination: Node
-) -> Tuple[Optional[Dict[Partition, List[Partition]]], Optional[str], float]:
+
+def _parallel_solve_pair(source: Node, destination: Node) -> SolvePairResult:
     """
     Helper function to run lattice computation in a separate process.
-    Returns (solution_dict, error_message).
+    Returns (solution_dict, error_message, elapsed_seconds).
     """
     start = time.perf_counter()
     try:
@@ -59,6 +61,33 @@ def _report_progress(
     """Report progress if callback is provided."""
     if callback:
         callback(pct, msg)
+
+
+def _solve_pairs_with_joblib(
+    trees: List[Node],
+    n_pairs: int,
+    logger: logging.Logger,
+) -> List[SolvePairResult]:
+    """Run pair solvers with process workers, falling back to threads if unavailable."""
+
+    def task_iter() -> Any:
+        return (
+            delayed(_parallel_solve_pair)(trees[i], trees[i + 1])
+            for i in range(n_pairs)
+        )
+
+    try:
+        return cast(List[SolvePairResult], Parallel(n_jobs=-1)(task_iter()))
+    except (OSError, NotImplementedError, ImportError) as error:
+        logger.warning(
+            "Process-based joblib backend unavailable (%s); retrying lattice "
+            "solver with threading backend.",
+            error,
+        )
+        return cast(
+            List[SolvePairResult],
+            Parallel(n_jobs=-1, backend="threading")(task_iter()),
+        )
 
 
 def _create_interpolation_callback(
@@ -376,20 +405,13 @@ class TreeInterpolationPipeline:
                 results.append(_parallel_solve_pair(trees[i], trees[i + 1]))
         else:
             # In development, use default loky backend for best performance
-            results = Parallel(n_jobs=-1)(
-                delayed(_parallel_solve_pair)(trees[i], trees[i + 1])
-                for i in range(n_pairs)
-            )
+            results = _solve_pairs_with_joblib(trees, n_pairs, self.logger)
 
         # Process results and log any errors
         sols: List[Optional[Dict[Partition, List[Partition]]]] = []
 
         for i, result_tuple in enumerate(results):
-            if len(result_tuple) == 2:
-                solution_dict, error_msg = result_tuple
-                elapsed = None
-            else:
-                solution_dict, error_msg, elapsed = result_tuple
+            solution_dict, error_msg, elapsed = result_tuple
             if error_msg:
                 self.logger.error(
                     f"Failed to compute lattice solution for pair {i}-{i + 1}. "
@@ -398,14 +420,13 @@ class TreeInterpolationPipeline:
                 sols.append(None)
             else:
                 sols.append(solution_dict)
-            if elapsed is not None:
-                self.logger.info(
-                    "[PhaseTimer] lattice_pair pair=%d-%d %.3fs status=%s",
-                    i,
-                    i + 1,
-                    elapsed,
-                    "error" if error_msg else "ok",
-                )
+            self.logger.info(
+                "[PhaseTimer] lattice_pair pair=%d-%d %.3fs status=%s",
+                i,
+                i + 1,
+                elapsed,
+                "error" if error_msg else "ok",
+            )
 
         return sols
 
