@@ -7,12 +7,18 @@ and create Flask responses for SSE streaming.
 
 from __future__ import annotations
 
-import json
 from typing import Any, Dict, Iterator, Optional
 
+import orjson
 from flask import Response
 
 from brancharchitect.io import UUIDEncoder
+
+_UUID_ENCODER = UUIDEncoder()
+
+
+def _orjson_default(value: Any) -> Any:
+    return _UUID_ENCODER.default(value)
 
 
 def format_sse_message(
@@ -35,7 +41,7 @@ def format_sse_message(
 
     Example:
         >>> format_sse_message({'count': 1}, event='progress')
-        'event: progress\\ndata: {"count": 1}\\n\\n'
+        'event: progress\\ndata: {"count":1}\\n\\n'
     """
     lines = []
 
@@ -52,7 +58,11 @@ def format_sse_message(
     if isinstance(data, str):
         payload = data
     else:
-        payload = json.dumps(data, cls=UUIDEncoder)
+        payload = orjson.dumps(
+            data,
+            default=_orjson_default,
+            option=orjson.OPT_NON_STR_KEYS,
+        ).decode("utf-8")
 
     # SSE requires each line of data to be prefixed with "data: "
     for line in payload.split("\n"):

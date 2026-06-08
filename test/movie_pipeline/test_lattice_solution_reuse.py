@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import LatticeSolver
@@ -76,6 +78,7 @@ def test_single_pair_precompute_does_not_start_joblib(monkeypatch):
 def test_parallel_precompute_falls_back_to_threading_when_loky_is_unavailable(
     monkeypatch,
     backend_error,
+    caplog,
 ):
     trees = parse_newick(
         "".join(
@@ -118,5 +121,9 @@ def test_parallel_precompute_falls_back_to_threading_when_loky_is_unavailable(
 
     pipeline = TreeInterpolationPipeline(PipelineConfig(enable_rooting=False))
 
+    caplog.set_level(logging.WARNING, logger=pipeline.logger.name)
+
     assert pipeline._precompute_lattice_solutions(trees) == [{}, {}]
     assert parallel_calls == [{"n_jobs": -1}, {"n_jobs": -1, "backend": "threading"}]
+    assert "backend_error=" in caplog.text
+    assert type(backend_error).__name__ in caplog.text

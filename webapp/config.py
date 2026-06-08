@@ -43,5 +43,8 @@ class Config:
 
     # Logging
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+    LOG_FORMAT = os.environ.get("LOG_FORMAT", "text")
+    LOG_ACCESS = os.environ.get("LOG_ACCESS", "1")
+    LOG_HEALTHCHECKS = os.environ.get("LOG_HEALTHCHECKS", "0")
     LOG_DIR = get_log_dir()
-    LOG_FILE = LOG_DIR / "debug_log.html"
+    LOG_FILE = os.environ.get("BACKEND_LOG_FILE") or os.environ.get("LOG_FILE")

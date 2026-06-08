@@ -132,16 +132,35 @@ if ! curl -s http://127.0.0.1:5002/about >/dev/null 2>&1; then
 fi
 
 # Cleanup function
+STOP_REASON="backend process exited"
 cleanup() {
-  echo "[backend] Cleaning up..."
+  echo "[backend] Cleaning up after: $STOP_REASON"
   if [ -n "$BACKEND_PID" ] && kill -0 $BACKEND_PID 2>/dev/null; then
     kill $BACKEND_PID 2>/dev/null
   fi
   wait $BACKEND_PID 2>/dev/null
 }
 
-# Trap cleanup on SIGINT (Ctrl+C), SIGTERM, and EXIT
-trap cleanup SIGINT SIGTERM EXIT
+on_sigint() {
+  STOP_REASON="SIGINT"
+  exit 130
+}
+
+on_sigterm() {
+  STOP_REASON="SIGTERM"
+  exit 143
+}
+
+on_sighup() {
+  STOP_REASON="SIGHUP"
+  exit 129
+}
+
+# Trap cleanup on Ctrl+C, termination, terminal hangup, and normal exit.
+trap on_sigint SIGINT
+trap on_sigterm SIGTERM
+trap on_sighup SIGHUP
+trap cleanup EXIT
 
 echo "[backend] Backend PID: $BACKEND_PID"
 echo "[backend] Backend server is running. Press Ctrl+C to stop."
@@ -149,4 +168,8 @@ echo "[backend] Flask backend: http://127.0.0.1:5002/"
 echo "[backend] Health check endpoint: http://127.0.0.1:5002/about"
 
 # Keep the script running
-wait $BACKEND_PID || true
+wait $BACKEND_PID
+BACKEND_EXIT_STATUS=$?
+STOP_REASON="backend process exited with status $BACKEND_EXIT_STATUS"
+echo "[backend] Backend process exited with status $BACKEND_EXIT_STATUS"
+exit $BACKEND_EXIT_STATUS

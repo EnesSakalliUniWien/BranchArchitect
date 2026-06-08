@@ -81,6 +81,7 @@ def assemble_frontend_metadata(movie_data: MovieData) -> Dict[str, Any]:
             "step_size": movie_data.window_step_size,
         },
         "file_name": movie_data.file_name,
+        "dataset_provenance": None,
     }
 
 

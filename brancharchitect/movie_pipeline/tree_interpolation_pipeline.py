@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 import logging
 import sys
 import time
+import traceback
 from joblib import Parallel, delayed  # type: ignore[import-untyped]
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
@@ -52,7 +53,8 @@ def _parallel_solve_pair(source: Node, destination: Node) -> SolvePairResult:
         solution_dict = result[0]
         return solution_dict, None, time.perf_counter() - start
     except Exception as e:
-        return None, str(e), time.perf_counter() - start
+        error_msg = f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
+        return None, error_msg, time.perf_counter() - start
 
 
 def _report_progress(
@@ -80,8 +82,9 @@ def _solve_pairs_with_joblib(
         return cast(List[SolvePairResult], Parallel(n_jobs=-1)(task_iter()))
     except (OSError, NotImplementedError, ImportError) as error:
         logger.warning(
-            "Process-based joblib backend unavailable (%s); retrying lattice "
-            "solver with threading backend.",
+            "Process-based joblib backend unavailable; retrying lattice solver "
+            "with threading backend. backend_error=%s message=%s",
+            type(error).__name__,
             error,
         )
         return cast(
@@ -382,7 +385,9 @@ class TreeInterpolationPipeline:
             return []
 
         n_pairs = len(trees) - 1
-        self.logger.info(f"Precomputing solutions for {n_pairs} pairs using joblib...")
+        self.logger.info(
+            "Precomputing lattice solutions for %d adjacent tree pair(s).", n_pairs
+        )
 
         # Detect if running in PyInstaller frozen executable
         is_frozen = getattr(sys, "frozen", False)
@@ -405,6 +410,7 @@ class TreeInterpolationPipeline:
                 results.append(_parallel_solve_pair(trees[i], trees[i + 1]))
         else:
             # In development, use default loky backend for best performance
+            self.logger.info("Using process-based joblib for lattice solver")
             results = _solve_pairs_with_joblib(trees, n_pairs, self.logger)
 
         # Process results and log any errors

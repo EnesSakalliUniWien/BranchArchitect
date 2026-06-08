@@ -480,7 +480,9 @@ def test_movie_metadata_contract_has_exact_frontend_keys() -> None:
         "pair_metrics",
         "msa",
         "file_name",
+        "dataset_provenance",
     }
+    assert metadata_payload["dataset_provenance"] is None
     assert set(metadata_payload["msa"]) == {"sequences", "window_size", "step_size"}
     assert set(metadata_payload["pair_metrics"]) == {
         "rows",
