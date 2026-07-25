@@ -26,6 +26,39 @@ def get_log_dir() -> Path:
     return Path("logs")
 
 
+def _default_cors_origins() -> list[str]:
+    """
+    Default allowed CORS origins.
+
+    The server binds to 127.0.0.1 only, but a wildcard origin still lets
+    any webpage open in the user's browser make cross-origin requests to
+    it while the app is running. Instead we allow only the origins this
+    app actually loads from:
+      - "null": the Origin header a browser sends for requests from a
+        file:// page, which is how the packaged Electron app loads its
+        production build (see RFC 6454 - opaque origins serialize to the
+        literal string "null", not the word None).
+      - The Vite dev server and preview server ports used during local
+        development.
+    """
+    return [
+        "null",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ]
+
+
+def _parse_cors_origins(raw: str | None) -> list[str] | str:
+    """Parse the CORS_ORIGINS env var, falling back to the safe default list."""
+    if raw is None or raw == "":
+        return _default_cors_origins()
+    if raw == "*":
+        return "*"
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
 class Config:
     """Flask configuration."""
 
@@ -35,8 +68,10 @@ class Config:
 
     DEBUG = os.environ.get("FLASK_DEBUG", "1") == "1"
 
-    # CORS settings - permissive for local Electron app
-    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*")
+    # CORS settings - allowlisted for the app's own origins by default.
+    # Set CORS_ORIGINS="*" explicitly (env var) to opt back into a wildcard,
+    # or a comma-separated list to customize the allowlist.
+    CORS_ORIGINS = _parse_cors_origins(os.environ.get("CORS_ORIGINS"))
 
     # File upload settings
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB max file size

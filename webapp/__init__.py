@@ -8,6 +8,8 @@ from flask_compress import Compress  # type: ignore[import-untyped]
 
 from .config import Config
 from .services.logging import configure_logging
+from .services.sse.channels import channels
+from .services.sse.reaper import ChannelReaper
 from .routes.routes import bp as main_bp
 from pathlib import Path
 
@@ -18,6 +20,9 @@ __all__ = ["create_app"]
 
 # Initialize compression
 compress = Compress()
+
+# Sweeps orphaned closed SSE channels from the shared registry (see reaper docstring)
+_channel_reaper = ChannelReaper(channels)
 
 
 def create_app() -> Flask:
@@ -51,6 +56,9 @@ def create_app() -> Flask:
         app.logger.info("[INIT] Registering blueprints...")
         # Register blueprints (keeps route definitions in *one* place)
         app.register_blueprint(main_bp)
+
+        app.logger.info("[INIT] Starting SSE channel reaper...")
+        _channel_reaper.start()
 
         jinja_globals = cast(MutableMapping[str, Any], app.jinja_env.globals)
         jinja_globals.update(config=app.config)
