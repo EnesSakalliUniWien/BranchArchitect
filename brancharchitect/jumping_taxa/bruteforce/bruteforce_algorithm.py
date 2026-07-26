@@ -1,5 +1,5 @@
 import time
-from collections.abc import Collection, Iterable, Iterator
+from collections.abc import Iterator
 
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node

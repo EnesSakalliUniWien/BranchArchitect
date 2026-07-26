@@ -86,7 +86,6 @@ class PathGroupManager:
 
         # Track current group being processed
         self._current_group_index: int = 0
-        self._processed_in_current_group: Set[Partition] = set()
 
         if enabled and expand_splits_by_subtree:
             self._compute_relationships()
@@ -138,18 +137,6 @@ class PathGroupManager:
             True if contained's path is a proper subset of container's path
         """
         return (contained, container) in self._containment_edges
-
-    def get_overlapping_subtrees(self, subtree: Partition) -> FrozenSet[Partition]:
-        """
-        Get all subtrees that have overlapping paths with the given subtree.
-
-        Args:
-            subtree: The subtree to query
-
-        Returns:
-            Frozen set of subtrees with overlapping paths
-        """
-        return frozenset(self._overlap_graph.get(subtree, set()))
 
     def get_containment_edges(self) -> FrozenSet[Tuple[Partition, Partition]]:
         """
@@ -254,7 +241,6 @@ class PathGroupManager:
             return
 
         self._current_group_index = group_index
-        self._processed_in_current_group = set()
         self._ready_queue = []
 
         group = self._groups[group_index]

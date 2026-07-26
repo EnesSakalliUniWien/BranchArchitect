@@ -1,6 +1,4 @@
-import pytest
 from brancharchitect.tree import Node
-from brancharchitect.elements.partition import Partition
 
 # Helper: build a simple test tree
 #      A

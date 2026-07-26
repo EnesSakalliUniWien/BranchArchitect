@@ -1,14 +1,9 @@
 """Base logging functionality for visualization and debugging."""
 
 import logging
-import base64
-from typing import Any, Callable, ParamSpec, TypeVar
-from functools import wraps
+from typing import Any
 
 from brancharchitect.logger.html_content import CSS_LOG, MATH_JAX_HEADER
-
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
 
 
 class AlgorithmLogger:
@@ -130,50 +125,6 @@ class AlgorithmLogger:
             return
         self._css_content.append(css)
 
-    def add_svg(self, svg_content: str) -> None:
-        """Add SVG visualization to the debug output."""
-        if self.disabled:
-            return
-        self._html_content.append(f'<div class="svg-container">{svg_content}</div>')
-
-    def add_png_from_svg(self, svg_content: str, scale: float = 1.0) -> bool:
-        """Convert SVG content to PNG and embed it as an image in the HTML log.
-
-        Returns True on success, False if conversion fails (caller may fallback).
-        """
-        if self.disabled:
-            return False
-
-        try:
-            # Import locally to avoid mandatory runtime dependency if not used
-            import cairosvg  # type: ignore
-
-            png_bytes = cairosvg.svg2png(
-                bytestring=svg_content.encode("utf-8"),
-                scale=scale,
-                background_color="white",
-            )
-            b64 = base64.b64encode(png_bytes).decode("ascii")
-            img_html = (
-                '<div class="svg-container">'
-                f'<img src="data:image/png;base64,{b64}" alt="Rendered tree visualization" '
-                'style="max-width:100%; height:auto; display:block; margin:0 auto;"/>'
-                "</div>"
-            )
-            self._html_content.append(img_html)
-            return True
-        except Exception:
-            # On any error, return False so caller can fallback to SVG
-            return False
-
-    def end_section(self) -> None:
-        """End the current section."""
-        if self.disabled:
-            return
-        if self._section_open:
-            self._html_content.append("</section>")
-            self._section_open = False
-
     def clear(self) -> None:
         """Clear all accumulated content."""
         # Reset content to a clean initial state and restore default CSS
@@ -240,19 +191,3 @@ class AlgorithmLogger:
     def get_css_content(self) -> str:
         """Get the accumulated CSS content."""
         return "\n".join(self._css_content)
-
-    def log_execution(self, func: Callable[_P, _R]) -> Callable[_P, _R]:
-        """Decorator for logging function execution with type safety."""
-
-        @wraps(func)
-        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-            self.section(f"Executing {func.__name__}")
-            try:
-                result = func(*args, **kwargs)
-                self.info(f"{func.__name__} completed successfully")
-                return result
-            except Exception as e:
-                self.info(f"Error in {func.__name__}: {str(e)}")
-                raise
-
-        return wrapper

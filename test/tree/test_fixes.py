@@ -2,7 +2,6 @@
 """Test the fixes we implemented for Node class"""
 
 from brancharchitect.tree import Node
-from brancharchitect.elements.partition_set import Partition
 
 
 def test_fixes():
@@ -12,7 +11,7 @@ def test_fixes():
     print("1. Testing split_indices sharing fix:")
     node1 = Node()
     node2 = Node()
-    sharing_fixed = not (node1.split_indices is node2.split_indices)
+    sharing_fixed = node1.split_indices is not node2.split_indices
     print(
         f"   node1.split_indices is node2.split_indices: {node1.split_indices is node2.split_indices}"
     )

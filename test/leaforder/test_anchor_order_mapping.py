@@ -40,7 +40,6 @@ def test_blocked_order_uses_solution_keys_as_movers_block_moves_together():
     blocked_order_and_apply(edge, sources, destinations, t1, t2)
 
     order1 = list(t1.get_current_order())
-    order2 = list(t2.get_current_order())
 
     # A and B should move together as a block to one extreme in T1
     assert (
@@ -80,7 +79,6 @@ def test_blocked_order_singleton_solutions_move_as_singletons():
 
     # All movers go to the same side: left in t1, right in t2
     # Both A and C are movers (from sources and destinations)
-    mover_taxa = {"A", "C"}
 
     # In t1: movers should be on the left side
     # In t1: movers should alternate (Ping-Pong) to minimize crossing

@@ -115,41 +115,6 @@ def get_active_changing_splits(tree1: Node, tree2: Node) -> PartitionSet[Partiti
     )
 
 
-def get_common_splits_without_descendant_changes(
-    source_tree: Node, destination_tree: Node
-) -> PartitionSet[Partition]:
-    """
-    Returns the set of splits that are common to both tree1 and tree2,
-    excluding those where the child order differs due to descendant changes.
-    """
-    common_splits: PartitionSet[Partition] = get_common_splits(
-        source_tree, destination_tree
-    )
-    filtered_splits: PartitionSet[Partition] = PartitionSet()
-
-    for sp in common_splits:
-        source_node = source_tree.find_node_by_split(sp)
-
-        destinsation_node = destination_tree.find_node_by_split(sp)
-
-        # Skip if either node is not found
-        if source_node is None or destinsation_node is None:
-            continue
-
-        source_node_splits = source_node.to_splits()
-
-        destinsation_node_splits = destinsation_node.to_splits()
-
-        source_node_splits_unique = source_node_splits - destinsation_node_splits
-
-        destinsation_node_splits_unique = destinsation_node_splits - source_node_splits
-
-        if not source_node_splits_unique and not destinsation_node_splits_unique:
-            filtered_splits.add(sp)
-
-    return filtered_splits
-
-
 def clear_split_pair_cache() -> None:
     """
     Clear the LRU caches. Call this after any tree mutation.

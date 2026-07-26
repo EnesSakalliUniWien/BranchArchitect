@@ -44,7 +44,7 @@ def test_split_indices_sharing():
         new_partition = Partition((0, 1), {"A": 0, "B": 1})
         node1.split_indices = new_partition
 
-        print(f"\nAfter assigning new partition to node1:")
+        print("\nAfter assigning new partition to node1:")
         print(f"node1.split_indices: {node1.split_indices}")
         print(f"node2.split_indices: {node2.split_indices}")
         print(f"node3.split_indices: {node3.split_indices}")

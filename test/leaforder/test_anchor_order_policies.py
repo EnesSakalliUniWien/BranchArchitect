@@ -97,9 +97,6 @@ def test_mover_weight_policy_increasing_vs_decreasing_affects_leftmost_priority(
     mover_EF = Partition((enc["E"], enc["F"]), enc)  # size 2 -> i=0 after sort
     movers = {mover_B: mover_B, mover_G: mover_G, mover_EF: mover_EF}
 
-    mover_taxa = {"B", "E", "F", "G"}
-    anchor_taxa = {"A", "C", "D"}
-
     # Increasing: G (i=2, higher rank) is most extreme left
     t1_inc = t1.deep_copy()
     t2_inc = t2.deep_copy()

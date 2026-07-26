@@ -175,7 +175,17 @@ def process_msa_data(
             "msa_dict": None,
         }
 
-    alignment_length = get_alignment_length(msa_content)
+    # Parse once: for FASTA content (the common case), derive the alignment
+    # length directly from the parsed dict instead of re-parsing the same
+    # text a second time via get_alignment_length's FASTA branch. Non-FASTA
+    # content (PHYLIP/Clustal) still needs get_alignment_length, since
+    # msa_to_dict only understands FASTA.
+    msa_dict = msa_to_dict(msa_content)
+    alignment_length = (
+        len(next(iter(msa_dict.values())))
+        if msa_dict
+        else get_alignment_length(msa_content)
+    )
     if not alignment_length:
         if logger:
             logger.warning("Could not determine alignment length from MSA content")
@@ -199,7 +209,6 @@ def process_msa_data(
         effective_window_size = window_size
         effective_step_size = step_size
 
-    msa_dict = msa_to_dict(msa_content)
     if msa_dict is None and logger:
         logger.warning("Could not parse MSA sequence data")
 

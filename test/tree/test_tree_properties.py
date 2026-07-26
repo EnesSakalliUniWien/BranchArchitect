@@ -2,7 +2,6 @@
 
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.tree import Node
-from brancharchitect.elements.partition_set import Partition
 
 
 def test_tree_properties():
@@ -23,7 +22,7 @@ def test_tree_properties():
         print(f"Parsed result is a list with {len(parsed_result)} trees")
     else:
         tree = parsed_result
-        print(f"Parsed result is a single tree")
+        print("Parsed result is a single tree")
 
     print(f"Tree: {simple_tree}")
     print(f"Root name: '{tree.name}'")
@@ -99,7 +98,7 @@ def test_tree_properties():
         else:
             complex_parsed = parsed_complex
 
-        print(f"✅ Complex tree parsed successfully")
+        print("✅ Complex tree parsed successfully")
         print(f"Root children: {len(complex_parsed.children)}")
         print(f"Total nodes: {len(complex_parsed.traverse())}")
         print(
@@ -166,14 +165,14 @@ def test_tree_properties():
     else:
         tree_ops = parsed_ops
 
-    print(f"Before reordering:")
+    print("Before reordering:")
     for node in tree_ops.traverse():
         print(f"  {node.name or 'Internal'}: {node.split_indices}")
 
     # Test reordering
     try:
         tree_ops.reorder_taxa(["C", "B", "A"])
-        print(f"After reordering ['C', 'B', 'A']:")
+        print("After reordering ['C', 'B', 'A']:")
         for node in tree_ops.traverse():
             print(f"  {node.name or 'Internal'}: {node.split_indices}")
     except Exception as e:

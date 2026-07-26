@@ -1,6 +1,5 @@
 # Enhanced tests for component_distance.py
 from typing import Any, List, cast
-from numpy import dtype
 from numpy._typing._array_like import NDArray
 import pytest
 from brancharchitect.elements.partition import Partition
@@ -217,7 +216,7 @@ def test_calculate_component_distance_matrix():
     assert matrix.shape[0] == len(trees)
     assert matrix.shape[1] == len(trees)
     # Weighted
-    matrix_w: ndarray[Any, dtype[Any]] = calculate_component_distance_matrix(
+    matrix_w: NDArray[Any] = calculate_component_distance_matrix(
         trees, comps, weighted=True
     )
     assert matrix_w.shape == matrix.shape

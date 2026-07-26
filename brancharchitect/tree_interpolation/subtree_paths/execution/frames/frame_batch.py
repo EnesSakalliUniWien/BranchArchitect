@@ -27,11 +27,6 @@ class FrameBatch:
         self.edges.append(edge)
         self.subtree_highlights.append(list(highlight_group))
 
-    def as_tuple(
-        self,
-    ) -> tuple[list[Node], list[Optional[Partition]], list[list[Partition]]]:
-        return self.trees, self.edges, self.subtree_highlights
-
 
 class PendingFrameBuffer:
     """

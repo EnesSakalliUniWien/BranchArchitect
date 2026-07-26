@@ -11,13 +11,15 @@ Key Responsibilities:
 
 from __future__ import annotations
 
+import logging
+import time
 from typing import Any, Dict, List, Tuple
 
-from brancharchitect.io import serialize_tree_list_to_json
 from brancharchitect.movie_pipeline.types import (
     InterpolationResult,
     PAIR_METRIC_SEMANTICS,
 )
+from brancharchitect.tree import Node, build_branch_annotation_fields
 from webapp.services.trees.movie_data import MovieData
 
 # =============================================================================
@@ -36,14 +38,21 @@ def build_movie_data_from_result(
     This is the main entry point for this module. It orchestrates the
     transformation of backend data into a structured MovieData object.
     """
+    logger = logging.getLogger("webapp_pipeline")
     interpolated_trees = result["interpolated_trees"]
-    serialized_trees = serialize_tree_list_to_json(interpolated_trees)
+
+    t_compact_start = time.perf_counter()
     (
         compact_trees,
         annotation_definitions,
         tree_name_definitions,
         split_definitions,
-    ) = compact_tree_payload(serialized_trees)
+    ) = compact_tree_payload(interpolated_trees)
+    logger.info(
+        "[PhaseTimer] compact_tree_payload count=%d %.3fs",
+        len(interpolated_trees),
+        time.perf_counter() - t_compact_start,
+    )
 
     return MovieData(
         interpolated_trees=compact_trees,
@@ -105,14 +114,17 @@ def create_empty_movie_data(filename: str) -> MovieData:
 
 
 def compact_tree_payload(
-    trees: List[Dict[str, Any]],
+    trees: List[Node],
 ) -> Tuple[List[Any], List[Dict[str, Any]], List[str], List[List[int]]]:
-    """Move repeated tree schemas and annotation schemas to top-level definitions.
+    """Build the compact frontend tree payload directly from ``Node`` objects.
 
-    Tree nodes keep compact references for repeated values:
-    ``name_ref`` for node names, ``split_ref`` for split arrays, and
-    ``annotation_values`` pairs for annotation fields. The frontend validator
-    hydrates these back to the canonical tree node shape.
+    Walks each tree exactly once (rather than serializing to an intermediate
+    dict tree first and then compacting that), moving repeated tree schemas
+    and annotation schemas to top-level definitions. Tree nodes keep compact
+    references for repeated values: ``name_ref`` for node names, ``split_ref``
+    for split arrays, and ``annotation_values`` pairs for annotation fields.
+    The frontend validator hydrates these back to the canonical tree node
+    shape.
     """
 
     definition_index_by_key: Dict[str, int] = {}
@@ -134,22 +146,18 @@ def compact_tree_payload(
         definitions.append(definition)
         return index
 
-    def name_index(name: Any) -> int:
-        name_value = name if isinstance(name, str) else ""
-        existing_index = name_index_by_value.get(name_value)
+    def name_index(name: str) -> int:
+        existing_index = name_index_by_value.get(name)
         if existing_index is not None:
             return existing_index
 
         index = len(tree_name_definitions)
-        name_index_by_value[name_value] = index
-        tree_name_definitions.append(name_value)
+        name_index_by_value[name] = index
+        tree_name_definitions.append(name)
         return index
 
-    def split_index(split_indices: Any) -> int:
-        if isinstance(split_indices, list):
-            split_tuple = tuple(int(index) for index in split_indices)
-        else:
-            split_tuple = ()
+    def split_index(split_indices: List[int]) -> int:
+        split_tuple = tuple(int(index) for index in split_indices)
 
         existing_index = split_index_by_value.get(split_tuple)
         if existing_index is not None:
@@ -160,32 +168,29 @@ def compact_tree_payload(
         split_definitions.append(list(split_tuple))
         return index
 
-    def compact_node(node: Dict[str, Any]) -> List[Any]:
-        annotations = node.get("annotations")
-        fields = annotations.get("fields") if isinstance(annotations, dict) else None
-        annotation_values = None
-        if isinstance(fields, dict) and fields:
-            annotation_values = []
-            for field_key, field in fields.items():
-                if not isinstance(field, dict) or "value" not in field:
-                    continue
-                annotation_values.append(
-                    [definition_index(str(field_key), field), field["value"]]
-                )
+    def compact_node(node: Node) -> List[Any]:
+        if node.is_leaf():
+            split_indices = list(node.split_indices.resolve_to_indices())
+            name = node.name
+        else:
+            split_indices = list(node.split_indices.indices)
+            name = ""
 
-        node_name_ref = name_index(node.get("name"))
-        node_split_ref = split_index(node.get("split_indices"))
-        children = [
-            compact_node(child)
-            for child in node.get("children", [])
-            if isinstance(child, dict)
-        ]
+        annotation_fields = build_branch_annotation_fields(node)
+        annotation_values = None
+        if annotation_fields:
+            annotation_values = [
+                [definition_index(str(field_key), field), field["value"]]
+                for field_key, field in annotation_fields.items()
+                if isinstance(field, dict) and "value" in field
+            ]
+
         return [
-            node.get("length", 0),
-            node_name_ref,
-            node_split_ref,
+            node.length,
+            name_index(name),
+            split_index(split_indices),
             annotation_values,
-            children,
+            [compact_node(child) for child in node.children],
         ]
 
     return (
@@ -194,14 +199,3 @@ def compact_tree_payload(
         tree_name_definitions,
         split_definitions,
     )
-
-
-def compact_tree_annotations(
-    trees: List[Dict[str, Any]],
-) -> Tuple[List[Any], List[Dict[str, Any]]]:
-    """Backward-compatible helper for callers that only need annotation metadata."""
-
-    compacted, annotation_definitions, _tree_names, _splits = compact_tree_payload(
-        trees
-    )
-    return compacted, annotation_definitions

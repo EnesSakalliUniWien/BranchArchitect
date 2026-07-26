@@ -5,7 +5,6 @@ Feature: pipeline-performance-optimization
 Tests validate correctness properties for the optimized hash caching implementation.
 """
 
-import pytest
 from hypothesis import given, strategies as st, settings
 
 from brancharchitect.elements.partition import Partition
@@ -55,7 +54,7 @@ class TestHashEqualityContract:
         p2 = Partition(indices, encoding)
 
         # They should be equal
-        assert p1 == p2, f"Partitions with same indices should be equal"
+        assert p1 == p2, "Partitions with same indices should be equal"
 
         # Their hashes must be equal (hash-equality contract)
         assert hash(p1) == hash(p2), (
@@ -81,7 +80,7 @@ class TestHashEqualityContract:
 
         # Their hashes must be equal
         assert hash(p1) == hash(p2), (
-            f"Equal partitions must have equal hashes regardless of construction method"
+            "Equal partitions must have equal hashes regardless of construction method"
         )
 
 

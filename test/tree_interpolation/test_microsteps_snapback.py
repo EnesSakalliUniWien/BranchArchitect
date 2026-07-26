@@ -108,7 +108,6 @@ def test_microsteps_snapback_consistency():
         # "A", "C", "B" puts C in between -> Invalid.
         a_idx = final_order.index("A")
         b_idx = final_order.index("B")
-        c_idx = final_order.index("C")
 
         # Check adjacency of A and B
         assert abs(a_idx - b_idx) == 1, f"A and B should be adjacent in {final_order}"

@@ -4,7 +4,6 @@ from brancharchitect.logger.base_logger import AlgorithmLogger
 from brancharchitect.logger.table_logger import TableLogger
 from brancharchitect.logger.matrix_logger import MatrixLogger
 from brancharchitect.logger.tree_logger import TreeLogger
-import logging
 
 
 class Logger(TableLogger, MatrixLogger, TreeLogger):
@@ -29,15 +28,3 @@ class Logger(TableLogger, MatrixLogger, TreeLogger):
         """Initialize the combined logger."""
         # Initialize base AlgorithmLogger
         AlgorithmLogger.__init__(self, name)
-
-    def setup_console_logging(self, level: int = logging.INFO) -> None:
-        """Enable logging to the console."""
-        self.disabled = False
-        if not any(isinstance(h, logging.StreamHandler) for h in self.logger.handlers):
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
-        self.logger.setLevel(level)

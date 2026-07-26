@@ -11,7 +11,7 @@ def test_nhx_parsing():
     simple_nhx = "((A:0.1,B:0.2):0.05[&&NHX:confidence=0.95],C:0.3);"
     try:
         tree = parse_newick(simple_nhx)
-        print(f"✅ Parsed simple NHX tree")
+        print("✅ Parsed simple NHX tree")
 
         # Check if NHX metadata was extracted
         def check_nodes(node, indent=""):
@@ -33,7 +33,7 @@ def test_nhx_parsing():
     multi_nhx = "((A:0.1[&&NHX:species=human],B:0.2[&&NHX:species=chimp]):0.05[&&NHX:bootstrap=85],C:0.3[&&NHX:species=mouse]);"
     try:
         tree = parse_newick(multi_nhx)
-        print(f"✅ Parsed multiple NHX tree")
+        print("✅ Parsed multiple NHX tree")
 
         def check_nodes(node, indent=""):
             print(f"{indent}Node '{node.name}': length={node.length}")
@@ -54,7 +54,7 @@ def test_nhx_parsing():
     original_nhx = "((qfhJy6dGfL_P_serotinus_RF_complete_NCBI:0.000003[&&NHX:LWR=0.181353:LLH=-731.848948:alpha=0.000000],2FPjEKYcXz_L_noctivagans_RF_complete_NCBI:0.000013[&&NHX:LWR=0.157488:LLH=-731.848948:alpha=0.000000]):0.000013[&&NHX:LWR=0.000000:LLH=-731.848948:alpha=0.000000],x6hxPDGWKb_M_brandtii_RF_complete_NCBI:0.000057[&&NHX:LWR=0.661159:LLH=-731.848948:alpha=0.000000]);"
     try:
         tree = parse_newick(original_nhx)
-        print(f"✅ Parsed original problematic NHX tree")
+        print("✅ Parsed original problematic NHX tree")
 
         def check_nodes(node, indent=""):
             print(f"{indent}Node '{node.name}': length={node.length}")
@@ -75,7 +75,7 @@ def test_nhx_parsing():
     mixed = "((A:0.1[support=95],B:0.2[&&NHX:confidence=0.8]):0.05,C:0.3);"
     try:
         tree = parse_newick(mixed)
-        print(f"✅ Parsed mixed metadata tree")
+        print("✅ Parsed mixed metadata tree")
 
         def check_nodes(node, indent=""):
             print(f"{indent}Node '{node.name}': length={node.length}")

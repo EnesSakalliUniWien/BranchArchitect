@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import get_type_hints
 
 import pytest
@@ -23,9 +22,6 @@ from brancharchitect.jumping_taxa.lattice.types.pivot_edge_subproblem import (
 from brancharchitect.jumping_taxa.lattice.types.registry import SolutionRegistry
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.tree import Node
-from brancharchitect.tree_interpolation.pair_interpolation import (
-    process_tree_pair_interpolation,
-)
 
 
 def _ps(*parts: Partition, encoding: dict[str, int]) -> PartitionSet[Partition]:
@@ -407,7 +403,7 @@ def test_mixed_direct_rows_do_not_turn_overlap_row_into_square_matrix():
     pivot = Partition((0, 1, 2, 3), encoding=encoding)
     o = Partition((0,), encoding=encoding)
     t = Partition((1,), encoding=encoding)
-    l = Partition((2,), encoding=encoding)
+    l = Partition((2,), encoding=encoding)  # noqa: E741 - matches taxon "L"
     g = Partition((3,), encoding=encoding)
     ot = Partition((0, 1), encoding=encoding)
     lg = Partition((2, 3), encoding=encoding)
@@ -765,20 +761,3 @@ def test_solver_prefers_atomic_residual_witnesses_for_equal_repairs():
 def test_publication_pair_183_resolves_strict_top_cover_containment():
     """The 24-taxa residual pair with Ostrich as a direct child must complete."""
     pytest.skip("historical FastTree-specific 24-taxa fixture is not retained in publication_data")
-    source = parse_newick(newicks[183])
-    destination = parse_newick(newicks[184], encoding=source.taxa_encoding)
-
-    ostrich_index = source.taxa_encoding["Ostrich"]
-    solutions, _deleted = LatticeSolver(source, destination).solve_iteratively()
-
-    assert any(
-        partition.resolve_to_indices() == (ostrich_index,)
-        for partitions in solutions.values()
-        for partition in partitions
-    )
-
-    source = parse_newick(newicks[183])
-    destination = parse_newick(newicks[184], encoding=source.taxa_encoding)
-    result = process_tree_pair_interpolation(source, destination, pair_index=183)
-
-    assert result.trees

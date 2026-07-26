@@ -7,7 +7,7 @@ intermediate states that allow continuous morphing from one tree topology to ano
 """
 
 from __future__ import annotations
-from typing import Dict, List, Tuple
+from typing import Dict, List
 from brancharchitect.elements.partition import Partition
 from brancharchitect.tree_interpolation.topology_ops.collapse import (
     calculate_consensus_tree,
@@ -73,28 +73,3 @@ def interpolate_adjacent_tree_pairs(tree_list: List[Node]) -> List[Node]:
 
     results.append(tree_list[-1])
     return results
-
-
-"""
-Core tree calculation functions for interpolation.
-
-This module contains the fundamental algorithms for calculating
-intermediate and consensus trees during the interpolation process.
-"""
-
-
-def classical_interpolation(
-    source: Node,
-    destination: Node,
-    split_data: Tuple[Dict[Partition, float], Dict[Partition, float]],
-) -> List[Node]:
-    """Create consensus tree sequence and mappings."""
-    source_split_dict, destination_split_dict = split_data
-
-    # Create intermediate and consensus trees
-    it1: Node = calculate_intermediate_tree(source, destination_split_dict)
-    it2: Node = calculate_intermediate_tree(destination, source_split_dict)
-    c1: Node = calculate_consensus_tree(it1, destination_split_dict)
-    c2: Node = calculate_consensus_tree(it2, source_split_dict)
-
-    return [it1, c1, c2, it2]

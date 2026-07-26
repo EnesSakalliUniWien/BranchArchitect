@@ -159,8 +159,6 @@ class TestReorderWithMRCA:
         pivot_edge = Partition((0, 1, 2, 3, 4, 5), encoding)
         mover_ef = Partition((4, 5), encoding)
 
-        source_order_before = list(source.get_current_order())
-
         result = reorder_tree_toward_destination(
             source_tree=source,
             destination_tree=dest,
@@ -174,7 +172,6 @@ class TestReorderWithMRCA:
 
         # Result should have E,F in the correct position
         result_order = list(result.get_current_order())
-        dest_order = list(dest.get_current_order())
 
         # E and F should move toward their destination position
         # Source: (A,B,C,D,E,F) - E,F at end

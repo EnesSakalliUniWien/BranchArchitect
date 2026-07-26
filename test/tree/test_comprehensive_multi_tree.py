@@ -6,7 +6,6 @@ Comprehensive test suite for multi-tree NHX parsing with edge cases.
 
 import sys
 import os
-import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 

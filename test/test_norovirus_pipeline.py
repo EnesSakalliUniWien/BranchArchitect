@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 # Add msa_to_trees to path
 sys.path.insert(0, str(Path(__file__).parent / "msa_to_trees"))
 
-from msa_to_trees.pipeline import run_pipeline, FastTreeConfig
-from brancharchitect.io import read_newick
-from brancharchitect.movie_pipeline.tree_rooting import root_trees
-from brancharchitect.tree_interpolation.sequential_interpolation import (
+from msa_to_trees.pipeline import run_pipeline, FastTreeConfig  # noqa: E402 - needs sys.path.insert above
+from brancharchitect.io import read_newick  # noqa: E402
+from brancharchitect.movie_pipeline.tree_rooting import root_trees  # noqa: E402
+from brancharchitect.tree_interpolation.sequential_interpolation import (  # noqa: E402
     SequentialInterpolationBuilder,
 )
 
@@ -121,7 +121,7 @@ def test_interpolation(trees):
 
     try:
         # Test interpolation between first two trees
-        logger.info(f"Testing interpolation between Tree 0 and Tree 1...")
+        logger.info("Testing interpolation between Tree 0 and Tree 1...")
 
         builder = SequentialInterpolationBuilder()
 
@@ -137,7 +137,7 @@ def test_interpolation(trees):
         dest_taxa = set(dest.get_current_order())
 
         if source_taxa != dest_taxa:
-            logger.error(f"Taxa mismatch!")
+            logger.error("Taxa mismatch!")
             logger.error(f"  Only in source: {source_taxa - dest_taxa}")
             logger.error(f"  Only in dest: {dest_taxa - source_taxa}")
             return None
@@ -149,7 +149,7 @@ def test_interpolation(trees):
 
         result = builder.build(trees)
 
-        logger.info(f"✓ Interpolation successful!")
+        logger.info("✓ Interpolation successful!")
         logger.info(f"  Total interpolated trees: {len(result.interpolated_trees)}")
 
         return result

@@ -11,7 +11,7 @@ print(f"String length: {len(multi_tree_nhx)} characters")
 
 try:
     trees = parse_newick(multi_tree_nhx, force_list=True)
-    print(f"✅ SUCCESS: Multi-tree NHX string parsed successfully!")
+    print("✅ SUCCESS: Multi-tree NHX string parsed successfully!")
     print(f"Number of trees: {len(trees)}")
 
     # Show stats for each tree

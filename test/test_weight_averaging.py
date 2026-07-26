@@ -190,6 +190,8 @@ class TestWeightAveraging:
             else:
                 print(f"Tree {i}: (A,B) split removed")
         
+        assert found_zero, "(A,B) weight should reach 0.0 in an intermediate tree before removal"
+
         # Final tree should NOT have (A,B)
         final_tree = result.trees[-1]
         final_splits = final_tree.to_splits()

@@ -4,7 +4,6 @@ from brancharchitect.elements.partition_set import PartitionSet
 from brancharchitect.tree_interpolation.subtree_paths.analysis.split_analysis import (
     get_unique_splits_for_current_pivot_edge_subtree,
 )
-from brancharchitect.tree import Node
 
 
 class MockNode:

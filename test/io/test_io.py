@@ -1,12 +1,10 @@
 import os
-from typing import Dict, List, LiteralString
+from typing import Any, Dict, List, LiteralString
 from brancharchitect.io import serialize_tree_list_to_json, read_newick
 from brancharchitect.io import write_json
-from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.tree import Node
 import json
 import tempfile
-import pytest
 
 
 def test_serialize_tree_list_to_json_with_five_taxa_permutations(tmp_path):

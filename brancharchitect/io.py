@@ -5,7 +5,6 @@ from brancharchitect.elements.partition import Partition
 import json
 from typing import Optional
 from brancharchitect.uuid_encoder import UUIDEncoder
-import orjson
 
 
 def dump_json(tree: Node, f: IO[str]) -> None:
@@ -68,12 +67,6 @@ def serialize_tree_list_to_json(tree_list: List[Node]) -> List[Dict[str, Any]]:
         d: Dict[str, Any] = tree.to_dict()
         serialized_tree_list.append(d)
     return serialized_tree_list
-
-
-def write_tree_dictionaries_to_json(tree_list: list[Node], file_name: str) -> None:
-    serialized_tree_list = serialize_tree_list_to_json(tree_list)
-    with open(file_name, "wb") as f:
-        f.write(orjson.dumps(serialized_tree_list))
 
 
 def serialize_subtree_highlights(

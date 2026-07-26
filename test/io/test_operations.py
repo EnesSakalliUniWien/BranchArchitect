@@ -3,13 +3,13 @@ from brancharchitect.parser.newick_parser import parse_newick
 
 def test_deep_tree():
     N = 2000
-    l = []
+    parts = []
     for i in range(N):
-        l.append("(")
-    l.append("0 ")
+        parts.append("(")
+    parts.append("0 ")
     for i in range(N):
-        l.append(f", {i + 1})")
-    newick = "".join(l)
+        parts.append(f", {i + 1})")
+    newick = "".join(parts)
 
     root = parse_newick(newick)
 
@@ -18,13 +18,13 @@ def test_deep_tree():
 
 def test_shallow_tree():
     N = 100
-    l = []
+    parts = []
     for i in range(N):
-        l.append("(")
-    l.append("0 ")
+        parts.append("(")
+    parts.append("0 ")
     for i in range(N):
-        l.append(f", {i + 1})")
-    newick = "".join(l)
+        parts.append(f", {i + 1})")
+    newick = "".join(parts)
 
     root = parse_newick(newick)
 

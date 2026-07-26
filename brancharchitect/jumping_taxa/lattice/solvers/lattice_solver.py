@@ -795,12 +795,4 @@ class LatticeSolver:
             time.perf_counter() - t_total_start,
         )
 
-        # verify_mapped_solutions_prune(
-        #    self.original_tree1,
-        #    self.original_tree2,
-        #    self.current_t1,
-        #    self.current_t2,
-        #    mapped_solutions_dict,
-        # )
-
         return mapped_solutions_dict, self.deleted_taxa_per_iteration

@@ -2,6 +2,7 @@
 Core tree processing functionality.
 """
 
+import time
 from collections.abc import Iterable
 from collections import Counter
 from logging import Logger
@@ -94,19 +95,6 @@ def _canonical_split_key(
     return min(split, complement)
 
 
-def _tree_split_keys(
-    tree: Node, all_taxa_indices: tuple[int, ...]
-) -> set[tuple[int, ...]]:
-    keys: set[tuple[int, ...]] = set()
-    for node in tree.traverse():
-        if node.is_leaf():
-            continue
-        key = _canonical_split_key(node.split_indices.indices, all_taxa_indices)
-        if key:
-            keys.add(key)
-    return keys
-
-
 def _has_branch_support_annotation(node: Node) -> bool:
     fields = build_branch_annotation_fields(node)
     return any(field.get("role") == "branch_support" for field in fields.values())
@@ -126,19 +114,33 @@ def _annotate_tree_series_split_frequency(trees: List[Node]) -> None:
 
     replicate_total = len(trees)
     counts: Counter[tuple[int, ...]] = Counter()
+    # Compute each internal node's canonical split key exactly once per tree
+    # (it's an O(taxa) derivation), keeping the (node, key) pairs so the
+    # annotation pass below doesn't have to recompute the same keys.
+    tree_node_keys: List[List[Tuple[Node, tuple[int, ...]]]] = []
     for tree in trees:
         if _normalize_indices(tree.split_indices.indices) != all_taxa_indices:
             return
-        counts.update(_tree_split_keys(tree, all_taxa_indices))
 
-    for tree in trees:
+        node_keys: List[Tuple[Node, tuple[int, ...]]] = []
+        unique_keys_in_tree: set[tuple[int, ...]] = set()
         for node in tree.traverse():
-            if node.is_leaf() or _has_branch_support_annotation(node):
+            if node.is_leaf():
+                continue
+            key = _canonical_split_key(node.split_indices.indices, all_taxa_indices)
+            node_keys.append((node, key))
+            if key:
+                unique_keys_in_tree.add(key)
+        tree_node_keys.append(node_keys)
+        counts.update(unique_keys_in_tree)
+
+    for node_keys in tree_node_keys:
+        for node, key in node_keys:
+            if not key or _has_branch_support_annotation(node):
                 continue
 
-            key = _canonical_split_key(node.split_indices.indices, all_taxa_indices)
             replicate_count = counts.get(key, 0)
-            if not key or replicate_count <= 0:
+            if replicate_count <= 0:
                 continue
 
             support_percent = 100 * replicate_count / replicate_total
@@ -220,6 +222,7 @@ def handle_tree_content_streaming(
 
     report(75, "Processing MSA data...")
 
+    t_msa_start = time.perf_counter()
     msa_data = process_msa_data(
         msa_content=msa_content,
         num_trees=len(trees),
@@ -227,17 +230,28 @@ def handle_tree_content_streaming(
         window_size=window_size,
         step_size=window_step,
     )
+    logger.info("[PhaseTimer] process_msa_data %.3fs", time.perf_counter() - t_msa_start)
 
     report(90, "Building response...")
 
+    t_build_start = time.perf_counter()
     movie_data = build_movie_data_from_result(
         result=result,
         filename=filename,
         msa_data=msa_data,
     )
+    logger.info(
+        "[PhaseTimer] build_movie_data_from_result %.3fs",
+        time.perf_counter() - t_build_start,
+    )
 
+    t_metadata_start = time.perf_counter()
     metadata = assemble_frontend_metadata(movie_data)
     serialized_trees = movie_data.interpolated_trees
+    logger.info(
+        "[PhaseTimer] assemble_frontend_metadata %.3fs",
+        time.perf_counter() - t_metadata_start,
+    )
 
     report(100, "Complete")
 

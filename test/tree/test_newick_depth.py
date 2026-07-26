@@ -2,15 +2,6 @@
 from brancharchitect.parser.newick_parser import parse_newick
 
 
-def collect_depths(node, result=None):
-    if result is None:
-        result = []
-    result.append((node.name, node.depth))
-    for child in getattr(node, "children", []):
-        collect_depths(child, result)
-    return result
-
-
 def test_pytest_discovery():
     assert 1 == 1
 
@@ -19,7 +10,6 @@ def test_newick_depth_assignment():
     # Simple tree: ((A,B),C);
     newick = "((A,B),C);"
     tree = parse_newick(newick)
-    depths = dict(collect_depths(tree))
     # The root node is a dummy node named 'root', its child is the actual root
     actual_root = (
         tree.children[0] if hasattr(tree, "children") and tree.children else tree

@@ -444,10 +444,10 @@ class TestStage5Snap:
         assert (
             len(trees) >= 3
         ), f"Expected at least 3 animation frames, got {len(trees)}"
-        assert len(edges) == len(trees), f"Edges should match trees count"
+        assert len(edges) == len(trees), "Edges should match trees count"
         assert len(subtree_tracker) == len(
             trees
-        ), f"Subtree trackers should match trees count"
+        ), "Subtree trackers should match trees count"
 
     def test_all_frames_have_consistent_taxa(self, source_tree, destination_tree):
         """All frames should have the same set of taxa."""

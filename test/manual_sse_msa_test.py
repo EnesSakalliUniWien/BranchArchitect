@@ -1,4 +1,3 @@
-import time
 import json
 import sys
 import os
@@ -13,7 +12,7 @@ logging.getLogger("webapp").setLevel(logging.WARNING)
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from webapp import create_app
+from webapp import create_app  # noqa: E402 - needs sys.path.insert above
 
 
 def listen_to_stream(client, channel_id):

@@ -42,13 +42,6 @@ from typing import List, Iterable
 from brancharchitect.tree import Node
 from brancharchitect.elements.partition import partition_size_bitmask_key
 from brancharchitect.elements.partition_set import Partition, PartitionSet
-from brancharchitect.jumping_taxa.lattice.frontiers.construct_pivot_edge_problems import (
-    is_pivot_edge,
-    validate_nodes_exist,
-)
-from brancharchitect.jumping_taxa.lattice.ordering.edge_depth_ordering import (
-    topological_sort_edges,
-)
 
 
 def map_single_pivot_edge_to_original(
@@ -89,40 +82,6 @@ def map_single_pivot_edge_to_original(
         f"pivot={pivot_edge.indices}, target={target_indices}. "
         "No original common split contains the pivot plus selected solution taxa."
     )
-
-
-def get_pivot_edges(t1: Node, t2: Node) -> List[Partition]:
-    """Compute detailed split information for two trees (per pivot/frontiers)."""
-    # Ensure both trees have their indices built
-
-    t1_splits: PartitionSet[Partition] = t1.to_splits()  # fresh splits
-    t2_splits: PartitionSet[Partition] = t2.to_splits()  # fresh splits
-
-    # Get common splits and verify they exist in both trees
-    intersection: PartitionSet[Partition] = t1_splits.intersection(t2_splits)
-
-    # Sort splits deterministically by size (approx. topological) then bitmask
-    sorted_common_splits = topological_sort_edges(list(intersection), t1)
-
-    pivot_edge_problems: List[Partition] = []
-    for pivot_split in sorted_common_splits:
-        t1_node: Node | None = t1.find_node_by_split(pivot_split)
-        t2_node: Node | None = t2.find_node_by_split(pivot_split)
-
-        # Validate that both trees contain the pivot split
-        validate_nodes_exist(pivot_split, t1_node, t2_node)
-
-        # Type narrowing: after validation, nodes are guaranteed to be non-None
-        assert t1_node is not None
-        assert t2_node is not None
-
-        is_pivot, child_subtree_splits_across_trees = is_pivot_edge(t1_node, t2_node)
-
-        # Process further if there are child splits unique to either tree.
-        if is_pivot:
-            pivot_edge_problems.append(pivot_split)
-
-    return pivot_edge_problems
 
 
 def map_iterative_pivot_edges_to_original(

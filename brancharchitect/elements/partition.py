@@ -378,22 +378,6 @@ class Partition:
 
         return False
 
-    def check_compatibility_with_list(
-        self, partitions: List["Partition"], all_indices: set[int]
-    ) -> bool:
-        """
-        Check if this partition is compatible with all partitions in a list.
-
-        Args:
-            partitions: List of Partition objects to check compatibility with.
-            all_indices: The set of all possible indices for the compatibility check.
-
-        Returns:
-            bool: True if this partition is compatible with ALL partitions in the list,
-                  False if incompatible with any partition.
-        """
-        return all(self.is_compatible_with(p, all_indices) for p in partitions)
-
 
 def partition_size_bitmask_key(partition: Partition) -> Tuple[int, int]:
     """Order partitions by subtree size, then deterministic encoding bitmask."""

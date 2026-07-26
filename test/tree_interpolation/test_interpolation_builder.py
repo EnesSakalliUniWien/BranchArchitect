@@ -13,7 +13,6 @@ import unittest
 from unittest.mock import patch
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.subtree_paths.planning import (
     PivotTransitionStep,
     build_pivot_transition_plan,

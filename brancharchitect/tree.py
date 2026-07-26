@@ -347,11 +347,11 @@ class Node:
         "split_indices",
         "taxa_encoding",
         "depth",
-        "list_index",
         "_split_index",
         "_traverse_cache",
         "_splits_cache",
         "_splits_with_leaves_cache",
+        "_weighted_splits_cache",
         "_leaves_cache",
     )
 
@@ -364,11 +364,11 @@ class Node:
     split_indices: Partition
     taxa_encoding: Dict[str, int]
     depth: Optional[int]
-    list_index: Optional[int]
     _split_index: Optional[Dict[Partition, "Node"]]
     _traverse_cache: Optional[List[Self]]
     _splits_cache: Optional[PartitionSet[Partition]]
     _splits_with_leaves_cache: Optional[PartitionSet[Partition]]
+    _weighted_splits_cache: Optional[Dict[Partition, float]]
     _leaves_cache: Optional[List[Self]]
 
     def __init__(
@@ -401,8 +401,8 @@ class Node:
         self._traverse_cache = None
         self._splits_cache = None
         self._splits_with_leaves_cache = None
+        self._weighted_splits_cache = None
         self._leaves_cache = None
-        self.list_index = None
         self.depth = depth
 
         # Encoding is the single source of truth for split_indices.
@@ -536,15 +536,6 @@ class Node:
             self._split_index[node.split_indices] = node
             stack.extend(node.children)
 
-    def _populate_split_index(self, node: Self) -> None:
-        if self._split_index is None:
-            self._split_index = {}
-        stack = [node]
-        while stack:
-            current = stack.pop()
-            self._split_index[current.split_indices] = current
-            stack.extend(current.children)
-
     def find_node_by_split(self, target_split: Any) -> Optional["Node"]:
         """
         Find a node by its split indices (accepts tuple or Partition).
@@ -605,10 +596,10 @@ class Node:
         root_copy.taxa_encoding = self.taxa_encoding
         root_copy.parent = None
         root_copy.depth = None
-        root_copy.list_index = None
         root_copy._traverse_cache = None
         root_copy._splits_cache = None
         root_copy._splits_with_leaves_cache = None
+        root_copy._weighted_splits_cache = None
         root_copy._leaves_cache = None
         root_copy.children = []
         root_split_index: Dict[Partition, "Node"] | None = (
@@ -632,11 +623,11 @@ class Node:
                 child_copy.taxa_encoding = child.taxa_encoding
                 child_copy.parent = copy
                 child_copy.depth = None
-                child_copy.list_index = None
                 child_copy._split_index = None
                 child_copy._traverse_cache = None
                 child_copy._splits_cache = None
                 child_copy._splits_with_leaves_cache = None
+                child_copy._weighted_splits_cache = None
                 child_copy._leaves_cache = None
                 child_copy.children = []
                 copy.children.append(child_copy)
@@ -840,10 +831,15 @@ class Node:
             self.invalidate_caches(propagate_up=True)
 
     def to_weighted_splits(self) -> Dict[Partition, float]:
-        return {
+        if self._weighted_splits_cache is not None:
+            return self._weighted_splits_cache
+
+        weighted_splits = {
             nd.split_indices: (nd.length if nd.length is not None else 0.0)
             for nd in self.traverse()
         }
+        self._weighted_splits_cache = weighted_splits
+        return weighted_splits
 
     # ------------------------------------------------------------------------
     # reorder_taxa => if children changed => invalidate
@@ -1242,29 +1238,6 @@ class Node:
         # Invalidate caches globally for safety - use surviving_node to get root
         surviving_node.get_root().invalidate_caches()
 
-    def find_leaf_by_name(self, name: str) -> Optional["Node"]:
-        """
-        Find a leaf node by name using safe traversal (O(N) fallback).
-        Does not rely on cached split indices which might be stale.
-        """
-        for node in self.traverse():
-            if node.is_leaf() and node.name == name:
-                return node
-        return None
-
-    def find_node_by_bitmask(self, bitmask: int) -> Optional["Node"]:
-        """
-        Find node with specific split bitmask.
-        Safe to use during pruning if implemented via traversal or fresh index.
-        """
-        # Try cache first? No, explicit request to NOT depend on potentially stale index.
-        # But we can try _split_index if valid?
-        # Safe fallback logic:
-        for node in self.traverse():
-            if node.split_indices.bitmask == bitmask:
-                return node
-        return None
-
     def delete_taxa(self, indices_to_delete: list[int]) -> Self:
         """
         Delete taxa and update indices/caches.
@@ -1324,8 +1297,6 @@ class Node:
             child._delete_taxa_internal(deletion_mask)
         return self
 
-        return self
-
     def _prune_single_child_nodes(self) -> Self:
         """Remove internal nodes with exactly one child by connecting their child directly to the parent."""
         # Replace each child with the deepest descendant that does not have exactly one child
@@ -1360,6 +1331,7 @@ class Node:
             node._traverse_cache = None
             node._splits_cache = None
             node._splits_with_leaves_cache = None
+            node._weighted_splits_cache = None
             node._split_index = None
             node._leaves_cache = None
 

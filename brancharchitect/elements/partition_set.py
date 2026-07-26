@@ -61,18 +61,6 @@ class PartitionSet(Generic[T], MutableSet[T]):
     order: Optional[tuple[str, ...]]
     name: str
 
-    @property
-    def reversed_encoding(self) -> Dict[int, str]:
-        """Lazily compute and cache the reversed encoding."""
-        if self._reversed_encoding is None:
-            self._reversed_encoding = {v: k for k, v in self.encoding.items()}
-        return self._reversed_encoding
-
-    @classmethod
-    def _from_iterable(cls, it: Iterable[T]) -> "PartitionSet[T]":
-        """Create a new PartitionSet from an iterable. Used by ABC set operations."""
-        return cls(splits=set(it))
-
     def __init__(
         self,
         splits: Optional[Union[Set[T], Set[Partition]]] = None,
@@ -784,41 +772,6 @@ class PartitionSet(Generic[T], MutableSet[T]):
             dict(self._bitmask_to_partition),
             name or self.name,
         )
-
-    def to_singleton_partition_sets(self) -> List["PartitionSet[T]"]:
-        """
-        Transform each partition in this PartitionSet into its own individual PartitionSet.
-
-        Returns a list where each element is a PartitionSet containing exactly one
-        partition from the original set. This is useful for processing partitions
-        independently while preserving their encoding and metadata.
-
-        MATHEMATICAL DEFINITION:
-            Given PartitionSet S = {p₁, p₂, ..., pₙ}
-            Returns [PartitionSet({p₁}), PartitionSet({p₂}), ..., PartitionSet({pₙ})]
-
-        Returns:
-            List[PartitionSet[T]]: A list of singleton PartitionSets, one for each
-                                   partition in the original set.
-
-        Example:
-            >>> ps = PartitionSet({(0, 1), (2, 3), (4,)})
-            >>> singletons = ps.to_singleton_partition_sets()
-            >>> len(singletons)
-            3
-            >>> len(singletons[0])  # Each PartitionSet has exactly 1 element
-            1
-        """
-        result: List[PartitionSet[T]] = []
-        for partition in sorted(self, key=lambda p: p.bitmask):
-            singleton = type(self)(
-                splits={partition},
-                encoding=self.encoding,
-                name=f"{self.name}_singleton",
-                order=self.order,
-            )
-            result.append(singleton)
-        return result
 
     # ----------------------------------------------------------------------------
     # Minimum (cardinality) union cover utilities

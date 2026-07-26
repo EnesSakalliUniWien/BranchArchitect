@@ -16,9 +16,6 @@ Key test scenarios:
 import pytest
 from brancharchitect.elements.partition import Partition
 from brancharchitect.elements.partition_set import PartitionSet
-from brancharchitect.tree_interpolation.subtree_paths.planning import (
-    PivotTransitionState,
-)
 from brancharchitect.tree_interpolation.subtree_paths.analysis.split_analysis import (
     find_incompatible_splits,
 )
@@ -126,15 +123,6 @@ class TestIncompatibilityDetection:
             [collapse_split_1, collapse_split_2], encoding=encoding
         )
 
-        # Create state (minimal setup)
-        state = PivotTransitionState(
-            all_collapse_splits=collapse_splits,
-            all_expand_splits=expand_splits,
-            collapse_splits_by_subtree={},
-            expand_splits_by_subtree={},
-            pivot_edge=Partition((0,), encoding),
-        )
-
         # Find incompatible splits
         incompatible = find_incompatible_splits(expand_splits, collapse_splits)
 
@@ -171,14 +159,6 @@ class TestIncompatibilityDetection:
             [collapse_split_1, collapse_split_2, collapse_split_3], encoding=encoding
         )
 
-        state = PivotTransitionState(
-            all_collapse_splits=collapse_splits,
-            all_expand_splits=expand_splits,
-            collapse_splits_by_subtree={},
-            expand_splits_by_subtree={},
-            pivot_edge=Partition((0,), encoding),
-        )
-
         incompatible = find_incompatible_splits(expand_splits, collapse_splits)
 
         # Should find two incompatible splits
@@ -189,14 +169,6 @@ class TestIncompatibilityDetection:
 
     def test_empty_sets(self, encoding):
         """Test that empty sets return empty results"""
-        state = PivotTransitionState(
-            all_collapse_splits=PartitionSet(encoding=encoding),
-            all_expand_splits=PartitionSet(encoding=encoding),
-            collapse_splits_by_subtree={},
-            expand_splits_by_subtree={},
-            pivot_edge=Partition((0,), encoding),
-        )
-
         # Empty expand splits
         result = find_incompatible_splits(
             PartitionSet(encoding=encoding),
@@ -221,14 +193,6 @@ class TestIncompatibilityDetection:
 
         expand_splits = PartitionSet([split], encoding=encoding)
         collapse_splits = PartitionSet([split], encoding=encoding)
-
-        state = PivotTransitionState(
-            all_collapse_splits=collapse_splits,
-            all_expand_splits=expand_splits,
-            collapse_splits_by_subtree={},
-            expand_splits_by_subtree={},
-            pivot_edge=Partition((0,), encoding),
-        )
 
         incompatible = find_incompatible_splits(expand_splits, collapse_splits)
 
@@ -276,14 +240,6 @@ class TestRealTreeScenarios:
             [collapse_a1_a2, collapse_b_c1, collapse_c1_c2], encoding=encoding
         )
 
-        state = PivotTransitionState(
-            all_collapse_splits=collapse_splits,
-            all_expand_splits=expand_splits,
-            collapse_splits_by_subtree={},
-            expand_splits_by_subtree={},
-            pivot_edge=Partition((0,), encoding),
-        )
-
         incompatible = find_incompatible_splits(expand_splits, collapse_splits)
 
         # Should find two incompatible splits
@@ -308,14 +264,6 @@ class TestRealTreeScenarios:
 
         expand_splits = PartitionSet([expand_a1_a2], encoding=encoding)
         collapse_splits = PartitionSet([collapse_a1_a2_b], encoding=encoding)
-
-        state = PivotTransitionState(
-            all_collapse_splits=collapse_splits,
-            all_expand_splits=expand_splits,
-            collapse_splits_by_subtree={},
-            expand_splits_by_subtree={},
-            pivot_edge=Partition((0,), encoding),
-        )
 
         incompatible = find_incompatible_splits(expand_splits, collapse_splits)
 
@@ -342,14 +290,6 @@ class TestRealTreeScenarios:
         expand_splits = PartitionSet([expand_split], encoding=encoding)
         collapse_splits = PartitionSet(
             [collapse_1, collapse_2, collapse_3], encoding=encoding
-        )
-
-        state = PivotTransitionState(
-            all_collapse_splits=collapse_splits,
-            all_expand_splits=expand_splits,
-            collapse_splits_by_subtree={},
-            expand_splits_by_subtree={},
-            pivot_edge=Partition((0,), encoding),
         )
 
         incompatible = find_incompatible_splits(expand_splits, collapse_splits)
@@ -387,14 +327,6 @@ class TestCollapseBeforeExpand:
             [incompatible_split, other_collapse], encoding=encoding
         )
 
-        state = PivotTransitionState(
-            all_collapse_splits=collapse_splits,
-            all_expand_splits=expand_splits,
-            collapse_splits_by_subtree={},
-            expand_splits_by_subtree={},
-            pivot_edge=Partition((0,), encoding),
-        )
-
         # Find what must be collapsed
         must_collapse = find_incompatible_splits(expand_splits, collapse_splits)
 
@@ -429,14 +361,6 @@ class TestCollapseBeforeExpand:
         expand_splits = PartitionSet([expand_1, expand_2], encoding=encoding)
         collapse_splits = PartitionSet(
             [collapse_1, collapse_2, collapse_3], encoding=encoding
-        )
-
-        state = PivotTransitionState(
-            all_collapse_splits=collapse_splits,
-            all_expand_splits=expand_splits,
-            collapse_splits_by_subtree={},
-            expand_splits_by_subtree={},
-            pivot_edge=Partition((0,), encoding),
         )
 
         # Find all incompatibilities

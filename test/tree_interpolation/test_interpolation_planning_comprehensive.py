@@ -618,16 +618,6 @@ class TestPathOrdering(unittest.TestCase):
 
     def test_path_ordering_deterministic_across_runs(self):
         """Same input produces same ordering every time."""
-        collapse_by_subtree = {
-            self.part_A: PartitionSet(
-                [self.part_A, self.part_AB], encoding=self.encoding
-            ),
-        }
-
-        expand_by_subtree = {
-            self.part_A: PartitionSet([self.part_A], encoding=self.encoding),
-        }
-
         # Configure mock (use side_effect to return fresh sets for each call)
         def get_splits(*args):
             return (

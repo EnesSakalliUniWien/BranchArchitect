@@ -75,7 +75,7 @@ class TestCoveringComplexCases(unittest.TestCase):
 
         result = _find_covering_common_splits(solution, pivot_edge, tree1, tree2)
 
-        print(f"\n[Test: single_mrca_exact_match]")
+        print("\n[Test: single_mrca_exact_match]")
         print(f"  Solution: {list(solution.indices)}")
         print(f"  Result: {[list(p.indices) for p in result]}")
 
@@ -149,7 +149,7 @@ class TestCoveringComplexCases(unittest.TestCase):
 
         result = _find_covering_common_splits(solution, pivot_edge, tree1, tree2)
 
-        print(f"\n[Test: multiple_mrca_spanning_subtrees]")
+        print("\n[Test: multiple_mrca_spanning_subtrees]")
         print(f"  Solution: {list(solution.indices)} (ABCD)")
         print(f"  Result: {[list(p.indices) for p in result]}")
 
@@ -214,7 +214,7 @@ class TestCoveringComplexCases(unittest.TestCase):
 
         result = _find_covering_common_splits(solution, pivot_edge, tree1, tree2)
 
-        print(f"\n[Test: fallback_to_leaves]")
+        print("\n[Test: fallback_to_leaves]")
         print(f"  Solution: {list(solution.indices)} (AB)")
         print(f"  Result: {[list(p.indices) for p in result]}")
 

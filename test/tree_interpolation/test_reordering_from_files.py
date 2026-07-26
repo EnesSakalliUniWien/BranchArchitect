@@ -11,7 +11,6 @@ forms a contiguous block of movers in the result within the active pivot.
 
 from typing import List, Set
 from brancharchitect.parser.newick_parser import parse_newick
-from brancharchitect.elements.partition import Partition
 from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.subtree_paths.execution.layout.reordering import (
     reorder_tree_toward_destination,
@@ -124,12 +123,10 @@ def test_reordering_reverse_upwards_from_file():
     active_edge = next(iter(jumping.keys()))
     solution_set = jumping[active_edge]
 
-    # Determine anchors/movers within pivot
-    pivot_taxa = Partition(active_edge.indices, src.taxa_encoding).taxa
+    # Determine movers within pivot
     movers: Set[str] = set()
     for st in solution_set:
         movers |= set(st.taxa)
-    anchors = set(pivot_taxa) - movers
 
     # Apply moves
     current = src

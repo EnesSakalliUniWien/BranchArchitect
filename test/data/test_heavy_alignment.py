@@ -6,7 +6,6 @@ sys.path.insert(0, os.getcwd())
 
 from brancharchitect.parser.newick_parser import parse_newick
 from brancharchitect.tree_interpolation.sequential_interpolation import SequentialInterpolationBuilder
-from brancharchitect.leaforder.pairwise_alignment import final_pairwise_alignment_pass
 from brancharchitect.logger import jt_logger
 
 def test_case(name, tree1_newick, tree2_newick, key_taxa_groups=None):

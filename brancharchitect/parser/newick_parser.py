@@ -474,8 +474,7 @@ def parse_newick(
         encoding = {name: idx for idx, name in enumerate(order)}
 
     # Post-process trees with metadata and ordering
-    for idx, tree in enumerate(trees):
-        tree.list_index = idx
+    for tree in trees:
         tree.taxa_encoding = encoding
         tree.initialize_split_indices(encoding)
         tree.fix_child_order()
@@ -483,20 +482,6 @@ def parse_newick(
     if len(trees) == 1 and not force_list:
         return trees[0]
     return trees
-
-
-def get_linear_order(tree: Node) -> List[str]:
-    """
-    Get the linear order of taxa (leaf names) from a tree.
-
-    Args:
-        tree: The root node of a tree
-
-    Returns:
-        List of leaf node names in linear order
-    """
-    leaves = tree.leaves
-    return [leaf.name for leaf in leaves if leaf.name]
 
 
 # ===================================================================

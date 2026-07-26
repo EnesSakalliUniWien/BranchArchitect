@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 from brancharchitect.parser.newick_parser import parse_newick
-from brancharchitect.tree import Node, ReorderStrategy
 from brancharchitect.elements.partition_set import Partition
-import traceback
 
 
 def test_tree_edge_cases():
@@ -288,7 +286,7 @@ def test_tree_edge_cases():
         if isinstance(tree, list):
             tree = tree[0]
 
-        print(f"Phylogenetic tree parsed successfully")
+        print("Phylogenetic tree parsed successfully")
         print(f"Taxa encoding: {tree.taxa_encoding}")
 
         # Check encoding stability after operations

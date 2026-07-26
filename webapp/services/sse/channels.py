@@ -63,20 +63,6 @@ class ProgressChannel:
             data["message"] = message
         self.send(data, event="progress")
 
-    def send_log(self, message: str, level: str = "info") -> None:
-        """
-        Send a log message.
-
-        Args:
-            message: The log message.
-            level: Log level ('info', 'warning', 'error', 'debug').
-        """
-        self.send({"message": message, "level": level}, event="log")
-
-    def send_error(self, error: str) -> None:
-        """Send an error message."""
-        self.send({"error": error}, event="error")
-
     def send_trees_chunked(
         self,
         trees: list[Any],

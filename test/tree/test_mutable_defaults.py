@@ -32,7 +32,7 @@ def test_actual_mutable_default_issues():
         test_child = Node(name="test_child")
         node1.children.append(test_child)
 
-        print(f"After appending to node1.children:")
+        print("After appending to node1.children:")
         print(f"  node1.children length: {len(node1.children)}")
         print(f"  node2.children length: {len(node2.children)}")
 
@@ -48,7 +48,7 @@ def test_actual_mutable_default_issues():
         # Demonstrate the problem
         node1.values["test"] = "value1"
 
-        print(f"After setting node1.values['test']:")
+        print("After setting node1.values['test']:")
         print(f"  node1.values: {node1.values}")
         print(f"  node2.values: {node2.values}")
 
