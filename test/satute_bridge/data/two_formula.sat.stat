@@ -1,0 +1,8 @@
+# SatuTe branch saturation statistics
+# Trimmed fixture: two branches x two formulas, pooled rows only, with a
+# saturated decision so non-informative outcomes are covered.
+ID	Formula	RateCategory	RateMultiplier	RateSites	LeftTaxa	RightTaxa	ValidSites	SkippedSites	satC	satVar	satSE	satZ	satP	Alpha	AlphaTaxonBonf	Decision	DecisionTaxonBonf	FDR_BY	DecisionFDR	Label	Length	EffectiveLength	InformationFraction	SaturationIndex	Split	Modes	Eigenvalues	Weights
+1	eigenvalue_weighted	pooled	NA	100	2	2	100	0	0.5	1.0	0.1	5.0	2.8e-07	0.05	0.0125	informative	informative	5.6e-07	informative		0.1	0.1	0.8	0.2	C,D	0,1,2	-1,-2,-3	1,1,1
+1	dominant	pooled	NA	100	2	2	100	0	0.05	1.0	0.1	0.5	0.3	0.05	0.0125	saturated	saturated	0.6	saturated		0.1	0.1	0.8	0.2	C,D	0	-1	1
+2	eigenvalue_weighted	pooled	NA	100	1	3	100	0	0.4	1.0	0.1	4.0	3.2e-05	0.05	0.0167	informative	informative	6.4e-05	informative		0.1	0.1	0.8	0.2	A	0,1,2	-1,-2,-3	1,1,1
+2	dominant	pooled	NA	100	1	3	100	0	0.2	1.0	0.1	2.0	0.023	0.05	0.0167	informative	saturated	0.045	informative		0.1	0.1	0.8	0.2	A	0	-1	1

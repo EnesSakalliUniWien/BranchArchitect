@@ -406,6 +406,92 @@ def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
         return _fail(500, str(e)), 500
 
 
+@bp.route("/information-scope/analyze", methods=["POST"])
+def information_scope_analyze() -> Union[Response, Tuple[dict[str, Any], int]]:
+    """
+    Start a SatuTe analysis of one tree + one alignment and return a channel_id
+    immediately; results arrive on /stream/progress/<channel_id>.
+
+    Streamed rather than synchronous because SatuTe dominates the runtime and
+    scales with tree size -- ~6 minutes for the 1871-taxon Tree of Life -- which
+    no single request should be made to sit through.
+    """
+    from webapp.services.trees.information_scope import (
+        InformationScopeError,
+        run_information_scope_analysis,
+    )
+
+    log: Logger = current_app.logger
+    log.info(
+        "[information-scope/analyze] POST from %s", request.remote_addr
+    )
+
+    tree_file = request.files.get("treeFile")
+    msa_file = request.files.get("msaFile")
+    if not tree_file or not tree_file.filename:
+        return _fail(400, "Missing required file 'treeFile'."), 400
+    if not msa_file or not msa_file.filename:
+        return _fail(400, "Missing required file 'msaFile'."), 400
+
+    tree_content = tree_file.read().decode("utf-8", errors="replace")
+    alignment_content = msa_file.read().decode("utf-8", errors="replace")
+    if not tree_content.strip():
+        return _fail(400, "Uploaded file 'treeFile' is empty."), 400
+    if not alignment_content.strip():
+        return _fail(400, "Uploaded file 'msaFile' is empty."), 400
+
+    alpha_raw = request.form.get("satuteAlpha", "0.05")
+    try:
+        alpha = float(alpha_raw)
+    except ValueError:
+        return _fail(400, "satuteAlpha must be a number."), 400
+    if not 0 < alpha < 1:
+        return _fail(400, "satuteAlpha must be between 0 and 1."), 400
+
+    model = request.form.get("satuteModel") or None
+    # Sliding-window saturation is optional: it needs the per-site export and
+    # a second aggregation pass, and on large trees the caller may only want
+    # the branch-level result.
+    windowed = request.form.get("satuteWindowed", "on") != "off"
+    filename = tree_file.filename
+
+    channel = channels.create()
+    app: Flask = getattr(current_app, "_get_current_object")()
+
+    def process_in_background() -> None:
+        with app.app_context():
+            try:
+                channel.send_progress(0, "Starting SatuTe analysis...")
+                response = run_information_scope_analysis(
+                    tree_content=tree_content,
+                    alignment_content=alignment_content,
+                    filename=filename,
+                    alpha=alpha,
+                    model=model,
+                    logger=log,
+                    progress_callback=channel.send_progress,
+                    windowed=windowed,
+                )
+                channel.complete(data=response)
+            except InformationScopeError as exc:
+                log.warning("[information-scope/analyze] Bad request: %s", exc)
+                channel.complete(error=str(exc))
+            except Exception as exc:
+                log.error(
+                    "[information-scope/analyze] Exception: %s", exc, exc_info=True
+                )
+                channel.complete(error=str(exc))
+
+    thread = threading.Thread(target=process_in_background, daemon=True)
+    try:
+        thread.start()
+    except Exception:
+        channels.remove(channel.channel_id)
+        raise
+
+    return jsonify({"channel_id": channel.channel_id})
+
+
 def _make_progress_callback(
     channel: ProgressChannel, start_pct: int, end_pct: int
 ) -> Callable[[float, str], None]:
@@ -483,7 +569,12 @@ def stream_progress(channel_id: str) -> Response:
     SSE endpoint to stream progress updates for a processing task.
 
     Connect to this endpoint after initiating a task that returns a channel_id.
-    The stream will emit events: 'progress', 'log', 'error', 'complete'.
+    Once connected, the stream emits 'progress', 'metadata', 'trees_chunk', and a
+    terminal 'complete' event (with an optional `error` field in its JSON body on
+    failure). If channel_id is unknown, the initial response is an HTTP 404 with an
+    'error' event instead of a 200 stream; browsers treat any non-2xx response to an
+    EventSource's initial connection as a fatal connection failure, so this reaches
+    client code as `onerror`, not as a named 'error' event listener.
 
     Example client usage (JavaScript):
         const eventSource = new EventSource(`/stream/progress/${channelId}`);
