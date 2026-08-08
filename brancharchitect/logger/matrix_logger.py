@@ -210,4 +210,3 @@ class MatrixLogger(AlgorithmLogger):
             self.info(
                 f"Strategy: Rectangular row-wise meet product for {rows}×{cols} matrix"
             )
-

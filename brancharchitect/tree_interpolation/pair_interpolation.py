@@ -15,6 +15,7 @@ from brancharchitect.tree import Node
 from brancharchitect.tree_interpolation.subtree_paths.execution import (
     execute_active_split_transition_sequence,
 )
+from brancharchitect.jumping_taxa.exceptions import PairLatticeSolveError
 from brancharchitect.jumping_taxa.lattice.solvers.lattice_solver import (
     LatticeSolver,
 )
@@ -99,9 +100,19 @@ def process_tree_pair_interpolation(
             precomputed_solutions
         )
     else:
-        jumping_subtree_solutions, _ = LatticeSolver(
-            source_tree, destination_tree
-        ).solve_iteratively()
+        try:
+            jumping_subtree_solutions, _ = LatticeSolver(
+                source_tree, destination_tree
+            ).solve_iteratively()
+        except Exception as exc:
+            pair_label = (
+                f"pair {pair_index}-{pair_index + 1}"
+                if pair_index is not None
+                else "an unnamed pair"
+            )
+            raise PairLatticeSolveError(
+                f"Failed to compute the lattice solution for {pair_label}: {exc}"
+            ) from exc
 
     # Sort pivot edges topologically (subsets before supersets)
     # This ensures correct processing order for interpolation

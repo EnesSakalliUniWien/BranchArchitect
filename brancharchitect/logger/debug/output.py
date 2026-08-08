@@ -185,4 +185,3 @@ def log_tree_splits(
     jt_logger.info(f"Right Tree Splits: {len(splits2)}")
     jt_logger.info(f"Common Splits: {len(splits1 & splits2)}")
     jt_logger.info(f"Mismatches Found: {len(mismatches)}")
-

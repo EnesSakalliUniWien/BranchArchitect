@@ -55,3 +55,10 @@ class SplitLookupError(JumpingTaxaError):
     """Raised when split lookups fail."""
 
     pass
+
+
+class PairLatticeSolveError(JumpingTaxaError):
+    """Raised when a tree pair's lattice solution cannot be computed, whether via a
+    precomputed value or the synchronous retry in process_tree_pair_interpolation."""
+
+    pass
