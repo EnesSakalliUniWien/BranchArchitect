@@ -233,6 +233,21 @@ def _first_internal_node(tree: Node) -> Node:
     )
 
 
+def _only_annotation_row(payload_tree: Any) -> tuple[int, Any]:
+    """
+    The single ``[definition_index, value]`` row on the root's first child.
+
+    A compact node is ``[length, name_ref, split_ref, annotation_values,
+    children]``, so the first child is index 4 then 0, and its annotation rows
+    are index 3.
+    """
+    first_child = payload_tree[4][0]
+    annotation_values = first_child[3]
+    assert len(annotation_values) == 1
+    definition_index, value = annotation_values[0]
+    return definition_index, value
+
+
 def test_annotation_definitions_keep_one_key_with_two_value_types_apart() -> None:
     """
     A definition is a schema, not a name. Two trees can carry the same metadata
@@ -247,15 +262,17 @@ def test_annotation_definitions_keep_one_key_with_two_value_types_apart() -> Non
     trees, definitions, _, _ = compact_tree_payload([first, second])
 
     region_definitions = [
-        definition for definition in definitions if definition["key"] == "metadata.region"
+        definition
+        for definition in definitions
+        if definition["key"] == "metadata.region"
     ]
     assert [definition["value_type"] for definition in region_definitions] == [
         "string",
         "integer",
     ]
 
-    string_index, string_value = trees[0][4][0][3][0]
-    integer_index, integer_value = trees[1][4][0][3][0]
+    string_index, string_value = _only_annotation_row(trees[0])
+    integer_index, integer_value = _only_annotation_row(trees[1])
 
     assert string_value == "EU"
     assert integer_value == 42
@@ -274,7 +291,7 @@ def test_annotation_definitions_still_share_one_entry_for_identical_schemas() ->
     trees, definitions, _, _ = compact_tree_payload([first, second])
 
     assert [definition["key"] for definition in definitions] == ["metadata.region"]
-    assert trees[0][4][0][3][0][0] == trees[1][4][0][3][0][0] == 0
+    assert _only_annotation_row(trees[0])[0] == _only_annotation_row(trees[1])[0] == 0
 
 
 def test_streamed_tree_names_and_splits_are_compacted_into_metadata_definitions() -> (
