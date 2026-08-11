@@ -1,7 +1,7 @@
 import time
 
 from webapp.services.sse.channels import ChannelRegistry
-from webapp.services.sse.reaper import ChannelReaper
+from webapp.services.sse.reaper import DEFAULT_RETAIN_CLOSED_SECONDS, ChannelReaper
 
 
 def test_reaper_removes_closed_channel_nobody_ever_streamed() -> None:
@@ -16,7 +16,7 @@ def test_reaper_removes_closed_channel_nobody_ever_streamed() -> None:
     channel.complete({"ok": True})
     assert registry.count() == 1
 
-    reaper = ChannelReaper(registry, interval_seconds=0.02)
+    reaper = ChannelReaper(registry, interval_seconds=0.02, retain_closed_seconds=0.0)
     reaper.start()
     try:
         deadline = time.monotonic() + 2.0
@@ -40,6 +40,53 @@ def test_reaper_leaves_unclosed_channels_alone() -> None:
         assert registry.get(channel.channel_id) is channel
     finally:
         reaper.stop()
+
+
+def test_reaper_keeps_a_just_completed_channel_the_client_has_not_reached_yet() -> None:
+    """
+    The race this retention window exists to close: processing can finish
+    before the client's EventSource connects. Sweeping that channel on age
+    alone throws away the completion event and the client gets a 404.
+    """
+    registry = ChannelRegistry()
+    channel = registry.create()
+    channel.complete({"movie": "ready"})
+
+    reaper = ChannelReaper(registry, interval_seconds=0.02)
+    reaper.start()
+    try:
+        time.sleep(0.1)
+        assert registry.get(channel.channel_id) is channel
+    finally:
+        reaper.stop()
+
+
+def test_cleanup_closed_evicts_only_channels_older_than_the_retention_window() -> None:
+    registry = ChannelRegistry()
+    channel = registry.create()
+    channel.complete({"ok": True})
+
+    assert registry.cleanup_closed(min_closed_age_seconds=60.0) == 0
+    assert registry.get(channel.channel_id) is channel
+
+    assert registry.cleanup_closed(min_closed_age_seconds=0.0) == 1
+    assert registry.get(channel.channel_id) is None
+
+
+def test_completed_channel_still_replays_its_result_to_a_late_client() -> None:
+    """A client that connects after completion must still receive the payload."""
+    registry = ChannelRegistry()
+    channel = registry.create()
+    channel.complete({"movie": "ready"})
+
+    registry.cleanup_closed(min_closed_age_seconds=DEFAULT_RETAIN_CLOSED_SECONDS)
+
+    late_channel = registry.get(channel.channel_id)
+    assert late_channel is not None
+
+    replayed = "".join(late_channel.stream(timeout=0.1))
+    assert "event: complete" in replayed
+    assert '{"movie":"ready"}' in replayed
 
 
 def test_reaper_start_is_idempotent() -> None:

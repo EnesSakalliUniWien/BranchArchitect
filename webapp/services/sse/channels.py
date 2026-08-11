@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import queue
 import threading
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, Generator, Optional, Tuple
@@ -36,6 +37,7 @@ class ProgressChannel:
     channel_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     _queue: queue.Queue[_QueueItem] = field(default_factory=queue.Queue)
     _closed: bool = field(default=False)
+    _closed_at: Optional[float] = field(default=None)
 
     def send(
         self,
@@ -104,18 +106,31 @@ class ProgressChannel:
             self.send({"error": error}, event="complete")
         else:
             self.send({"data": data}, event="complete")
-        self._closed = True
+        self._mark_closed()
         self._queue.put(None)  # Sentinel to stop iteration
 
     def close(self) -> None:
         """Close the channel without sending a complete event."""
-        self._closed = True
+        self._mark_closed()
         self._queue.put(None)
+
+    def _mark_closed(self) -> None:
+        """Record the close, keeping the first close time if already closed."""
+        if not self._closed:
+            self._closed_at = time.monotonic()
+        self._closed = True
 
     @property
     def is_closed(self) -> bool:
         """Check if the channel is closed."""
         return self._closed
+
+    @property
+    def closed_age_seconds(self) -> float:
+        """Seconds since this channel closed; 0.0 while it is still open."""
+        if self._closed_at is None:
+            return 0.0
+        return time.monotonic() - self._closed_at
 
     def stream(self, timeout: float = 30.0) -> Generator[str, None, None]:
         """
@@ -183,15 +198,25 @@ class ChannelRegistry:
                 self._channels[channel_id].close()
                 del self._channels[channel_id]
 
-    def cleanup_closed(self) -> int:
+    def cleanup_closed(self, min_closed_age_seconds: float = 0.0) -> int:
         """
-        Remove all closed channels.
+        Remove closed channels that have been closed for at least the given age.
+
+        Args:
+            min_closed_age_seconds: Retention window. A channel that closed more
+                recently than this is kept, because a background job can finish
+                before the client's EventSource connects, and the queued
+                completion event is the only copy of that result.
 
         Returns:
             Number of channels removed.
         """
         with self._lock:
-            closed = [cid for cid, ch in self._channels.items() if ch.is_closed]
+            closed = [
+                cid
+                for cid, ch in self._channels.items()
+                if ch.is_closed and ch.closed_age_seconds >= min_closed_age_seconds
+            ]
             for cid in closed:
                 del self._channels[cid]
             return len(closed)
