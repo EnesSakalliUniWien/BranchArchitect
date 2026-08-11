@@ -13,6 +13,7 @@ from webapp.services.sse.channels import ProgressChannel
 from webapp.services.trees.frontend_builder import (
     assemble_frontend_metadata,
     build_movie_data_from_result,
+    compact_tree_payload,
     create_empty_movie_data,
 )
 from webapp.services.trees.movie_data import MovieData
@@ -223,6 +224,57 @@ def test_streamed_tree_annotations_are_compacted_into_metadata_definitions() -> 
     assert ab_node is not None
     assert "annotations" not in ab_node
     assert ab_node[3] == [[0, "95"], [1, 95.0]]
+
+
+def _first_internal_node(tree: Node) -> Node:
+    """The first internal node below the root, which is child index 0 of the payload."""
+    return next(
+        node for node in tree.traverse() if node is not tree and not node.is_leaf()
+    )
+
+
+def test_annotation_definitions_keep_one_key_with_two_value_types_apart() -> None:
+    """
+    A definition is a schema, not a name. Two trees can carry the same metadata
+    key with different value types, and interning on the key alone made the
+    second value inherit the first value's ``value_type``.
+    """
+    first = parse_newick("((A:1,B:1):1,C:1);", force_list=True)[0]
+    second = parse_newick("((A:1,B:1):1,C:1);", force_list=True)[0]
+    _first_internal_node(first).values["region"] = "EU"
+    _first_internal_node(second).values["region"] = 42
+
+    trees, definitions, _, _ = compact_tree_payload([first, second])
+
+    region_definitions = [
+        definition for definition in definitions if definition["key"] == "metadata.region"
+    ]
+    assert [definition["value_type"] for definition in region_definitions] == [
+        "string",
+        "integer",
+    ]
+
+    string_index, string_value = trees[0][4][0][3][0]
+    integer_index, integer_value = trees[1][4][0][3][0]
+
+    assert string_value == "EU"
+    assert integer_value == 42
+    assert string_index != integer_index
+    assert definitions[string_index]["value_type"] == "string"
+    assert definitions[integer_index]["value_type"] == "integer"
+
+
+def test_annotation_definitions_still_share_one_entry_for_identical_schemas() -> None:
+    """Compaction must keep interning schemas that really are identical."""
+    first = parse_newick("((A:1,B:1):1,C:1);", force_list=True)[0]
+    second = parse_newick("((A:1,B:1):1,C:1);", force_list=True)[0]
+    _first_internal_node(first).values["region"] = "EU"
+    _first_internal_node(second).values["region"] = "US"
+
+    trees, definitions, _, _ = compact_tree_payload([first, second])
+
+    assert [definition["key"] for definition in definitions] == ["metadata.region"]
+    assert trees[0][4][0][3][0][0] == trees[1][4][0][3][0][0] == 0
 
 
 def test_streamed_tree_names_and_splits_are_compacted_into_metadata_definitions() -> (

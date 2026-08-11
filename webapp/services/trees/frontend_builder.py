@@ -127,7 +127,7 @@ def compact_tree_payload(
     shape.
     """
 
-    definition_index_by_key: Dict[str, int] = {}
+    definition_indices_by_key: Dict[str, List[int]] = {}
     definitions: List[Dict[str, Any]] = []
     name_index_by_value: Dict[str, int] = {}
     tree_name_definitions: List[str] = []
@@ -135,14 +135,30 @@ def compact_tree_payload(
     split_definitions: List[List[int]] = []
 
     def definition_index(field_key: str, field: Dict[str, Any]) -> int:
-        existing_index = definition_index_by_key.get(field_key)
-        if existing_index is not None:
-            return existing_index
+        """
+        Intern one definition per distinct schema, not per field key.
 
+        A field key describes what an annotation is called; the rest of the
+        field describes its schema, including ``value_type``. The same key can
+        legitimately arrive with different schemas across trees - a metadata
+        value that is a string on one tree and a number on another - so keying
+        only on ``field_key`` handed the second value the first one's schema.
+        Definitions stay addressed by index, so repeated keys are fine here.
+        """
         definition = {key: value for key, value in field.items() if key != "value"}
         definition["key"] = field_key
+
+        candidate_indices = definition_indices_by_key.get(field_key)
+        if candidate_indices is None:
+            candidate_indices = []
+            definition_indices_by_key[field_key] = candidate_indices
+        else:
+            for candidate_index in candidate_indices:
+                if definitions[candidate_index] == definition:
+                    return candidate_index
+
         index = len(definitions)
-        definition_index_by_key[field_key] = index
+        candidate_indices.append(index)
         definitions.append(definition)
         return index
 
