@@ -342,7 +342,7 @@ class Node:
         "children",
         "parent",
         "name",
-        "length",
+        "_length",
         "values",
         "split_indices",
         "taxa_encoding",
@@ -359,7 +359,7 @@ class Node:
     children: List[Self]
     parent: Optional[Self]
     name: str
-    length: Optional[float]
+    _length: Optional[float]
     values: Dict[str, Any]
     split_indices: Partition
     taxa_encoding: Dict[str, int]
@@ -388,7 +388,9 @@ class Node:
             child.parent = self
         self.parent = None  # Initialize parent attribute
         self.name = name
-        self.length = length
+        # Bypass the invalidating property: the caches below are not set up yet,
+        # and a freshly built node has nothing cached to invalidate.
+        self._length = length
         self.values = dict(values) if values is not None else {}
         # Ensure split_indices is a Partition object
         if split_indices is None:
@@ -417,6 +419,31 @@ class Node:
             raise ValueError("Encoding dictionary cannot be empty")
 
         # Always ensure split_indices is a Partition (already handled above)
+
+    @property
+    def length(self) -> Optional[float]:
+        """Branch length leading to this node."""
+        return self._length
+
+    @length.setter
+    def length(self, value: Optional[float]) -> None:
+        """
+        Set the branch length and drop every weighted-split cache that covers it.
+
+        ``to_weighted_splits`` caches one dict per node covering that node's
+        whole subtree, so a length change invalidates this node's cache and
+        every ancestor's. The interpolation weight operations rewrite lengths
+        directly on nodes, without any topology change, so `invalidate_caches`
+        is never reached for them.
+        """
+        if self._length == value:
+            return
+        self._length = value
+
+        node: Optional[Node] = self
+        while node is not None:
+            node._weighted_splits_cache = None
+            node = node.parent
 
     @property
     def leaves(self) -> List[Self]:
@@ -590,7 +617,9 @@ class Node:
         # Create root copy
         root_copy = object_new(type(self))
         root_copy.name = self.name
-        root_copy.length = self.length if self.length is not None else 0.0
+        # Direct slot writes: `parent` and the caches are assigned below, and
+        # every copy starts with empty caches, so invalidation is unnecessary.
+        root_copy._length = self._length if self._length is not None else 0.0
         root_copy.values = self.values.copy() if self.values else {}
         root_copy.split_indices = self.split_indices
         root_copy.taxa_encoding = self.taxa_encoding
@@ -617,7 +646,7 @@ class Node:
             for child in original.children:
                 child_copy = object_new(type(child))
                 child_copy.name = child.name
-                child_copy.length = child.length if child.length is not None else 0.0
+                child_copy._length = child._length if child._length is not None else 0.0
                 child_copy.values = child.values.copy() if child.values else {}
                 child_copy.split_indices = child.split_indices
                 child_copy.taxa_encoding = child.taxa_encoding
