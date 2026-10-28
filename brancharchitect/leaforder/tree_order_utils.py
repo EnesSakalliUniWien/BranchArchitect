@@ -24,46 +24,45 @@ def _classify_node_optimized(
     classification_map: Dict[Node, str],
 ) -> Tuple[bool, bool]:
     """
-    Recursively classify nodes and return (is_subtree_fully_common, is_subtree_fully_unique).
+    Classify every node under `node` and return (is_subtree_fully_common, is_subtree_fully_unique).
 
     is_subtree_fully_common: All splits in subtree (including self) are in s_common.
     is_subtree_fully_unique: No splits in subtree (including self) are in s_common.
+
+    Children before parents (reversed pre-order), not recursion: ladder-shaped
+    trees are as deep as they have taxa and would exceed Python's recursion limit.
     """
-    if not node.children:
-        # Leaves do not have splits in the internal node sense,
-        # but for the recursion logic, they are neutral.
-        # They don't violate "fully common" (no bad splits)
-        # and don't violate "fully unique" (no common splits).
-        return True, True
+    flags: Dict[int, Tuple[bool, bool]] = {}
+    for current in reversed(node.traverse()):
+        if not current.children:
+            # Leaves do not have splits in the internal node sense, so they are
+            # neutral: they violate neither "fully common" nor "fully unique".
+            flags[id(current)] = (True, True)
+            continue
 
-    all_children_common = True
-    all_children_unique = True
+        all_children_common = all(flags[id(ch)][0] for ch in current.children)
+        all_children_unique = all(flags[id(ch)][1] for ch in current.children)
 
-    for ch in node.children:
-        c_common, c_unique = _classify_node_optimized(ch, s_common, classification_map)
-        if not c_common:
-            all_children_common = False
-        if not c_unique:
-            all_children_unique = False
+        # Check current node's split
+        # Note: split_indices must be initialized
+        is_in_common = current.split_indices in s_common
 
-    # Check current node's split
-    # Note: split_indices must be initialized
-    is_in_common = node.split_indices in s_common
+        is_fully_common = is_in_common and all_children_common
+        is_fully_unique = (not is_in_common) and all_children_unique
 
-    is_fully_common = is_in_common and all_children_common
-    is_fully_unique = (not is_in_common) and all_children_unique
+        # Determine classification
+        if is_fully_common:
+            classification_map[current] = "full-common"
+        elif is_fully_unique:
+            classification_map[current] = "full-unique"
+        elif is_in_common:
+            classification_map[current] = "common-changed"
+        else:
+            classification_map[current] = "unique-changed"
 
-    # Determine classification
-    if is_fully_common:
-        classification_map[node] = "full-common"
-    elif is_fully_unique:
-        classification_map[node] = "full-unique"
-    elif is_in_common:
-        classification_map[node] = "common-changed"
-    else:
-        classification_map[node] = "unique-changed"
+        flags[id(current)] = (is_fully_common, is_fully_unique)
 
-    return is_fully_common, is_fully_unique
+    return flags[id(node)]
 
 
 def classify_subtrees_using_set_ops(

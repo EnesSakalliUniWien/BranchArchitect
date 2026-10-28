@@ -22,14 +22,31 @@ _SUPPORT_METADATA_KEYS = (
     "S",
 )
 
-_BOOTSTRAP_REPLICATE_FREQUENCY_SUPPORT_KINDS = {
-    "bootstrap_replicate_split_frequency",
-    "bootstrap_replicate_subtree_frequency",
-}
-
-_BOOTSTRAP_REPLICATE_FREQUENCY_LABELS = {
-    "bootstrap_replicate_split_frequency": "Bootstrap Split Frequency",
-    "bootstrap_replicate_subtree_frequency": "Bootstrap Subtree Frequency",
+# support_kind -> (annotation group, analysis type, value, count and total labels)
+_SPLIT_FREQUENCY_KINDS: Dict[str, Tuple[str, str, str, str, str]] = {
+    "bootstrap_replicate_split_frequency": (
+        "bootstrap_rogue",
+        "rogue_taxa",
+        "Bootstrap Split Frequency",
+        "Replicate Count",
+        "Replicate Total",
+    ),
+    "bootstrap_replicate_subtree_frequency": (
+        "bootstrap_rogue",
+        "rogue_taxa",
+        "Bootstrap Subtree Frequency",
+        "Replicate Count",
+        "Replicate Total",
+    ),
+    # Any uploaded tree series (windows, time points, samples). These are not
+    # bootstrap replicates, so the share must not be presented as support.
+    "tree_series_split_frequency": (
+        "tree_series",
+        "tree_series",
+        "Split Frequency Across Trees",
+        "Trees With Split",
+        "Trees In Series",
+    ),
 }
 ReorderValue: TypeAlias = int | tuple[int, int, int] | list[int]
 
@@ -120,32 +137,35 @@ def _single_value_support_annotation(
     raise ValueError(f"Unsupported single-value branch support kind: {support_kind}")
 
 
-def _bootstrap_replicate_frequency_annotation_fields(
+def _split_frequency_annotation_fields(
     node: "Node",
     support_kind: str,
     value: float,
 ) -> Dict[str, Dict[str, Any]]:
+    group, analysis_type, value_label, count_label, total_label = (
+        _SPLIT_FREQUENCY_KINDS[support_kind]
+    )
     analysis = {
-        "type": "rogue_taxa",
+        "type": analysis_type,
         "method": support_kind,
     }
     fields: Dict[str, Dict[str, Any]] = {}
-    path = ["support", "bootstrap_rogue", "frequency"]
+    path = ["support", group, "frequency"]
     fields[_field_key(path)] = _annotation_field(
         path,
-        _BOOTSTRAP_REPLICATE_FREQUENCY_LABELS[support_kind],
+        value_label,
         value,
         "branch_support",
         unit="percent",
         analysis=analysis,
     )
     for key, label in (
-        ("replicate_count", "Replicate Count"),
-        ("replicate_total", "Replicate Total"),
+        ("replicate_count", count_label),
+        ("replicate_total", total_label),
     ):
         metadata_value = _to_float_or_none(node.values.get(key))
         if metadata_value is not None:
-            path = ["support", "bootstrap_rogue", key]
+            path = ["support", group, key]
             fields[_field_key(path)] = _annotation_field(
                 path,
                 label,
@@ -222,9 +242,9 @@ def build_branch_annotation_fields(node: "Node") -> Dict[str, Dict[str, Any]]:
             if len(numeric_values) == 1:
                 value = numeric_values[0]
                 support_kind = support_kind or "bootstrap"
-                if support_kind in _BOOTSTRAP_REPLICATE_FREQUENCY_SUPPORT_KINDS:
+                if support_kind in _SPLIT_FREQUENCY_KINDS:
                     fields.update(
-                        _bootstrap_replicate_frequency_annotation_fields(
+                        _split_frequency_annotation_fields(
                             node,
                             support_kind,
                             value,
@@ -263,11 +283,11 @@ def build_branch_annotation_fields(node: "Node") -> Dict[str, Dict[str, Any]]:
                 )
                 return fields
 
-    if support_kind in _BOOTSTRAP_REPLICATE_FREQUENCY_SUPPORT_KINDS:
+    if support_kind in _SPLIT_FREQUENCY_KINDS:
         bootstrap_frequency = _to_float_or_none(node.values.get("bootstrap_frequency"))
         if bootstrap_frequency is not None:
             fields.update(
-                _bootstrap_replicate_frequency_annotation_fields(
+                _split_frequency_annotation_fields(
                     node,
                     support_kind,
                     bootstrap_frequency,
@@ -905,21 +925,23 @@ class Node:
 
         if strategy == ReorderStrategy.MINIMUM:
 
-            def apply_minimum_reordering(node: Self) -> tuple[int, bool]:
+            # Children before parents (reversed pre-order), not recursion, so
+            # ladder-shaped trees deeper than the recursion limit still reorder.
+            minimum_keys: dict[int, int] = {}
+            changed = False
+            for node in reversed(self.traverse()):
                 if not node.children:
-                    return target_indices[node.name], False
+                    minimum_keys[id(node)] = target_indices[node.name]
+                    continue
 
                 if len(node.children) == 1:
-                    return apply_minimum_reordering(node.children[0])
+                    minimum_keys[id(node)] = minimum_keys[id(node.children[0])]
+                    continue
 
-                changed = False
-                children_with_keys: list[tuple[int, Self]] = []
-                for child in node.children:
-                    child_key, child_changed = apply_minimum_reordering(child)
-                    changed = child_changed or changed
-                    children_with_keys.append((child_key, child))
-
-                children_with_keys.sort(key=lambda item: item[0])
+                children_with_keys: list[tuple[int, Self]] = sorted(
+                    ((minimum_keys[id(child)], child) for child in node.children),
+                    key=lambda item: item[0],
+                )
                 if any(
                     child is not node.children[index]
                     for index, (_key, child) in enumerate(children_with_keys)
@@ -927,9 +949,8 @@ class Node:
                     node.children = [child for _key, child in children_with_keys]
                     changed = True
 
-                return children_with_keys[0][0], changed
+                minimum_keys[id(node)] = children_with_keys[0][0]
 
-            _minimum_key, changed = apply_minimum_reordering(self)
             if changed:
                 self.invalidate_order_caches(propagate_up=True)
             return

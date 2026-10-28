@@ -32,6 +32,10 @@ _MSA_TREE_INFERENCE_ACTIVE_CHANNEL_ID: str | None = None
 _MSA_TREE_INFERENCE_STATE_LOCK = threading.Lock()
 
 
+class JobCancelled(Exception):
+    """Raised from a progress callback once the job's progress stream has closed."""
+
+
 def _is_msa_tree_inference_request(req_data: Any) -> bool:
     return req_data.tree_content is None and bool(req_data.msa_content)
 
@@ -376,6 +380,11 @@ def treedata_stream() -> Union[Response, Tuple[dict[str, Any], int]]:
 
                         send_movie_stream(channel, metadata, trees, log)
 
+                except JobCancelled:
+                    log.info(
+                        "[treedata/stream] Client left channel %s; job stopped.",
+                        channel.channel_id,
+                    )
                 except Exception as e:
                     log.error(
                         "[treedata/stream] Processing error: %s", str(e), exc_info=True
@@ -422,6 +431,10 @@ def _make_progress_callback(
     """
 
     def callback(progress: float, message: str = "") -> None:
+        if channel.is_closed:
+            # The progress stream closed (tab closed, cancel): stop the job so it
+            # does not keep the MSA slot for work nobody will receive.
+            raise JobCancelled()
         # Map 0-100 to start_pct-end_pct range
         mapped = start_pct + (progress / 100.0) * (end_pct - start_pct)
         channel.send_progress(int(mapped), message)

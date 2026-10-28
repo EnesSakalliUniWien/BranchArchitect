@@ -18,6 +18,7 @@ import re
 import shutil
 import subprocess
 import sys
+from collections import Counter
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -310,13 +311,19 @@ def infer_trees_parallel(
             results_by_index: list[str | None] = [None] * len(fasta_files)
             total = len(fasta_files)
 
-            for completed, future in enumerate(
-                concurrent.futures.as_completed(future_to_index), start=1
-            ):
-                index = future_to_index[future]
-                results_by_index[index] = future.result()
-                if progress_callback:
-                    progress_callback(completed, total, fasta_files[index])
+            try:
+                for completed, future in enumerate(
+                    concurrent.futures.as_completed(future_to_index), start=1
+                ):
+                    index = future_to_index[future]
+                    results_by_index[index] = future.result()
+                    if progress_callback:
+                        progress_callback(completed, total, fasta_files[index])
+            except BaseException:
+                # A failed window or a cancelled run: drop the queued windows
+                # instead of letting `with` wait for every remaining run.
+                executor.shutdown(wait=False, cancel_futures=True)
+                raise
 
             results = [result for result in results_by_index if result is not None]
 
@@ -556,15 +563,27 @@ def load_alignment(
     try:
         if content is not None:
             # Parse directly from string content (webservice path)
-            return cast(MultipleSeqAlignment, AlignIO.read(StringIO(content), "fasta"))
+            alignment = cast(
+                MultipleSeqAlignment, AlignIO.read(StringIO(content), "fasta")
+            )
         else:
             # Read from file path (CLI path)
-            return cast(
+            alignment = cast(
                 MultipleSeqAlignment,
                 AlignIO.read(source, "fasta"),
             )
     except Exception as e:
         raise RuntimeError(f"Error reading alignment: {e}")
+
+    # Caught here, before any window runs, rather than by IQ-TREE in every window.
+    id_counts = Counter(record.id for record in alignment)
+    repeated = sorted(record_id for record_id, count in id_counts.items() if count > 1)
+    if repeated:
+        raise RuntimeError(
+            f"The alignment repeats sequence IDs: {', '.join(repeated)}. "
+            "Give every sequence a unique ID."
+        )
+    return alignment
 
 
 def run_pipeline(

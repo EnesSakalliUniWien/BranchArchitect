@@ -56,18 +56,19 @@ def align_to_source_order(
 
         return (weighted_sum, total_weight, min_non_mover_idx, first_leaf_idx)
 
-    def reorder_node(node: Node) -> tuple[bool, _OrderAggregate, tuple[float, int]]:
+    # Children before parents (reversed pre-order), not recursion, so
+    # ladder-shaped trees deeper than the recursion limit still align.
+    results: dict[int, tuple[_OrderAggregate, tuple[float, int]]] = {}
+    changed = False
+    for node in reversed(tree.traverse()):
         if not node.children:
             aggregate = leaf_aggregate(str(node.name))
-            return False, aggregate, _sort_key(aggregate, n)
+            results[id(node)] = (aggregate, _sort_key(aggregate, n))
+            continue
 
-        changed = False
-        child_data: List[tuple[Node, _OrderAggregate, tuple[float, int]]] = []
-        for child in node.children:
-            child_changed, child_aggregate, child_sort_key = reorder_node(child)
-            changed = child_changed or changed
-            child_data.append((child, child_aggregate, child_sort_key))
-
+        child_data: List[tuple[Node, _OrderAggregate, tuple[float, int]]] = [
+            (child, *results[id(child)]) for child in node.children
+        ]
         sorted_child_data = sorted(child_data, key=lambda item: item[2])
         sorted_children = [child for child, _aggregate, _child_key in sorted_child_data]
 
@@ -76,8 +77,7 @@ def align_to_source_order(
             changed = True
 
         aggregate = combine_aggregates(sorted_child_data)
-        return changed, aggregate, _sort_key(aggregate, n)
+        results[id(node)] = (aggregate, _sort_key(aggregate, n))
 
-    changed, _aggregate, _root_key = reorder_node(tree)
     if changed:
         tree.invalidate_caches(propagate_up=True)

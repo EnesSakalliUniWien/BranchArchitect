@@ -10,6 +10,9 @@ _TREAT_ZERO_AS_EPSILON: ContextVar[bool] = ContextVar(
     "_TREAT_ZERO_AS_EPSILON", default=False
 )
 
+# Whitespace and the UTF-8 byte order mark: never part of a name or a tree.
+_NAME_PADDING = " \t\r\n﻿"
+
 
 # ===================================================================
 # 1. METADATA PROCESSING FUNCTIONS
@@ -110,9 +113,10 @@ def flush_character_buffer(buffer: List[str], stack: List[Node]) -> None:
         buffer.clear()
         return
 
-    # Only set name if buffer has content
-    if buffer:
-        buffer_value = "".join(buffer)
+    # Padding around a name is layout, not part of it: "(A, B)", CRLF files and
+    # a leading byte order mark would otherwise yield " B", "\rA" or "﻿A".
+    buffer_value = "".join(buffer).strip(_NAME_PADDING)
+    if buffer_value:
         stack[-1].name = buffer_value
 
     buffer.clear()
@@ -314,7 +318,8 @@ def _parse_newick(tokens: str, default_length: float) -> List[Node]:
     buffer: List[str] = []
     meta_buffer: List[str] = []
     mode: str = "character_reader"
-    node_stack: List[Node] = init_nodestack()
+    # Empty between trees; the next tree starts at its first real character.
+    node_stack: List[Node] = []
 
     for index in range(len(tokens)):
         char = tokens[index]
@@ -322,10 +327,17 @@ def _parse_newick(tokens: str, default_length: float) -> List[Node]:
         if char == "\n":
             continue
 
-        elif char == "(":
-            # Start a new internal node
-            if len(node_stack) == 0:
+        if not node_stack and mode != "metadata_reader":
+            # Padding and stray ';' start nothing, so empty input has no tree;
+            # a [comment] belongs to no tree; anything else starts one, so a
+            # bare-leaf tree like "A;" is kept.
+            if char in _NAME_PADDING or char == ";":
+                continue
+            if char != "[":
                 node_stack = init_nodestack()
+
+        if char == "(":
+            # Start a new internal node
             node_stack, buffer, mode = create_new_node(
                 node_stack, buffer, mode, default_length
             )
@@ -333,9 +345,10 @@ def _parse_newick(tokens: str, default_length: float) -> List[Node]:
 
         elif char == ")":
             flush_buffer(buffer, node_stack, mode)
-            # When closing a node, do not pop the root dummy node
-            if len(node_stack) > 1:
-                close_node(node_stack, buffer, mode)
+            # Only the root dummy node is left: nothing is open to close.
+            if len(node_stack) == 1:
+                raise ValueError("Unbalanced Newick: ')' has no matching '('.")
+            close_node(node_stack, buffer, mode)
             mode = "character_reader"
 
         elif char == "," and mode in ["character_reader", "length_reader"]:
@@ -366,11 +379,7 @@ def _parse_newick(tokens: str, default_length: float) -> List[Node]:
                 meta_buffer.append(char)
             else:
                 flush_buffer(buffer, node_stack, mode)
-                # Close all open nodes to complete the current tree
-                while len(node_stack) > 1:
-                    close_node(node_stack, buffer, mode)
-                if len(node_stack) == 1:
-                    trees.append(node_stack.pop())
+                trees.append(_finished_tree(node_stack))
 
                 # Reset parser state for the next tree
                 node_stack = []
@@ -383,14 +392,19 @@ def _parse_newick(tokens: str, default_length: float) -> List[Node]:
         else:
             buffer.append(char)
 
-    if len(node_stack) > 0:
+    if node_stack:
+        # A last tree without its ';'.
         flush_buffer(buffer, node_stack, mode)
-        while len(node_stack) > 1:
-            close_node(node_stack, buffer, mode)
-        assert len(node_stack) == 1
-        trees.append(node_stack.pop())
+        trees.append(_finished_tree(node_stack))
 
     return trees
+
+
+def _finished_tree(node_stack: List[Node]) -> Node:
+    """Return the tree's root, rejecting a '(' that was never closed."""
+    if len(node_stack) > 1:
+        raise ValueError("Unbalanced Newick: a '(' is never closed.")
+    return node_stack.pop()
 
 
 # ===================================================================
@@ -461,6 +475,9 @@ def parse_newick(
     finally:
         # Restore previous behavior to avoid leaking state across calls
         _TREAT_ZERO_AS_EPSILON.reset(token)
+
+    if not trees:
+        raise ValueError("No Newick tree found in the input.")
 
     # Invalidate caches before getting order - tree construction may have set stale caches
     for tree in trees:

@@ -103,3 +103,31 @@ def test_parse_tree_data_request_rejects_non_integer_iqtree_replicates() -> None
 
     with pytest.raises(ValueError, match="iqtreeShAlrtReplicates must be an integer"):
         parse_tree_data_request(request)
+
+
+def test_uploads_saved_with_a_byte_order_mark_decode_without_it() -> None:
+    builder = EnvironBuilder(
+        method="POST",
+        data=MultiDict(
+            [
+                (
+                    "msaFile",
+                    FileStorage(
+                        filename="alignment.fasta",
+                        stream=io.BytesIO("﻿>A\r\nACGT\r\n".encode("utf-8")),
+                    ),
+                ),
+                (
+                    "treeFile",
+                    FileStorage(
+                        filename="trees.nwk",
+                        stream=io.BytesIO("﻿(A,B);".encode("utf-8")),
+                    ),
+                ),
+            ]
+        ),
+    )
+    parsed = parse_tree_data_request(Request(builder.get_environ()))
+
+    assert parsed.msa_content is not None and parsed.msa_content.startswith(">A")
+    assert parsed.tree_content == "(A,B);"

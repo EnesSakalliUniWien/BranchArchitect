@@ -51,7 +51,7 @@ def get_msa_content(msa_file: Optional[FileStorage]) -> Optional[str]:
         content = msa_file.read()
         if not isinstance(content, bytes):
             raise ValueError("Uploaded file 'msaFile' could not be read as bytes.")
-        return content.decode("utf-8", errors="replace")
+        return content.decode("utf-8-sig", errors="replace")
     return None
 
 
@@ -193,7 +193,7 @@ def parse_tree_data_request(request: Request) -> TreeDataRequest:
     tree_content = None
     tree_filename = None
     if tree_file:
-        tree_content = tree_file.read().decode("utf-8", errors="replace")
+        tree_content = tree_file.read().decode("utf-8-sig", errors="replace")
         tree_filename = tree_file.filename
 
     return TreeDataRequest(

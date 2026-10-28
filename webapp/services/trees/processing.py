@@ -28,7 +28,7 @@ from webapp.services.trees.frontend_builder import (
 ProgressCallback = Callable[[float, str], None]
 IndexLike: TypeAlias = int | str | bytes
 _IQTREE_SINGLE_VALUE_SUPPORT_MODES = {"ufboot", "sh_alrt"}
-_TREE_SERIES_SUPPORT_KIND = "bootstrap_replicate_split_frequency"
+_TREE_SERIES_SUPPORT_KIND = "tree_series_split_frequency"
 
 
 def _sub_progress(

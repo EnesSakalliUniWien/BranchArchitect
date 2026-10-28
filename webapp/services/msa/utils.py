@@ -124,6 +124,13 @@ def msa_to_dict(msa_content: str) -> Optional[Dict[str, str]]:
             current_id = line[1:].strip().split()[0] if line[1:].strip() else ""
             if not current_id:
                 return None
+            # Every earlier record is already stored here; a repeat would
+            # silently replace it, showing the wrong sequence for that taxon.
+            if current_id in parsed:
+                raise ValueError(
+                    f"The alignment repeats sequence ID '{current_id}'. "
+                    "Give every sequence a unique ID."
+                )
             current_seq = []
         elif current_id is None:
             return None

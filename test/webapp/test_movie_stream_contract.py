@@ -340,7 +340,7 @@ def test_uploaded_tree_series_automatically_gets_split_frequency_support() -> No
                     "((A:1,C:1):1,(B:1,D:1):1);",
                 ]
             ),
-            filename="bootstrap_series.nwk",
+            filename="tree_series.nwk",
             annotate_tree_series_support=True,
         )
 
@@ -348,9 +348,13 @@ def test_uploaded_tree_series_automatically_gets_split_frequency_support() -> No
     assert ab_node is not None
     fields = _annotation_fields(metadata, ab_node)
 
-    assert fields["support.bootstrap_rogue.frequency"]["value"] == 66.6667
-    assert fields["support.bootstrap_rogue.replicate_count"]["value"] == 2.0
-    assert fields["support.bootstrap_rogue.replicate_total"]["value"] == 3.0
+    assert fields["support.tree_series.frequency"]["value"] == 66.6667
+    # A tree series is not a set of bootstrap replicates.
+    assert fields["support.tree_series.frequency"]["label"] == (
+        "Split Frequency Across Trees"
+    )
+    assert fields["support.tree_series.replicate_count"]["value"] == 2.0
+    assert fields["support.tree_series.replicate_total"]["value"] == 3.0
 
 
 def test_tree_series_split_frequency_does_not_overwrite_existing_support() -> None:
@@ -369,7 +373,7 @@ def test_tree_series_split_frequency_does_not_overwrite_existing_support() -> No
     fields = _annotation_fields(metadata, ab_node)
 
     assert fields["support.iqtree.ufboot"]["value"] == 95.0
-    assert "support.bootstrap_rogue.frequency" not in fields
+    assert "support.tree_series.frequency" not in fields
 
 
 def test_movie_data_uses_normalized_rows_as_primary_temporal_contract() -> None:

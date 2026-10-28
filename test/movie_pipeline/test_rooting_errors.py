@@ -27,7 +27,7 @@ def test_enabled_rooting_failure_is_raised(monkeypatch):
 
 def test_rooting_reads_newick_with_explicit_format(monkeypatch):
     trees = parse_newick(
-        "(A:1,B:1);\n(A:1,(B:1,C:1):1);",
+        "((A:1,B:1):1,C:1);\n(A:1,(B:1,C:1):1);",
         force_list=True,
         treat_zero_as_epsilon=True,
     )

@@ -297,11 +297,6 @@ class TreeOrderOptimizer:
                 time.perf_counter() - t_pair_start,
             )
 
-        for idx, tree in enumerate(self.trees):
-            self.logger.debug(
-                f"Final order for tree {idx}: {tree.to_newick(lengths=False)}"
-            )
-
         self.logger.info(
             "Anchor-based optimization completed (final alignment applied)"
         )

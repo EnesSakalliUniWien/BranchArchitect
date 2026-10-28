@@ -68,6 +68,59 @@ def test_msa_tree_inference_rejects_concurrent_jobs(monkeypatch: Any) -> None:
         )
 
 
+def test_closed_progress_stream_stops_the_msa_job_and_frees_the_slot(
+    monkeypatch: Any,
+) -> None:
+    app = create_app()
+    started = threading.Event()
+    stopped = threading.Event()
+
+    def msa_analysis_until_cancelled(
+        *_args: Any, progress_callback: Any, **_kwargs: Any
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        started.set()
+        try:
+            for _ in range(500):  # about 5 s if cancellation never comes
+                progress_callback(50, "Inferring trees...")
+                time.sleep(0.01)
+            return {"file_name": "example.nwk"}, []
+        finally:
+            stopped.set()
+
+    monkeypatch.setattr(
+        routes, "_run_msa_analysis_and_interpolate", msa_analysis_until_cancelled
+    )
+
+    with app.test_client() as client:
+        first = client.post(
+            "/treedata/stream",
+            data=_msa_upload(),
+            content_type="multipart/form-data",
+        )
+        assert first.status_code == 200
+        assert started.wait(timeout=2.0)
+
+        # What the SSE endpoint does when the client leaves (tab closed, cancel).
+        routes.channels.remove(first.get_json()["channel_id"])
+
+        assert stopped.wait(timeout=2.0)
+        assert _wait_until(
+            lambda: client.get("/health").get_json()["jobs"]["msa_tree_inference"]["busy"]
+            is False
+        )
+        second = client.post(
+            "/treedata/stream",
+            data=_msa_upload(),
+            content_type="multipart/form-data",
+        )
+        assert second.status_code == 200
+        routes.channels.remove(second.get_json()["channel_id"])
+        assert _wait_until(
+            lambda: client.get("/health").get_json()["jobs"]["msa_tree_inference"]["busy"]
+            is False
+        )
+
+
 def test_tree_file_upload_is_not_blocked_by_msa_tree_inference(monkeypatch: Any) -> None:
     app = create_app()
     started = threading.Event()

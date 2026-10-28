@@ -184,30 +184,41 @@ def compact_tree_payload(
         split_definitions.append(list(split_tuple))
         return index
 
-    def compact_node(node: Node) -> List[Any]:
-        if node.is_leaf():
-            split_indices = list(node.split_indices.resolve_to_indices())
-            name = node.name
-        else:
-            split_indices = list(node.split_indices.indices)
-            name = ""
+    def compact_node(root: Node) -> List[Any]:
+        # Pre-order with an explicit stack: the same index assignment order as
+        # recursion, without its depth limit on ladder-shaped trees.
+        compacted: List[Any] = []
+        stack: List[tuple[Node, List[Any]]] = [(root, compacted)]
+        while stack:
+            node, siblings = stack.pop()
+            if node.is_leaf():
+                split_indices = list(node.split_indices.resolve_to_indices())
+                name = node.name
+            else:
+                split_indices = list(node.split_indices.indices)
+                name = ""
 
-        annotation_fields = build_branch_annotation_fields(node)
-        annotation_values = None
-        if annotation_fields:
-            annotation_values = [
-                [definition_index(str(field_key), field), field["value"]]
-                for field_key, field in annotation_fields.items()
-                if isinstance(field, dict) and "value" in field
-            ]
+            annotation_fields = build_branch_annotation_fields(node)
+            annotation_values = None
+            if annotation_fields:
+                annotation_values = [
+                    [definition_index(str(field_key), field), field["value"]]
+                    for field_key, field in annotation_fields.items()
+                    if isinstance(field, dict) and "value" in field
+                ]
 
-        return [
-            node.length,
-            name_index(name),
-            split_index(split_indices),
-            annotation_values,
-            [compact_node(child) for child in node.children],
-        ]
+            children: List[Any] = []
+            siblings.append(
+                [
+                    node.length,
+                    name_index(name),
+                    split_index(split_indices),
+                    annotation_values,
+                    children,
+                ]
+            )
+            stack.extend((child, children) for child in reversed(node.children))
+        return compacted[0]
 
     return (
         [compact_node(tree) for tree in trees],

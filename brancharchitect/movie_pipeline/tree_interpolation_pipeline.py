@@ -2,6 +2,7 @@
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 import logging
+from collections import Counter
 import sys
 import time
 import traceback
@@ -262,16 +263,25 @@ class TreeInterpolationPipeline:
             return
 
         base_encoding = trees[0].taxa_encoding
-        base_names = set(base_encoding.keys())
+        # The parser gives every tree the first tree's encoding, so check the
+        # leaves themselves: an unknown leaf gets an empty split and a repeated
+        # name shares one bit, both silently corrupting every split above them.
+        # Names compare exactly: leaf ordering does too, so " B" and "B" differ.
+        base_names = set(base_encoding)
 
-        for idx, tree in enumerate(trees[1:], start=1):
-            names = set(tree.taxa_encoding.keys())
+        for idx, tree in enumerate(trees):
+            leaf_names = [leaf.name for leaf in tree.get_leaves()]
+            names = set(leaf_names)
+            repeated = sorted(
+                name for name, count in Counter(leaf_names).items() if count > 1
+            )
+            if repeated:
+                raise ValueError(f"Tree {idx + 1} repeats taxon names: {repeated}")
             if names != base_names:
-                missing = base_names - names
-                extra = names - base_names
                 raise ValueError(
-                    "Tree taxa mismatch between inputs: "
-                    f"tree0 missing={sorted(missing)} extra={sorted(extra)}"
+                    f"Tree taxa mismatch between inputs: tree {idx + 1} "
+                    f"missing={sorted(base_names - names)} "
+                    f"extra={sorted(names - base_names)}"
                 )
 
             if tree.taxa_encoding != base_encoding:

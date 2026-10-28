@@ -79,18 +79,10 @@ def apply_zero_branch_lengths(
 
     This is used for the down-phase where we set specific branches to zero length.
     """
-    _apply_zero_branch_lengths_recursive(node, splits_to_zero)
+    for current in node.traverse():
+        if current.split_indices in splits_to_zero:
+            current.length = 0.0
     return node
-
-
-def _apply_zero_branch_lengths_recursive(
-    node: Node,
-    splits_to_zero: PartitionSet[Partition],
-) -> None:
-    if node.split_indices in splits_to_zero:
-        node.length = 0.0
-    for child in node.children:
-        _apply_zero_branch_lengths_recursive(child, splits_to_zero)
 
 
 def _apply_zero_only_branch_lengths(
